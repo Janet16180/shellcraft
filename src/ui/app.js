@@ -149,7 +149,6 @@ const EVENTS = {
     ui.terminal.printLine(`[Guardian] ${reason}`, 'note');
     ui.sound.play('hurt');
     shake(ui);
-    ui.map.say('Ouch!', 'player');
   },
   'hearts-restored'(ui, { phase }) {
     ui.terminal.printLine(`[Guardian] ${restoredText(phase)}`, 'note');
@@ -199,6 +198,7 @@ async function startChapter(ui, id, fresh) {
   showRoom(ui);
   ui.terminal.clear();
   chapterBanner(ui);
+  if (fresh) ui.terminal.printLine('You jumped to this chapter, so the world was set up fresh.', 'sys');
   showTab(ui.doc, 'quest');
   ui.terminal.focus();
 }
@@ -228,9 +228,10 @@ function begin(ui) {
 }
 
 function finishIntro(ui, yourTurn) {
+  const first = !ui.view.introSeen;
   ui.session.markIntroSeen();
   ui.view = ui.session.view();
-  if (yourTurn) showCallout(ui, `Your turn: type <code>${esc(yourTurn)}</code> and press <kbd>Enter</kbd>.`);
+  if (first && yourTurn) showCallout(ui, `Your turn: type <code>${esc(yourTurn)}</code> and press <kbd>Enter</kbd>.`);
   ui.terminal.focus();
 }
 
