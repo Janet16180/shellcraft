@@ -110,6 +110,13 @@ test('correct lines get no note', () => {
   for (const commands of lines) assert.equal(note(...commands), null, commands[0].args.join(' '));
 });
 
+test('a real file named like an object property is found like any other', () => {
+  const tree = world();
+  tree.children.home.children.hero.children.constructor = file('x');
+  const ctx = makeContext({ commands: [failed('cat', ['Constructor'])], before: observation({ tree }), obs: observation({ tree }) });
+  assert.equal(coachNote(ctx), 'Names are case-sensitive too: the file is constructor.');
+});
+
 test('a name like an object property gets no note and no error', () => {
   for (const name of ['toString', 'constructor', '__proto__', 'constructor/x']) {
     assert.equal(note(failed('cat', [name])), null, name);
