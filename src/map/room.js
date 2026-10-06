@@ -5,6 +5,7 @@
  */
 
 import { allows } from '../backend/access.js';
+import { nodeAt, compareNames } from '../backend/tree.js';
 import { joinPath, parentOf } from './paths.js';
 
 /**
@@ -25,22 +26,6 @@ import { joinPath, parentOf } from './paths.js';
  * @property {Entry[]} items Files in ls order.
  * @property {string|null} exit Where `..` leads, or null at the root.
  */
-
-/**
- * The node at an absolute path, or null when nothing is there.
- *
- * @param {object} tree The observed tree, rooted at '/'.
- * @param {string} path Absolute path.
- * @returns {object|null} The node.
- */
-export function nodeAt(tree, path) {
-  let node = tree;
-  for (const name of path.split('/').filter(Boolean)) node = node?.children?.[name] ?? null;
-  return node;
-}
-
-// C.UTF-8 sorts by byte value, which for these names is code unit order.
-const byteOrder = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 function entry(dir, name, node, who) {
   const isDir = node.type === 'dir';
@@ -76,7 +61,7 @@ export function readRoom(obs, revealed) {
   const showHidden = revealed.has(obs.cwd);
   const entries = Object.keys(children)
     .filter(name => showHidden || !name.startsWith('.'))
-    .sort(byteOrder)
+    .sort(compareNames)
     .map(name => [children[name], entry(obs.cwd, name, children[name], who)]);
 
   return {

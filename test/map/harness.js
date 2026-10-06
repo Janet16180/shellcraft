@@ -16,6 +16,7 @@ function busyTree() {
   tree.children.tmp = crowded(3, 4);
   tree.children.tmp.children['.cache'] = dir({});
   tree.children.tmp.children['.lock'] = file('', { owner: 'hero' });
+  for (const name of ['Zeta.txt', '\uFF5E.txt', '\u{1F600}.txt']) tree.children.tmp.children[name] = file('', { owner: 'hero' });
   tree.children.home.children.hero.children.camp = dir({ 'campfire.txt': file('', { owner: 'hero' }) }, { owner: 'hero' });
   tree.children.home.children.hero.children.library = dir({ 'scroll_of_ages.txt': file('', { owner: 'hero' }), 'librarian.txt': file('', { owner: 'hero' }) }, { owner: 'hero' });
   tree.children.home.children.hero.children.market = dir({ 'inventory.txt': file('', { owner: 'hero' }) }, { owner: 'hero' });
