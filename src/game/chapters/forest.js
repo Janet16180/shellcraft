@@ -132,8 +132,17 @@ export default {
       ],
       done: ctx => ctx.cwd === ctx.home && ctx.ran('cd', record => record.args.length === 0),
     },
+    {
+      goal: 'Walk into the forest again, and let Tab finish the name',
+      hints: [
+        'You do not have to type every letter of a name.',
+        'Type cd fo, press the Tab key, then press Enter.',
+        'cd forest/',
+      ],
+      done: ctx => ctx.cwd === forestOf(ctx) && ctx.ran('cd') && ctx.completions.some(tab => tab.completed !== tab.line),
+    },
   ],
-  solve: ['cd forest', 'cd cave/deep', 'cat ancient_key.txt', 'cd ..', 'cd /home/hero/forest/river', 'cd -', 'cd'],
+  solve: ['cd forest', 'cd cave/deep', 'cat ancient_key.txt', 'cd ..', 'cd /home/hero/forest/river', 'cd -', 'cd', 'cd fo\t'],
   boss: {
     title: 'The Trapdoor',
     briefing: `<p>Crack! A trapdoor opens under your feet. You fall out of your home and land in the dungeon: the part of the system outside <code>~</code>, where most things belong to root. Look at your prompt: it now shows the full path of where you landed.</p>
@@ -158,6 +167,9 @@ export default {
     ['ls ~/forest', 'paths work with other commands too'],
     ['cd fo', 'then press Tab to finish the name'],
   ],
+  why: `<p>Why one tree? On Linux, every disk, USB stick and network share appears as a directory somewhere under <code>/</code>. There are no drive letters like <code>C:</code>, so one absolute path names one place.</p>
+<p>Why two kinds of path? A relative path is short when the place is near. An absolute path means the same place wherever you stand, which is why configuration files and scripts usually use them.</p>
+<p>Why <code>~</code>? Your home is where your own files live, and you go there more than anywhere else. Bash replaces <code>~</code> with your home's path before the command runs, so <code>cd ~/forest</code> is really <code>cd /home/hero/forest</code>.</p>`,
   field: [
     ['ls /', 'look at the top of a real tree: bin, etc, home, usr, var and more'],
     ['cd /etc', 'the directory where system settings live'],

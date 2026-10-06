@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validatePatch } from '../../src/backend/spec.js';
 import { baseWorld, restore, HOME_NAMES } from '../../src/game/world.js';
+import { createSimBackend } from '../../src/shell/backend.js';
 
 const PLAYER = { home: '/home/hero', user: 'hero' };
 
@@ -77,6 +78,7 @@ test('the system files name the player, their home and the host', () => {
   const patch = baseWorld(PLAYER);
   assert.match(nodeIn(patch, '/etc/passwd').content, /^hero:x:1000:1000:Hero,,,:\/home\/hero:\/bin\/bash$/m);
   assert.match(nodeIn(patch, '/etc/group').content, /^hero:x:1000:$/m);
+  assert.doesNotMatch(nodeIn(patch, '/etc/group').content, /[:,]hero(,|$)/m, 'hero is in no other group, as the simulator says');
   assert.equal(nodeIn(patch, '/etc/hostname').content, 'kernelia\n');
   assert.match(nodeIn(patch, '/home/hero/readme.txt').content, /-- The Guardian of Root\n$/);
 });
@@ -106,4 +108,55 @@ test('another player gets their own name and home in every owned node', () => {
   const home = nodeIn(baseWorld(player), '/home/ada');
   walk(home, '/home/ada', (node, path) => assert.equal(node.owner, 'ada', path));
   assert.match(nodeIn(baseWorld(player), '/home/ada/forest/river/fish.txt').content, /\/home\/ada\/forest\/river/);
+});
+
+async function simulator() {
+  const backend = createSimBackend({ now: () => Date.UTC(2026, 9, 6, 12) });
+  await backend.load(baseWorld(PLAYER));
+  const run = async line => {
+    const result = await backend.run(line);
+    const text = stream => result.output.filter(c => c.stream === stream).map(c => c.text).join('');
+    return { status: result.status, out: text('out'), err: text('err') };
+  };
+  return { backend, run };
+}
+
+test('on the simulator, the top of the tree holds the dungeon rooms beside the backend\'s own', async () => {
+  const { run } = await simulator();
+  assert.equal((await run('ls /')).out, 'dev  etc  home  root  tmp  usr  var\n');
+});
+
+test('on the simulator, the player starts at home and sees the cottage and the areas', async () => {
+  const { backend, run } = await simulator();
+  assert.equal((await backend.observe()).cwd, '/home/hero');
+  assert.equal((await run('ls')).out, 'forest  gate  junk  library  market  readme.txt  tower\n');
+});
+
+test('on the simulator, the player may enter and read the open rooms of the dungeon', async () => {
+  const { run } = await simulator();
+  for (const path of ['/etc', '/var/log', '/var/log/apt', '/tmp', '/home']) assert.equal((await run(`cd ${path}`)).status, 0, path);
+  assert.equal((await run('cat /etc/hostname')).out, 'kernelia\n');
+  assert.equal((await run('cat /var/log/dpkg.log')).status, 0);
+});
+
+test('on the simulator, root\'s home and the system logs are locked to the player', async () => {
+  const { run } = await simulator();
+  assert.match((await run('cd /root')).err, /Permission denied/);
+  assert.match((await run('cat /var/log/syslog')).err, /Permission denied/);
+  assert.match((await run('cat /var/log/auth.log')).err, /Permission denied/);
+  assert.match((await run('touch /etc/motd')).err, /Permission denied/);
+});
+
+test('on the simulator, the name, host and groups agree with /etc/passwd, /etc/hostname and /etc/group', async () => {
+  const { run } = await simulator();
+  assert.equal((await run('whoami')).out, 'hero\n');
+  assert.equal((await run('hostname')).out, (await run('cat /etc/hostname')).out);
+  assert.equal((await run('id')).out, 'uid=1000(hero) gid=1000(hero) groups=1000(hero)\n');
+});
+
+test('on the simulator, restoring an area brings back what the player deleted', async () => {
+  const { backend, run } = await simulator();
+  await run('rm -r forest');
+  await backend.load(restore('forest', PLAYER));
+  assert.match((await run('cat forest/cave/deep/ancient_key.txt')).out, /The Ancient Key/);
 });

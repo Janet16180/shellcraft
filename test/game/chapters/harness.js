@@ -8,6 +8,7 @@ import { createSimBackend } from '../../../src/shell/backend.js';
 import { makeContext } from '../../../src/game/checks.js';
 import { createRandom } from '../../../src/game/rng.js';
 import { baseWorld } from '../../../src/game/world.js';
+import { typeLine } from '../../helpers/type-line.js';
 
 export const PLAYER = { home: '/home/hero', user: 'hero' };
 const NOW = Date.UTC(2026, 9, 6, 12);
@@ -26,26 +27,27 @@ export async function startChapter(chapter, seed = 1) {
 }
 
 /**
- * Type one line and press Enter. A tab in the line presses Tab at that point:
- * the text before it is completed by the backend first.
+ * Type one line and press Enter, with typeLine's rule: a tab in the line
+ * presses Tab there. Tab presses are recorded for the check context.
  *
  * @param {object} backend The backend.
  * @param {string} line The keys typed.
  * @returns {Promise<{result: object, ctx: object}>} What ran, and the check context of the line.
  */
 export async function type(backend, line) {
-  const tab = line.indexOf('\t');
-  let typed = line;
   const completions = [];
-  if (tab >= 0) {
-    const { line: completed } = await backend.complete(line.slice(0, tab));
-    completions.push({ line: line.slice(0, tab), completed });
-    typed = completed + line.slice(tab + 1);
-  }
-  const before = await backend.observe();
-  const result = await backend.run(typed);
-  const obs = await backend.observe();
-  return { result, ctx: makeContext({ commands: result.commands, before, obs, completions }) };
+  const complete = async typed => {
+    const answer = await backend.complete(typed);
+    completions.push({ line: typed, completed: answer.line });
+    return answer;
+  };
+  const submit = async typed => {
+    const before = await backend.observe();
+    const result = await backend.run(typed);
+    const obs = await backend.observe();
+    return { result, ctx: makeContext({ commands: result.commands, before, obs, completions }) };
+  };
+  return typeLine(line, { complete, submit });
 }
 
 /**

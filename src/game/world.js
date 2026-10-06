@@ -216,7 +216,7 @@ sasl:x:45:
 plugdev:x:46:
 staff:x:50:
 games:x:60:
-users:x:100:${user}
+users:x:100:
 nogroup:x:65534:
 crontab:x:997:
 syslog:x:102:

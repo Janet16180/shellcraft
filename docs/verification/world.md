@@ -9,6 +9,7 @@ Runs, all 2026-10-06, `docker run --rm --hostname kernelia -e LC_ALL=C.UTF-8 -e 
 - **R2 (world):** the same packages and user, then the base world built from `baseWorld()` by a
   generated script (every node with its owner and mode), then commands run as `hero` with `su hero`.
 - **R3 (tab):** an interactive `bash -i` for `hero` under `script`, fed keystrokes.
+- **R4 (useradd):** `useradd -m -s /bin/bash -c 'Hero,,,' hero`, then `/etc/passwd`, `/etc/group`, `ls -ld`, `id`.
 
 ## Dungeon: owners and modes
 
@@ -19,7 +20,7 @@ Runs, all 2026-10-06, `docker run --rm --hostname kernelia -e LC_ALL=C.UTF-8 -e 
 | `/tmp` is root:root 1777 and hero can create files there | R2: `drwxrwxrwt root root`; `touch /tmp/x` status 0 |
 | `/var/log` is root:syslog 0775 once rsyslog is installed | R1/R2: `drwxrwxr-x root syslog /var/log` |
 | `/var/log/syslog` and `auth.log` are syslog:adm 0640 | R1: `-rw-r----- syslog adm`; `/etc/rsyslog.conf` lines 37-39 `$FileOwner syslog`, `$FileGroup adm`, `$FileCreateMode 0640` |
-| hero (groups hero, users) cannot read the syslog | R2 `id`: `uid=1000(hero) gid=1000(hero) groups=1000(hero),100(users)`; `cat /var/log/syslog` -> `Permission denied` |
+| hero cannot read the syslog or auth.log (not in `adm`) | R2: `cat /var/log/syslog` -> `Permission denied`; `access.js` gives others no read bit on 0640 |
 | `/var/log/dpkg.log` and `/var/log/apt/history.log` are root:root 0644 | R1 `ls -l`: `-rw-r--r-- root root` for both |
 | `/etc/passwd`, `group`, `hostname`, `crontab` are root:root 0644 | R2 `ls -l /etc/...`; base image `stat` |
 | hero cannot change files in `/etc` | R2: `touch /etc/x` -> `Permission denied`; `echo hi > /etc/motd` -> `Permission denied` |
@@ -30,9 +31,10 @@ Runs, all 2026-10-06, `docker run --rm --hostname kernelia -e LC_ALL=C.UTF-8 -e 
 | Claim (where) | Evidence |
 |---|---|
 | `/etc/passwd` lines are real | R2 diff against the real file: ours equals it minus `systemd-network`, `systemd-timesync`, `messagebus`, `systemd-resolve` (a subset, same order and fields) |
-| hero's line `hero:x:1000:1000:Hero,,,:/home/hero:/bin/bash` | R1: what `adduser` writes when only the full name is given |
+| hero's line `hero:x:1000:1000:Hero,,,:/home/hero:/bin/bash` | R1: what `adduser` writes when only the full name is given; R4: `useradd -m -s /bin/bash -c 'Hero,,,' hero` writes the same line |
+| hero is in the group `hero` only (`id`: `groups=1000(hero)`), as the simulator's `id` prints | R4: `useradd` adds no supplementary group (`users:x:100:` stays empty). `adduser` would also add `users` (R1), so the world follows `useradd` |
 | `syslog:x:101:102:...` and `sshd:x:102:65534::/run/sshd:...` | R1 (dynamic system ids in install order; a real machine may differ) |
-| `/etc/group` lines are real, `adm:x:4:syslog`, `users:x:100:hero` | R2 diff: ours equals the real file minus the `systemd-*` and `messagebus` groups; `adduser` adds the user to `users` |
+| `/etc/group` lines are real, `adm:x:4:syslog` | R2 diff: ours equals the real file minus the `systemd-*` and `messagebus` groups (and minus `hero` in `users`, see R4) |
 | `/etc/hostname` is `kernelia` | R2 diff: identical |
 | `/etc/os-release` content | base image `/usr/lib/os-release`, byte for byte. **Simplification:** on Ubuntu `/etc/os-release` is a symlink to `../usr/lib/os-release`; the spec has no symlinks, so it is a regular file here |
 | `/etc/crontab` content, hourly jobs at minute 17 | R1 `cat /etc/crontab` (cron 3.0pl1-184ubuntu2), copied verbatim |
