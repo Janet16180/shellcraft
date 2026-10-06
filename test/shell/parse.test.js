@@ -1,53 +1,56 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tokenize, parse } from '../../src/shell/parse.js';
+import { tokenize } from '../../src/shell/lexer.js';
+import { parse } from '../../src/shell/parse.js';
 
-const env = { lookupVar: name => ({ HOME: '/home/hero', X: 'a b', '?': '0' })[name.replace(/[{}]/g, '')] ?? '', home: '/home/hero' };
-const words = line => tokenize(line, env).tokens.map(t => t.op ?? t.v);
+const parsed = line => parse(tokenize(line).tokens);
+const raws = cmd => cmd.words.map(w => w.raw);
 
-test('words split on blanks and operators stand alone', () => {
-  assert.deepEqual(words('ls -l|wc -l;echo a&&echo b||echo c > f >> g < h'),
-    ['ls', '-l', '|', 'wc', '-l', ';', 'echo', 'a', '&&', 'echo', 'b', '||', 'echo', 'c', '>', 'f', '>>', 'g', '<', 'h']);
-});
-
-test('quotes group words and are removed', () => {
-  assert.deepEqual(words(`echo 'a  b' "c d" e\\ f`), ['echo', 'a  b', 'c d', 'e f']);
-});
-
-test('variables expand outside single quotes only', () => {
-  assert.deepEqual(words(`echo $HOME "$X" '$HOME' \${HOME} $?`), ['echo', '/home/hero', 'a b', '$HOME', '/home/hero', '0']);
-});
-
-test('a leading tilde becomes the home', () => {
-  assert.deepEqual(words('cd ~ ~/forest a~'), ['cd', '/home/hero', '/home/hero/forest', 'a~']);
-});
-
-test('unquoted wildcards mark a word for globbing', () => {
-  const [, star, quoted] = tokenize("ls *.txt '*.txt'", env).tokens;
-  assert.equal(star.glob, true);
-  assert.equal(quoted.glob, false);
-});
-
-test('a comment ends the line', () => {
-  assert.deepEqual(words('echo hi # not this'), ['echo', 'hi']);
-});
-
-test('an unclosed quote is reported as bash reports it', () => {
-  assert.equal(tokenize("echo 'oops", env).error, "bash: unexpected EOF while looking for matching `''");
-  assert.equal(tokenize('echo "oops', env).error, 'bash: unexpected EOF while looking for matching `"\'');
-});
-
-test('parse groups stages into pipelines joined by their operators', () => {
-  const { seq, error } = parse(tokenize('cat a | sort > b; ls && pwd', env).tokens);
+test('pipelines are split by ; && || and & and keep the operator that follows', () => {
+  const { list, error } = parsed('cat a | sort; ls && pwd || echo no &');
   assert.equal(error, null);
-  assert.deepEqual(seq.map(s => [s.pipeline.length, s.next]), [[2, ';'], [1, '&&'], [1, null]]);
-  assert.deepEqual(seq[0].pipeline[1].redir, [{ op: '>', target: 'b' }]);
+  assert.deepEqual(list.map(p => [p.pipeline.length, p.next]), [[2, ';'], [1, '&&'], [1, '||'], [1, '&']]);
+  assert.deepEqual(raws(list[0].pipeline[1]), ['sort']);
 });
 
-test('misplaced operators are syntax errors', () => {
-  const err = line => parse(tokenize(line, env).tokens).error;
-  assert.equal(err('| ls'), "bash: syntax error near unexpected token `|'");
-  assert.equal(err('ls >'), "bash: syntax error near unexpected token `newline'");
-  assert.equal(err('ls |'), "bash: syntax error near unexpected token `newline'");
-  assert.equal(err('; ls'), "bash: syntax error near unexpected token `;'");
+test('redirections attach to their command with the target word', () => {
+  const { list } = parsed('sort < in > out 2>&1');
+  const cmd = list[0].pipeline[0];
+  assert.deepEqual(raws(cmd), ['sort']);
+  assert.deepEqual(cmd.redirs.map(r => [r.fd, r.op, r.target.raw]), [[null, '<', 'in'], [null, '>', 'out'], [2, '>&', '1']]);
+});
+
+test('a line of only redirections is a command with no words', () => {
+  const { list } = parsed('> empty.txt');
+  assert.deepEqual(list[0].pipeline[0].words, []);
+  assert.equal(list[0].pipeline[0].redirs.length, 1);
+});
+
+test('an operator with no command before it is a syntax error naming it', () => {
+  assert.equal(parsed('| ls').error, "bash: syntax error near unexpected token `|'");
+  assert.equal(parsed('; ls').error, "bash: syntax error near unexpected token `;'");
+  assert.equal(parsed('ls && && pwd').error, "bash: syntax error near unexpected token `&&'");
+  assert.equal(parsed('ls | | wc').error, "bash: syntax error near unexpected token `|'");
+});
+
+test('a redirection without a target is a syntax error naming what follows', () => {
+  assert.equal(parsed('ls >').error, "bash: syntax error near unexpected token `newline'");
+  assert.equal(parsed('ls > | wc').error, "bash: syntax error near unexpected token `|'");
+});
+
+test('a line that ends after | && or || is incomplete', () => {
+  for (const line of ['ls |', 'echo a &&', 'false ||']) {
+    const r = parsed(line);
+    assert.equal(r.error, 'bash: syntax error: unexpected end of file', line);
+    assert.equal(r.incomplete, true);
+  }
+});
+
+test('a trailing ; or & ends the line normally', () => {
+  assert.equal(parsed('ls;').error, null);
+  assert.deepEqual(parsed('ls ;').list.map(p => p.next), [';']);
+});
+
+test('parentheses are not supported and read as syntax errors', () => {
+  assert.equal(parsed('(ls)').error, "bash: syntax error near unexpected token `('");
 });

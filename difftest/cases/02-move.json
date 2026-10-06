@@ -1,0 +1,11 @@
+[
+  { "name": "cd relative and absolute", "world": "home", "lines": ["cd forest", "pwd", "cd cave", "pwd", "cd deep", "pwd", "cd /home/hero/library", "pwd", "cd /", "pwd", "ls", "cd home", "pwd"],
+    "intended": [{ "line": "ls", "reason": "the simulated / holds only the world's directories, not a whole Ubuntu system" }] },
+  { "name": "cd up and home", "world": "home", "lines": ["cd forest/cave/deep", "cd ..", "pwd", "cd ../..", "pwd", "cd ..", "pwd", "cd ..", "pwd", "cd ..", "pwd", "cd", "pwd", "cd ~/forest", "pwd", "cd ~", "pwd"] },
+  { "name": "cd dash", "world": "home", "lines": ["cd -", "cd forest", "cd -", "pwd", "cd -", "pwd", "cd /tmp", "cd -", "echo $OLDPWD"] },
+  { "name": "cd errors", "world": "home", "lines": ["cd nope", "cd readme.txt", "cd forest river", "cd /root", "cd forest/nope/deeper", "pwd", "cd ''", "pwd"] },
+  { "name": "cd dot paths", "world": "home", "lines": ["cd ./forest/./cave", "pwd", "cd ../../library/", "pwd", "cd /tmp", "cd ...", "cd forest/..", "pwd", "cd ~/forest/../library", "pwd", "cd ~/readme.txt/..", "cd /root/..", "pwd"] },
+  { "name": "cd with a double slash", "world": "home", "lines": ["cd //tmp", "pwd"],
+    "intended": [{ "line": "pwd", "reason": "POSIX lets a path start with exactly two slashes and bash keeps them in PWD; the simulator folds them into one" }] },
+  { "name": "PWD variable", "world": "home", "lines": ["cd forest; echo $PWD", "echo $PWD $OLDPWD", "cd /tmp && pwd"] }
+]

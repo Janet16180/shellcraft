@@ -1,0 +1,24 @@
+[
+  { "name": "kill messages", "world": "home", "lines": ["kill", "kill abc", "kill 99999", "kill -9 99999", "kill -FOO 1", "kill 1", "kill -l", "kill -s TERM 99999", "kill -s", "kill -l 9", "kill -9"] },
+  { "name": "machine facts", "world": "home", "lines": ["uname", "uname -s", "uname -n", "hostname", "id", "id -u", "id -un", "groups", "whoami"] },
+  { "name": "tree", "world": "home", "lines": ["tree forest", "tree -a", "tree -d", "tree -L 1", "tree nope", "tree readme.txt", "tree /root"] },
+  { "name": "programs that wait for the keyboard", "world": "home",
+    "lines": ["cat", "less readme.txt", "more readme.txt", "top", "sort", "head", "wc", "grep x", "uniq", "rm -i readme.txt", "bash", "exit", "nano x", "vim x", "sudo ls"],
+    "intended": [
+      { "line": "cat", "reason": "a real cat waits for keyboard input; the simulator explains that instead", "real": false },
+      { "line": "less readme.txt", "reason": "a real less opens an interactive viewer; the simulator prints the file with a note", "real": false },
+      { "line": "more readme.txt", "reason": "a real more opens an interactive viewer; the simulator prints the file with a note", "real": false },
+      { "line": "top", "reason": "a real top is interactive and shows the container's processes; the simulator prints one snapshot", "real": false },
+      { "line": "sort", "reason": "waits for keyboard input in a real terminal", "real": false },
+      { "line": "head", "reason": "waits for keyboard input in a real terminal", "real": false },
+      { "line": "wc", "reason": "waits for keyboard input in a real terminal", "real": false },
+      { "line": "grep x", "reason": "waits for keyboard input in a real terminal", "real": false },
+      { "line": "uniq", "reason": "waits for keyboard input in a real terminal", "real": false },
+      { "line": "rm -i readme.txt", "reason": "a real rm -i asks and waits for y or n; the simulator answers yes", "real": false },
+      { "line": "bash", "reason": "a real bash starts a nested shell; the simulator does not nest shells", "real": false },
+      { "line": "exit", "reason": "a real exit closes the terminal; the simulator stays open", "real": false },
+      { "line": "nano x", "reason": "editors are not simulated (and not installed in the container)", "real": false },
+      { "line": "vim x", "reason": "editors are not simulated (and not installed in the container)", "real": false },
+      { "line": "sudo ls", "reason": "sudo asks for a password on the terminal; the simulator refuses as for a user outside sudoers", "real": false }
+    ] }
+]

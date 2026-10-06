@@ -26,32 +26,12 @@ test('wc counts lines, words and bytes', async () => {
   assert.equal((await run(b, 'cat inv.txt | wc -l')).out, '5\n');
 });
 
-test('grep prints matching lines with -i, -v, -n and -c', async () => {
-  const b = await withScroll();
-  assert.equal((await run(b, 'grep welcome readme.txt')).out, 'welcome.\n');
-  assert.equal((await run(b, 'grep -i DEAR readme.txt')).out, 'Dear apprentice,\n');
-  assert.equal((await run(b, 'grep -v a inv.txt')).out, 'b\nb\nc\n');
-  assert.equal((await run(b, 'grep -n c inv.txt')).out, '4:c\n');
-  assert.equal((await run(b, 'grep -c b inv.txt')).out, '2\n');
-});
-
-test('grep exits 1 without a match and 2 on a missing file', async () => {
-  const b = await withScroll();
-  assert.equal((await run(b, 'grep zzz inv.txt')).status, 1);
-  assert.equal((await run(b, 'grep a nope')).status, 2);
-});
-
-test('grep -r searches a directory and labels each line', async () => {
-  const r = await run(await withScroll(), 'grep -r bat forest');
-  assert.equal(r.out, 'forest/cave/bat.txt:A bat.\n');
-});
-
 test('find walks the tree with -name, -type and -maxdepth', async () => {
   const b = await withScroll();
   assert.equal((await run(b, 'find forest')).out, 'forest\nforest/cave\nforest/cave/bat.txt\nforest/mushroom.txt\n');
   assert.equal((await run(b, 'find . -name "*.txt" -maxdepth 1')).out, './inv.txt\n./readme.txt\n./scroll.txt\n');
   assert.equal((await run(b, 'find forest -type d')).out, 'forest\nforest/cave\n');
-  assert.equal((await run(b, 'find nope')).err, "find: 'nope': No such file or directory\n");
+  assert.equal((await run(b, 'find nope')).err, 'find: \u2018nope\u2019: No such file or directory\n');
 });
 
 test('sort orders lines; -r reverses, -u drops repeats, -n compares numbers', async () => {

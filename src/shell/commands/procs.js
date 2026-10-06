@@ -12,7 +12,15 @@ const STOPPING = new Set([19, 20]);
 const UNCATCHABLE = new Set([9, 19]);
 const SHELL_IGNORES = new Set([2, 3, 15, 20]);
 const KILL_USAGE = 'kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]';
-const SIGNAL_TABLE = ' 1) SIGHUP\t 2) SIGINT\t 3) SIGQUIT\t 4) SIGILL\t 5) SIGTRAP\n 6) SIGABRT\t 7) SIGBUS\t 8) SIGFPE\t 9) SIGKILL\t10) SIGUSR1\n11) SIGSEGV\t12) SIGUSR2\t13) SIGPIPE\t14) SIGALRM\t15) SIGTERM\n16) SIGSTKFLT\t17) SIGCHLD\t18) SIGCONT\t19) SIGSTOP\t20) SIGTSTP\n';
+const LINUX_SIGNALS = [
+  'HUP', 'INT', 'QUIT', 'ILL', 'TRAP', 'ABRT', 'BUS', 'FPE', 'KILL', 'USR1', 'SEGV', 'USR2', 'PIPE', 'ALRM', 'TERM', 'STKFLT',
+  'CHLD', 'CONT', 'STOP', 'TSTP', 'TTIN', 'TTOU', 'URG', 'XCPU', 'XFSZ', 'VTALRM', 'PROF', 'WINCH', 'IO', 'PWR', 'SYS',
+];
+const ALL_SIGNALS = [
+  ...LINUX_SIGNALS.map((name, i) => [i + 1, name]),
+  ...Array.from({ length: 31 }, (_, i) => [34 + i, i === 0 ? 'RTMIN' : i <= 15 ? `RTMIN+${i}` : i === 30 ? 'RTMAX' : `RTMAX-${30 - i}`]),
+];
+const SIGNAL_TABLE = ALL_SIGNALS.map(([n, name], i) => `${String(n).padStart(2)}) SIG${name}${(i + 1) % 5 === 0 ? '\n' : '\t'}`).join('') + '\n';
 
 /**
  * Parse a signal given as a number (`9`) or a name with or without SIG (`KILL`, `sigterm`).
@@ -108,11 +116,24 @@ function ps(args, { sys }) {
   return result(`${psRows(list, { user, full }).join('\n')}\n`);
 }
 
+function listSignals(args) {
+  const named = args.map(a => {
+    const n = /^\d+$/.test(a) ? Number(a) : null;
+    const byNumber = n === null ? null : ALL_SIGNALS.find(([num]) => num === (n > 128 ? n - 128 : n));
+    const byName = ALL_SIGNALS.find(([, name]) => name === a.toUpperCase().replace(/^SIG/, ''));
+    if (n !== null) return byNumber ? { out: `${byNumber[1]}\n` } : { err: `bash: kill: ${a}: invalid signal specification` };
+    return byName ? { out: `${byName[0]}\n` } : { err: `bash: kill: ${a}: invalid signal specification` };
+  });
+  const errs = named.filter(x => x.err).map(x => x.err);
+  return args.length ? result(named.map(x => x.out ?? '').join(''), errs.join('\n'), errs.length ? 1 : 0) : result(SIGNAL_TABLE);
+}
+
 function killArgs(args) {
   let sig = SIGNALS.TERM;
   let start = 0;
   let error = null;
-  if (args[0] === '-s' || args[0] === '-n') {
+  if ((args[0] === '-s' || args[0] === '-n') && args.length < 2) error = `bash: kill: ${args[0]}: option requires an argument`;
+  else if (args[0] === '-s' || args[0] === '-n') {
     sig = parseSignal(args[1]);
     start = 2;
     if (sig === null) error = `bash: kill: ${args[1]}: invalid signal specification`;
@@ -126,7 +147,7 @@ function killArgs(args) {
 
 function kill(args, { sys, block }) {
   if (!args.length) return result('', KILL_USAGE, 2);
-  if (args[0] === '-l' || args[0] === '-L') return result(SIGNAL_TABLE);
+  if (args[0] === '-l' || args[0] === '-L') return listSignals(args.slice(1));
   const { sig, pids, error } = killArgs(args);
   if (error) return result('', error, 1);
   if (!pids.length) return result('', KILL_USAGE, 2);
