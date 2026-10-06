@@ -128,3 +128,43 @@ test('who rejects unknown options and a third operand', async () => {
   const extra = await run(b, 'who a b c');
   assert.deepEqual([extra.err, extra.status], ["who: extra operand ‘c’\nTry 'who --help' for more information.\n", 1]);
 });
+
+test('hostname prints its version and usage like net-tools hostname', async () => {
+  const b = await shell();
+  for (const line of ['hostname --version', 'hostname -V', 'hostname -sV']) assert.equal((await run(b, line)).out, 'hostname 3.23\n');
+  const help = await run(b, 'hostname --help');
+  assert.match(help.out, /^Usage: hostname \[-b\] \{hostname\|-F file\} {9}set host name \(from file\)\n/);
+  assert.match(help.out, /\n {4}-s, --short {12}short host name\n/);
+  assert.equal(help.out.split('\n').length, 34);
+  assert.equal(help.status, 255);
+  assert.deepEqual([(await run(b, 'hostname -hV')).out, (await run(b, 'hostname -h')).status], [help.out, 255]);
+});
+
+test('hostname rejects bad options and too many operands with its usage', async () => {
+  const b = await shell();
+  const usage = (await run(b, 'hostname --help')).out;
+  const bad = await run(b, 'hostname -x');
+  assert.deepEqual([bad.out, bad.err, bad.status], [usage, "hostname: invalid option -- 'x'\n", 255]);
+  const long = await run(b, 'hostname --bogus');
+  assert.deepEqual([long.out, long.err, long.status], [usage, "hostname: unrecognized option '--bogus'\n", 255]);
+  const many = await run(b, 'hostname x y');
+  assert.deepEqual([many.out, many.err, many.status], ['', usage, 255]);
+});
+
+test('hostname -s and -b print the name, and only root may change it', async () => {
+  const b = await shell();
+  for (const line of ['hostname -s', 'hostname --short', 'hostname -b']) assert.equal((await run(b, line)).out, 'kernelia\n');
+  for (const line of ['hostname castle', 'hostname -F /etc/hostname']) {
+    const r = await run(b, line);
+    assert.deepEqual([r.err, r.status], ['hostname: you must be root to change the host name\n', 1]);
+  }
+});
+
+test('hostname options that look up the network say they are not simulated', async () => {
+  const b = await shell();
+  for (const option of ['-f', '--fqdn', '-d', '-a', '-i', '-I', '-A', '-y']) {
+    const r = await run(b, `hostname ${option}`);
+    assert.deepEqual([r.out, r.err, r.status], ['', '', 1]);
+    assert.equal(r.note, `hostname ${option} looks up the network, which this game does not simulate.`);
+  }
+});

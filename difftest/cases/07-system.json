@@ -2,6 +2,12 @@
   { "name": "kill messages", "world": "home", "lines": ["kill", "kill abc", "kill 99999", "kill -9 99999", "kill -FOO 1", "kill 1", "kill -l", "kill -s TERM 99999", "kill -s", "kill -l 9", "kill -9"] },
   { "name": "machine facts", "world": "home", "lines": ["uname", "uname -s", "uname -n", "hostname", "id", "id -u", "id -un", "groups", "whoami"] },
   { "name": "tree", "world": "home", "lines": ["tree forest", "tree -a", "tree -d", "tree -L 1", "tree nope", "tree readme.txt", "tree /root"] },
+  { "name": "hostname options", "world": "home",
+    "lines": ["hostname --version", "hostname -V", "hostname -sV", "hostname --help", "hostname -h", "hostname -hV", "hostname -x", "hostname --bogus", "hostname x y", "hostname -s", "hostname --short", "hostname -b", "hostname castle", "hostname -F /etc/hostname", "hostname -f", "hostname -I"],
+    "intended": [
+      { "line": "hostname -f", "reason": "name lookups are not simulated; the simulator says so in a note (the container has no network either)" },
+      { "line": "hostname -I", "reason": "network addresses are not simulated; the simulator says so in a note" }
+    ] },
   { "name": "who lists the login", "world": "home",
     "lines": ["who", "who -H", "who -s", "who -q", "who -Hq", "who am i <&1", "who -m <&1", "who -mH <&1", "who am i", "echo | who am i", "who -H nofile", "who -q nofile", "who -x", "who a b c", "who --version"],
     "intended": [
