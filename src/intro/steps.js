@@ -103,7 +103,7 @@ export const STEPS = [
     title: 'Look around with <code>ls</code>',
     type: 'ls',
     text: [
-      '<code>ls</code> lists the files and directories where you are. On the map, each <b>door</b> is a directory and each <b>item</b> is a file.',
+      '<code>ls</code> lists the files and directories where you are, except hidden ones, whose names start with a dot. On the map, each <b>door</b> is a directory and each <b>item</b> is a file.',
       'Here <code>forest</code> is a directory and <code>readme.txt</code> is a file.',
     ],
   },
@@ -170,7 +170,7 @@ export const STEPS = [
     text: [
       'The real terminal is yours now. Type <code>whoami</code> and press <kbd>Enter</kbd>: it prints your user name.',
       'Then read the Quest panel. It tells you what to do next.',
-      'The three hearts at the top: a few dangerous commands cost one. Lose all three and the Guardian sets the chapter up again; you never lose XP.',
+      'The three hearts at the top: a few dangerous commands cost one. Lose all three and the Guardian refills them and sets up again the part you are playing; once a chapter is cleared, it only refills them. You never lose XP.',
     ],
   },
 ];
