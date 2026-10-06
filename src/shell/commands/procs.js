@@ -2,7 +2,7 @@
  * Processes and signals: ps, kill, pkill, killall, pgrep, top, htop.
  */
 
-import { allocPid } from '../system.js';
+import { allocPid, TERMINAL } from '../system.js';
 import { result, withNote } from '../result.js';
 
 export const SIGNALS = { HUP: 1, INT: 2, QUIT: 3, ABRT: 6, KILL: 9, USR1: 10, USR2: 12, PIPE: 13, ALRM: 14, TERM: 15, CHLD: 17, CONT: 18, STOP: 19, TSTP: 20 };
@@ -111,8 +111,8 @@ function ps(args, { sys }) {
     if (!dashed && x.includes('x')) all = true;
     if (!dashed && x.includes('u')) user = true;
   }
-  const self = { pid: allocPid(sys), ppid: sys.shellPid, user: sys.user, cmd: ['ps', ...args].join(' '), tty: 'pts/0', cpu: 0, mem: 0, stat: 'R+', time: '0:00' };
-  const list = [...sys.procs.filter(p => all || p.tty === 'pts/0'), self].sort((x, y) => x.pid - y.pid);
+  const self = { pid: allocPid(sys), ppid: sys.shellPid, user: sys.user, cmd: ['ps', ...args].join(' '), tty: TERMINAL, cpu: 0, mem: 0, stat: 'R+', time: '0:00' };
+  const list = [...sys.procs.filter(p => all || p.tty === TERMINAL), self].sort((x, y) => x.pid - y.pid);
   return result(`${psRows(list, { user, full }).join('\n')}\n`);
 }
 

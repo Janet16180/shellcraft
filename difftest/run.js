@@ -11,11 +11,12 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
-import { materialize } from './materialize.js';
+import { materialize, loginRecord } from './materialize.js';
 import { lineClocks, crossedMinute } from './clock.js';
 import { inputScript, splitOutput } from './protocol.js';
 import { runSim } from './sim.js';
 import { WORLDS } from './worlds.js';
+import { TERMINAL } from '../src/shell/system.js';
 
 const HERE = import.meta.dirname;
 const ROOT = path.resolve(HERE, '..');
@@ -62,7 +63,7 @@ async function runReal(c, index, world, worldTime, lines) {
   const name = `${IMAGE}-${process.pid}-${index}`;
   const { script, cds } = materialize(world, worldTime);
   mkdirSync(path.join(dir, 'out'));
-  writeFileSync(path.join(dir, 'setup.sh'), script);
+  writeFileSync(path.join(dir, 'setup.sh'), script + loginRecord('hero', TERMINAL, worldTime));
   writeFileSync(path.join(dir, 'input.sh'), inputScript(lines, { cds, aliases: ALIASES }));
   writeFileSync(path.join(dir, 'run.sh'), RUN_SH);
   const timer = setTimeout(() => spawnSync('docker', ['rm', '-f', name], { stdio: 'ignore' }), TIMEOUT_MS);

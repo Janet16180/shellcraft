@@ -9,6 +9,7 @@ const COREUTILS_AUTHORS = {
   dir: 'Richard M. Stallman and David MacKenzie.',
   cat: 'Torbjörn Granlund and Richard M. Stallman.',
   whoami: 'Richard Mlynarik.',
+  who: 'Joseph Arceneaux, David MacKenzie, and Michael Stone.',
   mkdir: 'David MacKenzie.',
   rmdir: 'David MacKenzie.',
   rm: 'Paul Rubin, David MacKenzie, Richard M. Stallman,\nand Jim Meyering.',

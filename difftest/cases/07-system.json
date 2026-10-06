@@ -2,9 +2,13 @@
   { "name": "kill messages", "world": "home", "lines": ["kill", "kill abc", "kill 99999", "kill -9 99999", "kill -FOO 1", "kill 1", "kill -l", "kill -s TERM 99999", "kill -s", "kill -l 9", "kill -9"] },
   { "name": "machine facts", "world": "home", "lines": ["uname", "uname -s", "uname -n", "hostname", "id", "id -u", "id -un", "groups", "whoami"] },
   { "name": "tree", "world": "home", "lines": ["tree forest", "tree -a", "tree -d", "tree -L 1", "tree nope", "tree readme.txt", "tree /root"] },
-  { "name": "real commands the game does not simulate", "world": "home", "lines": ["who am i", "du -sh forest", "man -k directory", "man 1 ls", "man -f ls"],
+  { "name": "who lists the login", "world": "home",
+    "lines": ["who", "who -H", "who -s", "who -q", "who -Hq", "who am i <&1", "who -m <&1", "who -mH <&1", "who am i", "echo | who am i", "who -H nofile", "who -q nofile", "who -x", "who a b c", "who --version"],
     "intended": [
-      { "line": "who am i", "reason": "who is not simulated; the simulator says command not found with a note pointing to whoami" },
+      { "line": "who am i", "reason": "the harness feeds bash its lines from a file, so the standard input of who is that file, not the terminal; at a real terminal it lists the login, as who am i <&1 shows" }
+    ] },
+  { "name": "real commands the game does not simulate", "world": "home", "lines": ["du -sh forest", "man -k directory", "man 1 ls", "man -f ls"],
+    "intended": [
       { "line": "du -sh forest", "reason": "du is not simulated; a note says so" },
       { "line": "man -k directory", "reason": "the minimized container has no man-db; the simulator searches only its own pages, with a note" },
       { "line": "man 1 ls", "reason": "the minimized container has no man-db; the simulator shows its short page" },

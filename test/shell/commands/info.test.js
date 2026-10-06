@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shell, run } from '../helpers.js';
+import { shell, run, NOW } from '../helpers.js';
 import { formatDate } from '../../../src/shell/commands/info.js';
 
 test('whoami, id, groups and hostname describe the user and machine', async () => {
@@ -89,4 +89,42 @@ test('pwd accepts -L and -P, ignores operands, and rejects other options like ba
   assert.equal((await run(b, 'pwd -P')).out, '/home/hero\n');
   assert.equal((await run(b, 'pwd foo')).out, '/home/hero\n');
   assert.deepEqual(await run(b, 'pwd -help').then(r => [r.out, r.err, r.status]), ['', 'bash: pwd: -h: invalid option\npwd: usage: pwd [-LP]\n', 2]);
+});
+
+test('who lists the login on the terminal with the time the session started', async () => {
+  let clock = NOW;
+  const b = await shell([], { now: () => clock });
+  clock += 3 * 3_600_000;
+  assert.equal((await run(b, 'who')).out, 'hero     pts/0        2026-10-06 10:00\n');
+  assert.equal((await run(b, 'who -s')).out, 'hero     pts/0        2026-10-06 10:00\n');
+});
+
+test('who am i and who -m list the login of the terminal on standard input', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'who am i')).out, 'hero     pts/0        2026-10-06 10:00\n');
+  assert.equal((await run(b, 'who -m')).out, 'hero     pts/0        2026-10-06 10:00\n');
+  assert.equal((await run(b, 'echo | who am i')).out, '');
+  assert.equal((await run(b, 'who -m < readme.txt')).out, '');
+});
+
+test('who -H adds headings and who -q counts the users', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'who -H')).out, 'NAME     LINE         TIME             COMMENT\nhero     pts/0        2026-10-06 10:00\n');
+  assert.equal((await run(b, 'who -q')).out, 'hero\n# users=1\n');
+  assert.equal((await run(b, 'who -Hq')).out, 'hero\n# users=1\n');
+});
+
+test('who reading a file other than the login records finds no one', async () => {
+  const b = await shell();
+  assert.deepEqual([(await run(b, 'who readme.txt')).out, (await run(b, 'who readme.txt')).status], ['', 0]);
+  assert.equal((await run(b, 'who -H nofile')).out, 'NAME     LINE         TIME             COMMENT\n');
+  assert.equal((await run(b, 'who -q nofile')).out, '\n# users=0\n');
+});
+
+test('who rejects unknown options and a third operand', async () => {
+  const b = await shell();
+  const bad = await run(b, 'who -x');
+  assert.deepEqual([bad.err, bad.status], ["who: invalid option -- 'x'\nTry 'who --help' for more information.\n", 1]);
+  const extra = await run(b, 'who a b c');
+  assert.deepEqual([extra.err, extra.status], ["who: extra operand ‘c’\nTry 'who --help' for more information.\n", 1]);
 });
