@@ -26,7 +26,8 @@ function parseCluster(name, args, i, known, withValue, acc) {
 /**
  * Parse arguments into short flags, option values and operands. Bundled
  * flags (`-la`) are split; `--` ends options; `-` alone is an operand.
- * Long options (`--x`) are kept as flags under their full text.
+ * Long options (`--x`) are unrecognized; commands that take some map them
+ * to letters first.
  *
  * @param {string} name The command, for error messages.
  * @param {string[]} args The arguments.
@@ -43,8 +44,26 @@ export function parseOptions(name, args, known, withValue = '') {
     const x = args[i];
     if (ended || x === '-' || !x.startsWith('-')) acc.rest.push(x);
     else if (x === '--') ended = true;
-    else if (x.startsWith('--')) acc.flags.add(x);
+    else if (x.startsWith('--')) acc.err = `${name}: unrecognized option '${x}'\n${usage(name)}`;
     else i = parseCluster(name, args, i, known, withValue, acc);
   }
   return acc;
+}
+
+/**
+ * Rewrite a command's long options into its short letters, before `--` only.
+ *
+ * @param {string} name The command, for the error message.
+ * @param {string[]} args The arguments.
+ * @param {Record<string, string>} table Long option to letter (`--all` to `a`).
+ * @param {RegExp} [ignored] Long options the command accepts and ignores (like --color).
+ * @returns {{args: string[], err: string|null}} The rewritten arguments, or the
+ *   message for the first unrecognized long option.
+ */
+export function mapLongOptions(name, args, table, ignored = /^--colou?r(=|$)/) {
+  const end = args.includes('--') ? args.indexOf('--') : args.length;
+  const options = args.slice(0, end).filter(a => !ignored.test(a));
+  const unknown = options.find(a => a.startsWith('--') && !(a in table));
+  const mapped = [...options.map(a => (a in table ? `-${table[a]}` : a)), ...args.slice(end)];
+  return { args: mapped, err: unknown ? `${name}: unrecognized option '${unknown}'\n${usage(name)}` : null };
 }

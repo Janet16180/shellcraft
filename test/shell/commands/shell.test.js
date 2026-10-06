@@ -121,3 +121,36 @@ test('the clear page describes clear itself', async () => {
   assert.doesNotMatch(page, /Ctrl\+L/);
   assert.match(page, /scrollback/);
 });
+
+test('man -k searches page names and descriptions like apropos', async () => {
+  const b = await shell();
+  const r = await run(b, 'man -k directory');
+  assert.match(r.out, /^ls \(1\) {15}- list directory contents$/m);
+  assert.match(r.out, /^pwd \(1\) {14}- print name of current\/working directory$/m);
+  assert.match(r.note, /only the pages of the commands it simulates/);
+  assert.deepEqual(await run(b, 'man -k zzz').then(x => [x.err, x.status]), ['zzz: nothing appropriate.\n', 16]);
+  assert.deepEqual(await run(b, 'man -k').then(x => [x.err, x.status]), ['apropos what?\n', 1]);
+});
+
+test('man -f gives the one-line description of a page', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'man -f ls')).out, 'ls (1)               - list directory contents\n');
+  assert.deepEqual(await run(b, 'man -f cd').then(x => [x.err, x.status]), ['cd: nothing appropriate.\n', 16]);
+});
+
+test('man takes a section number before the page', async () => {
+  const b = await shell();
+  assert.match((await run(b, 'man 1 ls')).out, /^LS\(1\)/);
+  assert.deepEqual(await run(b, 'man 9 ls').then(x => [x.err, x.status]), ['No manual entry for ls in section 9\n', 16]);
+  assert.deepEqual(await run(b, 'man 1').then(x => [x.err, x.status]), ["No manual entry for 1\n(Alternatively, what manual page do you want from section 1?)\nFor example, try 'man man'.\n", 1]);
+});
+
+test('the man pages give the real synopses', async () => {
+  const b = await shell();
+  assert.match((await run(b, 'man whoami')).out, /^ {7}whoami \[OPTION\]\.\.\.$/m);
+  assert.match((await run(b, 'man whoami')).out, /Same as id -un\./);
+  assert.match((await run(b, 'man pwd')).out, /^ {7}pwd \[OPTION\]\.\.\.$/m);
+  assert.match((await run(b, 'man clear')).out, /^ {7}clear \[-x\] \[-T terminal-type\]$/m);
+  assert.match((await run(b, 'man man')).out, /^ {7}man \[man options\] \[\[section\] page \.\.\.\] \.\.\.$/m);
+  assert.match((await run(b, 'man ls')).note, /^A real man page is longer and opens in a pager/);
+});

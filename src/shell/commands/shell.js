@@ -6,7 +6,8 @@
 import { lookup, normalize, joinPath } from '../fs.js';
 import { BUILTINS, BUILTIN_HELP, builtinHelp } from '../builtins.js';
 import { can } from '../perms.js';
-import { manText, hasManPage } from '../man.js';
+import { manText, hasManPage, manEntries } from '../man.js';
+import { compilePosix } from '../regex.js';
 import { result, withNote } from '../result.js';
 import { varValue, setVar, exportedVars } from '../vars.js';
 import { compareNames } from '../collate.js';
@@ -26,13 +27,51 @@ export function findInPath(sys, name) {
   return hit ?? null;
 }
 
-function man(args) {
-  if (!args.length) return result('', "What manual page do you want?\nFor example, try 'man man'.", 1);
-  if (!hasManPage(args[0])) {
-    const builtin = args[0] in BUILTIN_HELP ? `${args[0]} is built into bash, so it has no manual page of its own. Try help ${args[0]}.` : null;
-    return withNote(result('', `No manual entry for ${args[0]}`, 16), builtin);
-  }
-  return withNote(result(manText(args[0], false)), 'A real man page opens in a pager: arrow keys to scroll, / to search, q to quit.');
+const SECTION = /^[1-9]$/;
+const SMALL_MANUAL = "This game's manual holds only the pages of the commands it simulates, so a real man -k finds many more.";
+
+function summaryLine(entry, width) {
+  const line = `${`${entry.name} (1)`.padEnd(20)} - ${entry.description}`;
+  return width && line.length > width ? `${line.slice(0, width - 3)}...` : line;
+}
+
+function lookupPages(mode, keywords, width) {
+  const byName = (a, b) => compareNames(a.name.toLowerCase(), b.name.toLowerCase());
+  const entries = manEntries().sort(byName);
+  const matchers = keywords.map(k => {
+    const re = compilePosix([k], { extended: true, ignoreCase: true }).regex ?? new RegExp(k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    return e => (mode === '-f' ? e.name === k : re.test(e.name) || re.test(e.description));
+  });
+  const found = entries.filter(e => matchers.some(m => m(e)));
+  const missing = keywords.filter((k, i) => !entries.some(matchers[i]));
+  const errs = (mode === '-f' ? missing : found.length ? [] : keywords).map(k => `${k}: nothing appropriate.`);
+  return withNote(result(found.map(e => `${summaryLine(e, width)}\n`).join(''), errs.join('\n'), errs.length ? 16 : 0), mode === '-k' ? SMALL_MANUAL : null);
+}
+
+function manPage(name, section) {
+  const builtin = name in BUILTIN_HELP ? `${name} is built into bash, so it has no manual page of its own. Try help ${name}.` : null;
+  let r;
+  if (section && section !== '1') r = result('', `No manual entry for ${name} in section ${section}`, 16);
+  else if (!hasManPage(name)) r = withNote(result('', `No manual entry for ${name}`, 16), builtin);
+  else r = withNote(result(manText(name, false)), 'A real man page is longer and opens in a pager: arrow keys to scroll, / to search, q to quit.');
+  return r;
+}
+
+function missingPage(section) {
+  const ask = section ? `No manual entry for ${section}\n(Alternatively, what manual page do you want from section ${section}?)` : 'What manual page do you want?';
+  return result('', `${ask}\nFor example, try 'man man'.`, 1);
+}
+
+function man(args, { sys, piped }) {
+  const mode = args[0] === '-k' || args[0] === '-f' ? args[0] : null;
+  const section = !mode && SECTION.test(args[0] ?? '') ? args[0] : null;
+  const pages = args.slice(mode || section ? 1 : 0);
+  let r;
+  if (mode && !pages.length) r = result('', mode === '-k' ? 'apropos what?' : 'whatis what?', 1);
+  else if (mode) r = lookupPages(mode, pages, piped ? 0 : sys.columns);
+  else if (!pages.length) r = missingPage(section);
+  else r = manPage(pages[0], section);
+  return r;
 }
 
 function which(args, { sys }) {

@@ -5,6 +5,7 @@
 import { result } from '../result.js';
 import { localeQuote } from '../quote.js';
 import { parseOptions } from '../options.js';
+import { builtinOptions } from '../builtins.js';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -37,6 +38,19 @@ export function formatDate(ms) {
 }
 
 const UNAME_FIELDS = { s: () => 'Linux', n: sys => sys.host, r: () => '6.8.0-kernelia', v: () => '#1 SMP PREEMPT_DYNAMIC', m: () => 'x86_64', p: () => 'x86_64', i: () => 'x86_64', o: () => 'GNU/Linux' };
+
+function pwd(args, { sys }) {
+  const o = builtinOptions('pwd', args, 'LP');
+  return o.error ? result('', o.error, 2) : result(`${sys.cwd}\n`);
+}
+
+function whoami(args, { sys }) {
+  const o = parseOptions('whoami', args, '');
+  let r = result(`${sys.user}\n`);
+  if (o.err) r = result('', o.err, 1);
+  else if (o.rest.length) r = result('', `whoami: extra operand ${localeQuote(o.rest[0])}\nTry 'whoami --help' for more information.`, 1);
+  return r;
+}
 
 function uname(args, { sys }) {
   const o = parseOptions('uname', args, 'asnrvmpio');
@@ -95,10 +109,8 @@ function echo(args) {
 }
 
 export default {
-  pwd: (_args, { sys }) => result(`${sys.cwd}\n`),
-  whoami: (args, { sys }) => (args.length
-    ? result('', `whoami: extra operand ${localeQuote(args[0])}\nTry 'whoami --help' for more information.`, 1)
-    : result(`${sys.user}\n`)),
+  pwd,
+  whoami,
   id,
   groups: (_args, { sys }) => result(`${sys.groups.join(' ')}\n`),
   hostname: (_args, { sys }) => result(`${sys.host}\n`),

@@ -5,7 +5,7 @@
 const PAGES = {
   ls: ['list directory contents', 'ls [OPTION]... [FILE]...', 'List information about the FILEs (the current directory by default).',
     [['-a', 'do not ignore entries starting with .'], ['-A', 'like -a, but without . and ..'], ['-l', 'use a long listing format'], ['-h', 'with -l, print sizes like 4.0K'], ['-r', 'reverse order while sorting'], ['-1', 'list one file per line'], ['-F', 'append indicator (/ for directories, * for executables)'], ['-d', 'list directories themselves, not their contents']]],
-  pwd: ['print name of current/working directory', 'pwd', 'Print the full path of the current working directory.', []],
+  pwd: ['print name of current/working directory', 'pwd [OPTION]...', 'Print the full filename of the current working directory.', []],
   cat: ['concatenate files and print on the standard output', 'cat [OPTION]... [FILE]...', 'Concatenate FILE(s) to standard output. With no FILE, read standard input.', [['-n', 'number all output lines']]],
   echo: ['display a line of text', 'echo [OPTION]... [STRING]...', 'Echo the STRING(s) to standard output.', [['-n', 'do not output the trailing newline'], ['-e', 'enable interpretation of backslash escapes like \\n']]],
   mkdir: ['make directories', 'mkdir [OPTION]... DIRECTORY...', 'Create the DIRECTORY(ies), if they do not already exist.', [['-p', 'no error if existing, make parent directories as needed'], ['-v', 'print a message for each created directory']]],
@@ -26,9 +26,10 @@ const PAGES = {
   kill: ['send a signal to a process', 'kill [-SIGNAL] PID...', 'Send a signal (SIGTERM by default) to the given process IDs.', [['-9, -KILL', 'SIGKILL: cannot be caught or ignored'], ['-15, -TERM', 'SIGTERM: polite request to terminate (default)'], ['-l', 'list signal names']]],
   pkill: ['look up or signal processes based on name', 'pkill [-SIGNAL] PATTERN', 'Signal every process whose name matches PATTERN.', []],
   top: ['display Linux processes', 'top', 'A live, updating view of processes sorted by CPU usage. Press q to quit.', []],
-  man: ['an interface to the system reference manuals', 'man PAGE', 'Show the manual page for a command. Scroll with arrows, search with /, quit with q.', []],
-  whoami: ['print effective user name', 'whoami', 'Print the user name associated with the current effective user ID.', []],
-  clear: ['clear the terminal screen', 'clear [-x]', 'Clear the terminal screen and its scrollback buffer.', [['-x', 'do not try to clear the scrollback buffer']]],
+  man: ['an interface to the system reference manuals', 'man [man options] [[section] page ...] ...', 'Show the manual page for a command. Scroll with arrows, search with /, quit with q.', [['-k KEYWORD', 'search the short descriptions for KEYWORD (like apropos)'], ['-f PAGE', 'show the one-line description of PAGE (like whatis)']]],
+  whoami: ['print effective user name', 'whoami [OPTION]...', 'Print the user name associated with the current effective user ID.  Same as id -un.', []],
+  clear: ['clear the terminal screen', 'clear [-x] [-T terminal-type]', 'Clear the terminal screen and its scrollback buffer.', [['-T type', 'use this terminal type instead of $TERM'], ['-V', 'print the curses version'], ['-x', 'do not try to clear the scrollback buffer']]],
+  dir: ['list directory contents', 'dir [OPTION]... [FILE]...', 'List information about the FILEs (the current directory by default), in columns, with special characters escaped.', []],
   tree: ['list contents of directories in a tree-like format', 'tree [OPTION]... [DIRECTORY]', 'Recursively list directories as an indented tree.', [['-a', 'include hidden files'], ['-d', 'list directories only'], ['-L LEVEL', 'descend only LEVEL directories deep']]],
   less: ['opposite of more (a file pager)', 'less FILE', 'View a file one screen at a time. Space: next page, b: back, /word: search, q: quit.', []],
   which: ['locate a command', 'which COMMAND...', 'Print the full path of the program that would run for each COMMAND.', []],
@@ -41,6 +42,11 @@ const PAGES = {
  * @returns {boolean} Whether the simulator has a page for it.
  */
 export const hasManPage = name => Object.hasOwn(PAGES, name);
+
+/**
+ * @returns {{name: string, description: string}[]} Every page's name and one-line description.
+ */
+export const manEntries = () => Object.entries(PAGES).map(([name, [description]]) => ({ name, description }));
 
 /**
  * Render a page.
