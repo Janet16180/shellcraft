@@ -821,7 +821,7 @@ kbd {
   white-space: nowrap;
 }
 
-.now {
+.task-strip {
   margin: 0;
   padding: 7px 14px;
   font-size: 14px;
@@ -831,7 +831,7 @@ kbd {
   border-bottom: 3px solid var(--line);
 }
 
-.now b {
+.task-strip b {
   color: var(--accent);
 }
 
