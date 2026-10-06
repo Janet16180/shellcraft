@@ -214,10 +214,28 @@ kbd {
 }
 
 .brand {
-  font-size: 26px;
-  letter-spacing: 0.06em;
-  color: var(--accent);
-  text-shadow: 3px 3px 0 var(--c-rust), 5px 5px 0 var(--c-ink);
+  line-height: 0;
+}
+
+.brand .logo {
+  height: 27px;
+  width: auto;
+}
+
+.logo .ink {
+  fill: var(--c-ink);
+}
+
+.logo .rust {
+  fill: var(--c-rust);
+}
+
+.logo .gold {
+  fill: var(--c-gold);
+}
+
+.logo .ember {
+  fill: var(--c-ember);
 }
 
 .chap {
@@ -1074,8 +1092,8 @@ kbd {
     height: 70vh;
   }
 
-  .brand {
-    font-size: 22px;
+  .brand .logo {
+    height: 22px;
   }
 
   /* In one column a full-width map would push the terminal off the screen. */

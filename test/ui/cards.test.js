@@ -60,3 +60,7 @@ test('Escape has a safe button to press on the boss card and the adventure log, 
   assert.match(debriefHTML(CLEARED), /id="stayBtn" type="button" data-dismiss/);
   assert.doesNotMatch(titleCardHTML(null), /data-dismiss/);
 });
+
+test('the title card shows the pixel logo, named for screen readers', () => {
+  assert.match(titleCardHTML(null), /<h2 class="title-logo" id="cardTitle"><svg class="logo"[^>]*aria-label="Shellcraft"/);
+});
