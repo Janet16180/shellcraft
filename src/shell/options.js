@@ -23,8 +23,10 @@ function parseCluster(name, args, i, known, withValue, acc) {
       const inline = x.slice(j + 1);
       const v = inline || args[++next];
       if (v === undefined) acc.err = `${name}: option requires an argument -- '${ch}'\n${usage(name)}`;
-      acc.vals[ch] = v;
-      acc.lists[ch] = [...(acc.lists[ch] ?? []), v];
+      else {
+        acc.vals[ch] = v;
+        acc.lists[ch] = [...(acc.lists[ch] ?? []), v];
+      }
       break;
     }
     if (known.includes(ch)) acc.flags.add(ch);

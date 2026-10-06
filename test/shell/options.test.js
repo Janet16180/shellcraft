@@ -57,3 +57,9 @@ test('optionFailure turns a stopped parse into the error or the note', () => {
     out: '', err: '', status: 2, html: null, note: 'ls -R is a real option, but this game does not simulate it.',
   });
 });
+
+test('a missing option value is reported and not recorded', () => {
+  const o = parseOptions('grep', ['-e'], '', 'e');
+  assert.equal(o.err, "grep: option requires an argument -- 'e'\nTry 'grep --help' for more information.");
+  assert.deepEqual([o.vals, o.lists], [{}, {}]);
+});

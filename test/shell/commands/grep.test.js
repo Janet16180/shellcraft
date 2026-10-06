@@ -76,3 +76,8 @@ test('unknown options are rejected with the usage line', async () => {
   const r = await run(await market(), 'grep -k x inv.txt');
   assert.deepEqual([r.err, r.status], ["grep: invalid option -- 'k'\nUsage: grep [OPTION]... PATTERNS [FILE]...\nTry 'grep --help' for more information.\n", 2]);
 });
+
+test('grep -e without a pattern reports the missing argument', async () => {
+  const r = await run(await shell(), 'grep -e');
+  assert.deepEqual([r.err, r.status], ["grep: option requires an argument -- 'e'\nUsage: grep [OPTION]... PATTERNS [FILE]...\nTry 'grep --help' for more information.\n", 2]);
+});
