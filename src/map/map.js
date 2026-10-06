@@ -9,6 +9,7 @@
  */
 
 import { pickAt } from './layout.js';
+import { picksOf } from './room.js';
 import { createStage, settle, fitCanvas, say, showBanner, shake, flash, burstAt, STAND } from './stage.js';
 import { paintFrame } from './render.js';
 import { journey } from './journey.js';
@@ -17,6 +18,7 @@ import { INK, TOON, DAEMON } from './palette.js';
 export { biomeFor } from './biomes.js';
 export { layoutRoom } from './layout.js';
 export { describeRoom } from './describe.js';
+export { drawKey, KEY_KINDS } from './key.js';
 
 const SPARKLE = [INK.y, INK.G, INK.w];
 const DUST = [INK.l, INK.s, INK.w];
@@ -37,6 +39,11 @@ const DUST = [INK.l, INK.s, INK.w];
  *   the effects of a line, then settle on obs. A newer call cuts an older one short.
  * @property {(text: string, who?: 'player'|'daemon') => void} say Show a speech bubble.
  * @property {(title: string, sub?: string) => void} banner Show a banner across the room (the title in the pixel font).
+ * @property {(name: string|null) => void} focus Ring the door or item with this name ('..' for the exit)
+ *   in pulsing gold while it is on show; null clears it. show() clears it too.
+ * @property {() => {kind: 'door'|'item'|'exit', name: string, path: string, locked: boolean}[]} picks
+ *   Everything the player could pick in the room on show (also what the picture folds into "+N"),
+ *   for keyboard play.
  * @property {() => void} destroy Stop drawing and listening.
  */
 
@@ -81,7 +88,7 @@ function show(stage, obs) {
   const { state } = stage;
   state.token += 1;
   stage.motion.finish();
-  Object.assign(state, { fade: 0, trip: null, gateOpen: false, hover: null, banner: null, bubbles: [], flashUntil: 0, shakeUntil: 0 });
+  Object.assign(state, { fade: 0, trip: null, gateOpen: false, hover: null, focus: null, banner: null, bubbles: [], flashUntil: 0, shakeUntil: 0 });
   Object.assign(state.player, STAND, { walking: false });
   state.revealed.clear();
   settle(stage, obs);
@@ -165,6 +172,8 @@ export function createMap(canvas, { reducedMotion = false, onPick = () => {} } =
     play: (effects, obs) => play(stage, effects, obs),
     say: (text, who) => say(stage, text, who),
     banner: (title, sub) => showBanner(stage, { title, sub }),
+    focus: name => { stage.state.focus = name; },
+    picks: () => (stage.state.scene ? picksOf(stage.state.scene.room) : []),
     destroy: () => {
       stage.state.token += 1;
       cancelAnimationFrame(frameId);

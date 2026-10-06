@@ -131,6 +131,18 @@ export function pickAt(layout, x, y) {
 }
 
 /**
+ * The door, item or exit on show with a given name.
+ *
+ * @param {Layout} layout The current layout.
+ * @param {string} name An entry's name, or '..' for the exit.
+ * @returns {Placed|{path: string, x: number, y: number, w: number, h: number}|null} The entry, or null if nothing by that name is on show.
+ */
+export function findEntry(layout, name) {
+  const entry = [...layout.doors, ...layout.items].find(e => e.name === name) ?? null;
+  return entry ?? (name === '..' ? layout.exit : null);
+}
+
+/**
  * Cut a label to a number of characters, marking the cut with an ellipsis.
  * The suffix (a door's slash) always survives.
  *

@@ -76,6 +76,22 @@ export function drawItem(ctx, item, biome, t, i) {
 }
 
 /**
+ * Ring an entry in pulsing gold, to point the player at it.
+ *
+ * @param {CanvasRenderingContext2D} ctx The art canvas.
+ * @param {{x: number, y: number, w: number, h: number}} at The entry's box.
+ * @param {number} t Animation clock in ms (a steady ring when frozen at 0).
+ */
+export function drawFocus(ctx, { x, y, w, h }, t) {
+  const colour = Math.floor(t / 300) % 2 ? INK.w : INK.y;
+  const [left, top, right, bottom] = [x - 4, y - 4, x + w + 3, y + h + 3];
+  box(ctx, colour, left, top, right - left + 1, 1);
+  box(ctx, colour, left, bottom, right - left + 1, 1);
+  box(ctx, colour, left, top, 1, bottom - top);
+  box(ctx, colour, right, top, 1, bottom - top);
+}
+
+/**
  * Draw the sign that stands for doors or items that did not fit.
  *
  * @param {CanvasRenderingContext2D} ctx The art canvas.

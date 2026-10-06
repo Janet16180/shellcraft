@@ -53,7 +53,7 @@ export function createStage(canvas, reducedMotion) {
     state: {
       obs: null, scene: null, bgKey: '', revealed: new Set(),
       player: { ...STAND, walking: false }, daemon: { x: 262, y: 70, flashUntil: 0 },
-      fade: 0, flashUntil: 0, shakeUntil: 0, banner: null, bubbles: [], trip: null, hover: null,
+      fade: 0, flashUntil: 0, shakeUntil: 0, banner: null, bubbles: [], trip: null, hover: null, focus: null,
       gateOpen: false, token: 0,
     },
   };
@@ -71,6 +71,7 @@ export function settle(stage, obs) {
   state.obs = obs;
   state.scene = {
     ...biomeFor(obs.cwd, obs.home),
+    room,
     layout: layoutRoom(room, { narrow: view.narrow }),
     path: obs.cwd,
     home: obs.home,

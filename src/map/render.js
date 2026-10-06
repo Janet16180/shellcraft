@@ -3,10 +3,10 @@
  * scaled onto the screen canvas with the labels, bubbles, banner and fades.
  */
 
-import { ART } from './layout.js';
+import { ART, findEntry } from './layout.js';
 import * as overworld from './overworld.js';
 import * as dungeon from './dungeon.js';
-import { drawItem, drawMore, drawPlayer, drawDaemon, drawParticles, padlockDoor } from './things.js';
+import { drawItem, drawMore, drawPlayer, drawDaemon, drawParticles, drawFocus, padlockDoor } from './things.js';
 import { drawLabels, drawBubbles, drawBanner, drawVeil } from './overlay.js';
 import { drawStairs } from './stairs.js';
 import { NIGHT, INK } from './palette.js';
@@ -42,6 +42,8 @@ function paintRoom(stage, t, now) {
   layout.items.forEach((item, i) => drawItem(ax, item, scene.biome, t, i));
   if (layout.moreItems) drawMore(ax, layout.moreItems, 'item');
   if (layout.exit) painter.exit(ax, layout.exit, scene, t);
+  const focus = state.focus === null ? null : findEntry(layout, state.focus);
+  if (focus) drawFocus(ax, focus, t);
   if (scene.daemon) paintDaemon(ax, state.daemon, t, now);
 }
 
@@ -66,6 +68,11 @@ function bannerAlpha(banner, now, reducedMotion) {
   return reducedMotion ? 1 : Math.max(0, Math.min(1, p / 0.15, (1 - p) / 0.2));
 }
 
+function ringed(state) {
+  const focus = state.focus === null ? null : findEntry(state.scene.layout, state.focus);
+  return [state.hover, focus?.path].filter(Boolean);
+}
+
 function paintScreen(stage, now) {
   const { g, view, state, ax } = stage;
   g.setTransform(1, 0, 0, 1, 0, 0);
@@ -75,7 +82,7 @@ function paintScreen(stage, now) {
   const shaking = !stage.reducedMotion && now < state.shakeUntil;
   const jitter = shaking ? Math.round((Math.random() * 2 - 1) * 2 * view.scale) : 0;
   g.drawImage(ax.canvas, view.ox + jitter, view.oy, ART.width * view.scale, ART.height * view.scale);
-  if (state.scene && !state.trip) drawLabels(g, view, state.scene.layout, state.hover);
+  if (state.scene && !state.trip) drawLabels(g, view, state.scene.layout, ringed(state));
   state.bubbles = state.bubbles.filter(b => b.until > now);
   if (state.banner && now - state.banner.start >= BANNER_MS) state.banner = null;
   const anchors = { player: { x: state.player.x, y: state.player.y - 28 }, daemon: { x: state.daemon.x + 12, y: state.daemon.y - 4 } };
