@@ -1,0 +1,1100 @@
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding-inline: var(--gutter);
+  padding-block: 18px 28px;
+  background: var(--wall);
+  color: var(--text);
+  font-family: var(--font-prose);
+  font-size: var(--size-body);
+  line-height: 1.55;
+  font-synthesis: none;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* The artifact host adds this rule too; the page keeps it so .overlay's display cannot undo hidden. */
+[hidden] {
+  display: none !important;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
+}
+
+/* Pixelify Sans: weight 500 keeps C apart from O and 2 apart from 8, and its fi
+   ligature looks like an A, so ligatures are off. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-title);
+  font-weight: 500;
+  font-variant-ligatures: none;
+  line-height: 1.2;
+  text-wrap: balance;
+  margin: 0;
+}
+
+code,
+kbd,
+pre {
+  font-family: var(--font-mono);
+}
+
+code {
+  font-size: 0.92em;
+  color: var(--accent);
+  background: var(--c-ink);
+  padding: 1px 5px;
+}
+
+kbd {
+  font-size: 0.86em;
+  padding: 0 6px;
+  background: var(--panel-2);
+  box-shadow: inset 0 0 0 2px var(--line), inset 0 -3px 0 0 var(--line);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.eyebrow {
+  font-family: var(--font-prose);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Notched pixel buttons, after Ring Zero's dungeon frame. */
+.px-btn {
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  padding: 9px 18px;
+  font-family: var(--font-prose);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  color: var(--text);
+  background: var(--line);
+  box-shadow: var(--notch), inset 0 -4px 0 0 rgba(0, 0, 0, 0.35), inset 0 4px 0 0 rgba(244, 240, 228, 0.12);
+}
+
+.px-btn:active:not(:disabled) {
+  box-shadow: var(--notch), inset 0 4px 0 0 rgba(0, 0, 0, 0.35);
+}
+
+.px-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.px-btn.primary {
+  color: var(--c-ink);
+  background: var(--accent);
+  box-shadow: var(--notch), inset 0 -4px 0 0 var(--accent-deep), inset 0 4px 0 0 var(--c-bone);
+}
+
+.px-btn.primary:active:not(:disabled) {
+  box-shadow: var(--notch), inset 0 4px 0 0 var(--accent-deep);
+}
+
+.px-btn.ghost {
+  color: var(--muted);
+  background: var(--panel);
+  box-shadow: var(--notch), inset 0 0 0 3px var(--line);
+}
+
+.px-btn.danger {
+  background: var(--panel);
+  box-shadow: var(--notch), inset 0 0 0 3px var(--danger);
+}
+
+.px-btn.small {
+  padding: 5px 12px;
+  font-size: 13px;
+}
+
+/* A blinking menu cursor in the button's left padding. */
+.px-btn:hover:not(:disabled)::before,
+.px-btn:focus-visible::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  margin-top: -5px;
+  border-left: 5px solid currentColor;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  animation: px-blink 0.8s steps(1) infinite;
+}
+
+.px-btn:focus-visible {
+  outline-offset: 7px;
+}
+
+@keyframes px-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* A window: a light 4px frame with notched corners, an ink outline round it and a hard
+   drop shadow. Set --frame on an element to recolour its frame. */
+.window {
+  background: var(--panel);
+  box-shadow:
+    0 -4px 0 0 var(--frame), 0 4px 0 0 var(--frame), -4px 0 0 0 var(--frame), 4px 0 0 0 var(--frame),
+    0 -8px 0 0 var(--c-ink), 0 8px 0 0 var(--c-ink), -8px 0 0 0 var(--c-ink), 8px 0 0 0 var(--c-ink),
+    -4px -4px 0 0 var(--c-ink), 4px -4px 0 0 var(--c-ink), -4px 4px 0 0 var(--c-ink), 4px 4px 0 0 var(--c-ink),
+    inset 0 0 0 4px var(--c-ink),
+    10px 10px 0 0 rgba(0, 0, 0, 0.45);
+}
+
+
+.app {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  grid-template-areas: "side term";
+  gap: 26px;
+}
+
+.side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  min-width: 0;
+}
+
+/* ---------- HUD ---------- */
+
+.hud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 22px;
+  padding: 12px 18px;
+}
+
+.brand {
+  font-size: 26px;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  text-shadow: 3px 3px 0 var(--c-rust), 5px 5px 0 var(--c-ink);
+}
+
+.chap {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.chap .name {
+  font-family: var(--font-title);
+  font-weight: 500;
+  font-size: 19px;
+}
+
+.xp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.xpbar {
+  flex: 1;
+  height: 12px;
+  min-width: 60px;
+  background: var(--c-ink);
+  box-shadow: 0 0 0 2px var(--muted), 0 0 0 4px var(--c-ink);
+  position: relative;
+  overflow: hidden;
+}
+
+.xpbar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: repeating-linear-gradient(90deg, var(--accent) 0 8px, var(--accent-deep) 8px 10px);
+  transition: width 0.6s steps(12);
+}
+
+.xptext {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.rank {
+  font-weight: 700;
+  color: var(--magic);
+  white-space: nowrap;
+}
+
+.hearts {
+  display: flex;
+  gap: 4px;
+  color: var(--danger);
+}
+
+.hearts svg.lost {
+  color: var(--c-stone);
+}
+
+.hud-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.shake {
+  animation: shake 0.35s;
+}
+
+@keyframes shake {
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
+
+
+.mapwrap {
+  grid-area: map;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  min-height: 26px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.crumbs button {
+  background: none;
+  border: 0;
+  padding: 1px 4px;
+  color: var(--term-path);
+  font-family: var(--font-mono);
+}
+
+.crumbs button:hover {
+  background: var(--panel-2);
+}
+
+.crumbs .area {
+  margin-left: auto;
+  font-family: var(--font-title);
+  font-size: 16px;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+
+.stage {
+  position: relative;
+  line-height: 0;
+  background: var(--c-ink);
+}
+
+.stage canvas {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  image-rendering: pixelated;
+}
+
+/* Over the floor, clear of the door labels along the wall. */
+.toast {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  max-width: 92%;
+  padding: 6px 12px;
+  background: var(--c-ink);
+  box-shadow: inset 0 0 0 3px var(--accent);
+  color: var(--accent);
+  font-family: var(--font-prose);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s steps(3);
+}
+
+.toast.on {
+  opacity: 1;
+}
+
+.picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.picklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.picks button {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: 13.5px;
+  letter-spacing: 0;
+}
+
+/* The sprite roster: what each picture on the map really is. */
+.roster summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.roster summary:hover {
+  color: var(--text);
+}
+
+.roster ul {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.roster li {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  background: var(--panel);
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+
+.roster canvas,
+.roster .glyph {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+}
+
+.roster b {
+  display: block;
+  font-size: 14px;
+}
+
+.roster span {
+  display: block;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+
+.panelwrap {
+  grid-area: panel;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.tabs {
+  display: flex;
+  padding: 4px 4px 0;
+  border-bottom: 4px solid var(--line);
+}
+
+.tabs button {
+  flex: 1;
+  background: none;
+  border: 0;
+  padding: 10px 6px;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.tabs button[aria-selected="true"] {
+  color: var(--text);
+  background: var(--panel-2);
+  box-shadow: inset 0 -4px 0 var(--accent);
+}
+
+.tabs button:focus-visible {
+  outline-offset: -4px;
+}
+
+.panel {
+  padding: 16px 18px 20px;
+}
+
+.panel h2 {
+  font-size: var(--size-h2);
+  color: var(--accent);
+  margin: 2px 0 10px;
+}
+
+.panel h3 {
+  font-size: var(--size-h3);
+  margin: 16px 0 8px;
+}
+
+.panel p {
+  margin: 0 0 10px;
+  max-width: 68ch;
+}
+
+.panel ul {
+  margin: 0 0 10px;
+  padding-left: 20px;
+}
+
+.panel .replay {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.lesson pre {
+  font-size: 14px;
+  background: var(--term-bg);
+  padding: 8px 10px;
+  margin: 0 0 10px;
+  overflow-x: auto;
+  line-height: 1.4;
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+
+.lesson .warn {
+  color: var(--warn-text);
+}
+
+/* The quest log: one framed row per task; the next one is gold, done ones are ticked. */
+.quest-log {
+  list-style: none;
+  padding: 0;
+  margin: 14px 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quest-log li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 9px 12px;
+  box-shadow: inset 0 0 0 3px var(--line);
+}
+
+.quest-log .num {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 3px var(--muted);
+}
+
+.quest-log li.next {
+  background: rgba(255, 211, 72, 0.05);
+  box-shadow: inset 0 0 0 3px var(--accent);
+}
+
+.quest-log li.next .num {
+  color: var(--accent);
+  box-shadow: inset 0 0 0 3px var(--accent);
+}
+
+.quest-log li.done {
+  color: var(--muted);
+}
+
+.quest-log li.done .num {
+  color: var(--c-ink);
+  background: var(--good);
+  box-shadow: none;
+}
+
+.quest-log li.done .goal {
+  text-decoration: line-through;
+  text-decoration-color: var(--c-slate);
+}
+
+.quest-log .goal {
+  padding-top: 2px;
+}
+
+.boss-brief {
+  padding: 12px 14px;
+  margin: 12px 0;
+  background:
+    linear-gradient(rgba(11, 10, 18, 0.8), rgba(11, 10, 18, 0.8)),
+    var(--brick) 0 0 / 48px 48px;
+  box-shadow: inset 0 0 0 3px var(--danger);
+}
+
+.boss-brief h3 {
+  margin-top: 0;
+  color: var(--danger);
+}
+
+.hintbox {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 6px;
+}
+
+.hints {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.hints li {
+  padding: 8px 12px;
+  background: var(--c-ink);
+  box-shadow: inset 4px 0 0 0 var(--accent);
+}
+
+.hints b {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.hints span {
+  font-size: 15px;
+}
+
+.cleared-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.spells {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.spell {
+  padding: 12px;
+  box-shadow: inset 0 0 0 3px var(--line);
+}
+
+.spell h3 {
+  margin: 0 0 4px;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--good);
+}
+
+.spell p {
+  margin: 0 0 8px;
+  font-size: 14.5px;
+}
+
+.spell .ex {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chip {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  padding: 4px 8px;
+  background: var(--term-bg);
+  box-shadow: inset 0 0 0 2px var(--line);
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  color: var(--accent);
+}
+
+.chip:hover {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.chip small {
+  display: block;
+  font-family: var(--font-prose);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.spell.locked {
+  opacity: 0.5;
+}
+
+.spell.locked h3 {
+  color: var(--muted);
+}
+
+.levels {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.levels button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  border: 0;
+  padding: 8px 12px;
+  background: none;
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+
+.levels button:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.levels button:disabled {
+  cursor: default;
+}
+
+.levels button.cur {
+  box-shadow: inset 0 0 0 3px var(--accent);
+}
+
+.levels .num {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.act {
+  margin: 10px 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.status {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 8px;
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--muted);
+}
+
+.status.playing {
+  color: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.status.cleared {
+  color: var(--good);
+  box-shadow: inset 0 0 0 2px var(--good);
+}
+
+.status.open {
+  color: var(--text);
+}
+
+.levels .soon .title,
+.levels .locked .title {
+  color: var(--muted);
+}
+
+
+.term {
+  grid-area: term;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 560px;
+  min-width: 0;
+  background: var(--term-bg);
+}
+
+.termbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 3px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.termbar i {
+  width: 10px;
+  height: 10px;
+  display: inline-block;
+  background: var(--danger);
+}
+
+.termbar i:nth-child(2) {
+  background: var(--accent);
+}
+
+.termbar i:nth-child(3) {
+  background: var(--good);
+}
+
+.termbar span {
+  margin-left: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-strip {
+  margin: 0;
+  padding: 7px 14px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text);
+  background: rgba(255, 211, 72, 0.06);
+  border-bottom: 3px solid var(--line);
+}
+
+.task-strip b {
+  color: var(--accent);
+}
+
+.screen {
+  flex: 1;
+  tab-size: 8;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 14px;
+  font-family: var(--font-mono);
+  font-size: var(--size-term);
+  line-height: 1.45;
+  cursor: text;
+  position: relative;
+}
+
+.ln {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--term-text);
+}
+
+.ln:empty::before {
+  content: "\200b";
+}
+
+.ln.err {
+  color: var(--term-err);
+}
+
+.ln.note {
+  color: var(--accent);
+  font-style: italic;
+}
+
+.ln.tone-daemon {
+  color: var(--magic);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.ln.sys {
+  color: var(--muted);
+}
+
+.ln.chapter {
+  color: var(--accent);
+  font-family: var(--font-title);
+  font-size: 16px;
+  margin: 6px 0;
+}
+
+.ln.hint {
+  color: var(--accent);
+}
+
+.pu {
+  color: var(--term-user);
+  font-weight: 600;
+}
+
+.pp {
+  color: var(--term-path);
+  font-weight: 600;
+}
+
+.c-dir {
+  color: var(--term-dir);
+  font-weight: 600;
+}
+
+.c-exe {
+  color: var(--term-exe);
+  font-weight: 600;
+}
+
+.g-file {
+  color: var(--term-file);
+}
+
+.g-num {
+  color: var(--term-exe);
+}
+
+.g-sep {
+  color: var(--term-sep);
+}
+
+.g-match {
+  color: var(--term-match);
+  font-weight: 700;
+}
+
+.inputline {
+  display: flex;
+  align-items: baseline;
+  white-space: pre;
+}
+
+.inputline input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  padding: 0;
+  color: var(--text);
+  font: inherit;
+  caret-color: var(--accent);
+}
+
+.keys {
+  display: none;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 12px;
+  border-top: 3px solid var(--line);
+}
+
+.keys button {
+  font-family: var(--font-mono);
+  min-width: 40px;
+}
+
+@media (pointer: coarse) {
+  .keys {
+    display: flex;
+  }
+}
+
+.callout {
+  position: relative;
+  margin-top: 16px;
+  max-width: 360px;
+  padding: 10px 14px;
+  background: var(--c-ink);
+  box-shadow: inset 0 0 0 3px var(--accent), 6px 6px 0 rgba(0, 0, 0, 0.5);
+  font-family: var(--font-prose);
+  font-size: 15px;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.callout::before {
+  content: "";
+  position: absolute;
+  left: 28px;
+  top: -12px;
+  border-bottom: 12px solid var(--accent);
+  border-right: 12px solid transparent;
+}
+
+/* Wide and tall enough: the page fits the window like an app. The left column scrolls on its own
+   and the terminal fills the height, so its input line is always in view. */
+@media (min-width: 901px) and (min-height: 600px) {
+  body {
+    overflow: hidden;
+  }
+
+  .app {
+    height: 100%;
+  }
+
+  .grid {
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* The padding keeps the windows' outer frames and shadows inside the scrolling box. */
+  .side {
+    overflow-y: auto;
+    padding: 10px 16px 18px 10px;
+    margin: -10px -16px -18px -10px;
+  }
+
+  .side > * {
+    flex-shrink: 0;
+  }
+
+  .term {
+    height: auto;
+  }
+}
+
+/* On a tall window the map also stays in view while the quest panel scrolls under it; on a
+   shorter one the panel needs the whole column to be readable. */
+@media (min-width: 901px) and (min-height: 960px) {
+  .mapwrap {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    margin-top: -10px;
+    padding: 10px 0 16px;
+    background: var(--wall);
+  }
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "map" "term" "panel" "roster";
+  }
+
+  .side {
+    display: contents;
+  }
+
+  .roster {
+    grid-area: roster;
+  }
+
+  .term {
+    height: 70vh;
+  }
+
+  .brand {
+    font-size: 22px;
+  }
+
+  /* In one column a full-width map would push the terminal off the screen. */
+  .mapwrap .stage {
+    width: min(100%, 620px);
+    align-self: center;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --size-term: 13.5px;
+  }
+
+  .hud {
+    gap: 8px 14px;
+    padding: 12px 14px;
+  }
+
+  .crumbs .area {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .panel {
+    padding: 14px 12px 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

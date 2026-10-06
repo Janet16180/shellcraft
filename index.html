@@ -1,0 +1,87 @@
+<title>Shellcraft</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&family=Pixelify+Sans:wght@500;700&display=swap">
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/game.css">
+<link rel="stylesheet" href="styles/cards.css">
+<link rel="stylesheet" href="styles/intro.css">
+
+<div class="app" id="app">
+  <header class="hud window">
+    <h1 class="brand">SHELLCRAFT</h1>
+    <div class="chap"><span class="eyebrow" id="chapNum">Chapter 1</span><span class="name" id="chapName">The Awakening</span></div>
+    <div class="xp">
+      <div class="xpbar" id="xpBar" role="progressbar" aria-label="Progress to the next rank" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="xpFill"></i></div>
+      <span class="xptext" id="xpText">0 XP</span>
+      <span class="rank" id="rank">Novice</span>
+    </div>
+    <div class="hearts" id="hearts" role="img" aria-label="3 of 3 hearts"></div>
+    <div class="hud-actions">
+      <button class="px-btn small ghost" id="introBtn" type="button">Replay intro</button>
+      <button class="px-btn small ghost" id="soundBtn" type="button" aria-pressed="false">Sound: off</button>
+    </div>
+  </header>
+
+  <main class="grid">
+    <div class="side">
+      <section class="mapwrap" aria-label="Map">
+        <nav class="crumbs" id="crumbs" aria-label="Where you are"></nav>
+        <div class="stage window">
+          <canvas id="map" width="640" height="400" role="img" aria-label="Map of the directory you are in"></canvas>
+          <div class="toast" id="toast" aria-hidden="true"></div>
+        </div>
+        <div class="picks"><span id="picksLabel">In this room:</span><div class="picklist" id="picks" role="group" aria-labelledby="picksLabel"></div></div>
+        <p class="sr-only" id="roomText" aria-live="polite"></p>
+      </section>
+
+      <section class="panelwrap window" aria-label="Quest, spellbook and chapters">
+        <div class="tabs" role="tablist">
+          <button type="button" role="tab" id="tabbtn-quest" aria-controls="tab-quest" aria-selected="true" data-tab="quest">Quest</button>
+          <button type="button" role="tab" id="tabbtn-spells" aria-controls="tab-spells" aria-selected="false" tabindex="-1" data-tab="spells">Spellbook</button>
+          <button type="button" role="tab" id="tabbtn-levels" aria-controls="tab-levels" aria-selected="false" tabindex="-1" data-tab="levels">Chapters</button>
+        </div>
+        <div class="panel" id="tab-quest" role="tabpanel" aria-labelledby="tabbtn-quest" tabindex="0"></div>
+        <div class="panel" id="tab-spells" role="tabpanel" aria-labelledby="tabbtn-spells" tabindex="0" hidden><div class="spells" id="spells"></div></div>
+        <div class="panel" id="tab-levels" role="tabpanel" aria-labelledby="tabbtn-levels" tabindex="0" hidden>
+          <div id="levels"></div>
+          <button class="px-btn danger small" id="resetBtn" type="button">Reset progress</button>
+        </div>
+      </section>
+
+      <details class="roster" id="roster">
+        <summary>Map key: what each picture really is</summary>
+        <ul id="rosterList"></ul>
+      </details>
+    </div>
+
+    <section class="term window" id="term" aria-label="Terminal">
+      <div class="termbar" aria-hidden="true"><i></i><i></i><i></i><span id="termTitle">hero@kernelia: ~</span></div>
+      <p class="task-strip" id="now"></p>
+      <div class="screen" id="screen">
+        <div id="out" role="log" aria-live="polite" aria-label="Terminal output"></div>
+        <div class="inputline"><span id="prompt"></span><input id="cmd" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Type a command and press Enter" aria-describedby="cmdHelp"></div>
+        <p class="sr-only" id="cmdHelp">Tab completes names. Press Escape, then Tab, to move out of the terminal.</p>
+      </div>
+      <div class="keys" id="keys" aria-label="Terminal keys">
+        <button class="px-btn small" type="button" data-k="Tab">Tab</button>
+        <button class="px-btn small" type="button" data-k="Up" aria-label="Previous command">&uarr;</button>
+        <button class="px-btn small" type="button" data-k="Down" aria-label="Next command">&darr;</button>
+        <button class="px-btn small" type="button" data-k="/">/</button>
+        <button class="px-btn small" type="button" data-k="~">~</button>
+        <button class="px-btn small" type="button" data-k="-">-</button>
+        <button class="px-btn small" type="button" data-k="|">|</button>
+        <button class="px-btn small" type="button" data-k="&gt;">&gt;</button>
+        <button class="px-btn small" type="button" data-k="C-c">Ctrl+C</button>
+        <button class="px-btn small primary" type="button" data-k="Enter">Enter</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="overlay" id="overlay" hidden><div class="card window" id="card" role="dialog" aria-modal="true" aria-labelledby="cardTitle"></div></div>
+<div class="overlay intro-overlay" id="introOverlay" hidden></div>
+<canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
+<div class="sr-only" id="announce" aria-live="polite"></div>
+
+<script type="module" src="src/main.js"></script>
