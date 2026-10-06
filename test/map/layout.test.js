@@ -152,6 +152,13 @@ test('a door label keeps its slash when the name is cut', () => {
   assert.equal(fitLabel('etc', 8, '/'), 'etc/');
 });
 
+test('a label is cut between characters, never inside one beyond the basic plane', () => {
+  const name = '\u{1F600}'.repeat(12);
+  const label = fitLabel(name, 6);
+  assert.equal(label, `${'\u{1F600}'.repeat(5)}\u2026`);
+  assert.equal(fitLabel('\u{1F600}'.repeat(3), 3), '\u{1F600}'.repeat(3));
+});
+
 test('a label with no room for one character and the ellipsis is a bug', () => {
   assert.throws(() => fitLabel('forest', 1), /room/);
 });
