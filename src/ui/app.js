@@ -61,12 +61,16 @@ function show(ui, view) {
   doc.getElementById('levels').innerHTML = chaptersHTML(view.chapters);
   renderCrumbs(doc, view.prompt);
   ui.terminal.setPrompt(view.prompt);
-  if (previous && previous.rank.title !== view.rank.title) toast(ui, `Rank up: you are now ${esc(view.rank.title)}`);
+  if (previous && view.rank.floor > previous.rank.floor) toast(ui, `Rank up: you are now ${esc(view.rank.title)}`);
 }
 
+// Through the queue, so an animation still waiting from an earlier line cannot draw over the new room.
 function showRoom(ui) {
-  ui.map.show(ui.session.observation());
-  roomSettled(ui);
+  const obs = ui.session.observation();
+  ui.mapQueue = ui.mapQueue.then(() => {
+    ui.map.show(obs);
+    roomSettled(ui);
+  });
 }
 
 // The map keeps its canvas labelled with the room in words; the live region repeats it aloud.
