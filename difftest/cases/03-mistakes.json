@@ -1,0 +1,4 @@
+[
+  { "name": "common typing mistakes", "world": "home", "lines": ["cd..", "ls-l", "ls-la", "LS", "Ls -l", "sl", "pwdd", "cls", "dir", "whoami now", "cd ..forest"] },
+  { "name": "quoting mistakes", "world": "home", "lines": ["cat 'readme.txt'", "cat \"readme.txt\"", "cat readme.txt\\ ", "ls forest/ library/"] }
+]

@@ -6,6 +6,7 @@ import { lookup, normalize, parentOf, baseName, joinPath, newDir, newFile, clone
 import { can, canChangeEntries, canUnlink, canChmod } from '../perms.js';
 import { parseOptions } from '../options.js';
 import { result, withNote, needInput } from '../result.js';
+import { shellQuote } from '../quote.js';
 
 const missing = name => `${name}: missing operand\nTry '${name} --help' for more information.`;
 const errResult = (out, errs) => result(out, errs.join('\n'), errs.length ? 1 : 0);
@@ -26,9 +27,9 @@ export function readSources(sys, name, files, stdin) {
   for (const f of files) {
     const node = f === '-' ? null : lookup(sys.root, normalize(f, sys.cwd));
     if (f === '-') out.push({ label: '(standard input)', content: stdin ?? '' });
-    else if (!node) errs.push(`${name}: ${f}: No such file or directory`);
-    else if (node.type === 'dir') errs.push(`${name}: ${f}: Is a directory`);
-    else if (!can(sys, node, 'r')) errs.push(`${name}: ${f}: Permission denied`);
+    else if (!node) errs.push(`${name}: ${shellQuote(f)}: No such file or directory`);
+    else if (node.type === 'dir') errs.push(`${name}: ${shellQuote(f)}: Is a directory`);
+    else if (!can(sys, node, 'r')) errs.push(`${name}: ${shellQuote(f)}: Permission denied`);
     else out.push({ label: f, content: node.content });
   }
   return { out, errs };

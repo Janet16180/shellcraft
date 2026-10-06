@@ -3,6 +3,7 @@
  */
 
 import { result } from '../result.js';
+import { localeQuote } from '../quote.js';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -45,7 +46,9 @@ function echo(args) {
 
 export default {
   pwd: (_args, { sys }) => result(`${sys.cwd}\n`),
-  whoami: (_args, { sys }) => result(`${sys.user}\n`),
+  whoami: (args, { sys }) => (args.length
+    ? result('', `whoami: extra operand ${localeQuote(args[0])}\nTry 'whoami --help' for more information.`, 1)
+    : result(`${sys.user}\n`)),
   id: (_args, { sys }) => result(`uid=1000(${sys.user}) gid=1000(${sys.user}) groups=1000(${sys.user})\n`),
   groups: (_args, { sys }) => result(`${sys.groups.join(' ')}\n`),
   hostname: (_args, { sys }) => result(`${sys.host}\n`),

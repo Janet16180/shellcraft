@@ -33,41 +33,6 @@ test('cd reports bash errors', async () => {
   assert.equal((await run(b, 'cd a b')).err, 'bash: cd: too many arguments\n');
 });
 
-test('ls lists visible names; -a adds dot entries and -A hidden ones only', async () => {
-  const b = await shell();
-  assert.equal((await run(b, 'ls -1')).out, 'forest\nreadme.txt\n');
-  assert.equal((await run(b, 'ls -1a')).out, '.\n..\n.secret_map\nforest\nreadme.txt\n');
-  assert.equal((await run(b, 'ls -1A')).out, '.secret_map\nforest\nreadme.txt\n');
-});
-
-test('ls -l shows mode, links, owner, group, size and time', async () => {
-  const r = await run(await shell(), 'ls -l');
-  assert.equal(r.out, 'total 8\ndrwxr-xr-x  3 hero hero 4096 Oct  6 10:00 forest\n-rw-r--r--  1 hero hero   26 Oct  6 10:00 readme.txt\n');
-});
-
-test('ls -F marks directories and executables; -r reverses; -d lists the directory itself', async () => {
-  const b = await shell();
-  assert.equal((await run(b, 'ls -1F')).out, 'forest/\nreadme.txt\n');
-  assert.equal((await run(b, 'ls -1r')).out, 'readme.txt\nforest\n');
-  assert.equal((await run(b, 'ls -d forest')).out, 'forest\n');
-});
-
-test('ls of several targets heads each directory and reports missing ones', async () => {
-  const r = await run(await shell(), 'ls readme.txt forest nope');
-  assert.equal(r.err, "ls: cannot access 'nope': No such file or directory\n");
-  assert.equal(r.status, 2);
-  assert.match(r.out, /^readme\.txt\n\nforest:\n/);
-});
-
-test('ls of an unreadable directory is refused', async () => {
-  assert.equal((await run(await shell(), 'ls /root')).err, "ls: cannot open directory '/root': Permission denied\n");
-});
-
-test('ls output carries coloured markup for directories', async () => {
-  const r = await (await shell()).run('ls');
-  assert.match(r.output[0].html, /<span class="c-dir">forest<\/span>/);
-});
-
 test('nameHTML colours directories and executables and escapes names', () => {
   assert.equal(nameHTML('a<b', { type: 'file', mode: 0o644 }, false), 'a&lt;b');
   assert.equal(nameHTML('run', { type: 'file', mode: 0o755 }, true), '<span class="c-exe">run</span>*');

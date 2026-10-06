@@ -1,15 +1,15 @@
 /**
- * Moving around and looking: cd, ls, tree.
+ * Moving around and looking: cd and tree (ls has its own module).
  */
 
-import { lookup, normalize, parentOf, sizeOf } from '../fs.js';
+import { lookup, normalize } from '../fs.js';
 import { compareNames } from '../collate.js';
 import { can } from '../perms.js';
 import { parseOptions } from '../options.js';
 import { result, withNote } from '../result.js';
 import { esc, span } from '../html.js';
-import { MONTHS } from './info.js';
-import { setVar } from '../vars.js';
+import { setVar, varValue } from '../vars.js';
+import { resolve, errorText } from '../paths.js';
 
 const isExe = node => node.type === 'file' && (node.mode & 0o111) !== 0;
 const indicator = node => {
@@ -34,104 +34,24 @@ export function nameHTML(name, node, classify) {
 
 function cd(args, { sys }) {
   if (args.length > 1) return result('', 'bash: cd: too many arguments', 1);
-  let target = args[0] ?? sys.home;
-  const back = target === '-';
-  if (back && !sys.oldpwd) return result('', 'bash: cd: OLDPWD not set', 1);
-  if (back) target = sys.oldpwd;
-  const p = normalize(target, sys.cwd);
-  const node = lookup(sys.root, p);
-  let r = result(back ? `${p}\n` : '');
-  if (!node) r = result('', `bash: cd: ${args[0]}: No such file or directory`, 1);
-  else if (node.type !== 'dir') r = result('', `bash: cd: ${args[0]}: Not a directory`, 1);
-  else if (!can(sys, node, 'x')) r = result('', `bash: cd: ${args[0]}: Permission denied`, 1);
+  const back = args[0] === '-';
+  const home = varValue(sys, 'HOME');
+  if (!args.length && !home) return result('', 'bash: cd: HOME not set', 1);
+  if (back && !varValue(sys, 'OLDPWD')) return result('', 'bash: cd: OLDPWD not set', 1);
+  let target = args[0] ?? home;
+  if (back) target = varValue(sys, 'OLDPWD');
+  const r = target === '' ? resolve(sys, '.') : resolve(sys, target);
+  let res = result(back ? `${r.abs}\n` : '');
+  if (r.error) res = result('', `bash: cd: ${target}: ${errorText(r.error)}`, 1);
+  else if (r.node.type !== 'dir') res = result('', `bash: cd: ${target}: Not a directory`, 1);
+  else if (!can(sys, r.node, 'x')) res = result('', `bash: cd: ${target}: Permission denied`, 1);
   else {
     sys.oldpwd = sys.cwd;
-    sys.cwd = p;
+    sys.cwd = r.abs;
     setVar(sys, 'OLDPWD', sys.oldpwd, true);
-    setVar(sys, 'PWD', p, true);
+    setVar(sys, 'PWD', r.abs, true);
   }
-  return r;
-}
-
-function formatTime(ms) {
-  const d = new Date(ms);
-  const hm = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
-  return `${MONTHS[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2)} ${hm}`;
-}
-
-function modeString(node) {
-  let s = node.type === 'dir' ? 'd' : '-';
-  for (let i = 0; i < 9; i++) s += node.mode & (1 << (8 - i)) ? 'rwxrwxrwx'[i] : '-';
-  return s;
-}
-
-const humanSize = size => (size < 1024 ? String(size) : `${(size / 1024).toFixed(1)}K`);
-const linkCount = node => (node.type === 'dir' ? 2 + Object.values(node.children).filter(c => c.type === 'dir').length : 1);
-
-function formatShort(ents, { classify, oneColumn }) {
-  const sep = oneColumn ? '\n' : '  ';
-  return {
-    text: ents.map(e => e.name + (classify ? indicator(e.node) : '')).join(sep),
-    html: ents.map(e => nameHTML(e.name, e.node, classify)).join(sep),
-  };
-}
-
-function formatLong(ents, { classify, human }) {
-  const sizes = ents.map(e => (human ? humanSize(sizeOf(e.node)) : String(sizeOf(e.node))));
-  const width = Math.max(1, ...sizes.map(s => s.length));
-  const rows = ents.map((e, i) => {
-    const n = e.node;
-    const pre = `${modeString(n)} ${String(linkCount(n)).padStart(2)} ${n.owner} ${n.group} ${sizes[i].padStart(width)} ${formatTime(n.mtime)} `;
-    return { text: pre + e.name + (classify ? indicator(n) : ''), html: esc(pre) + nameHTML(e.name, n, classify) };
-  });
-  return { text: rows.map(r => r.text).join('\n'), html: rows.map(r => r.html).join('\n') };
-}
-
-function formatEntries(ents, opts) {
-  const ordered = opts.reverse ? [...ents].reverse() : ents;
-  return opts.long ? formatLong(ordered, opts) : formatShort(ordered, opts);
-}
-
-function listDirectory(d, opts, many) {
-  const names = Object.keys(d.node.children).filter(nm => opts.all || opts.almost || nm[0] !== '.').sort(compareNames);
-  const ents = names.map(nm => ({ name: nm, node: d.node.children[nm] }));
-  if (opts.all) ents.unshift({ name: '.', node: d.node }, { name: '..', node: d.parent });
-  const body = formatEntries(ents, opts);
-  const head = many ? `${d.typed}:\n` : '';
-  const total = opts.long ? `total ${ents.length * 4}${opts.human ? 'K' : ''}\n` : '';
-  return { text: head + total + body.text, html: esc(head + total) + body.html };
-}
-
-function lsOptions(flags, piped) {
-  return {
-    all: flags.has('a'), almost: flags.has('A'), long: flags.has('l'), classify: flags.has('F'),
-    human: flags.has('h'), reverse: flags.has('r'), oneColumn: flags.has('1') || piped, dirsAsFiles: flags.has('d'),
-  };
-}
-
-function ls(args, { sys, piped }) {
-  const o = parseOptions('ls', args, 'alAh1rFd');
-  if (o.err) return result('', o.err, 2);
-  const opts = lsOptions(o.flags, piped);
-  const targets = o.rest.length ? o.rest : ['.'];
-  const files = [];
-  const dirs = [];
-  const errs = [];
-  for (const t of targets) {
-    const p = normalize(t, sys.cwd);
-    const node = lookup(sys.root, p);
-    if (!node) errs.push(`ls: cannot access '${t}': No such file or directory`);
-    else if (node.type !== 'dir' || opts.dirsAsFiles) files.push({ name: t, node });
-    else if (!can(sys, node, 'r')) errs.push(`ls: cannot open directory '${t}': Permission denied`);
-    else dirs.push({ typed: t, node, parent: lookup(sys.root, parentOf(p)) });
-  }
-  const sections = [];
-  if (files.length) sections.push(formatEntries(files, opts));
-  for (const d of dirs) sections.push(listDirectory(d, opts, targets.length > 1));
-  const shown = sections.filter(s => s.text);
-  const text = shown.map(s => s.text).join('\n\n');
-  const html = text ? `${shown.map(s => s.html).join('\n\n')}\n` : null;
-  return result(text ? `${text}\n` : '', errs.join('\n'), errs.length ? 2 : 0, html);
+  return res;
 }
 
 function treeWalk(node, prefix, level, opts, acc) {
@@ -167,4 +87,4 @@ function tree(args, { sys }) {
   return withNote(r, 'tree is not always installed by default. On Ubuntu: sudo apt install tree');
 }
 
-export default { cd, ls, tree };
+export default { cd, tree };
