@@ -180,7 +180,7 @@ test('the exact boss hint is the line that beats the boss', async () => {
   }
 });
 
-const NOT_COMMANDS = new Set(['hero@kernelia:~$', '~', 'LS', 'readme.txt', '--help', '/home/hero']);
+const NOT_COMMANDS = new Set(['hero@kernelia:~$', '~', '$', '#', 'LS', 'readme.txt', '--help', '/home/hero']);
 
 test('every command the chapter shows runs in the simulator', async () => {
   const lines = [
@@ -196,7 +196,9 @@ test('every command the chapter shows runs in the simulator', async () => {
 
 test('the lesson points back to the intro for the prompt, and tells a player who skipped it how to replay it', () => {
   assert.match(chapter.lesson, /Replay intro/);
-  assert.doesNotMatch(chapter.lesson, /administrator|class="anat"/);
+  assert.match(chapter.lesson, /<code>\$<\/code> means you are a normal user/);
+  assert.match(chapter.lesson, /root, the administrator, gets <code>#<\/code>/);
+  assert.doesNotMatch(chapter.lesson, /class="anat"/);
 });
 
 test('the lesson shows LS as a command that does not exist', async () => {
