@@ -258,6 +258,17 @@ test('typing quest lists the tasks with their state', async () => {
   assert.equal(turn.result.output[0].text, 'The Awakening (chapter 1 of 3)\n[x] Print where you are\n[ ] Read the letter');
 });
 
+test('the terminal notes drop the backticks that mark typed names, the view keeps them', async () => {
+  const chapters = fixtureChapters();
+  chapters[0].tasks[0] = { ...chapters[0].tasks[0], goal: 'Print where you are with `pwd`', hints: ['Try `pwd`.', 'Use `pwd`.', 'pwd'] };
+  const { session } = await booted({ chapters });
+  assert.equal((await session.submit('hint')).result.output[0].text, 'Hint 1 of 3: Try pwd.\nType hint again for hint 2 (costs 3 XP).');
+  assert.match((await session.submit('quest')).result.output[0].text, /^\[ \] Print where you are with pwd$/m);
+  const task = session.view().chapter.tasks[0];
+  assert.equal(task.goal, 'Print where you are with `pwd`');
+  assert.equal(task.hints[0].text, 'Try `pwd`.');
+});
+
 test('typing quest in the boss room names the boss', async () => {
   const { session } = await booted();
   await reachBoss(session);
