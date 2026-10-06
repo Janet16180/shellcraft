@@ -284,8 +284,9 @@ test('typing quest in the boss room names the boss', async () => {
 
 const coachNotes = turn => turn.result.output.filter(c => c.tone === 'coach');
 
-test('a near miss on a task adds one coach note after the line output, without backticks', async () => {
+test('a near miss on the current task adds one coach note after the line output, without backticks', async () => {
   const { session } = await booted();
+  await session.submit('pwd');
   const turn = await session.submit('cat letter');
   assert.deepEqual(turn.result.output.at(-1), { stream: 'note', tone: 'coach', text: 'The letter is letter.txt.' });
   assert.equal(coachNotes(turn).length, 1);
@@ -299,14 +300,17 @@ test('a line that completes a task gets no near note', async () => {
   assert.ok(!coachNotes(turn).some(c => c.text === 'The letter is letter.txt.'));
 });
 
-test('near notes are asked of unfinished tasks in order and only the first one shows', async () => {
+test('only the current task is asked for a near note, never a later unfinished one', async () => {
   const chapters = fixtureChapters();
-  chapters[0].tasks[0].near = () => 'zero';
+  let zero = 'zero';
+  chapters[0].tasks[0].near = () => zero;
   chapters[0].tasks[1].near = () => 'one';
   const { session } = await booted({ chapters });
-  assert.deepEqual(coachNotes(await session.submit('ls')).map(c => c.text), ['zero']);
+  assert.deepEqual(coachNotes(await session.submit('echo hi')).map(c => c.text), ['zero']);
+  zero = null;
+  assert.deepEqual(coachNotes(await session.submit('echo hi')), []);
   await session.submit('pwd');
-  assert.deepEqual(coachNotes(await session.submit('ls')).map(c => c.text), ['one']);
+  assert.deepEqual(coachNotes(await session.submit('echo hi')).map(c => c.text), ['one']);
 });
 
 test('a common mistake gets a coach note when no near note applies', async () => {
@@ -317,6 +321,7 @@ test('a common mistake gets a coach note when no near note applies', async () =>
 
 test('a near note wins over the coach note for the same line', async () => {
   const { session } = await booted();
+  await session.submit('pwd');
   assert.deepEqual(coachNotes(await session.submit('cat letter')).map(c => c.text), ['The letter is letter.txt.']);
 });
 

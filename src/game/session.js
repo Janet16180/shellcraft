@@ -154,7 +154,7 @@ function nearNote(s, ctx) {
   const chapter = current(s);
   let note = null;
   if (s.phase === 'quest') {
-    for (const task of chapter.tasks.filter((_, i) => !s.tasksDone[i])) note ??= task.near?.(ctx) ?? null;
+    note = chapter.tasks[s.tasksDone.indexOf(false)].near?.(ctx) ?? null;
   } else if (s.phase === 'boss') {
     note = chapter.boss.near?.(ctx, s.secret) ?? null;
   }
