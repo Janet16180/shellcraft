@@ -194,8 +194,8 @@ test('every command the chapter shows runs in the simulator', async () => {
   for (const line of lines) assert.equal(notFound((await type(backend, line)).result), false, line);
 });
 
-test('the lesson points back to the intro for the prompt instead of explaining it again', () => {
-  assert.match(chapter.lesson, /intro/);
+test('the lesson points back to the intro for the prompt, and tells a player who skipped it how to replay it', () => {
+  assert.match(chapter.lesson, /Replay intro/);
   assert.doesNotMatch(chapter.lesson, /administrator|class="anat"/);
 });
 

@@ -12,7 +12,7 @@ Man pages from the Ubuntu 24.04 host.
 
 | Claim | Evidence |
 |---|---|
-| The prompt reads `hero@kernelia:~$` (the lesson now points back to the intro for it) | R3/R5: `hero@kernelia:~$`; `/etc/skel/.bashrc` line 62: `PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '` |
+| The prompt reads `hero@kernelia:~$` and names you, the machine and the directory (the lesson points back to the intro, and to its Replay intro button for players who skipped it: `index.html` `#introBtn`) | R3/R5: `hero@kernelia:~$`; `/etc/skel/.bashrc` line 62: `PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '` |
 | (removed from the lesson in round 2; the intro explains it) `hero` is the user name, `kernelia` the machine | `bash(1)` PROMPTING: `\u the username of the current user`, `\h the hostname up to the first '.'` |
 | `~` in the prompt is short for the home, `/home/hero` | `bash(1)`: `\w the value of the PWD shell variable ($PWD), with $HOME abbreviated with a tilde`; R3: `hero@kernelia:~/forest$` |
 | (removed from the lesson in round 2; the intro explains it) `$` means a normal user, root gets `#` | `bash(1)`: `\$ if the effective UID is 0, a #, otherwise a $`; R5: `root@kernelia:/#` |

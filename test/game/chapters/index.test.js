@@ -38,10 +38,9 @@ function proseOf(chapter) {
   ];
 }
 
-test('every task has a tip of one sentence (assertChapter checks its length)', () => {
+test('every tip is one sentence (assertChapter checks that it exists and its length)', () => {
   for (const chapter of chapters.filter(c => !c.soon)) {
     for (const task of chapter.tasks) {
-      assert.ok(typeof task.tip === 'string', `${chapter.id}: ${task.goal}`);
       assert.match(task.tip, /[.!?]$/, `${chapter.id}: a sentence ends the tip: ${task.tip}`);
       assert.doesNotMatch(task.tip, /[.!?]\s+[A-Z`]/, `${chapter.id}: one sentence only: ${task.tip}`);
     }
