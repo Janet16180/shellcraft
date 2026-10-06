@@ -20,10 +20,18 @@ export const V1_SAVE_KEY = 'shellcraft-save-v1';
 /** Shellcraft 1 stored the chapter as an index into this order. */
 const V1_IDS = ['awakening', 'forest', 'unseen', 'camp', 'junkyard', 'library', 'tower', 'market', 'gate', 'daemon'];
 
-const freshSave = () => ({ chapter: null, cleared: [], xp: 0, sound: false, introSeen: false });
 const isRecord = x => typeof x === 'object' && x !== null && !Array.isArray(x);
 const isCount = x => Number.isInteger(x) && x >= 0;
 const isV1Index = x => Number.isInteger(x) && x >= 0 && x < V1_IDS.length;
+
+/**
+ * Progress for a new player.
+ *
+ * @returns {Save} No chapter chosen, nothing cleared, no XP, sound off, intro not seen.
+ */
+export function freshSave() {
+  return { chapter: null, cleared: [], xp: 0, sound: false, introSeen: false };
+}
 
 function parseJSON(text) {
   let data;

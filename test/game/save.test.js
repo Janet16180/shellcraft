@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SAVE_KEY, V1_SAVE_KEY, parseSave, serializeSave } from '../../src/game/save.js';
+import { SAVE_KEY, V1_SAVE_KEY, freshSave, parseSave, serializeSave } from '../../src/game/save.js';
 
 const FRESH = { chapter: null, cleared: [], xp: 0, sound: false, introSeen: false };
 const v2 = fields => JSON.stringify({ version: 2, chapter: 'forest', cleared: ['awakening'], xp: 40, sound: true, introSeen: true, ...fields });
@@ -8,6 +8,11 @@ const v2 = fields => JSON.stringify({ version: 2, chapter: 'forest', cleared: ['
 test('the saves live under the v2 key, with the v1 key kept for migration', () => {
   assert.equal(SAVE_KEY, 'shellcraft-save-v2');
   assert.equal(V1_SAVE_KEY, 'shellcraft-save-v1');
+});
+
+test('a fresh save has no progress, sound off and the intro unseen', () => {
+  assert.deepEqual(freshSave(), FRESH);
+  assert.notEqual(freshSave(), freshSave());
 });
 
 test('with nothing stored the player starts fresh', () => {
