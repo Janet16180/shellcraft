@@ -27,7 +27,7 @@ const RIDDLES = {
   clear: 'wipes the screen',
 };
 
-// GNU coreutils answer --help with status 0; the pwd builtin exits 2 and clear rejects it.
+// GNU coreutils answer --help with status 0; bash builtins print help but exit 2, and clear rejects it.
 const HAS_HELP = ['whoami', 'ls', 'cat'];
 
 const flatten = text => text.replace(/\s+/g, ' ');
@@ -157,7 +157,7 @@ export default {
         'Add `--help` after the command name: two dashes, then help.',
         'ls --help',
       ],
-      done: ctx => ctx.commands.some(record => record.status === 0 && record.args.includes('--help')),
+      done: ctx => ctx.commands.some(record => record.args.includes('--help') && record.stdout !== ''),
     },
     {
       goal: 'Wipe the screen clean',
