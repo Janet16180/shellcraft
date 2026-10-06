@@ -6,7 +6,8 @@
 import { put, remove, cd, dir, file } from '../../backend/spec.js';
 import { restore } from '../world.js';
 import { LETTERS } from './awakening.js';
-import { pick, token, isInside, directoriesUnder } from './kit.js';
+import { pick, token } from '../rng.js';
+import { isInside, directoriesUnder } from './kit.js';
 
 const DROPS = ['/var/log', '/var/log/apt', '/tmp', '/etc'];
 const SPOTS = ['', '/clearing', '/river', '/cave', '/cave/deep'];
