@@ -17,7 +17,11 @@ export const TOON = {
   d: '#c9a26b', k: '#8a6a44', o: '#ff7a3d', g: '#9be15d', l: '#e8ffd0', G: '#8d93a8', c: '#cfd8ff',
 };
 
+/** Palettes by the name a sprite gives in its `pal` field. */
 export const PALETTES = { ink: INK, toon: TOON };
+
+/** The Shadow Daemon: its body, its eyes (and its flash), its ghostly highlight. */
+export const DAEMON = { body: '#3b1d5c', eye: '#ff3355', glow: '#e8d7ff' };
 
 /** Gem colours by the word in the file name: body, highlight, shadow. */
 export const GEMS = {

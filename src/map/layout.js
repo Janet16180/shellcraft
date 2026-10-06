@@ -5,6 +5,7 @@
  * fits shows a "+N" marker in the last slot.
  */
 
+/** Size of the picture in art pixels. */
 export const ART = { width: 320, height: 200 };
 
 const MARGIN = 12;

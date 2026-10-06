@@ -4,7 +4,7 @@
  */
 
 import { BIOMES } from './biomes.js';
-import { INK } from './palette.js';
+import { INK, NIGHT, TOON } from './palette.js';
 import { ART } from './layout.js';
 import { box } from './paint.js';
 
@@ -115,7 +115,7 @@ function gate(ctx, t, open) {
   const lift = open ? 38 : 0;
   for (let bx = x + 4; bx < x + w; bx += 10) box(ctx, '#8b8f99', bx, 8, 3, 44 - lift);
   for (let by = 14; by < 52 - lift; by += 10) box(ctx, '#8b8f99', x, by, w, 2);
-  for (let i = 0; i < 5; i++) box(ctx, open ? '#ffd36b' : '#6b707a', x + 12 + i * 18, 4, 6, 2);
+  for (let i = 0; i < 5; i++) box(ctx, open ? TOON.y : '#6b707a', x + 12 + i * 18, 4, 6, 2);
 }
 
 function drips(ctx, t) {
@@ -168,7 +168,7 @@ export function door(ctx, { x, y, w, h, hidden }, { biome }) {
   box(ctx, look.trim, x - 2, y - 2, w + 4, h + 2);
   box(ctx, look.door, x, y, w, h);
   for (let px = x + 5; px < x + w; px += 6) box(ctx, 'rgba(0, 0, 0, 0.35)', px, y + 2, 1, h - 2);
-  box(ctx, '#ffd36b', x + w - 5, y + 18, 2, 2);
+  box(ctx, TOON.y, x + w - 5, y + 18, 2, 2);
   ctx.globalAlpha = 1;
 }
 
@@ -182,7 +182,7 @@ export function door(ctx, { x, y, w, h, hidden }, { biome }) {
  */
 export function exit(ctx, { x, y, w, h }, { biome, path, home }) {
   const toDungeon = path === home;
-  box(ctx, toDungeon ? INK.k : '#0a0818', x, y, w, h);
+  box(ctx, toDungeon ? INK.k : NIGHT, x, y, w, h);
   if (toDungeon) box(ctx, 'rgba(240, 138, 42, 0.35)', x + 4, y + h - 4, w - 8, 4);
   for (let i = 0; i < 4; i++) box(ctx, toDungeon ? [INK.l, INK.s, INK.d, INK.n][i] : BIOMES[biome].trim, x + 2 + i * 2, y + 2 + i * 3, w - 4 - i * 4, 2);
 }
