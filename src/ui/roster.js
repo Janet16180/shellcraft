@@ -5,7 +5,7 @@
  */
 
 import { esc } from './output.js';
-import { parentOf } from '../map/paths.js';
+import { parentOf } from '../backend/tree.js';
 
 /**
  * The pictures the vertical slice shows, with the plain truth behind each one.

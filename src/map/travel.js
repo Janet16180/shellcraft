@@ -4,7 +4,7 @@
  */
 
 import { biomeFor } from './biomes.js';
-import { parentOf } from './paths.js';
+import { parentOf } from '../backend/tree.js';
 
 const REALM_CHANGE = { 'overworld>dungeon': 'descend', 'dungeon>overworld': 'climb' };
 
