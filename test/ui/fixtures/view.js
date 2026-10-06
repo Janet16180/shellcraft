@@ -29,6 +29,7 @@ export function sampleView(over = {}) {
     sound: false,
     introSeen: true,
     hint: { level: 2, cost: 3 },
+    hintLevels: 3,
     chapters: [
       { id: 'awakening', number: 1, act: 1, title: 'The Awakening', status: 'playing', current: true },
       { id: 'forest', number: 2, act: 1, title: 'The Whispering Forest', status: 'locked', current: false },
