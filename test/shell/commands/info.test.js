@@ -59,3 +59,10 @@ test('whoami takes no operands', async () => {
   const r = await run(await shell(), 'whoami now');
   assert.deepEqual([r.err, r.status], ["whoami: extra operand ‘now’\nTry 'whoami --help' for more information.\n", 1]);
 });
+
+test('echo -e reads every bash escape and stops at \\c', async () => {
+  const b = await shell();
+  assert.equal((await run(b, "echo -e 'a\\x41\\0102\\\\b'")).out, 'aAB\\b\n');
+  assert.equal((await run(b, "echo -e 'stop\\cnever'")).out, 'stop');
+  assert.equal((await run(b, "echo -E 'a\\nb'")).out, 'a\\nb\n');
+});

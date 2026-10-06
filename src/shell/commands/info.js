@@ -48,18 +48,38 @@ function id(args, { sys }) {
   return result(`${text}\n`);
 }
 
+const ECHO_ESCAPES = { a: '\u0007', b: '\b', e: '\u001b', E: '\u001b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\' };
+
+/**
+ * Interpret the backslash escapes of `echo -e`. Text after `\c` is dropped.
+ *
+ * @param {string} text The joined arguments.
+ * @returns {{text: string, stop: boolean}} The text, and whether `\c` cut it short.
+ */
+export function echoEscapes(text) {
+  const stop = text.search(/\\c/);
+  const kept = stop < 0 ? text : text.slice(0, stop);
+  const decoded = kept.replace(/\\(0[0-7]{0,3}|x[0-9A-Fa-f]{1,2}|.)/g, (m, e) => {
+    if (e[0] === '0') return String.fromCharCode(parseInt(e.slice(1) || '0', 8));
+    if (e[0] === 'x' && e.length > 1) return String.fromCharCode(parseInt(e.slice(1), 16));
+    return ECHO_ESCAPES[e] ?? m;
+  });
+  return { text: decoded, stop: stop >= 0 };
+}
+
 function echo(args) {
   let newline = true;
   let escapes = false;
   let i = 0;
   while (i < args.length && /^-[neE]+$/.test(args[i])) {
-    if (args[i].includes('n')) newline = false;
-    if (args[i].includes('e')) escapes = true;
+    for (const flag of args[i].slice(1)) {
+      if (flag === 'n') newline = false;
+      else escapes = flag === 'e';
+    }
     i++;
   }
-  let text = args.slice(i).join(' ');
-  if (escapes) text = text.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
-  return result(text + (newline ? '\n' : ''));
+  const decoded = escapes ? echoEscapes(args.slice(i).join(' ')) : { text: args.slice(i).join(' '), stop: false };
+  return result(decoded.text + (newline && !decoded.stop ? '\n' : ''));
 }
 
 export default {

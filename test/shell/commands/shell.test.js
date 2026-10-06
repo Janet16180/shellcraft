@@ -85,3 +85,11 @@ test('history skips lines that start with a space and repeated lines, like Ubunt
   const r = await runAll(await shell(), ['pwd', 'pwd', ' echo secret', 'ls', 'history']);
   assert.equal(r.out, '    1  pwd\n    2  ls\n    3  history\n');
 });
+
+test('export alone lists the environment as declare -x lines; unset removes a variable', async () => {
+  const b = await shell();
+  await run(b, 'export SPELL=\'say "hi"\'');
+  assert.match((await run(b, 'export')).out, /^declare -x SPELL="say \\"hi\\""$/m);
+  await run(b, 'unset SPELL');
+  assert.equal((await run(b, 'echo "[$SPELL]"')).out, '[]\n');
+});
