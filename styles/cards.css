@@ -74,7 +74,7 @@
   margin-top: 24px;
 }
 
-.title-logo {
+.card .title-logo {
   font-family: var(--font-title);
   font-weight: 500;
   font-variant-ligatures: none;
@@ -91,7 +91,7 @@
 }
 
 .press {
-  margin-top: 18px;
+  margin-top: 28px;
   color: var(--muted);
   font-size: 14px;
 }
