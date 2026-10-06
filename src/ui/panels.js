@@ -34,7 +34,7 @@ function revealedHints({ phase, tasks, boss }) {
 }
 
 function hintsHTML(hint, hints) {
-  const revealed = hints.map((text, i) => `<li><b>${esc(hintTitle(i + 1))}</b><span>${esc(text)}</span></li>`).join('');
+  const revealed = hints.map(({ level, text }) => `<li><b>${esc(hintTitle(level))}</b><span>${esc(text)}</span></li>`).join('');
   return `<div class="hintbox">
     ${revealed ? `<ul class="hints" aria-label="Hints">${revealed}</ul>` : ''}
     <button class="px-btn small" id="hintBtn" type="button"${hint ? '' : ' disabled'}>${esc(hintLabel(hint))}</button>

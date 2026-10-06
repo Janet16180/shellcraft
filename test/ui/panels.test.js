@@ -35,7 +35,7 @@ test('revealed hints stay listed under their level', () => {
 
 test('in the boss room the revealed hints are the boss hints', () => {
   const view = withPhase('boss');
-  view.chapter.boss.hints = ['Look for a name nobody would type.', 'Use ls.'];
+  view.chapter.boss.hints = [{ level: 1, text: 'Look for a name nobody would type.', cost: 0 }, { level: 2, text: 'Use ls.', cost: 3 }];
   const html = questHTML(view);
   assert.match(html, /<b>A nudge<\/b><span>Look for a name nobody would type\.<\/span>.*<b>The technique<\/b><span>Use ls\.<\/span>/s);
   assert.doesNotMatch(html, /Which command prints/);

@@ -18,7 +18,7 @@ export function sampleView(over = {}) {
       replay: false,
       tasks: [
         { goal: 'Ask the terminal who you are', done: true, next: false, hints: [] },
-        { goal: 'Find out where you are standing', done: false, next: true, hints: ['Which command prints the working directory?'] },
+        { goal: 'Find out where you are standing', done: false, next: true, hints: [{ level: 1, text: 'Which command prints the working directory?', cost: 0 }] },
         { goal: 'Read the <letter> left for you', done: false, next: false, hints: [] },
       ],
       boss: { title: 'The Lost Name', briefing: '<p>Find the file whose name the daemon hid.</p>', hints: [] },

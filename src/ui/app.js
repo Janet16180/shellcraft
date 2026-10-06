@@ -8,7 +8,6 @@ import { createTerminal } from './terminal.js';
 import { renderHUD } from './hud.js';
 import { questHTML, spellsHTML, chaptersHTML } from './panels.js';
 import { titleCardHTML, bossCardHTML, debriefHTML, openCard, closeCard } from './cards.js';
-import { hintLabel, hintTitle, typedHintFollowUp } from './hints.js';
 import { commandForPath, commandForPick } from './picks.js';
 import { esc } from './output.js';
 import { confetti } from './confetti.js';
@@ -16,6 +15,7 @@ import { bootText, restoredText } from './messages.js';
 import { createSound } from './sound.js';
 import { renderRoster } from './roster.js';
 import { playIntro } from '../intro/player.js';
+import { biomeFor } from '../map/map.js';
 
 const TABS = ['quest', 'spells', 'levels'];
 const TOAST_MS = 2600;
@@ -27,14 +27,13 @@ const TOAST_MS = 2600;
  * @param {Document} deps.doc The page.
  * @param {object} deps.session A session from createSession (DESIGN.md section 2.2).
  * @param {Function} deps.createMap The map renderer (DESIGN.md section 2.4).
- * @param {(obs: object) => string} deps.describeRoom The map's text alternative.
  * @param {() => object} deps.createIntroBackend A fresh backend for the intro to run its lines on.
  * @returns {Promise<void>} Resolves once the title screen is up.
  */
-export async function startApp({ doc, session, createMap, describeRoom, createIntroBackend }) {
+export async function startApp({ doc, session, createMap, createIntroBackend }) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const sound = createSound();
-  const ui = { doc, session, sound, reducedMotion, view: null, mapQueue: Promise.resolve(), hintPending: false, toastTimer: 0 };
+  const ui = { doc, session, sound, reducedMotion, view: null, mapQueue: Promise.resolve(), toastTimer: 0 };
   ui.terminal = createTerminal({
     root: doc.getElementById('term'),
     onSubmit: line => runLine(ui, line),
@@ -42,12 +41,11 @@ export async function startApp({ doc, session, createMap, describeRoom, createIn
     onKey: () => sound.play('key'),
   });
   ui.map = createMap(doc.getElementById('map'), { reducedMotion, onPick: pick => ui.terminal.insert(commandForPick(pick)) });
-  ui.describeRoom = describeRoom;
   ui.intro = () => playIntro({ doc, createMap, createBackend: createIntroBackend, reducedMotion, sound, onDone: line => finishIntro(ui, line) });
   renderRoster(doc.getElementById('rosterList'));
   wireControls(ui);
   show(ui, await session.boot());
-  await showRoom(ui, await session.observe());
+  showRoom(ui);
   showTitle(ui);
 }
 
@@ -65,24 +63,26 @@ function show(ui, view) {
   if (previous && previous.rank.title !== view.rank.title) toast(ui, `Rank up: you are now ${view.rank.title}`);
 }
 
-async function showRoom(ui, obs) {
-  ui.map.show(obs);
-  announceRoom(ui, obs);
+function showRoom(ui) {
+  ui.map.show(ui.session.observation());
+  announceRoom(ui);
 }
 
-function announceRoom(ui, obs) {
+// The map keeps its canvas labelled with the room in words; the live region repeats it aloud.
+function announceRoom(ui) {
   const room = ui.doc.getElementById('roomText');
-  const text = ui.describeRoom(obs);
+  const text = ui.doc.getElementById('map').getAttribute('aria-label');
   if (room.textContent !== text) room.textContent = text;
 }
 
-function renderCrumbs(doc, { cwd }) {
+function renderCrumbs(doc, { cwd, home }) {
   const parts = cwd.split('/').filter(Boolean);
   const buttons = parts.map((part, i) => {
     const path = `/${parts.slice(0, i + 1).join('/')}`;
     return `<button type="button" data-cd="${esc(path)}">${esc(part)}</button>`;
   });
-  doc.getElementById('crumbs').innerHTML = `<button type="button" data-cd="/" aria-label="the root directory, /">/</button>${buttons.join('/')}`;
+  const area = `<span class="area">${esc(biomeFor(cwd, home).name)}</span>`;
+  doc.getElementById('crumbs').innerHTML = `<button type="button" data-cd="/" aria-label="the root directory, /">/</button>${buttons.join('/')}${area}`;
 }
 
 function toast(ui, text) {
@@ -109,44 +109,20 @@ function chapterBanner(ui) {
 
 async function runLine(ui, line) {
   ui.doc.querySelector('.callout')?.remove();
-  const typed = line.trim();
-  if (typed === 'hint') {
-    typedHint(ui);
-    return;
-  }
-  ui.hintPending = false;
-  if (!typed) return;
-  const turn = await ui.session.submit(line);
-  applyTurn(ui, turn);
-}
-
-function typedHint(ui) {
-  const next = ui.view.hint;
-  const paid = next && next.cost > 0;
-  if (paid && !ui.hintPending) {
-    ui.terminal.printLine(`${hintLabel(next)}. Type hint again to reveal it.`, 'hint');
-    ui.hintPending = true;
-    return;
-  }
-  const hint = revealHint(ui);
-  if (hint) ui.terminal.printLine(`${hintTitle(hint.level)}: ${hint.text}`, 'hint');
-  ui.terminal.printLine(hint ? typedHintFollowUp(ui.view.hint) : 'There are no more hints for this step.', 'sys');
-  ui.hintPending = Boolean(ui.view.hint);
+  if (!line.trim()) return;
+  applyTurn(ui, await ui.session.submit(line));
 }
 
 function revealHint(ui) {
-  const hint = ui.session.hint();
-  if (hint) ui.sound.play('hint');
+  if (ui.session.hint()) ui.sound.play('hint');
   show(ui, ui.session.view());
-  return hint;
 }
 
 function applyTurn(ui, turn) {
   ui.terminal.print(turn.result.output);
   if (turn.result.output.some(chunk => chunk.stream === 'err')) ui.sound.play('err');
   if (turn.effects.some(e => e.kind === 'travel')) ui.sound.play('step');
-  ui.mapQueue = ui.mapQueue.then(() => ui.map.play(turn.effects, turn.obs));
-  announceRoom(ui, turn.obs);
+  ui.mapQueue = ui.mapQueue.then(() => ui.map.play(turn.effects, turn.obs)).then(() => announceRoom(ui));
   show(ui, turn.view);
   for (const event of turn.events) onEvent(ui, event, turn.events);
 }
@@ -220,7 +196,7 @@ function openDebrief(ui) {
 async function startChapter(ui, id, fresh) {
   closeCard(ui.doc);
   show(ui, await ui.session.startChapter(id, { fresh }));
-  await showRoom(ui, await ui.session.observe());
+  showRoom(ui);
   ui.terminal.clear();
   chapterBanner(ui);
   showTab(ui.doc, 'quest');
@@ -235,7 +211,7 @@ function showTitle(ui) {
   const fresh = card.querySelector('#newBtn');
   if (fresh) fresh.onclick = async () => {
     show(ui, await ui.session.reset());
-    await showRoom(ui, await ui.session.observe());
+    showRoom(ui);
     begin(ui);
   };
 }
@@ -327,7 +303,7 @@ function wireReset(ui) {
     button.textContent = armed ? 'Click again to erase all progress' : 'Reset progress';
     if (armed) return;
     show(ui, await ui.session.reset());
-    await showRoom(ui, await ui.session.observe());
+    showRoom(ui);
     ui.terminal.clear();
     chapterBanner(ui);
     showTab(ui.doc, 'quest');

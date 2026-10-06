@@ -37,17 +37,3 @@ export function hintTitle(level) {
   const name = levelName(level);
   return name[0].toUpperCase() + name.slice(1);
 }
-
-/**
- * The line printed after a hint typed in the terminal, so the next cost is
- * known before the player types hint again.
- *
- * @param {{level: number, cost: number} | null} next The next hint, or null.
- * @returns {string} One sentence.
- * @throws {Error} On a level outside 1 to 3.
- */
-export function typedHintFollowUp(next) {
-  if (!next) return 'That was the last hint for this step.';
-  const cost = next.cost ? `costs ${next.cost} XP` : 'free';
-  return `Type hint again for ${levelName(next.level)} (${cost}).`;
-}

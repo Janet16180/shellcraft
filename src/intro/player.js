@@ -8,6 +8,7 @@ import { STEPS, WORLD, PROMPT_PIECES } from './steps.js';
 import { linesBefore, anatomyHTML, partsHTML, keysHTML, nextLabel } from './frames.js';
 import { chunkLine, esc, promptHTML } from '../ui/output.js';
 import { keepFocusIn } from '../ui/focus.js';
+import { worldEffects } from '../game/effects.js';
 
 const TYPE_MS = 75;
 const PAUSE_MS = 300;
@@ -40,10 +41,6 @@ const sleep = ms => new Promise(resolve => { setTimeout(resolve, ms); });
 
 function promptOf(obs) {
   return promptHTML({ user: obs.user, host: obs.host, cwd: obs.cwd, home: obs.home });
-}
-
-function travelEffects(before, after) {
-  return before.cwd === after.cwd ? [] : [{ kind: 'travel', from: before.cwd, to: after.cwd }];
 }
 
 function outputHTML(output) {
@@ -125,7 +122,7 @@ async function runStep(it, step, backend, before, live) {
   scrollScreen(it);
   if (before.cwd !== after.cwd) it.sound.play('step');
   if (step.scroll) showScroll(it, result.output.map(c => c.text).join(''));
-  await it.map.play(travelEffects(before, after), after);
+  await it.map.play(worldEffects(before, after), after);
   if (live() && step.say) it.map.say(step.say, 'player');
 }
 

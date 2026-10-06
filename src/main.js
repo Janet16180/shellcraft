@@ -7,7 +7,7 @@ import { createSimBackend } from './shell/backend.js';
 import { createSession } from './game/session.js';
 import chapters from './game/chapters/index.js';
 import { baseWorld } from './game/world.js';
-import { createMap, describeRoom } from './map/index.js';
+import { createMap } from './map/map.js';
 import { createStore } from './ui/store.js';
 import { startApp } from './ui/app.js';
 
@@ -19,4 +19,4 @@ const session = createSession({
   random: Math.random,
 });
 
-startApp({ doc: document, session, createMap, describeRoom, createIntroBackend: createSimBackend });
+startApp({ doc: document, session, createMap, createIntroBackend: createSimBackend });
