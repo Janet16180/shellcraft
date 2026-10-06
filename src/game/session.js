@@ -26,10 +26,8 @@ import { makeContext } from './checks.js';
 import { coachNote } from './coach.js';
 import { lineEffects, worldEffects } from './effects.js';
 import { dangers } from './dangers.js';
-import { XP, MAX_HEARTS, payout, nextHint, rankFor, loseHeart, chapterStatuses, canStart, resumeChapter } from './progress.js';
+import { XP, MAX_HEARTS, HINT_LEVELS, payout, nextHint, rankFor, loseHeart, chapterStatuses, canStart, resumeChapter } from './progress.js';
 import { SAVE_KEY, V1_SAVE_KEY, freshSave, parseSave, serializeSave } from './save.js';
-
-const HINT_LEVELS = 3;
 
 /**
  * Create a session.
@@ -396,6 +394,7 @@ function view(s) {
   return {
     chapter: chapterView(s),
     hint: target ? nextHint(target.base, target.used, s.replay) : null,
+    hintLevels: HINT_LEVELS,
     xp: s.save.xp,
     rank: rankFor(s.save.xp),
     hearts: { left: s.hearts, max: MAX_HEARTS },
