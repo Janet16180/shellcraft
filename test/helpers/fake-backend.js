@@ -8,7 +8,8 @@
  * `loads` and `lines` record what the game asked for, for assertions.
  */
 import { dir, file } from '../../src/backend/spec.js';
-import { nodeAt, resolvePath } from '../../src/game/checks.js';
+import { nodeAt } from '../../src/backend/tree.js';
+import { resolvePath } from '../../src/game/checks.js';
 
 const SHELL_PID = 733;
 
