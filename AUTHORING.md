@@ -99,6 +99,9 @@ panel highlights the first unfinished one.
 6. **Flavour is a skin over facts.** Story text is fact-checked like lessons. The real names stay
    visible (a door labelled `forest/` is the directory `forest`).
 7. Plain English, short sentences, second person, no emojis.
+8. In task goals, hints 1 and 2, spell notes and recap/field meanings, wrap every name the player
+   might type in backticks (`` `cd ..` ``). The page renders them in the mono font; the terminal strips
+   them, because in bash backticks run a command. Level-3 hints and `solve` lines never use backticks.
 
 ## 4. Chapter tests (`test/game/chapters/<id>.test.js`)
 
