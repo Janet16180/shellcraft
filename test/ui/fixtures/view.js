@@ -17,9 +17,9 @@ export function sampleView(over = {}) {
       lesson: '<p>You wake up inside a terminal. Type <code>whoami</code>.</p>',
       replay: false,
       tasks: [
-        { goal: 'Ask the terminal who you are', done: true, next: false, hints: [] },
-        { goal: 'Find out where you are standing', done: false, next: true, hints: [{ level: 1, text: 'Which command prints the working directory?', cost: 0 }] },
-        { goal: 'Read the <letter> left for you', done: false, next: false, hints: [] },
+        { goal: 'Ask the terminal who you are', tip: '`whoami` prints your user name.', done: true, next: false, hints: [] },
+        { goal: 'Find out where you are standing', tip: '`pwd` prints the full path of the directory you are in.', done: false, next: true, hints: [{ level: 1, text: 'Which command prints the working directory?', cost: 0 }] },
+        { goal: 'Read the <letter> left for you', tip: null, done: false, next: false, hints: [] },
       ],
       boss: { title: 'The Lost Name', briefing: '<p>Find the file whose name the daemon hid.</p>', hints: [] },
     },
@@ -30,10 +30,10 @@ export function sampleView(over = {}) {
     introSeen: true,
     hint: { level: 2, cost: 3 },
     chapters: [
-      { id: 'awakening', number: 1, act: 1, title: 'The Awakening', status: 'playing' },
-      { id: 'forest', number: 2, act: 1, title: 'The Whispering Forest', status: 'locked' },
-      { id: 'unseen', number: 3, act: 1, title: 'Things Unseen', status: 'soon' },
-      { id: 'descent', number: 10, act: 2, title: 'The Descent', status: 'soon' },
+      { id: 'awakening', number: 1, act: 1, title: 'The Awakening', status: 'playing', current: true },
+      { id: 'forest', number: 2, act: 1, title: 'The Whispering Forest', status: 'locked', current: false },
+      { id: 'unseen', number: 3, act: 1, title: 'Things Unseen', status: 'soon', current: false },
+      { id: 'descent', number: 10, act: 2, title: 'The Descent', status: 'soon', current: false },
     ],
     spellbook: [
       { name: 'pwd', summary: 'Print the working directory.', examples: [['pwd', 'prints /home/hero']], unlocked: true },

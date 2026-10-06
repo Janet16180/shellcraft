@@ -8,7 +8,7 @@ import { sizeOf } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
 import { compareNames } from '../collate.js';
 import { can } from '../perms.js';
-import { parseOptions } from '../options.js';
+import { parseOptions, mapLongOptions } from '../options.js';
 import { layoutColumns } from '../columns.js';
 import { shellQuote, needsQuoting } from '../quote.js';
 import { exportedVars } from '../vars.js';
@@ -20,7 +20,6 @@ const SHORT = 'aAlh1rFdCtS';
 const LONG = { '--all': 'a', '--almost-all': 'A', '--human-readable': 'h', '--classify': 'F', '--directory': 'd', '--reverse': 'r' };
 const SIX_MONTHS_MS = (31556952 / 2) * 1000;
 const UNITS = ['K', 'M', 'G', 'T'];
-const usage = name => `Try '${name} --help' for more information.`;
 
 const isExe = node => node.type === 'file' && (node.mode & 0o111) !== 0;
 const blocksOf = node => (node.dev ? 0 : node.type === 'dir' ? 4 : Math.ceil(sizeOf(node) / 4096) * 4);
@@ -146,9 +145,8 @@ function listDirectory(d, opts, ctx, header) {
 }
 
 function parseLs(name, args, tty) {
-  const unknown = args.find(a => a.startsWith('--') && a !== '--' && !(a in LONG) && !a.startsWith('--color'));
-  const mapped = args.filter(a => !a.startsWith('--color')).map(a => (a in LONG ? `-${LONG[a]}` : a));
-  const o = unknown ? { err: `${name}: unrecognized option '${unknown}'\n${usage(name)}` } : parseOptions(name, mapped, SHORT);
+  const long = mapLongOptions(name, args, LONG);
+  const o = long.err ? { err: long.err } : parseOptions(name, long.args, SHORT);
   if (o.err) return { error: o.err };
   const f = o.flags;
   let format = tty || name === 'dir' || f.has('C') ? 'columns' : 'single';

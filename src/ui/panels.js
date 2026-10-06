@@ -97,18 +97,18 @@ export function spellsHTML(spells) {
   return spells.map(spellHTML).join('');
 }
 
-function chapterRow({ id, number, title, status }) {
-  const playing = status === 'playing';
+function chapterRow({ id, number, title, status, current }) {
   const closed = status === 'locked' || status === 'soon';
-  const cls = playing ? 'cur' : status;
-  const attrs = `${playing ? ' aria-current="true"' : ''}${closed ? ' disabled' : ''}`;
+  const cls = current ? 'cur' : status;
+  const attrs = `${current ? ' aria-current="true"' : ''}${closed ? ' disabled' : ''}`;
   return `<li><button type="button" data-ch="${esc(id)}" class="${cls}"${attrs}><span class="num">${String(number).padStart(2, '0')}</span><span class="title">${esc(title)}</span><span class="status ${status}">${STATUS_TEXT[status]}</span></button></li>`;
 }
 
 /**
- * The Chapters panel, grouped by act. Locked and unwritten chapters are disabled.
+ * The Chapters panel, grouped by act. Locked and unwritten chapters are
+ * disabled; the one you are in is marked as current.
  *
- * @param {{id: string, number: number, act: number, title: string, status: string}[]} chapters From the View.
+ * @param {{id: string, number: number, act: number, title: string, status: string, current: boolean}[]} chapters From the View.
  * @returns {string} HTML.
  */
 export function chaptersHTML(chapters) {
@@ -120,16 +120,20 @@ export function chaptersHTML(chapters) {
 }
 
 /**
- * The one line over the terminal that says what to do now, so the goal stays
- * in sight while the quest panel is scrolled away (or below, on a phone).
+ * The strip over the terminal that says what to do now, with the task's tip,
+ * so the goal and what it needs stay in sight while the quest panel is
+ * scrolled away (or below, on a phone).
  *
- * @param {{phase: string, tasks: {goal: string, next: boolean}[], boss: {title: string}}} chapter From the View.
+ * @param {{phase: string, tasks: {goal: string, tip: string|null, next: boolean}[], boss: {title: string}}} chapter From the View.
  * @returns {string} HTML.
  */
 export function nowHTML({ phase, tasks, boss }) {
   const index = tasks.findIndex(task => task.next);
   let html = '<b>Chapter cleared.</b> Explore freely, or pick a chapter in the Chapters tab.';
   if (phase === 'boss') html = `<b>Boss room:</b> ${esc(boss.title)}`;
-  else if (phase === 'quest') html = `<b>Next task ${index + 1} of ${tasks.length}:</b> ${inlineCode(tasks[index].goal)}`;
+  else if (phase === 'quest') {
+    const { goal, tip } = tasks[index];
+    html = `<b>Next task ${index + 1} of ${tasks.length}:</b> ${inlineCode(goal)}${tip ? `<span class="tip">${inlineCode(tip)}</span>` : ''}`;
+  }
   return html;
 }

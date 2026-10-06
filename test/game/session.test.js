@@ -148,8 +148,15 @@ test('solving the boss clears the chapter, pays the boss and the bonus, and open
   ]);
   assert.equal(turn.view.chapter.phase, 'done');
   assert.equal(turn.view.xp, 70);
-  assert.deepEqual(turn.view.chapters.map(c => c.status), ['playing', 'open', 'soon']);
+  assert.deepEqual(turn.view.chapters.map(c => [c.status, c.current]), [['cleared', true], ['open', false], ['soon', false]]);
   assert.deepEqual(saved(store), { version: 2, chapter: 'forest', cleared: ['awakening'], xp: 70, sound: false, introSeen: false });
+});
+
+test('a cleared chapter can be started again while it is the current one', async () => {
+  const { session } = await booted();
+  await clearAwakening(session);
+  const view = await session.startChapter('awakening');
+  assert.deepEqual([view.chapter.phase, view.chapter.replay, view.chapters[0].status], ['quest', true, 'cleared']);
 });
 
 test('replaying a cleared chapter pays nothing', async () => {
@@ -275,6 +282,66 @@ test('typing quest in the boss room names the boss', async () => {
   assert.match((await session.submit('quest')).result.output[0].text, /Boss: The Sign/);
 });
 
+const coachNotes = turn => turn.result.output.filter(c => c.tone === 'coach');
+
+test('a near miss on the current task adds one coach note after the line output, without backticks', async () => {
+  const { session } = await booted();
+  await session.submit('pwd');
+  const turn = await session.submit('cat letter');
+  assert.deepEqual(turn.result.output.at(-1), { stream: 'note', tone: 'coach', text: 'The letter is letter.txt.' });
+  assert.equal(coachNotes(turn).length, 1);
+  assert.equal(turn.result.output[0].stream, 'err');
+});
+
+test('a line that completes a task gets no near note', async () => {
+  const { session } = await booted();
+  const turn = await session.submit('pwd; cat letter');
+  assert.deepEqual(kinds(turn.events), ['task']);
+  assert.ok(!coachNotes(turn).some(c => c.text === 'The letter is letter.txt.'));
+});
+
+test('only the current task is asked for a near note, never a later unfinished one', async () => {
+  const chapters = fixtureChapters();
+  let zero = 'zero';
+  chapters[0].tasks[0].near = () => zero;
+  chapters[0].tasks[1].near = () => 'one';
+  const { session } = await booted({ chapters });
+  assert.deepEqual(coachNotes(await session.submit('echo hi')).map(c => c.text), ['zero']);
+  zero = null;
+  assert.deepEqual(coachNotes(await session.submit('echo hi')), []);
+  await session.submit('pwd');
+  assert.deepEqual(coachNotes(await session.submit('echo hi')).map(c => c.text), ['one']);
+});
+
+test('a common mistake gets a coach note when no near note applies', async () => {
+  const { session } = await booted();
+  const turn = await session.submit('cdforest');
+  assert.deepEqual(coachNotes(turn), [{ stream: 'note', tone: 'coach', text: 'Put a space between the command and its argument: cd forest' }]);
+});
+
+test('a near note wins over the coach note for the same line', async () => {
+  const { session } = await booted();
+  await session.submit('pwd');
+  assert.deepEqual(coachNotes(await session.submit('cat letter')).map(c => c.text), ['The letter is letter.txt.']);
+});
+
+test('a correct line gets no coach note', async () => {
+  const { session } = await booted();
+  assert.deepEqual(coachNotes(await session.submit('cd forest')), []);
+});
+
+test('in the boss room the boss near note gets the secret, and it is never asked during the quest', async () => {
+  const chapters = fixtureChapters();
+  chapters[0].boss.near = (_ctx, secret) => `not yet: ${secret.name}`;
+  chapters[0].tasks[1].near = () => null;
+  const { session } = await booted({ chapters });
+  assert.deepEqual(coachNotes(await session.submit('ls')), []);
+  const turn = await reachBoss(session);
+  assert.deepEqual(coachNotes(turn), []);
+  const name = turn.obs.tree.children.home.children.hero.children['sign.txt'].content.trim().split(' ')[1];
+  assert.deepEqual(coachNotes(await session.submit('ls')).map(c => c.text), [`not yet: ${name}`]);
+});
+
 test('a refusal by the guard costs a heart', async () => {
   const { session } = await booted();
   const turn = await session.submit('rm -r ~');
@@ -358,16 +425,17 @@ test('chapter-defined effects are added to the line effects', async () => {
 test('the view lists every chapter with its status and the spellbook with what is unlocked', async () => {
   const { view } = await booted();
   assert.deepEqual(view.chapters, [
-    { id: 'awakening', number: 1, act: 1, title: 'The Awakening', status: 'playing' },
-    { id: 'forest', number: 2, act: 1, title: 'The Whispering Forest', status: 'locked' },
-    { id: 'unseen', number: 3, act: 1, title: 'Things Unseen', status: 'soon' },
+    { id: 'awakening', number: 1, act: 1, title: 'The Awakening', status: 'playing', current: true },
+    { id: 'forest', number: 2, act: 1, title: 'The Whispering Forest', status: 'locked', current: false },
+    { id: 'unseen', number: 3, act: 1, title: 'Things Unseen', status: 'soon', current: false },
   ]);
   assert.deepEqual(view.spellbook.map(s => [s.name, s.chapter, s.unlocked]), [['pwd', 'awakening', true], ['cd', 'forest', false]]);
   assert.equal(view.spellbook[0].summary, 'Print the working directory.');
 });
 
-test('the view carries the lesson, the boss and the rank', async () => {
+test('the view carries the lesson, the task tips, the boss and the rank', async () => {
   const { view } = await booted();
+  assert.deepEqual(view.chapter.tasks.map(t => t.tip), ['pwd prints the directory you are in.', null]);
   assert.equal(view.chapter.lesson, '<p>Look around.</p>');
   assert.deepEqual(view.chapter.boss, { title: 'The Sign', briefing: '<p>Do what the sign says.</p>', hints: [] });
   assert.deepEqual(view.rank, { title: 'Novice', floor: 0, next: 150 });
