@@ -57,7 +57,7 @@ Man pages from the Ubuntu 24.04 host.
 | Claim | Evidence |
 |---|---|
 | why: the prompt tells you who you are, where you are, and on which machine | `bash(1)` `\u`, `\h`, `\w` |
-| why: the manual lives on the machine itself; minimal systems like Docker images leave the pages out | `/usr/share/man` on the host; D: `man` in `ubuntu:24.04` prints "This system has been minimized by removing packages and content that are not required on a system that users do not log into" |
+| why: the manual lives on the machine itself; minimal systems like many Docker images leave the pages out (was "like Docker images": not all of them do) | `/usr/share/man` on the host; D: `man` in `ubuntu:24.04` prints "This system has been minimized by removing packages and content that are not required on a system that users do not log into". Factcheck 2026-10-06: `ubuntu:24.04` and `quay.io/pypa/manylinux2014_x86_64` have no `/usr/share/man/man1` pages, but `mysql:latest` ships 155 of them, so "many", not all |
 | spell: cat is short for concatenate; `cat -n` numbers lines | `cat(1)`: "concatenate files", `-n, --number number all output lines` |
 | field: `hostname` prints the machine name, the part of the prompt after the @ | `hostname(1)`: "show or set the system's host name"; `bash(1)` `\h` |
 | field: `man -k WORD` searches the manual pages' short descriptions | `man(1)` `-k, --apropos`: "Search the short manual page descriptions for keywords" |
