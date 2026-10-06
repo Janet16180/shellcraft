@@ -11,27 +11,21 @@ Read this first when resuming, then `docs/DESIGN.md` and `AUTHORING.md`.
 - The original artifact: https://claude.ai/artifact/M4J2FKo8Q5pDtJQ9Y3Y2dz (do not republish it
   until the user approves the new version; previews go to a separate private artifact).
 
-## In flight (teammates; each works in `.scratch/wt/<name>` on branch `slice/<name>`)
+## In flight: slice round 2 (2026-10-06)
 
-Merged into main so far (2026-10-06): shell M1 (simulator behind the port), engine (session,
-rules, test helpers, Tab helper, `why`), art (overworld + dungeon map, motion, roster sprites,
-keyboard picks, intro focus), author (base world, chapters 1-2 with boss rooms, verification
-logs). 465 tests pass; lint 0 errors.
+The slice is complete on main and plays end to end (lead's own Chrome runs at 1400 and 360 px).
+Reviews done: fact-check (merged; simulator findings to shell), teaching review
+(docs/reviews/teaching-slice.md). Round 2 from those reviews, contracts at df81ccf:
 
-| Name | Now | Waiting for |
-|---|---|---|
-| shell | M2: difftest harness, ls columns, quoting, the fixes; FIRST the 2-line commit: observe() returns `groups`, -bash has key 'shell' (the browser cannot boot without groups) | - |
-| engine | integration tests on real content: save/reload, zero hearts, replay, every hint | - |
-| author | forest lesson: bridge Linux's "up" with the map's dungeon below home | - |
-| art | layout bug: items under the hero's rest spot with two rows of doors (crowded-360) | - |
-| ui | page, terminal, intro, main.js, scripts/serve.js | the groups commit to boot for real |
+| Name | Round 2 |
+|---|---|
+| engine | near notes + task tips in session/View, src/game/coach.js (typo notes from records, ported from the simulator), cleared chapter not shown as playing |
+| author | dead ends (forest task 6, trapdoor relative path + flame.txt + hint 3), near notes, a tip per task, deeper/back-out wording, trim chapter 1 lesson |
+| shell | fact-check wrong answers (option errors, --version, man -k, who), deterministic difftest instead of the silent retry; LAST: drop teaching notes once coach is on main |
+| ui | tip in the task strip, coach note style, title wording, map key wording, intro matches the game + Tab animation, toasts after cards, visible rank-up |
+| review | read-only code review against the user's principles -> docs/reviews/code-slice.md |
 
-Decisions taken by the lead along the way (all in DESIGN/AUTHORING): Observation.groups; the
-player's shell has key 'shell'; store = getItem/setItem; setup(random, { home, user });
-baseWorld injected into the session; `kind` on effects and events; one heart per line; boss
-hints may be functions of the secret; ctx.completions (lost in a real-terminal mode, only
-forest's Tab task); required `why`; a tab in a solve line means pressing Tab; the forest lesson
-bridges "cd .. goes up" with the map's dungeon below home.
+Then: browser QA (worktree .scratch/wt/qa ready), the lead's replay, a private preview artifact.
 
 ## After the slice
 
