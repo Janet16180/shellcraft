@@ -5,7 +5,7 @@
 import { lookup, normalize, baseName, joinDisp, splitLines, byteLength } from '../fs.js';
 import { compareNames } from '../collate.js';
 import { can } from '../perms.js';
-import { globRe } from '../glob.js';
+import { compileGlob } from '../glob.js';
 import { parseOptions } from '../options.js';
 import { result, withNote, needInput } from '../result.js';
 import { esc, span } from '../html.js';
@@ -177,7 +177,7 @@ function findArgs(args) {
     const t = args[i++];
     const v = args[i++];
     if ((t === '-name' || t === '-iname') && v !== undefined) {
-      const re = globRe(v, t === '-iname');
+      const re = compileGlob(v, { ignoreCase: t === '-iname' });
       tests.push(e => re.test(e.name));
     } else if (t === '-type' && (v === 'f' || v === 'd')) tests.push(e => e.node.type === (v === 'd' ? 'dir' : 'file'));
     else if (t === '-type' && v !== undefined) error = `find: Unknown argument to -type: ${v}`;

@@ -92,6 +92,59 @@ test('clear writes the clear-screen sequence tagged with tone clear', async () =
 });
 
 test('syntax errors print the bash message and set status 2', async () => {
-  const r = await run(await shell(), 'ls |');
+  const r = await run(await shell(), 'ls >');
   assert.deepEqual([r.err, r.status], ["bash: syntax error near unexpected token `newline'\n", 2]);
+});
+
+test('a line that ends where bash would ask for more fails with a note about the > prompt', async () => {
+  const b = await shell();
+  for (const line of ['ls |', "echo 'open"]) {
+    const r = await run(b, line);
+    assert.equal(r.status, 2);
+    assert.match(r.note, /wait for the rest of the command/);
+  }
+});
+
+test('variables expand when each command runs, after the commands before it', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'cd forest; echo $PWD')).out, '/home/hero/forest\n');
+  assert.equal((await run(b, 'false; echo $?')).out, '1\n');
+  assert.equal((await run(b, 'X=1; echo $X')).out, '1\n');
+});
+
+test('> creates the file before the command runs, so ls sees it', async () => {
+  const b = await shell();
+  await run(b, 'ls > list.txt');
+  assert.equal((await run(b, 'cat list.txt')).out, 'forest\nlist.txt\nreadme.txt\n');
+});
+
+test('2> sends errors to a file and 2>&1 joins them to the output', async () => {
+  const b = await shell();
+  const quiet = await run(b, 'ls nope 2> err.txt');
+  assert.deepEqual([quiet.err, quiet.status], ['', 2]);
+  assert.equal((await run(b, 'cat err.txt')).out, "ls: cannot access 'nope': No such file or directory\n");
+  assert.equal((await run(b, 'ls nope 2>&1 | wc -l')).out, '1\n');
+  assert.equal((await run(b, 'ls nope 2>/dev/null; echo $?')).out, '2\n');
+});
+
+test('command substitution runs the inner line and inserts its output', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'echo "I am $(whoami) in $(pwd)"')).out, 'I am hero in /home/hero\n');
+});
+
+test('an assignment before a command applies to that command only', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'SPELL=fire printenv SPELL')).out, 'fire\n');
+  assert.equal((await run(b, 'echo "[$SPELL]"')).out, '[]\n');
+});
+
+test('errors inside a script name the script and line', async () => {
+  const b = await shell([put('/home/hero/s.sh', file('echo start\nnosuchcmd\n', { owner: 'hero', mode: 0o755 }))]);
+  const r = await run(b, './s.sh');
+  assert.deepEqual([r.out, r.err, r.status], ['start\n', './s.sh: line 2: nosuchcmd: command not found\n', 127]);
+});
+
+test('a script run with 2>/dev/null hides its errors', async () => {
+  const b = await shell([put('/home/hero/s.sh', file('nosuchcmd\n', { owner: 'hero', mode: 0o755 }))]);
+  assert.equal((await run(b, './s.sh 2>/dev/null')).err, '');
 });

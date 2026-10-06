@@ -14,13 +14,12 @@ const CLEAR_MARK = '\u001b[2J';
 function collector() {
   const run = { chunks: [], records: [], blocked: [], depth: 0, pipelines: 0 };
   run.sink = {
-    out: (text, html) => {
-      const chunk = { stream: 'out', text };
+    write: (stream, text, html) => {
+      const chunk = { stream, text };
       if (html) chunk.html = html;
-      if (text.includes(CLEAR_MARK)) chunk.tone = 'clear';
+      if (stream === 'out' && text.includes(CLEAR_MARK)) chunk.tone = 'clear';
       run.chunks.push(chunk);
     },
-    err: text => run.chunks.push({ stream: 'err', text: `${text}\n` }),
     note: text => run.chunks.push({ stream: 'note', text }),
   };
   return run;

@@ -1,30 +1,74 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { globRe, expandGlob } from '../../src/shell/glob.js';
+import { compileGlob, hasGlob, unescapeGlob, expandPattern } from '../../src/shell/glob.js';
 import { newDir, newFile } from '../../src/shell/fs.js';
 
 const meta = { mode: 0o755, owner: 'hero', group: 'hero', mtime: 0 };
 const f = () => newFile('', meta);
-const root = newDir({ d: newDir({ 'b.txt': f(), 'a.txt': f(), '.h.txt': f(), sub: newDir({ 'x.md': f() }, meta) }, meta) }, meta);
+const tree = () => newDir({
+  d: newDir({ 'b.txt': f(), 'a.txt': f(), 'B.txt': f(), '.h.txt': f(), 'c1': f(), 'c22': f(), 'my file': f(), sub: newDir({ 'x.md': f() }, meta) }, meta),
+  locked: newDir({ 'in.txt': f() }, { ...meta, owner: 'root', mode: 0o700 }),
+}, meta);
+const sys = () => ({ root: tree(), cwd: '/d', user: 'hero', groups: ['hero'] });
 
-test('globRe matches whole names with * and ?', () => {
-  assert.ok(globRe('*.txt').test('a.txt'));
-  assert.ok(!globRe('*.txt').test('a.txt.bak'));
-  assert.ok(globRe('?.txt').test('a.txt'));
-  assert.ok(globRe('A*', true).test('abc'));
+test('compileGlob matches whole names with * ? and bracket expressions', () => {
+  assert.ok(compileGlob('*.txt').test('a.txt'));
+  assert.ok(!compileGlob('*.txt').test('a.txt.bak'));
+  assert.ok(compileGlob('c?').test('c1'));
+  assert.ok(!compileGlob('c?').test('c22'));
+  assert.ok(compileGlob('[ab].txt').test('b.txt'));
+  assert.ok(compileGlob('[!a]*').test('b.txt'));
+  assert.ok(compileGlob('[^a]*').test('b.txt'));
+  assert.ok(compileGlob('c[0-9]').test('c1'));
+  assert.ok(compileGlob('c[[:digit:]]*').test('c22'));
+  assert.ok(compileGlob('[]x]').test(']'));
 });
 
-test('a pattern expands to the matching names, hidden ones excluded', () => {
-  assert.deepEqual(expandGlob({ v: '*.txt', glob: true }, root, '/d'), ['a.txt', 'b.txt']);
-  assert.deepEqual(expandGlob({ v: '.*.txt', glob: true }, root, '/d'), ['.h.txt']);
+test('escaped wildcards and regex characters match themselves', () => {
+  assert.ok(compileGlob('a\\*').test('a*'));
+  assert.ok(!compileGlob('a\\*').test('ab'));
+  assert.ok(compileGlob('a.(b)+').test('a.(b)+'));
+  assert.ok(compileGlob('[a').test('[a'));
 });
 
-test('patterns work in several path segments and keep the typed prefix', () => {
-  assert.deepEqual(expandGlob({ v: '/d/*/*.md', glob: true }, root, '/'), ['/d/sub/x.md']);
-  assert.deepEqual(expandGlob({ v: 'd/s*', glob: true }, root, '/'), ['d/sub']);
+test('compileGlob can ignore case for find -iname', () => {
+  assert.ok(compileGlob('A*', { ignoreCase: true }).test('abc'));
 });
 
-test('a pattern that matches nothing, or a word without wildcards, stays as typed', () => {
-  assert.deepEqual(expandGlob({ v: '*.zip', glob: true }, root, '/d'), ['*.zip']);
-  assert.deepEqual(expandGlob({ v: '*.txt', glob: false }, root, '/d'), ['*.txt']);
+test('hasGlob sees only unescaped wildcards and complete brackets', () => {
+  assert.equal(hasGlob('*.txt'), true);
+  assert.equal(hasGlob('a\\*'), false);
+  assert.equal(hasGlob('[ab]'), true);
+  assert.equal(hasGlob('[a'), false);
+  assert.equal(hasGlob('plain'), false);
+});
+
+test('unescapeGlob removes the escaping backslashes', () => {
+  assert.equal(unescapeGlob('my\\ file\\*'), 'my file*');
+});
+
+test('a pattern expands to matches in byte order, without hidden names', () => {
+  assert.deepEqual(expandPattern('*.txt', sys()), ['B.txt', 'a.txt', 'b.txt']);
+  assert.deepEqual(expandPattern('.*', sys()), ['.h.txt']);
+  assert.deepEqual(expandPattern('my*', sys()), ['my file']);
+});
+
+test('patterns work across directories and keep the typed prefix', () => {
+  assert.deepEqual(expandPattern('/d/*/*.md', sys()), ['/d/sub/x.md']);
+  assert.deepEqual(expandPattern('../d/s*', sys()), ['../d/sub']);
+  assert.deepEqual(expandPattern('*/x.md', sys()), ['sub/x.md']);
+});
+
+test('no match, or an unreadable directory, expands to nothing', () => {
+  assert.deepEqual(expandPattern('*.zip', sys()), []);
+  assert.deepEqual(expandPattern('/locked/*', sys()), []);
+});
+
+test('a dash or slash in a pattern is literal outside brackets', () => {
+  assert.ok(compileGlob('a-b*').test('a-b.txt'));
+  assert.ok(compileGlob('[a-]x').test('-x'));
+});
+
+test('a trailing slash keeps only directories', () => {
+  assert.deepEqual(expandPattern('*/', sys()), ['sub/']);
 });

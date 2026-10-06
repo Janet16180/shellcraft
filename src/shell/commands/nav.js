@@ -9,6 +9,7 @@ import { parseOptions } from '../options.js';
 import { result, withNote } from '../result.js';
 import { esc, span } from '../html.js';
 import { MONTHS } from './info.js';
+import { setVar } from '../vars.js';
 
 const isExe = node => node.type === 'file' && (node.mode & 0o111) !== 0;
 const indicator = node => {
@@ -46,6 +47,8 @@ function cd(args, { sys }) {
   else {
     sys.oldpwd = sys.cwd;
     sys.cwd = p;
+    setVar(sys, 'OLDPWD', sys.oldpwd, true);
+    setVar(sys, 'PWD', p, true);
   }
   return r;
 }

@@ -8,7 +8,7 @@ import { BUILTINS } from '../builtins.js';
 import { can } from '../perms.js';
 import { manText, hasManPage } from '../man.js';
 import { result, withNote } from '../result.js';
-import { baseEnvironment, varValue } from '../vars.js';
+import { varValue, setVar, exportedVars } from '../vars.js';
 
 /**
  * Find a command's program the way PATH lookup does.
@@ -65,13 +65,14 @@ function alias(args, { sys }) {
 function exportVars(args, { sys }) {
   for (const x of args) {
     const i = x.indexOf('=');
-    if (i > 0) sys.vars[x.slice(0, i)] = x.slice(i + 1);
+    if (i > 0) setVar(sys, x.slice(0, i), x.slice(i + 1), true);
+    else setVar(sys, x, varValue(sys, x), true);
   }
   return result();
 }
 
-function env(_args, { sys }) {
-  const all = { ...baseEnvironment(sys), ...sys.vars };
+function env(_args, { sys, env: overlay }) {
+  const all = { ...exportedVars(sys), ...overlay };
   return result(Object.entries(all).map(([k, v]) => `${k}=${v}\n`).join(''));
 }
 
@@ -116,7 +117,7 @@ export default {
   alias,
   export: exportVars,
   env,
-  printenv: (args, ctx) => (args.length ? result(args.map(a => `${varValue(ctx.sys, a)}\n`).join('')) : env(args, ctx)),
+  printenv: (args, ctx) => (args.length ? result(args.map(a => `${ctx.env[a] ?? exportedVars(ctx.sys)[a] ?? ''}\n`).join('')) : env(args, ctx)),
   sudo,
   nano: editor('nano', 'In real nano, Ctrl+O saves and Ctrl+X exits.'),
   vim: editor('vim', 'Real vim tip: press Esc, type :wq and Enter to save and quit, or :q! to quit without saving.'),

@@ -36,8 +36,8 @@ test('cd reports bash errors', async () => {
 test('ls lists visible names; -a adds dot entries and -A hidden ones only', async () => {
   const b = await shell();
   assert.equal((await run(b, 'ls -1')).out, 'forest\nreadme.txt\n');
-  assert.equal((await run(b, 'ls -1a')).out, '.\n..\nforest\nreadme.txt\n.secret_map\n');
-  assert.equal((await run(b, 'ls -1A')).out, 'forest\nreadme.txt\n.secret_map\n');
+  assert.equal((await run(b, 'ls -1a')).out, '.\n..\n.secret_map\nforest\nreadme.txt\n');
+  assert.equal((await run(b, 'ls -1A')).out, '.secret_map\nforest\nreadme.txt\n');
 });
 
 test('ls -l shows mode, links, owner, group, size and time', async () => {
