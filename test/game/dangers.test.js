@@ -1,0 +1,70 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { makeContext } from '../../src/game/checks.js';
+import { dangers } from '../../src/game/dangers.js';
+import { HOME, observation, record } from '../helpers/records.js';
+
+const SHELL = { pid: 733, ppid: 1, user: 'hero', tty: 'pts/0', stat: 'Ss', cpu: 0, mem: 0.1, cmd: '-bash', key: 'shell' };
+
+const context = (commands, after = {}, before = {}) =>
+  makeContext({ commands, before: observation(before), obs: observation(after) });
+
+test('rm -r of the root, of home or of a directory holding home is dangerous however it is written', () => {
+  const lines = [
+    record('rm', ['-rf', '/']),
+    record('rm', ['-R', '//']),
+    record('rm', ['--recursive', '~']),
+    record('rm', ['-r', HOME]),
+    record('rm', ['-r', '~/']),
+    record('rm', ['-rf', '/home']),
+    record('rm', ['-r', '/home/']),
+  ];
+  for (const r of lines) assert.equal(dangers(context([r])).length, 1, r.args.join(' '));
+});
+
+test('rm -r of anything else, or rm without -r, is not dangerous', () => {
+  const lines = [
+    record('rm', ['-r', 'forest']), record('rm', ['/']), record('rm', ['-f', HOME]), record('ls', ['-r', '/']),
+    record('rm', ['-r', '/home/heroine']), record('rm', ['-r', '/hom']),
+  ];
+  for (const r of lines) assert.deepEqual(dangers(context([r])), [], `${r.name} ${r.args.join(' ')}`);
+});
+
+test('rm -r of . or .. is not dangerous because rm refuses those names', () => {
+  const lines = [record('rm', ['-r', '.']), record('rm', ['-fr', '..'], { cwd: `${HOME}/forest` }), record('rm', ['-r', `${HOME}/.`])];
+  for (const r of lines) assert.deepEqual(dangers(context([r])), [], `${r.name} ${r.args.join(' ')}`);
+});
+
+test('kill -9 of the player shell is dangerous however the signal is written', () => {
+  const before = { procs: [SHELL] };
+  const lines = [['-9', '733'], ['-KILL', '733'], ['-SIGKILL', '733'], ['-s', 'KILL', '733'], ['-s', '9', '733'], ['-n', 'sigkill', '733']];
+  for (const args of lines) assert.equal(dangers(context([record('kill', args)], {}, before)).length, 1, args.join(' '));
+});
+
+test('a polite kill of the shell or kill -9 of another process is not dangerous', () => {
+  const before = { procs: [SHELL] };
+  const lines = [['733'], ['-15', '733'], ['-9', '4242'], ['-s', 'TERM', '733']];
+  for (const args of lines) assert.deepEqual(dangers(context([record('kill', args)], {}, before)), [], args.join(' '));
+});
+
+test('a dangerous attempt counts even when the command failed', () => {
+  assert.equal(dangers(context([record('rm', ['-rf', '/'], { status: 1 })])).length, 1);
+});
+
+test('each dangerous command in a line gives one reason', () => {
+  const line = [record('rm', ['-rf', '/']), record('kill', ['-9', '733'])];
+  assert.equal(dangers(context(line, {}, { procs: [SHELL] })).length, 2);
+});
+
+test('a command named like an object property is not dangerous', () => {
+  for (const name of ['constructor', 'toString', '__proto__']) assert.deepEqual(dangers(context([record(name, [], { status: 127 })])), [], name);
+});
+
+test('the reasons are the game\'s own beginner sentences', () => {
+  const [root] = dangers(context([record('rm', ['-rf', '/'])]));
+  const [home] = dangers(context([record('rm', ['-r', '~'])]));
+  const [shell] = dangers(context([record('kill', ['-9', '733'])], {}, { procs: [SHELL] }));
+  assert.match(root, /--preserve-root/);
+  assert.match(home, /delete everything in your home/);
+  assert.match(shell, /your own shell/);
+});

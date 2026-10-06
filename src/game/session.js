@@ -22,7 +22,8 @@
  */
 import { makeContext } from './checks.js';
 import { coachNote } from './coach.js';
-import { lineEffects, worldEffects, dangers } from './effects.js';
+import { lineEffects, worldEffects } from './effects.js';
+import { dangers } from './dangers.js';
 import { XP, MAX_HEARTS, payout, nextHint, rankFor, loseHeart, chapterStatuses, canStart, resumeChapter } from './progress.js';
 import { SAVE_KEY, V1_SAVE_KEY, freshSave, parseSave, serializeSave } from './save.js';
 
@@ -144,7 +145,7 @@ async function shellTurn(s, line, completions) {
   const completed = events.some(e => e.kind === 'task' || e.kind === 'boss');
   const note = (completed ? null : nearNote(s, ctx)) ?? coachNote(ctx);
   const output = note === null ? result.output : [...result.output, { stream: 'note', tone: 'coach', text: terminalText(note) }];
-  const danger = result.blocked[0] ?? dangers(ctx)[0];
+  const [danger] = dangers(ctx);
   if (danger !== undefined) events.push(...await hurt(s, danger));
   if (s.obs !== after) effects.push(...worldEffects(after, s.obs));
   return { result: { ...result, output }, obs: s.obs, effects, events, view: view(s) };
