@@ -290,7 +290,7 @@ function finishIntro(ui, yourTurn) {
   const first = !ui.view.introSeen;
   ui.session.markIntroSeen();
   ui.view = ui.session.view();
-  if (first && yourTurn) showCallout(ui, `Your turn: type <code>${esc(yourTurn)}</code> and press <kbd>Enter</kbd>.`);
+  if (first) showCallout(ui, `Your turn: type <code>${esc(yourTurn)}</code> and press <kbd>Enter</kbd>.`);
   ui.terminal.focus();
 }
 

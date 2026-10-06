@@ -156,12 +156,12 @@ async function showStep(it, index) {
   if (step.complete) await completeStep(it, step.complete, backend, live);
 }
 
-function close(it, line) {
+function close(it) {
   it.token += 1;
   it.map.destroy();
   it.overlay.hidden = true;
   it.overlay.replaceChildren();
-  it.onDone(line);
+  it.onDone(STEPS.at(-1).yourTurn);
 }
 
 function go(it, index) {
@@ -178,8 +178,8 @@ function go(it, index) {
  * @param {() => object} opts.createBackend Makes a fresh backend; the intro rebuilds its world on every step.
  * @param {boolean} opts.reducedMotion Show still frames instead of animation.
  * @param {{play: (name: string) => void}} opts.sound Sound effects.
- * @param {(line: string|null) => void} opts.onDone Called when the intro closes, with the line the
- *   player is asked to type next, or null when skipped.
+ * @param {(line: string) => void} opts.onDone Called when the intro closes, finished or skipped,
+ *   with the line the player is asked to type first.
  * @returns {void}
  */
 export function playIntro({ doc, createMap, createBackend, reducedMotion, sound, onDone }) {
@@ -192,13 +192,13 @@ export function playIntro({ doc, createMap, createBackend, reducedMotion, sound,
   $('introDots').innerHTML = STEPS.map(() => '<li></li>').join('');
   $('introBack').onclick = () => go(it, Math.max(0, it.index - 1));
   $('introNext').onclick = () => {
-    if (it.index === STEPS.length - 1) close(it, STEPS.at(-1).yourTurn);
+    if (it.index === STEPS.length - 1) close(it);
     else go(it, it.index + 1);
   };
-  $('introSkip').onclick = () => close(it, null);
+  $('introSkip').onclick = () => close(it);
   const keepFocus = keepFocusIn(overlay);
   overlay.onkeydown = event => {
-    if (event.key === 'Escape') close(it, null);
+    if (event.key === 'Escape') close(it);
     else keepFocus(event);
   };
   go(it, 0);
