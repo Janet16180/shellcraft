@@ -6,7 +6,7 @@
 
 import { createTerminal } from './terminal.js';
 import { renderHUD } from './hud.js';
-import { questHTML, spellsHTML, chaptersHTML } from './panels.js';
+import { questHTML, spellsHTML, chaptersHTML, nowHTML } from './panels.js';
 import { titleCardHTML, bossCardHTML, debriefHTML, openCard, closeCard } from './cards.js';
 import { commandForPath, commandForPick } from './picks.js';
 import { esc, inlineCode } from './output.js';
@@ -56,6 +56,7 @@ function show(ui, view) {
   ui.sound.setOn(view.sound);
   renderHUD(doc, view);
   doc.getElementById('tab-quest').innerHTML = questHTML(view);
+  doc.getElementById('now').innerHTML = nowHTML(view.chapter);
   doc.getElementById('spells').innerHTML = spellsHTML(view.spellbook);
   doc.getElementById('levels').innerHTML = chaptersHTML(view.chapters);
   renderCrumbs(doc, view.prompt);

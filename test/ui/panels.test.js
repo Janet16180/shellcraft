@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { questHTML, spellsHTML, chaptersHTML } from '../../src/ui/panels.js';
+import { questHTML, spellsHTML, chaptersHTML, nowHTML } from '../../src/ui/panels.js';
 import { sampleView } from './fixtures/view.js';
 
 function withPhase(phase) {
@@ -103,4 +103,13 @@ test('the exact-command hint is all code; the others are prose', () => {
   const html = questHTML(view);
   assert.match(html, /<span>Where are you\?<\/span>/);
   assert.match(html, /<span><code>pwd<\/code><\/span>/);
+});
+
+test('the strip over the terminal names the next task and where it is in the list', () => {
+  assert.equal(nowHTML(sampleView().chapter), '<b>Next task 2 of 3:</b> Find out where you are standing');
+});
+
+test('in the boss room the strip names the boss; a cleared chapter says so', () => {
+  assert.equal(nowHTML(withPhase('boss').chapter), '<b>Boss room:</b> The Lost Name');
+  assert.equal(nowHTML(withPhase('done').chapter), '<b>Chapter cleared.</b> Explore freely, or pick a chapter in the Chapters tab.');
 });

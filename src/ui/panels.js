@@ -116,3 +116,18 @@ export function chaptersHTML(chapters) {
     return `<h3 class="act">Act ${actName(act)}</h3><ul class="levels">${rows}</ul>`;
   }).join('');
 }
+
+/**
+ * The one line over the terminal that says what to do now, so the goal stays
+ * in sight while the quest panel is scrolled away (or below, on a phone).
+ *
+ * @param {{phase: string, tasks: {goal: string, next: boolean}[], boss: {title: string}}} chapter From the View.
+ * @returns {string} HTML.
+ */
+export function nowHTML({ phase, tasks, boss }) {
+  const index = tasks.findIndex(task => task.next);
+  let html = '<b>Chapter cleared.</b> Explore freely, or pick a chapter in the Chapters tab.';
+  if (phase === 'boss') html = `<b>Boss room:</b> ${esc(boss.title)}`;
+  else if (phase === 'quest') html = `<b>Next task ${index + 1} of ${tasks.length}:</b> ${inlineCode(tasks[index].goal)}`;
+  return html;
+}
