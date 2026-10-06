@@ -8,7 +8,7 @@
     "test": "node --test --test-reporter=dot \"test/**/*.test.js\"",
     "lint": "eslint .",
     "difftest": "node difftest/run.js",
-    "serve": "python3 -m http.server 8765 --bind 127.0.0.1"
+    "serve": "node scripts/serve.js 8765"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
