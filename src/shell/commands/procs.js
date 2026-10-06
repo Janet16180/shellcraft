@@ -4,7 +4,7 @@
 
 import { allocPid, TERMINAL } from '../system.js';
 import { result, withNote } from '../result.js';
-import { SIGNAL_LIST, signalName, parseSignal, defaultAction, endsInteractiveShell, requestedSignal } from '../../backend/signals.js';
+import { SIGNAL_LIST, signalName, parseSignal, defaultAction, endsInteractiveShell, endsSession, requestedSignal } from '../../backend/signals.js';
 
 const KILL = parseSignal('KILL');
 const STOP = parseSignal('STOP');
@@ -170,15 +170,28 @@ const KILL_ERRORS = {
   invalid: spec => `bash: kill: ${spec}: invalid signal specification`,
 };
 
+const SESSION_ENDS = "kill -1 would end the player's session: it reaches every process the user owns, the terminal included";
+
+// What a numeric kill operand reaches, as kill(2) reads it: a PID; 0, the
+// shell's own process group; -1, every process the user may signal except
+// the shell; or -N, the process group led by N.
+function killTargets(sys, pid) {
+  let targets;
+  if (pid === 0) targets = sys.procs.filter(p => p.pid === sys.shellPid);
+  else if (pid === -1) targets = sys.procs.filter(p => p.user === sys.user && p.pid !== sys.shellPid);
+  else targets = sys.procs.filter(p => p.pid === Math.abs(pid));
+  return targets;
+}
+
 function killOne(sys, x, sig, block) {
-  const numeric = /^\d+$/.test(x);
-  const proc = numeric ? sys.procs.find(p => p.pid === Number(x)) : null;
-  const sent = proc ? deliver(sys, proc, sig, block) : { denied: false, note: null };
+  const pid = /^-?\d+$/.test(x) ? Number(x) : null;
+  const sent = pid === null ? [] : killTargets(sys, pid).map(p => deliver(sys, p, sig, block));
+  if (pid === -1 && endsSession(x, sig, sys.shellPid)) block(SESSION_ENDS);
   let error = null;
-  if (!numeric) error = `bash: kill: ${x}: arguments must be process or job IDs`;
-  else if (!proc) error = `bash: kill: (${x}) - No such process`;
-  else if (sent.denied) error = `bash: kill: (${x}) - Operation not permitted`;
-  return { error, note: sent.note };
+  if (pid === null) error = `bash: kill: ${x}: arguments must be process or job IDs`;
+  else if (!sent.length && pid !== -1) error = `bash: kill: (${x}) - No such process`;
+  else if (sent.length && sent.every(r => r.denied)) error = `bash: kill: (${x}) - Operation not permitted`;
+  return { error, note: sent.find(r => r.note)?.note ?? null };
 }
 
 function kill(args, { sys, block }) {

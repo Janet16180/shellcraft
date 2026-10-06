@@ -119,3 +119,32 @@ test('signals that end an interactive bash are blocked; ignored ones only get a 
   const winch = await b.run(`kill -WINCH ${pid}`);
   assert.deepEqual([winch.blocked, winch.output], [[], []]);
 });
+
+test('kill 0 and minus the shell PID reach the shell itself', async () => {
+  const b = await withProcs();
+  const pid = await pidOf(b, 'shell');
+  assert.equal((await b.run('kill -9 0')).blocked.length, 1);
+  assert.equal((await b.run(`kill -9 -${pid}`)).blocked.length, 1);
+  const term = await run(b, 'kill 0');
+  assert.deepEqual([term.result.blocked, term.status], [[], 0]);
+  assert.match(term.note, /Interactive bash ignores SIGTERM/);
+});
+
+test('kill -1 signals every process of the user and ends the session', async () => {
+  const b = await withProcs();
+  const r = await b.run('kill -9 -1');
+  assert.deepEqual([r.status, r.blocked], [0, ["kill -1 would end the player's session: it reaches every process the user owns, the terminal included"]]);
+  const keys = (await b.observe()).procs.map(p => p.key);
+  assert.equal(keys.includes('sleeper') || keys.includes('daemon'), false);
+  assert.ok(keys.includes('shell'));
+  assert.deepEqual((await b.run('kill -0 -1')).blocked, []);
+  assert.deepEqual((await b.run('kill -CONT -1')).blocked, []);
+});
+
+test('kill -N signals the process group led by N', async () => {
+  const b = await withProcs();
+  await run(b, `kill -9 -${await pidOf(b, 'sleeper')}`);
+  assert.equal((await b.observe()).procs.some(p => p.key === 'sleeper'), false);
+  const missing = await run(b, 'kill -15 -99999');
+  assert.deepEqual([missing.err, missing.status], ['bash: kill: (-99999) - No such process\n', 1]);
+});

@@ -1,5 +1,5 @@
 [
-  { "name": "kill messages", "world": "home", "lines": ["kill", "kill abc", "kill 99999", "kill -9 99999", "kill -FOO 1", "kill 1", "kill -l", "kill -s TERM 99999", "kill -s", "kill -l 9", "kill -9", "kill -sKILL 99999", "kill -sigkill 99999", "kill -n 9 99999", "kill -RTMIN+2 99999", "kill -s kill 99999"] },
+  { "name": "kill messages", "world": "home", "lines": ["kill", "kill abc", "kill 99999", "kill -9 99999", "kill -FOO 1", "kill 1", "kill -l", "kill -s TERM 99999", "kill -s", "kill -l 9", "kill -9", "kill -sKILL 99999", "kill -sigkill 99999", "kill -n 9 99999", "kill -RTMIN+2 99999", "kill -s kill 99999", "kill -9 -15 99999", "kill -15 -99999", "kill 0", "kill -0 0"] },
   { "name": "pkill and killall signal options", "world": "home",
     "lines": ["pkill --signal NOPE nomatch_zz", "pkill --signal", "pkill -u hero --signal KILL nomatch_zz", "pkill -9 nomatch_zz", "pkill nomatch_zz -kill", "killall -s NOPE nomatch_zz", "killall -s kill nomatch_zz", "killall", "killall -l", "killall -kill nomatch_zz", "killall -s", "killall nomatch_zz -KILL", "killall -s 9 nomatch_zz"] },
   { "name": "machine facts", "world": "home", "lines": ["uname", "uname -s", "uname -n", "hostname", "id", "id -u", "id -un", "groups", "whoami"] },

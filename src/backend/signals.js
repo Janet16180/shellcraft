@@ -93,6 +93,28 @@ export function endsInteractiveShell(sig) {
   return (action === 'terminate' || action === 'stop') && !BASH_SURVIVES.has(sig);
 }
 
+/**
+ * Whether sending a signal to a kill operand ends the player's session. The
+ * shell's PID, 0 (its process group) and minus its PID reach the shell, which
+ * survives the signals bash ignores. -1 reaches every process the user owns,
+ * the terminal included, so any signal that ends or stops a process ends the
+ * session there.
+ *
+ * @param {string} operand A kill operand, like '1234', '0' or '-1'.
+ * @param {number} sig A signal number from 0 to 64.
+ * @param {number} shellPid The PID of the player's shell.
+ * @returns {boolean} True when the session would end.
+ * @throws {Error} If sig is not a signal number.
+ */
+export function endsSession(operand, sig, shellPid) {
+  const action = defaultAction(sig);
+  const pid = /^-?\d+$/.test(operand) ? Number(operand) : null;
+  let ends = false;
+  if (pid === -1) ends = action === 'terminate' || action === 'stop';
+  else if (pid === 0 || pid === shellPid || pid === -shellPid) ends = endsInteractiveShell(sig);
+  return ends;
+}
+
 const outcome = (status, signal, spec, operands) => ({ status, signal, spec, operands });
 
 function decided(sig, spec, operands) {
