@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { STEPS, WORLD, PROMPT_PIECES } from '../../src/intro/steps.js';
 import { validatePatch } from '../../src/backend/spec.js';
+import { nodeAt } from '../../src/backend/tree.js';
 import { createSimBackend } from '../../src/shell/backend.js';
+import { PLAYER } from '../../src/backend/player.js';
 
 const ALLOWED_TAGS = new Set(['code', 'kbd', 'b', 'em']);
 const ROLES = new Set(['command', 'option', 'argument']);
@@ -46,7 +48,7 @@ test('the prompt is explained piece by piece, in the order the pieces appear', (
   const order = PROMPT_PIECES.map(p => p.role).filter(Boolean);
   const focused = STEPS.filter(s => s.focus).map(s => s.focus);
   assert.deepEqual(focused, order);
-  assert.equal(PROMPT_PIECES.map(p => p.text).join(''), 'hero@kernelia:~$');
+  assert.equal(PROMPT_PIECES.map(p => p.text).join(''), `${PLAYER.user}@${PLAYER.host}:~$`);
 });
 
 test('the storyboard types ls, cd forest, cd .., cat readme.txt and ls -l forest in that order', () => {
@@ -102,7 +104,7 @@ test('the intro world is a valid patch', () => {
 });
 
 async function introShell() {
-  const backend = createSimBackend();
+  const backend = createSimBackend(PLAYER);
   await backend.load(WORLD);
   return backend;
 }
@@ -121,7 +123,7 @@ test('every line the intro types runs without an error in the simulator, in stor
 test('ls shows forest as a directory and readme.txt as a file, as the captions say', async () => {
   const backend = await introShell();
   assert.match(text(await backend.run('ls')), /forest\s+readme\.txt/);
-  const home = (await backend.observe()).tree.children.home.children.hero.children;
+  const home = nodeAt((await backend.observe()).tree, PLAYER.home).children;
   assert.equal(home.forest.type, 'dir');
   assert.equal(home['readme.txt'].type, 'file');
 });
@@ -129,17 +131,18 @@ test('ls shows forest as a directory and readme.txt as a file, as the captions s
 test('cd forest prints nothing and the prompt shows ~/forest; cd .. comes back home', async () => {
   const backend = await introShell();
   assert.equal(text(await backend.run('cd forest')), '');
-  assert.equal((await backend.observe()).cwd, '/home/hero/forest');
+  assert.equal((await backend.observe()).cwd, `${PLAYER.home}/forest`);
   await backend.run('cd ..');
-  assert.equal((await backend.observe()).cwd, '/home/hero');
+  assert.equal((await backend.observe()).cwd, PLAYER.home);
 });
 
 test('ls -l forest prints one long line per entry with permissions, owner and size', async () => {
   const backend = await introShell();
   const lines = text(await backend.run('ls -l forest')).trim().split('\n');
   assert.match(lines[0], /^total \d+$/);
-  assert.match(lines[1], /^drwxr-xr-x +\d+ hero hero +\d+ .+ cave$/);
-  assert.match(lines[2], /^-rw-r--r-- +\d+ hero hero +\d+ .+ mushroom\.txt$/);
+  const owners = `${PLAYER.user} ${PLAYER.user}`;
+  assert.match(lines[1], new RegExp(`^drwxr-xr-x +\\d+ ${owners} +\\d+ .+ cave$`));
+  assert.match(lines[2], new RegExp(`^-rw-r--r-- +\\d+ ${owners} +\\d+ .+ mushroom\\.txt$`));
 });
 
 test('Tab after cd fo completes to cd forest/, as the keys step says and shows', async () => {
@@ -151,7 +154,16 @@ test('Tab after cd fo completes to cd forest/, as the keys step says and shows',
 
 test('the prompt pieces match the simulator user, host and home', async () => {
   const obs = await (await introShell()).observe();
-  assert.deepEqual([obs.user, obs.host, obs.home], ['hero', 'kernelia', '/home/hero']);
+  const piece = role => PROMPT_PIECES.find(p => p.role === role).text;
+  assert.deepEqual([piece('user'), piece('host')], [obs.user, obs.host]);
+  assert.equal(obs.cwd, obs.home);
+});
+
+test('the prompt captions name the player, the machine and the home the game uses', () => {
+  const caption = id => STEPS.find(s => s.id === id).text.join(' ');
+  assert.match(caption('prompt-user'), new RegExp(`<code>${PLAYER.user}</code>`));
+  assert.match(caption('prompt-host'), new RegExp(`<code>${PLAYER.host}</code>`));
+  assert.match(caption('prompt-cwd'), new RegExp(`<code>${PLAYER.home}</code>`));
 });
 
 test('a title that names a command shows it in the monospace face', () => {

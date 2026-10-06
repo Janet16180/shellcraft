@@ -21,14 +21,14 @@ Round 3 is the code review's list (docs/reviews/code-slice.md), plus two lead fi
 
 | Name | Round 3 | Merged so far |
 |---|---|---|
-| engine | dangers.js (A, then B on signals.js), M1 overlap guard, L8 save chapter progress, L1 L2 L7 L9, one-note-per-line test, who() passes host, childOf in effects.js and coach.js | dd8b6cc |
-| shell | prototype-named files (`cat constructor`, `touch __proto__`), H2 grep escaping, signals.js, collate and copy on tree.js, L4 hostile nesting, find/man -help, M6, L5, L6, L3 | through 68c48c5 |
-| ui | M1 single queue (Tab and Hint too), tree.isInside in output.js, L11 PLAYER, L1 levels, L9, L10 | earlier round 3 extras |
-| author | tree helpers (done), baseWorld takes host (waits for engine's who() change) | c8fec26 |
+| engine | dangers.js part B on shell's signals.js (pkill/killall and every shell-ending signal) | everything else: dangers.js A, M1 overlap guard, L8 chapter progress in the save, L1 L2 L7 L9, one note per line, host in who(), childOf |
+| shell | signals.js, collate and copy on tree.js, L4 hostile nesting, find/man -help, hostname -x usage on stdout, M6, L5, L6, L3 | prototype-named files (13a6539), H2 grep highlighting (2d2da54), round 2 |
+| ui | L11 PLAYER, L1, L9 (use View.started and the event's total), L10 | M1 single queue (bcf3cae), M4 displayPath on tree.isInside |
+| author | one leftover "go up" in the forest recap | tree helpers, baseWorld takes host (36c8e32) |
 
-Merge order constraints: engine's M1 (eba1c20) raises on overlapping session calls, so it lands
-in the same merge as ui's single queue, never alone. engine's L8 (d01576f) sits on M1. author's
-host commit lands after engine's who() change.
+The lead's Chrome run after the M1 merge (main, 2026-10-06): chapters 1 and 2 clear at 1400 and
+360 px with no page errors; same-tick Tab, Hint and Sound clicks behave; a reload mid-chapter
+restores finished tasks and shown hints, and a hint is paid for once.
 
 Then: browser QA (worktree .scratch/wt/qa ready), the lead's replay, republish the preview.
 

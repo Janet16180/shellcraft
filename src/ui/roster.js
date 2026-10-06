@@ -5,22 +5,31 @@
  */
 
 import { esc } from './output.js';
+import { parentOf } from '../map/paths.js';
 
 /**
  * The pictures the vertical slice shows, with the plain truth behind each one.
- * `what` is trusted HTML: anything the player might type is in <code>.
+ * `what` is HTML: anything the player might type is in <code>, and the paths
+ * come from the player's own home.
+ *
+ * @param {string} home The player's home directory, from the View or the observation.
+ * @returns {{kind: string, name: string, what: string}[]} The map key entries, in order.
  */
-export const ROSTER = [
-  { kind: 'hero', name: 'You', what: 'Where you stand is your working directory, the path <code>pwd</code> prints.' },
-  { kind: 'door', name: 'Door', what: 'A directory. <code>cd NAME</code> walks through it.' },
-  { kind: 'item', name: 'Item', what: 'A file. <code>cat NAME</code> prints what is in it.' },
-  { kind: 'exit', name: 'Way out', what: 'The parent directory, <code>..</code>: the room this one sits in. <code>cd ..</code> takes you there.' },
-  { kind: 'stairs-down', name: 'Stairs down', what: 'The way back from your home: its parent, <code>/home</code>, is outside your home, so the stairs lead down into the dungeon.' },
-  { kind: 'dungeon-door', name: 'Dungeon door', what: 'A directory outside your home. Most of them belong to root, the administrator.' },
-  { kind: 'home-door', name: 'Door home', what: 'In <code>/home</code>, the door to your home directory, <code>/home/hero</code>.' },
-  { kind: 'locked', name: 'Padlocked door', what: 'A directory you have no permission to enter.' },
-  { kind: 'chained', name: 'Chained item', what: 'A file you have no permission to read.' },
-];
+export function roster(home) {
+  const homeCode = `<code>${esc(home)}</code>`;
+  const parentCode = `<code>${esc(parentOf(home))}</code>`;
+  return [
+    { kind: 'hero', name: 'You', what: 'Where you stand is your working directory, the path <code>pwd</code> prints.' },
+    { kind: 'door', name: 'Door', what: 'A directory. <code>cd NAME</code> walks through it.' },
+    { kind: 'item', name: 'Item', what: 'A file. <code>cat NAME</code> prints what is in it.' },
+    { kind: 'exit', name: 'Way out', what: 'The parent directory, <code>..</code>: the room this one sits in. <code>cd ..</code> takes you there.' },
+    { kind: 'stairs-down', name: 'Stairs down', what: `The way back from your home: its parent, ${parentCode}, is outside your home, so the stairs lead down into the dungeon.` },
+    { kind: 'dungeon-door', name: 'Dungeon door', what: 'A directory outside your home. Most of them belong to root, the administrator.' },
+    { kind: 'home-door', name: 'Door home', what: `In ${parentCode}, the door to your home directory, ${homeCode}.` },
+    { kind: 'locked', name: 'Padlocked door', what: 'A directory you have no permission to enter.' },
+    { kind: 'chained', name: 'Chained item', what: 'A file you have no permission to read.' },
+  ];
+}
 
 const KEY_PX = 40;
 
@@ -30,11 +39,12 @@ const KEY_PX = 40;
  * @param {HTMLElement} list The <ul> to fill.
  * @param {(canvas: HTMLCanvasElement, kind: string) => void} drawKey The map's key painter.
  * @param {number} pixelRatio The device pixel ratio, so the pictures stay crisp.
+ * @param {string} home The player's home directory.
  * @returns {void}
  */
-export function renderRoster(list, drawKey, pixelRatio) {
+export function renderRoster(list, drawKey, pixelRatio, home) {
   const size = Math.round(KEY_PX * pixelRatio);
-  list.innerHTML = ROSTER.map(({ kind, name, what }) =>
+  list.innerHTML = roster(home).map(({ kind, name, what }) =>
     `<li><canvas width="${size}" height="${size}" data-kind="${kind}" aria-hidden="true"></canvas><div><b>${esc(name)}</b><span>${what}</span></div></li>`).join('');
   for (const canvas of list.querySelectorAll('canvas')) drawKey(canvas, canvas.dataset.kind);
 }

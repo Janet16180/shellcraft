@@ -24,7 +24,7 @@ the simulator (`test/game/chapters/forest.test.js`). Man pages from the Ubuntu 2
 | Tab: `cd fo` then Tab writes `cd forest/` | R3: the line became `cd forest/`; `bash(1)` readline `mark-directories (On)`: "completed directory names have a slash appended"; SIM test |
 | When several names match, press Tab again to list them | R5: `cd ga` + Tab rang the bell, a second Tab listed `game/ gate/`; `bash(1)` `show-all-if-ambiguous (Off)` |
 
-Vertical words in chapters 1 and 2 were checked against this bridge. "Up" appears only where the lesson explains Linux's word (the bridge) and in the recap's `cd ..` line. Goals, tips, hints and spell notes say "deeper" and "back out" (round 2, teaching review finding 4; a test keeps "up" and "down" out of them). The map's "down" is the stairway from home into the dungeon, and the chapter 2 boss's trapdoor fall follows it.
+Vertical words in chapters 1 and 2 were checked against this bridge. "Up" appears only in the lesson sentence that explains Linux's word (the bridge). Goals, tips, hints, spell notes, the recap and the field notes say "deeper" and "back out", matching the map key's "Way out" (teaching review finding 4; a test keeps "up" and "down" out of them). The map's "down" is the stairway from home into the dungeon, and the chapter 2 boss's trapdoor fall follows it.
 
 ## Tasks and hints
 
