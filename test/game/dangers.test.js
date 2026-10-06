@@ -35,16 +35,48 @@ test('rm -r of . or .. is not dangerous because rm refuses those names', () => {
   for (const r of lines) assert.deepEqual(dangers(context([r])), [], `${r.name} ${r.args.join(' ')}`);
 });
 
+const killing = (name, args) => dangers(context([record(name, args)], {}, { procs: [SHELL] }));
+
 test('kill -9 of the player shell is dangerous however the signal is written', () => {
-  const before = { procs: [SHELL] };
-  const lines = [['-9', '733'], ['-KILL', '733'], ['-SIGKILL', '733'], ['-s', 'KILL', '733'], ['-s', '9', '733'], ['-n', 'sigkill', '733']];
-  for (const args of lines) assert.equal(dangers(context([record('kill', args)], {}, before)).length, 1, args.join(' '));
+  const lines = [['-9', '733'], ['-KILL', '733'], ['-SIGKILL', '733'], ['-s', 'KILL', '733'], ['-s', '9', '733'], ['-n', 'sigkill', '733'], ['-sKILL', '733']];
+  for (const args of lines) assert.equal(killing('kill', args).length, 1, args.join(' '));
 });
 
-test('a polite kill of the shell or kill -9 of another process is not dangerous', () => {
-  const before = { procs: [SHELL] };
-  const lines = [['733'], ['-15', '733'], ['-9', '4242'], ['-s', 'TERM', '733']];
-  for (const args of lines) assert.deepEqual(dangers(context([record('kill', args)], {}, before)), [], args.join(' '));
+test('every signal that ends or stops an interactive bash is dangerous when sent to the player shell', () => {
+  const lines = [['-HUP', '733'], ['-1', '733'], ['-STOP', '733'], ['-s', 'USR1', '733'], ['-ABRT', '733'], ['-s', 'alrm', '733']];
+  for (const args of lines) assert.equal(killing('kill', args).length, 1, args.join(' '));
+});
+
+test('signals an interactive bash ignores or survives are not dangerous', () => {
+  const lines = [['733'], ['-15', '733'], ['-s', 'TERM', '733'], ['-INT', '733'], ['-QUIT', '733'], ['-TSTP', '733'], ['-CONT', '733'], ['-0', '733']];
+  for (const args of lines) assert.deepEqual(killing('kill', args), [], args.join(' '));
+});
+
+test('a kill that sends nothing, or sends to another process, is not dangerous', () => {
+  const lines = [['-l'], ['-s'], ['-sigkill', '733'], ['-9', '4242'], ['-9', '7330']];
+  for (const args of lines) assert.deepEqual(killing('kill', args), [], args.join(' '));
+});
+
+test('pkill and killall of bash with a deadly signal are dangerous', () => {
+  const lines = [
+    ['pkill', ['-9', 'bash']], ['pkill', ['--signal', 'KILL', 'bash']], ['pkill', ['--signal=HUP', 'bash']], ['pkill', ['-u', 'hero', '-9', 'bash']],
+    ['killall', ['-9', 'bash']], ['killall', ['-s', 'KILL', 'bash']], ['killall', ['-HUP', 'bash']],
+  ];
+  for (const [name, args] of lines) assert.equal(killing(name, args).length, 1, `${name} ${args.join(' ')}`);
+});
+
+test('pkill and killall of something else, with a polite signal, or with a bad one are not dangerous', () => {
+  const lines = [
+    ['pkill', ['bash']], ['pkill', ['-9', 'sleep']], ['killall', ['bash']], ['killall', ['-9', 'shadow']],
+    ['killall', ['-s', 'kill', 'bash']], ['killall', ['-kill', 'bash']],
+  ];
+  for (const [name, args] of lines) assert.deepEqual(killing(name, args), [], `${name} ${args.join(' ')}`);
+});
+
+test('the shell reason names the signal, and says STOP freezes the shell instead of ending it', () => {
+  assert.match(killing('kill', ['-HUP', '733'])[0], /^SIGHUP to your own shell ends it\./);
+  assert.match(killing('pkill', ['-9', 'bash'])[0], /^SIGKILL to your own shell ends it\./);
+  assert.match(killing('kill', ['-STOP', '733'])[0], /^SIGSTOP to your own shell freezes it\./);
 });
 
 test('a dangerous attempt counts even when the command failed', () => {

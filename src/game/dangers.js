@@ -5,15 +5,16 @@
  * when real Linux refused the command by itself.
  */
 import { isInside } from '../backend/tree.js';
+import { requestedSignal, endsInteractiveShell, defaultAction, signalName } from '../backend/signals.js';
 
-const KILL_SIGNALS = new Set(['9', 'KILL']);
 // rm refuses an operand whose last component is . or .. before touching it.
 const DOT_OPERAND = /(^|\/)\.\.?\/*$/;
 
 const REASONS = {
   root: 'rm -r on / tries to erase the whole system. GNU rm refuses it by default (--preserve-root), but never try it on a real machine.',
   home: 'rm -r on your home directory, or on a directory that holds it, would delete everything in your home, and there is no undo.',
-  shell: 'kill -9 on your own shell ends it at once. In a real terminal your session would close.',
+  shell: name => `SIG${name} to your own shell ends it. In a real terminal your session would close.`,
+  frozen: name => `SIG${name} to your own shell freezes it. In a real terminal it would stop answering until another terminal sends SIGCONT.`,
 };
 
 function rmDanger(ctx, record) {
@@ -27,26 +28,29 @@ function rmDanger(ctx, record) {
   return reason;
 }
 
-function killSignal(args) {
-  const [first, second] = args;
-  let spec = 'TERM';
-  if (first === '-s' || first === '-n') spec = second ?? '';
-  else if (first?.startsWith('-')) spec = first.slice(1);
-  return spec.toUpperCase().replace(/^SIG/, '');
+function targetsShell(ctx, record, operands) {
+  const shell = ctx.before.procs.find(p => p.key === 'shell');
+  return record.name === 'kill' ? shell !== undefined && operands.includes(String(shell.pid)) : operands.includes('bash');
 }
 
 function killDanger(ctx, record) {
-  const shell = ctx.before.procs.find(p => p.key === 'shell');
-  const pids = record.args.filter(a => /^\d+$/.test(a)).map(Number);
-  return shell && KILL_SIGNALS.has(killSignal(record.args)) && pids.includes(shell.pid) ? REASONS.shell : null;
+  const asked = requestedSignal(record.name, record.args);
+  const deadly = asked.status === 'send' && endsInteractiveShell(asked.signal) && targetsShell(ctx, record, asked.operands);
+  let reason = null;
+  if (deadly) {
+    const name = signalName(asked.signal);
+    reason = defaultAction(asked.signal) === 'stop' ? REASONS.frozen(name) : REASONS.shell(name);
+  }
+  return reason;
 }
 
-const CHECKS = new Map([['rm', rmDanger], ['kill', killDanger]]);
+const CHECKS = new Map([['rm', rmDanger], ['kill', killDanger], ['pkill', killDanger], ['killall', killDanger]]);
 
 /**
  * Dangerous attempts in a line, whether or not they succeeded: rm -r of /, of
- * home or of a directory holding home, and kill -9 of the player's shell (the
- * process with key 'shell').
+ * home or of a directory holding home, and kill, pkill or killall sending a
+ * signal that ends or stops an interactive bash to the player's shell (the
+ * process with key 'shell', or the name bash for pkill and killall).
  *
  * @param {object} ctx The line's check context from makeContext.
  * @returns {string[]} One reason per dangerous command, in order.
