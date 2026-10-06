@@ -90,7 +90,7 @@
   animation: px-blink 1.1s steps(1) infinite;
 }
 
-.press {
+.card .press {
   margin-top: 28px;
   color: var(--muted);
   font-size: 14px;
