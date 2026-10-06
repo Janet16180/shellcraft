@@ -72,3 +72,24 @@ test('a dash or slash in a pattern is literal outside brackets', () => {
 test('a trailing slash keeps only directories', () => {
   assert.deepEqual(expandPattern('*/', sys()), ['sub/']);
 });
+
+test('matching takes time proportional to the pattern and the name, whatever the stars', () => {
+  const name = 'a'.repeat(255);
+  const started = Date.now();
+  assert.equal(compileGlob(`${'*'.repeat(40)}zz`).test(name), false);
+  assert.equal(compileGlob(`${'*a'.repeat(30)}b`).test(name), false);
+  assert.equal(compileGlob(`${'*a'.repeat(30)}*`).test(name), true);
+  assert.ok(Date.now() - started < 200);
+});
+
+test('stars, question marks and brackets match whole characters, emoji included', () => {
+  assert.ok(compileGlob('?').test('\u{1F600}'));
+  assert.ok(compileGlob('\u{1F600}*').test('\u{1F600}x'));
+  assert.ok(compileGlob('a*b*c').test('aXbYbZc'));
+  assert.ok(!compileGlob('a*b*c').test('aXbYbZ'));
+  assert.ok(compileGlob('*').test(''));
+  assert.ok(compileGlob('[[:upper:]]*', { ignoreCase: false }).test('Readme'));
+  assert.ok(compileGlob('readme*', { ignoreCase: true }).test('README.md'));
+  assert.ok(compileGlob('\\*x').test('*x'));
+  assert.ok(!compileGlob('\\*x').test('ax'));
+});
