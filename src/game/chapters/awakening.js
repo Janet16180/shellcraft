@@ -144,7 +144,7 @@ export default {
     {
       goal: 'Open the manual page of a command',
       hints: [
-        'Every command has a manual. One command opens it.',
+        'Most commands come with a manual. One command opens it.',
         'man followed by a command name opens its manual page.',
         'man ls',
       ],
@@ -196,7 +196,7 @@ export default {
     ['ls --help', 'a short summary of a command'],
   ],
   why: `<p>Why does the prompt show your name, the machine and the directory? People often have several terminals open, some on other machines over SSH. The prompt tells you at a glance who you are, where you are, and on which machine your next command will run.</p>
-<p>Why type commands instead of clicking? A command is exact and repeatable: the same line does the same thing every time, and you can save it, share it, or run it on a machine with no screen at all. Many servers are run that way.</p>
+<p>Why type commands instead of clicking? A command is exact and repeatable: you can save it, share it, run it again tomorrow, or run it on a machine with no screen at all. Many servers are run that way.</p>
 <p>Why <code>man</code>? The manual lives on the machine itself, so the answer to "what does this option do?" is one command away, even offline. Some minimal systems, like Docker images, leave the manual pages out to save space.</p>`,
   field: [
     ['hostname', 'print the name of the machine, the part of the prompt after the @'],

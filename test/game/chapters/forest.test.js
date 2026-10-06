@@ -45,6 +45,10 @@ test('the setup restores the forest, clears the letters of chapter 1 and brings 
   assert.equal(nodeAt(obs.tree, `${HOME}/letter3.txt`), null);
 });
 
+test('the Tab task\'s last hint is the key sequence, not a line to paste', () => {
+  assert.equal(chapter.tasks[GOAL['Walk into the forest again, and let Tab finish the name']].hints[2], 'Type cd fo, press Tab, then press Enter.');
+});
+
 test('Tab completes cd fo to cd forest/, as the lesson says', async () => {
   const backend = await startChapter(chapter);
   assert.equal((await backend.complete('cd fo')).line, 'cd forest/');
@@ -160,7 +164,7 @@ const NOT_COMMANDS = new Set(['/', '/home/hero', '..', '.', '~', 'cd forest/', '
 test('every command the chapter shows runs in the simulator', async () => {
   const lines = [
     ...codeSnippets(chapter.lesson).filter(snippet => !NOT_COMMANDS.has(snippet)),
-    ...chapter.tasks.map(task => task.hints[2]),
+    ...chapter.tasks.map(task => task.hints[2]).filter(hint => !hint.startsWith('Type cd fo, press Tab')),
     ...chapter.spells.flatMap(spell => spell.examples.map(([line]) => line)),
     ...chapter.recap.map(([line]) => line),
   ];

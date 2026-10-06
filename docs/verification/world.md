@@ -67,6 +67,8 @@ Runs, all 2026-10-06, `docker run --rm --hostname kernelia -e LC_ALL=C.UTF-8 -e 
 | scroll: "The number 7 meant all three. The number 4 meant only reading." | `chmod(1)`: read 4, write 2, execute 1 |
 | scroll: "tail -f follows a file as it grows"; "less lets you scroll ... (q quits)" | `tail(1)` `-f, --follow output appended data as the file grows`; `less(1)` `q` exits |
 | scroll: "The last known dragon sighting was recorded in the syslog" | the syslog has the `watchtower: dragon sighted near /dev/null` line |
+| scroll: "Its name was written in the system log, yet few could read it" (was "in every log file, yet no one could read it") | `/var/log/syslog` is syslog:adm 0640: only syslog, the adm group and root can read it (R1, R2) |
+| scroll: "plain text lasts, and almost any tool can read it" (was "is eternal and every tool can read it") | softened: no absolute claim |
 
 Other overworld texts (junk, library, tower, market, gate) are v1's, unchanged; their facts belong to
 the chapters that use them (3 to 14) and will be checked there.

@@ -136,8 +136,8 @@ export default {
       goal: 'Walk into the forest again, and let Tab finish the name',
       hints: [
         'You do not have to type every letter of a name.',
-        'Type cd fo, press the Tab key, then press Enter.',
-        'cd forest/',
+        'Tab finishes a name from its first letters when only one name matches.',
+        'Type cd fo, press Tab, then press Enter.',
       ],
       done: ctx => !isInside(ctx.before.cwd, forestOf(ctx)) && isInside(ctx.cwd, forestOf(ctx))
         && ctx.completions.some(tab => tab.completed !== tab.line),

@@ -35,11 +35,12 @@ Man pages from the Ubuntu 24.04 host.
 | Hint: pwd means print working directory | `pwd(1)` NAME |
 | Hint: ls lists the directory you are in | `ls(1)` |
 | Hint: cat followed by a file name prints that file | `cat(1)` |
+| Hint: most commands come with a manual (not all: bash builtins like `cd` have none, `man cd` -> "No manual entry for cd") | host `man -w cd` fails; `man -w ls` succeeds |
 | Hint: man followed by a command name opens its manual page | `man(1)` |
 | Hint: add `--help` after the command name | D (above) |
 | Hint: the command is the plain English word clear | `clear(1)` |
 | Near-misses fail for the right reason on real bash: `Whoami`, `PWD`, `cls` are unknown commands; `ls -help` is an invalid option; `help ls` finds no help topic | D: `bash: Whoami: command not found`; `bash: cls: command not found`; `ls: invalid option -- 'e'` status 2; `help: no help topics match 'ls'` status 1 |
-| Checks: each task has a near-miss that does not pass and a line that does | SIM: 11 near-miss tests |
+| Checks: each task has a near-miss that does not pass and a line that does | SIM: 13 near-miss tests (e.g. `LS --help` fails, `cat .bashrc` reads the wrong file). Each check survived mutation testing: removing any one condition makes a test fail |
 
 ## Boss: The Forged Letters
 

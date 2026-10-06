@@ -32,10 +32,10 @@ the simulator (`test/game/chapters/forest.test.js`). Man pages from the Ubuntu 2
 | Hint: an absolute path works from anywhere because it starts at the top of the tree | `path_resolution(7)` Step 1 |
 | Hint: the shell remembers the previous directory; a dash after cd goes back | `bash(1)` cd: OLDPWD |
 | Hint: cd with nothing after it takes you home | `bash(1)` cd |
-| Hint: type cd fo, press Tab, then Enter | R3 |
+| Hints: Tab finishes a name from its first letters when only one name matches; type cd fo, press Tab, then Enter | R3 (unique match completed), R5 (two matches: bell, then a list) |
 | `cd ~/forest/river` counts as an absolute path | bash expands `~` before cd runs (Tilde Expansion), so cd receives `/home/hero/forest/river`; the CommandRecord shows the same |
 | "Shortest command" home is `cd` alone; `cd ~` and `cd /home/hero` do not pass that task | by design; the lesson says `cd ~` also goes home, the goal asks for the shortest |
-| Checks: each task has a near-miss that does not pass and a line that does | SIM: 13 near-miss tests (e.g. `cd ../river` is relative; `cd ..` from the cave is not from deep; `cd forest` typed in full uses no Tab) |
+| Checks: each task has a near-miss that does not pass and a line that does | SIM: 16 near-miss tests (e.g. `cd ../river` is relative; `cd ../cave` from the river is not from deep; `cd forest` typed in full uses no Tab; Tab while already in the forest is not walking in). Each check also survived mutation testing: removing any one condition makes a test fail |
 
 ## Boss: The Trapdoor
 
