@@ -3,7 +3,7 @@
  */
 
 import { resolve } from './paths.js';
-import { compareNames } from './collate.js';
+import { compareNames } from '../backend/tree.js';
 import { can } from './perms.js';
 
 const LAST_WORD = /((?:\\.|[^\s\\])*\\?)$/;

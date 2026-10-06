@@ -6,7 +6,7 @@
 
 import { baseName, joinDisp, joinPath, newDir, newFile, addChild, removeChild } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
-import { compareNames } from '../collate.js';
+import { compareNames, isInside } from '../../backend/tree.js';
 import { can, canChangeEntries, canUnlink } from '../perms.js';
 import { parseOptions } from '../options.js';
 import { shellQuote } from '../quote.js';
@@ -14,7 +14,6 @@ import { result, withNote } from '../result.js';
 import { leaveIfGone } from './files.js';
 
 const q = name => shellQuote(name, { always: true });
-const isInside = (inner, outer) => inner === outer || inner.startsWith(`${outer}/`);
 
 function copyNode(sys, src, srcShown, targetParent, name, targetShown, acc) {
   const existing = targetParent.children[name];

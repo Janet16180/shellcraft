@@ -6,7 +6,7 @@
 
 import { sizeOf } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
-import { compareNames } from '../collate.js';
+import { compareNames } from '../../backend/tree.js';
 import { can } from '../perms.js';
 import { parseOptions, mapLongOptions } from '../options.js';
 import { layoutColumns } from '../columns.js';
