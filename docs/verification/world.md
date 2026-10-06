@@ -53,6 +53,7 @@ Runs, all 2026-10-06, `docker run --rm --hostname kernelia -e LC_ALL=C.UTF-8 -e 
 |---|---|
 | readme: "Your home, /home/hero, is yours" | R2: every node under the home is hero:hero (generated from the spec) |
 | readme: "Outside it lies the dungeon, where most things belong to root" | R2 `ls -la /`, `/etc`, `/var/log`: root except the syslog files |
+| readme: "Type hint for a clue" | `hint` is a game command of the session (`src/game/session.js` GAME_COMMANDS), not real Linux |
 | readme: `man COMMAND`, `man ls` | `man(1)`: "an interface to the system reference manuals"; placeholder in uppercase (AUTHORING 3.4) |
 | secret map: "plain ls skips this file; ls -a shows it" | `ls(1)`: `-a, --all do not ignore entries starting with .`; R2 `ls` in home lists no dot files |
 | `.bashrc` first line | Ubuntu `/etc/skel/.bashrc` line 1, verbatim; `ll` and `la` are skel's own aliases |

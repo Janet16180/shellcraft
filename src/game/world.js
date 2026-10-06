@@ -64,8 +64,8 @@ Every directory is a room and every file is an item. Your home,
 ${home}, is yours. Outside it lies the dungeon, where most
 things belong to root.
 
-Stuck? Ask for a hint. To study a spell, read its manual:
-man COMMAND, for example man ls.
+Stuck? Type hint for a clue. To study a spell, read its
+manual: man COMMAND, for example man ls.
 
     -- The Guardian of Root
 `;
