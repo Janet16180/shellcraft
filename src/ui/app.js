@@ -353,6 +353,12 @@ function wireControls(ui) {
     ui.sound.play('ok');
   });
   doc.getElementById('introBtn').addEventListener('click', () => ui.intro());
+  doc.getElementById('keyBtn').addEventListener('click', () => {
+    const roster = doc.getElementById('roster');
+    roster.open = true;
+    roster.scrollIntoView({ block: 'nearest' });
+    roster.querySelector('summary').focus({ preventScroll: true });
+  });
   wireReset(ui);
 }
 

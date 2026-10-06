@@ -422,6 +422,21 @@ kbd {
   color: var(--muted);
 }
 
+.keylink {
+  margin-left: auto;
+  border: 0;
+  padding: 2px 0;
+  background: none;
+  font-size: 14px;
+  color: var(--term-path);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.keylink:hover {
+  color: var(--text);
+}
+
 .picklist {
   display: flex;
   flex-wrap: wrap;
