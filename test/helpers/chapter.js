@@ -42,10 +42,8 @@ function assertTasks(tasks, where) {
     assertHints(task.hints, `${where} task ${i + 1}`);
     assert.ok(isFunction(task.done), `${where} task ${i + 1}: done must be a function`);
     assert.ok(isOptionalFunction(task.near), `${where} task ${i + 1}: near must be a function when present`);
-    if (task.tip !== undefined) {
-      assert.ok(isText(task.tip), `${where} task ${i + 1}: tip must be non-empty text`);
-      assert.ok(task.tip.length <= MAX_TIP, `${where} task ${i + 1}: tip has ${task.tip.length} characters, at most ${MAX_TIP} allowed`);
-    }
+    assert.ok(isText(task.tip), `${where} task ${i + 1}: tip must be non-empty text`);
+    assert.ok(task.tip.length <= MAX_TIP, `${where} task ${i + 1}: tip has ${task.tip.length} characters, at most ${MAX_TIP} allowed`);
   });
 }
 

@@ -330,7 +330,7 @@ function chapterView(s) {
     replay: s.replay,
     tasks: chapter.tasks.map((task, i) => ({
       goal: task.goal,
-      tip: task.tip ?? null,
+      tip: task.tip,
       done: s.tasksDone[i],
       next: i === next,
       hints: revealed(s, task.hints, s.hints[i], XP.task),
