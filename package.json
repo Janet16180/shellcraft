@@ -1,0 +1,22 @@
+{
+  "name": "shellcraft",
+  "private": true,
+  "version": "2.0.0-dev",
+  "description": "A terminal adventure that teaches basic Linux in the browser",
+  "type": "module",
+  "scripts": {
+    "test": "node --test --test-reporter=dot \"test/**/*.test.js\"",
+    "lint": "eslint .",
+    "difftest": "node difftest/run.js",
+    "serve": "python3 -m http.server 8765 --bind 127.0.0.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "eslint": "9.39.5",
+    "globals": "17.13.0",
+    "playwright-core": "1.63.0"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
