@@ -3,6 +3,8 @@
  * environment that `env` prints and programs inherit.
  */
 
+import { nameTable } from './table.js';
+
 const PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
 
 /**
@@ -13,7 +15,7 @@ const PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
  */
 export function initialVars({ user, home, host }) {
   const exported = { HOME: home, LANG: 'C.UTF-8', LOGNAME: user, PATH, PWD: home, SHELL: '/bin/bash', SHLVL: '1', TERM: 'xterm-256color', USER: user };
-  const vars = {};
+  const vars = nameTable();
   for (const [name, value] of Object.entries(exported)) vars[name] = { value, exported: true };
   vars.HOSTNAME = { value: host, exported: false };
   vars.HISTCONTROL = { value: 'ignoreboth', exported: false };
@@ -30,7 +32,7 @@ export function initialVars({ user, home, host }) {
  * @returns {string} Its value, or '' when unset.
  */
 export function varValue(sys, name) {
-  const special = { '?': String(sys.lastStatus), $: String(sys.shellPid), '#': '0', 0: 'bash', '-': 'himBHs' };
+  const special = nameTable({ '?': String(sys.lastStatus), $: String(sys.shellPid), '#': '0', 0: 'bash', '-': 'himBHs' });
   return special[name] ?? sys.vars[name]?.value ?? '';
 }
 

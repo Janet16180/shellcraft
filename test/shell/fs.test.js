@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { normalize, lookup, parentOf, baseName, joinPath, joinDisp, splitLines, byteLength, sizeOf, newDir, newFile, cloneNode, fromSpec, snapshot, insert, detach, addChild, removeChild } from '../../src/shell/fs.js';
 import { dir, file } from '../../src/backend/spec.js';
+import { nameTable } from '../../src/shell/table.js';
 
 const meta = { mode: 0o755, owner: 'root', group: 'root', mtime: 1 };
 const tree = () => newDir({ home: newDir({ hero: newDir({ 'a.txt': newFile('hi\n', meta) }, meta) }, meta) }, meta);
@@ -55,7 +56,7 @@ test('fromSpec turns spec nodes into filesystem nodes with a time', () => {
   const node = fromSpec(dir({ 'x.txt': file('x', { owner: 'hero' }) }, { mode: 0o700 }), 5);
   assert.deepEqual(node, {
     type: 'dir', mode: 0o700, owner: 'root', group: 'root', mtime: 5,
-    children: { 'x.txt': { type: 'file', mode: 0o644, owner: 'hero', group: 'hero', mtime: 5, content: 'x' } },
+    children: nameTable({ 'x.txt': { type: 'file', mode: 0o644, owner: 'hero', group: 'hero', mtime: 5, content: 'x' } }),
   });
 });
 
@@ -88,5 +89,16 @@ test('adding or removing an entry updates the directory time', () => {
   addChild(d, 'x', newFile('', meta), 10);
   assert.equal(d.mtime, 10);
   removeChild(d, 'x', 20);
-  assert.deepEqual([d.mtime, d.children], [20, {}]);
+  assert.deepEqual([d.mtime, d.children], [20, nameTable()]);
+});
+
+test('entries named like object members are ordinary entries', () => {
+  const root = newDir({}, meta);
+  addChild(root, '__proto__', newFile('p', meta), 10);
+  assert.equal(lookup(root, '/__proto__').content, 'p');
+  assert.equal(lookup(root, '/constructor'), null);
+  assert.deepEqual(Object.keys(cloneNode(root, 11).children), ['__proto__']);
+  assert.ok(Object.hasOwn(snapshot(root).children, '__proto__'));
+  removeChild(root, '__proto__', 12);
+  assert.equal(lookup(root, '/__proto__'), null);
 });

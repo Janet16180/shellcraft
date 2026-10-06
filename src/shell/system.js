@@ -5,6 +5,7 @@
  */
 
 import { newDir, newFile, insert } from './fs.js';
+import { nameTable } from './table.js';
 import { initialVars, setVar } from './vars.js';
 
 const ROOT_META = { owner: 'root', group: 'root' };
@@ -86,7 +87,7 @@ export function createSystem({ user, host, home, now, random, binaries }) {
     groups: [user],
     root: baseTree(home, user, binaries, started), loginTime: started,
     cwd: home, oldpwd: null,
-    vars: initialVars({ user, home, host }), aliases: { ll: 'ls -alF', la: 'ls -A' }, history: [], hashed: new Set(),
+    vars: initialVars({ user, home, host }), aliases: nameTable({ ll: 'ls -alF', la: 'ls -A' }), history: [], hashed: new Set(),
     lastStatus: 0, umask: 0o022, procs: [], nextPid: 300, shellPid: 0, columns: 80,
   };
   sys.procs = systemProcs(sys);

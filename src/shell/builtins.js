@@ -4,6 +4,8 @@
  * help bash prints for them.
  */
 
+import { nameTable } from './table.js';
+
 /** Every builtin of bash 5.2 (`compgen -b`), simulated or not. */
 export const BASH_BUILTINS = new Set(['.', ':', '[', 'alias', 'bg', 'bind', 'break', 'builtin', 'caller', 'cd', 'command', 'compgen', 'complete',
   'compopt', 'continue', 'declare', 'dirs', 'disown', 'echo', 'enable', 'eval', 'exec', 'exit', 'export', 'false', 'fc', 'fg', 'getopts', 'hash',
@@ -16,7 +18,7 @@ export const NO_BINARY = new Set(['cd', 'history', 'alias', 'export', 'exit', 'l
 /**
  * The usage line and one-line summary bash prints for `NAME --help` and `help NAME`.
  */
-export const BUILTIN_HELP = {
+export const BUILTIN_HELP = nameTable({
   alias: ['alias [-p] [name[=value] ... ]', 'Define or display aliases.'],
   cd: ['cd [-L|[-P [-e]] [-@]] [dir]', 'Change the shell working directory.'],
   exit: ['exit [n]', 'Exit the shell.'],
@@ -29,7 +31,7 @@ export const BUILTIN_HELP = {
   type: ['type [-afptP] name [name ...]', 'Display information about command type.'],
   unalias: ['unalias [-a] name [name ...]', 'Remove each NAME from the list of defined aliases.'],
   unset: ['unset [-f] [-v] [-n] [name ...]', 'Unset values and attributes of shell variables and functions.'],
-};
+});
 
 /**
  * @param {string} name A builtin with an entry in BUILTIN_HELP.

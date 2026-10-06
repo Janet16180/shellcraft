@@ -5,11 +5,13 @@
  * Malformed patterns give GNU grep's messages.
  */
 
+import { nameTable } from './table.js';
+
 const WORD = 'A-Za-z0-9_';
-const CLASSES = {
+const CLASSES = nameTable({
   alpha: 'A-Za-z', digit: '0-9', alnum: '0-9A-Za-z', upper: 'A-Z', lower: 'a-z', space: ' \\t\\n\\r\\f\\v', blank: ' \\t',
   punct: '!-\\/:-@\\[-`{-~', xdigit: '0-9A-Fa-f', cntrl: '\\x00-\\x1f\\x7f', print: ' -~', graph: '!-~',
-};
+});
 const ESCAPED = { '<': `\\b(?=[${WORD}])`, '>': `\\b(?<=[${WORD}])`, b: '\\b', B: '\\B', w: `[${WORD}]`, W: `[^${WORD}]`, s: '\\s', S: '\\S', '`': '^', "'": '$' };
 const UNMATCHED_BRACKET = 'Unmatched [, [^, [:, [., or [=';
 const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');

@@ -12,6 +12,7 @@ import { result, withNote } from '../result.js';
 import { varValue, setVar, exportedVars } from '../vars.js';
 import { compareNames } from '../collate.js';
 import { parseOptions } from '../options.js';
+import { nameTable } from '../table.js';
 
 /**
  * Find a command's program the way PATH lookup does.
@@ -142,7 +143,7 @@ function env(_args, { sys, env: overlay }) {
 }
 
 function printenv(args, ctx) {
-  const all = { ...exportedVars(ctx.sys), ...ctx.env };
+  const all = nameTable({ ...exportedVars(ctx.sys), ...ctx.env });
   const found = args.filter(a => a in all);
   return args.length ? result(found.map(a => `${all[a]}\n`).join(''), '', found.length === args.length ? 0 : 1) : env(args, ctx);
 }
@@ -154,7 +155,7 @@ function unset(args, { sys }) {
 
 function unalias(args, { sys }) {
   const errs = [];
-  if (args[0] === '-a') sys.aliases = {};
+  if (args[0] === '-a') sys.aliases = nameTable();
   for (const name of args.filter(a => a !== '-a')) {
     if (name in sys.aliases) delete sys.aliases[name];
     else errs.push(`bash: unalias: ${name}: not found`);

@@ -47,3 +47,11 @@ test('candidates come in C.UTF-8 byte order, capitals first', async () => {
 test('a directory the user cannot search completes to nothing', async () => {
   assert.deepEqual(await (await shell()).complete('cat /root/s'), { line: 'cat /root/s', candidates: [] });
 });
+
+test('completion finds files named like object members', async () => {
+  const b = await shell();
+  await b.run('touch constructor __proto__');
+  assert.deepEqual(await b.complete('cat cons'), { line: 'cat constructor ', candidates: [] });
+  assert.deepEqual(await b.complete('cat __p'), { line: 'cat __proto__ ', candidates: [] });
+  assert.deepEqual((await b.complete('constr')).line, 'constr');
+});
