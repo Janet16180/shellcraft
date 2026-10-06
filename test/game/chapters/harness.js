@@ -9,6 +9,8 @@ import { makeContext } from '../../../src/game/checks.js';
 import { createRandom } from '../../../src/game/rng.js';
 import { baseWorld } from '../../../src/game/world.js';
 import { typeLine } from '../../helpers/type-line.js';
+import { coachNote } from '../../../src/game/coach.js';
+import assert from 'node:assert/strict';
 
 export const PLAYER = { home: '/home/hero', user: 'hero' };
 const NOW = Date.UTC(2026, 9, 6, 12);
@@ -109,4 +111,38 @@ export async function startBoss(chapter, seed) {
 export function codeSnippets(html) {
   const unescape = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
   return [...html.matchAll(/<code>(.*?)<\/code>/g)].map(m => unescape(m[1]));
+}
+
+/**
+ * Describe an expected near note for a test title.
+ *
+ * @param {RegExp|{coach: RegExp}|null} expected A pattern for the task's note, the coach's note, or no note.
+ * @returns {string} The words for the title.
+ */
+export function nearTitle(expected) {
+  let words = 'gives no near note';
+  if (expected instanceof RegExp) words = 'gives a near note';
+  else if (expected) words = 'leaves the note to the coach';
+  return words;
+}
+
+/**
+ * Check a task's near note against what the test expects. `{ coach: pattern }`
+ * means the task stays silent so the generic coach (src/game/coach.js) speaks.
+ *
+ * @param {string|null} note What the task's near returned.
+ * @param {object} ctx The check context of the line.
+ * @param {RegExp|{coach: RegExp}|null} expected A pattern for the task's note, the coach's note, or null.
+ * @returns {void}
+ * @throws {import('node:assert').AssertionError} If the note does not match.
+ */
+export function assertNear(note, ctx, expected) {
+  if (expected instanceof RegExp) {
+    assert.match(note, expected);
+  } else if (expected) {
+    assert.equal(note, null, 'the task leaves this case to the coach');
+    assert.match(coachNote(ctx), expected.coach);
+  } else {
+    assert.equal(note, null);
+  }
 }
