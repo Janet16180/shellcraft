@@ -2,13 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSystem, allocPid, makeProc } from '../../src/shell/system.js';
 import { lookup } from '../../src/shell/fs.js';
+import { nameTable } from '../../src/shell/table.js';
 
 const make = (random = () => 0.5) => createSystem({ user: 'hero', host: 'kernelia', home: '/home/hero', now: () => 7, random, binaries: ['ls', 'cat'] });
 
 test('the machine starts in the home, which exists and belongs to the user', () => {
   const sys = make();
   assert.equal(sys.cwd, '/home/hero');
-  assert.deepEqual(lookup(sys.root, '/home/hero'), { type: 'dir', mode: 0o750, owner: 'hero', group: 'hero', mtime: 7, children: {} });
+  assert.deepEqual(lookup(sys.root, '/home/hero'), { type: 'dir', mode: 0o750, owner: 'hero', group: 'hero', mtime: 7, children: nameTable() });
   assert.equal(lookup(sys.root, '/home').owner, 'root');
 });
 

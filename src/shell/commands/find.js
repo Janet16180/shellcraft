@@ -14,6 +14,7 @@ import { can } from '../perms.js';
 import { compileGlob } from '../glob.js';
 import { localeQuote } from '../quote.js';
 import { result } from '../result.js';
+import { nameTable } from '../table.js';
 
 const UNITS = { c: 1, w: 2, b: 512, k: 1024, M: 1024 ** 2, G: 1024 ** 3 };
 const SYSTEM_USERS = ['root', 'daemon', 'bin', 'sys', 'nobody'];
@@ -42,7 +43,7 @@ function permTest(v) {
 
 const isEmpty = e => (e.node.type === 'dir' ? Object.keys(e.node.children).length === 0 : sizeOf(e.node) === 0);
 
-const PRIMARIES = {
+const PRIMARIES = nameTable({
   '-name': v => { const re = compileGlob(v); return { test: e => re.test(e.name) }; },
   '-iname': v => { const re = compileGlob(v, { ignoreCase: true }); return { test: e => re.test(e.name) }; },
   '-type': v => (v === 'f' || v === 'd' ? { test: e => e.node.type === (v === 'd' ? 'dir' : 'file') } : { error: `find: Unknown argument to -type: ${v}` }),
@@ -54,7 +55,7 @@ const PRIMARIES = {
   '-print': (_v, ctx) => ({ test: e => ctx.out.push(e.shown) > 0, prints: true }),
   '-true': () => ({ test: () => true }),
   '-false': () => ({ test: () => false }),
-};
+});
 
 function depthOption(t, v, ctx) {
   let p;
