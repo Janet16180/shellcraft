@@ -76,12 +76,17 @@ test('a name split by an unquoted space is explained', () => {
 
 test('a long option written with one dash is explained', () => {
   const r = record('ls', ['-help'], { status: 2 });
-  assert.equal(note(r), 'One dash starts short options, so -help means -h -e -l -p. Long options take two dashes: --help.');
+  assert.equal(note(r), 'For most commands, one dash starts short options, so -help means -h -e -l -p. Long options take two dashes: --help.');
 });
 
 test('repeating the directory you are already in is explained', () => {
   const r = failed('cd', ['forest/cave/deep'], { cwd: FOREST });
   assert.equal(note(r), 'You are already in forest (the prompt shows ~/forest). From here the path is cave/deep.');
+});
+
+test('naming the directory you are already in, with nothing after it, gets only the first sentence', () => {
+  const r = failed('cd', ['forest/'], { cwd: FOREST });
+  assert.equal(note(r), 'You are already in forest (the prompt shows ~/forest).');
 });
 
 test('a path from the root that was meant from home is explained', () => {
