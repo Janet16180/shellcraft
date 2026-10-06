@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createSession } from '../../src/game/session.js';
 import { SAVE_KEY, V1_SAVE_KEY } from '../../src/game/save.js';
 import { createRandom } from '../../src/game/rng.js';
-import { nodeAt } from '../../src/game/checks.js';
+import { nodeAt } from '../../src/backend/tree.js';
 import { createFakeBackend } from '../helpers/fake-backend.js';
 import { createMemoryStore } from '../helpers/memory-store.js';
 import { fixtureChapters, fixtureWorld } from '../helpers/fixture-chapters.js';

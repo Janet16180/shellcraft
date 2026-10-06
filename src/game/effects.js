@@ -9,6 +9,8 @@
  * @typedef {{kind: string} & Record<string, unknown>} Effect
  */
 
+import { isInside, compareNames } from '../backend/tree.js';
+
 const NOT_FOUND = 127;
 const KILL_SIGNALS = new Set(['9', 'KILL']);
 // rm refuses an operand whose last component is . or .. before touching it.
@@ -24,7 +26,7 @@ const childPath = (path, name) => (path === '/' ? `/${name}` : `${path}/${name}`
 
 function diffTree(was, now, path, found) {
   const names = new Set([...Object.keys(was.children), ...Object.keys(now.children)]);
-  for (const name of [...names].sort()) {
+  for (const name of [...names].sort(compareNames)) {
     const a = was.children[name];
     const b = now.children[name];
     const replaced = a && b && a.type !== b.type;
@@ -85,7 +87,7 @@ function rmDanger(ctx, record) {
   const recursive = ctx.flag(record, 'r') || ctx.flag(record, 'R') || record.args.includes('--recursive');
   const named = { ...record, args: record.args.filter(a => !DOT_OPERAND.test(a)) };
   const paths = recursive ? ctx.paths(named) : [];
-  const holdsHome = path => ctx.home === path || ctx.home.startsWith(`${path}/`);
+  const holdsHome = path => isInside(ctx.home, path);
   let reason = null;
   if (paths.includes('/')) reason = REASONS.root;
   else if (paths.some(holdsHome)) reason = REASONS.home;

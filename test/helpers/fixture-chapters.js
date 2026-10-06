@@ -3,7 +3,7 @@
  * authoring contract. Each call returns fresh objects.
  */
 import { put, stop, cd, dir, file } from '../../src/backend/spec.js';
-import { nodeAt } from '../../src/game/checks.js';
+import { nodeAt } from '../../src/backend/tree.js';
 import { pick, token } from '../../src/game/rng.js';
 
 const signText = (obs, path) => nodeAt(obs.tree, path).content.trim();

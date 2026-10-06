@@ -4,7 +4,8 @@
  * observation only, so they work with any backend. Only failed commands get
  * a note; a correct line never does.
  */
-import { READERS, nodeAt, operands, resolvePath } from './checks.js';
+import { nodeAt, isInside } from '../backend/tree.js';
+import { READERS, operands, resolvePath } from './checks.js';
 
 const NOT_FOUND = 127;
 const ONE_DASH_LONG = new Set(['-help', '-version']);
@@ -23,7 +24,7 @@ const WINDOWS = new Map([
 
 const baseName = path => path.slice(path.lastIndexOf('/') + 1);
 const nodeOf = (ctx, record, arg) => ctx.node(resolvePath(arg, record.cwd, ctx.home));
-const promptPath = (cwd, home) => (cwd === home || cwd.startsWith(`${home}/`) ? `~${cwd.slice(home.length)}` : cwd);
+const promptPath = (cwd, home) => (isInside(cwd, home) ? `~${cwd.slice(home.length)}` : cwd);
 
 function knownCommands(obs) {
   const installed = ['/usr/bin', '/bin'].flatMap(path => Object.keys(nodeAt(obs.tree, path)?.children ?? {}));
