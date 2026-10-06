@@ -29,9 +29,10 @@ const TOAST_MS = 2600;
  * @param {object} deps.session A session from createSession (DESIGN.md section 2.2).
  * @param {Function} deps.createMap The map renderer (DESIGN.md section 2.4).
  * @param {() => object} deps.createIntroBackend A fresh backend for the intro to run its lines on.
+ * @param {(columns: number) => Promise<void>} deps.resizeTerminal Tells the game's shell the terminal's width.
  * @returns {Promise<void>} Resolves once the title screen is up.
  */
-export async function startApp({ doc, session, createMap, createIntroBackend }) {
+export async function startApp({ doc, session, createMap, createIntroBackend, resizeTerminal }) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const sound = createSound();
   const ui = { doc, session, sound, reducedMotion, view: null, mapQueue: createQueue(), toastTimer: 0 };
@@ -40,6 +41,7 @@ export async function startApp({ doc, session, createMap, createIntroBackend }) 
     onSubmit: line => runLine(ui, line),
     onComplete: line => session.complete(line),
     onKey: () => sound.play('key'),
+    onResize: resizeTerminal,
   });
   ui.map = createMap(doc.getElementById('map'), { reducedMotion, onPick: pick => ui.terminal.insert(commandForPick(pick)) });
   ui.intro = () => playIntro({ doc, createMap, createBackend: createIntroBackend, reducedMotion, sound, onDone: line => finishIntro(ui, line) });

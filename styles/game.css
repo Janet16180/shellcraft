@@ -937,15 +937,23 @@ kbd {
   font-weight: 700;
 }
 
+/* A long prompt wraps like a real terminal's, and the input moves to the next line rather
+   than shrinking to nothing. */
 .inputline {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  white-space: pre;
+}
+
+.inputline #prompt {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .inputline input {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 12ch;
+  min-width: 12ch;
   background: transparent;
   border: 0;
   outline: none;
