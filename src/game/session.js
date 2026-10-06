@@ -275,8 +275,11 @@ function questText(s) {
 /** Game commands typed in the terminal; they are not Linux and never reach the backend. */
 const GAME_COMMANDS = new Map([['hint', hintText], ['quest', questText]]);
 
+// Backticks mark typed names for the page; in bash they would run a command.
+const terminalText = text => text.replaceAll('`', '');
+
 function gameTurn(s, text) {
-  const result = { output: [{ stream: 'note', text }], status: 0, commands: [], blocked: [] };
+  const result = { output: [{ stream: 'note', text: terminalText(text) }], status: 0, commands: [], blocked: [] };
   return { result, obs: s.obs, effects: [], events: [], view: view(s) };
 }
 
