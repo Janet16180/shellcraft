@@ -54,3 +54,9 @@ test('when the next chapter is open the log offers to continue', () => {
 test('without a why the section is left out', () => {
   assert.doesNotMatch(debriefHTML({ ...CLEARED, why: '' }), /class="why"/);
 });
+
+test('Escape has a safe button to press on the boss card and the adventure log, none on the title', () => {
+  assert.match(bossCardHTML({ title: 'T', briefing: '' }, 1), /id="bossGo" data-dismiss/);
+  assert.match(debriefHTML(CLEARED), /id="stayBtn" type="button" data-dismiss/);
+  assert.doesNotMatch(titleCardHTML(null), /data-dismiss/);
+});

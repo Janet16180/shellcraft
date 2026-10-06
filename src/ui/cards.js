@@ -41,7 +41,7 @@ export function bossCardHTML({ title, briefing }, number) {
     <h2 id="cardTitle">${esc(title)}</h2>
     <div class="brief">${briefing}</div>
     <p class="rules">No step list in here: use what this chapter taught you. The room is set up at random each time you enter it. Hints still work and cost the same XP.</p>
-    <div class="actions"><button class="px-btn primary" type="button" id="bossGo">Enter the boss room</button></div>`;
+    <div class="actions"><button class="px-btn primary" type="button" id="bossGo" data-dismiss>Enter the boss room</button></div>`;
 }
 
 function nextHTML(next) {
@@ -74,12 +74,13 @@ export function debriefHTML({ chapter, recap, why, field, xp, next }) {
     ${pairs(field)}
     <div class="actions">
       ${nextHTML(next)}
-      <button class="px-btn ghost" id="stayBtn" type="button">Keep exploring here</button>
+      <button class="px-btn ghost" id="stayBtn" type="button" data-dismiss>Keep exploring here</button>
     </div>`;
 }
 
 /**
  * Show a card in the overlay, keep Tab inside it, and focus its first button.
+ * Escape presses the card's button marked data-dismiss, if it has one.
  *
  * @param {Document} doc The page.
  * @param {string} html The card's content.
@@ -95,7 +96,11 @@ export function openCard(doc, html, kind = '') {
   overlay.classList.remove('show');
   void overlay.offsetWidth;
   overlay.classList.add('show');
-  card.onkeydown = keepFocusIn(card);
+  const keepFocus = keepFocusIn(card);
+  card.onkeydown = event => {
+    if (event.key === 'Escape') card.querySelector('[data-dismiss]')?.click();
+    else keepFocus(event);
+  };
   card.querySelector('button')?.focus();
   return card;
 }
