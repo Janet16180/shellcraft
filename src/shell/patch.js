@@ -4,7 +4,7 @@
 
 import { validatePatch } from '../backend/spec.js';
 import { lookup, fromSpec, insert, detach, parentOf } from './fs.js';
-import { allocPid, makeProc } from './system.js';
+import { allocPid, makeProc, TERMINAL } from './system.js';
 import { SIGNALS } from './commands/procs.js';
 
 const SYSTEM_PATHS = ['/usr/bin', '/dev/null'];
@@ -24,7 +24,7 @@ function startProc(sys, spec) {
   if (sys.procs.some(p => p.key === spec.key)) return;
   const tty = spec.tty ?? '?';
   sys.procs.push(makeProc({
-    ...spec, tty, pid: allocPid(sys, 400), ppid: tty === 'pts/0' ? sys.shellPid : 1, ignores: signalNumbers(spec),
+    ...spec, tty, pid: allocPid(sys, 400), ppid: tty === TERMINAL ? sys.shellPid : 1, ignores: signalNumbers(spec),
   }));
 }
 

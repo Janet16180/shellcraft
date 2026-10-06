@@ -36,7 +36,6 @@ const MISTAKES = {
   'ls-l': 'Put a space before the option: ls -l',
   'ls-a': 'Put a space before the option: ls -a',
   'ls-la': 'Put a space before the option: ls -la',
-  who: 'who is a real command (it lists who is logged in), but this game does not simulate it. whoami prints your user name.',
 };
 
 
