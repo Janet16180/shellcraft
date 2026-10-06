@@ -32,3 +32,27 @@ test('division by zero and bad syntax are errors in bash words', () => {
   assert.equal(calc('1/0').error, '1/0: division by 0 (error token is "0")');
   assert.equal(calc('1+').error, '1+: syntax error: operand expected (error token is "+")');
 });
+
+const withVars = table => expr => evaluate(expr, name => table[name] ?? '');
+
+test('a variable holding an expression is evaluated in turn, as bash does', () => {
+  const calcIn = withVars({ a: 'b', b: 'c', c: '7', sum: '3 + 4', word: 'abc' });
+  assert.equal(calcIn('a + 1').value, 8);
+  assert.equal(calcIn('sum * 2').value, 14);
+  assert.equal(calcIn('word + 1').value, 1);
+  assert.equal(withVars({ x: 'hello world' })('x').error, 'hello world: syntax error in expression (error token is "world")');
+});
+
+test('a variable that refers back to itself exceeds the recursion level', () => {
+  assert.equal(withVars({ a: 'a' })('a').error, 'a: expression recursion level exceeded (error token is "a")');
+  assert.equal(withVars({ a: 'a+1' })('a').error, 'a+1: expression recursion level exceeded (error token is "a+1")');
+  assert.equal(withVars({ a: 'b', b: 'a' })('a + 1').error, 'b: expression recursion level exceeded (error token is "b")');
+});
+
+test('nesting deeper than 1024 levels is refused instead of overflowing the stack', () => {
+  assert.equal(calc(`${'('.repeat(1024)}1${')'.repeat(1024)}`).value, 1);
+  assert.equal(calc(`${'-'.repeat(1024)}1`).value, 1);
+  for (const deep of [`${'('.repeat(20000)}1${')'.repeat(20000)}`, `${'-'.repeat(20000)}1`, `${'!'.repeat(20000)}1`]) {
+    assert.match(calc(deep).error, /: expression recursion level exceeded \(error token is "/);
+  }
+});

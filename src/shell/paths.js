@@ -5,11 +5,17 @@
  */
 
 import { can } from './perms.js';
+import { byteLength } from './fs.js';
 
-const MESSAGES = { ENOENT: 'No such file or directory', ENOTDIR: 'Not a directory', EACCES: 'Permission denied' };
+const MESSAGES = {
+  ENOENT: 'No such file or directory', ENOTDIR: 'Not a directory', EACCES: 'Permission denied', ENAMETOOLONG: 'File name too long',
+};
+// Linux PATH_MAX counts the final NUL byte; NAME_MAX limits one component.
+const PATH_MAX = 4096;
+const NAME_MAX = 255;
 
 /**
- * @param {'ENOENT'|'ENOTDIR'|'EACCES'} code An error code from resolve().
+ * @param {'ENOENT'|'ENOTDIR'|'EACCES'|'ENAMETOOLONG'} code An error code from resolve().
  * @returns {string} The C library message for it.
  */
 export const errorText = code => MESSAGES[code];
@@ -23,6 +29,7 @@ function walk(sys, parts, startStack) {
     const last = i === parts.length - 1;
     if (error) return;
     if (dir.type !== 'dir') error = 'ENOTDIR';
+    else if (byteLength(part) > NAME_MAX) error = 'ENAMETOOLONG';
     else if (!can(sys, dir, 'x')) error = 'EACCES';
     else if (part === '..') { if (stack.length > 1) stack.pop(); }
     else if (part === '.') return;
@@ -47,7 +54,7 @@ function startStack(sys, path) {
  *
  * @param {{root: object, cwd: string, user: string, groups: string[]}} sys The machine state.
  * @param {string} path Absolute or relative path, as typed.
- * @returns {{abs: string, node: object|null, parent: object|null, error: 'ENOENT'|'ENOTDIR'|'EACCES'|null}}
+ * @returns {{abs: string, node: object|null, parent: object|null, error: 'ENOENT'|'ENOTDIR'|'EACCES'|'ENAMETOOLONG'|null}}
  *   The absolute path; the node (null on error); the directory that holds or
  *   would hold the last component (null when the path does not get that far).
  */
@@ -55,7 +62,8 @@ export function resolve(sys, path) {
   const start = startStack(sys, path);
   const parts = path.split('/').filter(Boolean);
   const trailingSlash = path.length > 1 && path.endsWith('/');
-  const walked = start ? walk(sys, parts, start) : { stack: [{ name: '', node: null }], error: 'ENOENT', parent: null };
+  let walked = start ? walk(sys, parts, start) : { stack: [{ name: '', node: null }], error: 'ENOENT', parent: null };
+  if (byteLength(path) >= PATH_MAX) walked = { stack: [{ name: '', node: null }], error: 'ENAMETOOLONG', parent: null };
   const { stack } = walked;
   let { error, parent } = walked;
   const node = error ? null : stack.at(-1).node;
