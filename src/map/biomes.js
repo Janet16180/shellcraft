@@ -4,8 +4,7 @@
  * few rooms that say what their directory really holds.
  */
 
-import { isInside } from '../backend/tree.js';
-import { joinPath } from './paths.js';
+import { isInside, joinPath } from '../backend/tree.js';
 
 /**
  * Every biome: its realm, the name shown to the player, and its colours. The
