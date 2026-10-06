@@ -1,0 +1,8 @@
+[
+  { "name": "names with spaces", "world": "names", "lines": ["cd names", "cat my notes.txt", "cat 'my notes.txt'", "cat \"my notes.txt\"", "cat my\\ notes.txt", "cp 'my notes.txt' 'copy of notes.txt'", "ls", "mv 'copy of notes.txt' copy.txt", "rm my notes.txt", "ls", "touch new file", "ls", "mkdir 'a dir'", "ls -d a*", "ls 'a dir'", "cd 'a dir'", "pwd", "cd ..", "rmdir a\\ dir"] },
+  { "name": "wildcards", "world": "names", "lines": ["cd names", "echo *", "echo *.txt", "echo ?.txt", "echo [0-9]*", "echo [!a-z]*", "echo [[:upper:]]*", "echo *.zip", "ls *.txt", "ls -d */", "echo .*", "echo *t*", "cat *.zip", "echo \"*.txt\"", "echo '*.txt'", "echo \\*.txt", "ls -d [ab]*", "rm *.txt", "ls"] },
+  { "name": "wildcards across directories", "world": "home", "lines": ["echo */*.txt", "echo forest/*/*", "ls forest/c*", "cat library/*.txt | wc -l", "echo ~/*", "echo /srv/*", "echo /root/*"] },
+  { "name": "files created now show the current time", "world": "home", "lines": ["touch fresh.txt", "ls -l fresh.txt", "mkdir newdir", "ls -ld newdir", "echo hi > note.txt", "ls -l note.txt"] },
+  { "name": "more beginner mistakes", "world": "home", "lines": ["cd /home/hero/forest/", "pwd", "cd ~/", "pwd", "ls -l -a forest", "ls -al -h", "cat readme", "cat Readme.txt", "cd Forest", "ls- l", "mkdir", "cd forest cave", "echo 'unfinished", "echo $((1+2))", "cat readme.txt|wc -l", "ls;pwd", "pwd;", "  ls  ", "cd ../../../../..", "pwd"],
+    "intended": [{ "line": "echo 'unfinished", "reason": "a real bash waits for the closing quote on a new line; the simulator reports what bash prints when the input ends there", "real": false }] }
+]

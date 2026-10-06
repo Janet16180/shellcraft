@@ -40,8 +40,10 @@ const withNewline = text => (text && !text.endsWith('\n') ? `${text}\n` : text);
 
 function expansionEnv(sh) {
   const { sys } = sh;
+  const errors = [];
   return {
-    sys,
+    sys, errors,
+    fail: message => errors.push(message),
     lookupVar: name => varValue(sys, name),
     homeOf: user => ({ ...SYSTEM_HOMES, [sys.user]: sys.home })[user] ?? null,
     substitute: line => capture(sh, line).out,
@@ -136,17 +138,17 @@ function prepare(sh, cmd, stdin, last) {
   const values = cmd.words.slice(0, k).map(w => [w.parts[0].lit.split('=')[0], expandAssignment(w, env)]);
   const argv = expandWords(aliasExpand(sh, cmd.words.slice(k)), env);
   const targets = cmd.redirs.map(r => ({ op: r.op, fd: r.fd, expanded: expandTarget(r.target, env) }));
-  const bad = targets.find(t => t.expanded.error);
+  const bad = env.errors.length ? { expanded: { error: env.errors[0] } } : targets.find(t => t.expanded.error);
   const base = { stdin, out: last ? { kind: 'terminal', stream: 'out' } : { kind: 'pipe', buffer: '' }, err: { kind: 'terminal', stream: 'err' } };
   const opened = bad ? { error: bad.expanded.error, streams: base, records: [] }
     : openRedirects(sh.sys, targets.map(t => ({ op: t.op, fd: t.fd, target: t.expanded.value })), base);
-  return { argv, values, opened, base };
+  return { argv, values, opened, base, abort: env.errors.length > 0 };
 }
 
 function runCommand(sh, cmd, stdin, place, sink) {
   const { sys } = sh;
   const cwd = sys.cwd;
-  const { argv, values, opened, base } = prepare(sh, cmd, stdin, place.last);
+  const { argv, values, opened, base, abort } = prepare(sh, cmd, stdin, place.last);
   const { streams } = opened;
   let r = result();
   if (opened.error) r = result('', opened.error, 1);
@@ -158,20 +160,22 @@ function runCommand(sh, cmd, stdin, place, sink) {
   if (sh.run.depth === 0 && argv.length && !opened.error) {
     sh.run.records.push({ name: argv[0], args: argv.slice(1), cwd, status: r.status, stdout: r.out, ...place.record, redirects: opened.records });
   }
-  return { status: r.status, piped: streams.out.kind === 'pipe' ? streams.out.buffer : '' };
+  return { status: r.status, piped: streams.out.kind === 'pipe' ? streams.out.buffer : '', abort };
 }
 
 function runPipeline(sh, pipeline, sink) {
   const index = sh.run.depth === 0 ? sh.run.pipelines++ : -1;
   let stdin = null;
   let status = 0;
+  let abort = false;
   pipeline.forEach((cmd, stage) => {
     const place = { last: stage === pipeline.length - 1, record: { pipeline: index, stage, stages: pipeline.length } };
     const done = runCommand(sh, cmd, stage === 0 ? null : stdin, place, sink);
     status = done.status;
     stdin = done.piped;
+    abort ||= done.abort;
   });
-  return status;
+  return { status, abort };
 }
 
 /**
@@ -194,10 +198,12 @@ export function executeLine(sh, line, sink) {
     if (parsed.incomplete) sink.note(CONTINUATION);
     status = 2;
   }
+  let abort = false;
   for (const item of parsed.list) {
-    const skip = (prev === '&&' && status !== 0) || (prev === '||' && status === 0);
-    if (!skip) status = runPipeline(sh, item.pipeline, sink);
-    if (!skip && item.next === '&') sink.note(BACKGROUND);
+    const skip = abort || (prev === '&&' && status !== 0) || (prev === '||' && status === 0);
+    const ran = skip ? null : runPipeline(sh, item.pipeline, sink);
+    if (ran) ({ status, abort } = ran);
+    if (ran && item.next === '&') sink.note(BACKGROUND);
     sys.lastStatus = status;
     prev = item.next;
   }

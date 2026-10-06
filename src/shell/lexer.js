@@ -7,6 +7,7 @@
  *   `{lit, q}`   literal text, q true when quoted (no globbing or splitting)
  *   `{var, q}`   a parameter: a name, or one of `? $ # 0`
  *   `{cmd, q}`   a command substitution, with the inner line
+ *   `{arith, q}` an arithmetic expansion `$(( ))`, with the expression
  *   `{tilde}`    a leading `~` or `~user`
  * Operators are `{type: 'op', op}` and redirections `{type: 'redir', op, fd}`.
  * A line with an unclosed quote is an expected mistake, so tokenize returns
@@ -43,7 +44,10 @@ function scanDollar(line, i, q) {
   const braced = /^\{([A-Za-z_][A-Za-z0-9_]*|[?$#0-9])\}/.exec(rest);
   const name = NAME.exec(rest) ?? SPECIAL.exec(rest);
   let scan = { part: { lit: '$', q }, end: i + 1, error: null };
-  if (rest.startsWith('(') && !rest.startsWith('((')) {
+  const arithClose = rest.startsWith('((') ? closingParen(line, i + 2) : -1;
+  if (rest.startsWith('((') && arithClose < 0) scan = { ...scan, error: unclosed('))') };
+  else if (rest.startsWith('((') && line[arithClose - 1] === ')') scan = { part: { arith: line.slice(i + 3, arithClose - 1), q }, end: arithClose + 1, error: null };
+  else if (rest.startsWith('(')) {
     const close = closingParen(line, i + 2);
     scan = close < 0 ? { ...scan, error: unclosed(')') } : { part: { cmd: line.slice(i + 2, close), q }, end: close + 1, error: null };
   } else if (braced) scan = { part: { var: braced[1], q }, end: i + 1 + braced[0].length, error: null };

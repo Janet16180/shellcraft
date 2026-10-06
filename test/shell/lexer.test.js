@@ -9,6 +9,7 @@ const shape = line => tokenize(line).tokens.map(t => {
     if ('lit' in p) return p.q ? `[${p.lit}]` : p.lit;
     if ('var' in p) return p.q ? `["$${p.var}"]` : `$${p.var}`;
     if ('cmd' in p) return `$(${p.cmd})`;
+    if ('arith' in p) return `$((${p.arith}))`;
     return `~${p.tilde}`;
   }).join('');
 });
@@ -54,4 +55,8 @@ test('an unclosed quote is reported as bash reports it at the end of input', () 
   assert.equal(tokenize("echo 'oops").error, "bash: unexpected EOF while looking for matching `''");
   assert.equal(tokenize('echo "oops').error, 'bash: unexpected EOF while looking for matching `"\'');
   assert.equal(tokenize('echo $(oops').error, "bash: unexpected EOF while looking for matching `)'");
+});
+
+test('arithmetic expansion keeps the expression', () => {
+  assert.deepEqual(shape('echo $((1+(2*3)))'), ['echo', '$((1+(2*3)))']);
 });
