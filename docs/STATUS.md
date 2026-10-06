@@ -32,6 +32,12 @@ restores finished tasks and shown hints, and a hint is paid for once.
 
 Then: browser QA (worktree .scratch/wt/qa ready), the lead's replay, republish the preview.
 
+**Publishing (2026-10-06):** the first preview (multi-file, module scripts) was dark for the user:
+the artifact host's frame has an opaque origin, so module scripts fail CORS. Publish only
+`dist/index.html` from `npm run bundle`, after checking it in Chrome inside
+`<iframe sandbox="allow-scripts">`. When republishing to the preview URL, remove the old
+supporting files (pass them as null in `files`).
+
 ## After the slice
 
 1. Fresh reviewers: fact-checker per chapter (blind playtest first), browser QA (3 widths,
