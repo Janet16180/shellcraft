@@ -24,6 +24,7 @@
  */
 import { makeContext } from './checks.js';
 import { coachNote } from './coach.js';
+import { hintNote, questNote, terminalText } from './commands.js';
 import { lineEffects, worldEffects } from './effects.js';
 import { dangers } from './dangers.js';
 import { XP, MAX_HEARTS, HINT_LEVELS, payout, nextHint, rankFor, loseHeart, chapterStatuses, canStart, resumeChapter } from './progress.js';
@@ -93,8 +94,6 @@ async function exclusive(s, work) {
 }
 
 const current = s => s.chapters[s.index];
-// Backticks mark typed names for the page; in bash they would run a command.
-const terminalText = text => text.replaceAll('`', '');
 const who = s => ({ home: s.obs.home, user: s.obs.user });
 const statuses = s => chapterStatuses(s.chapters, { current: current(s)?.id ?? null, cleared: s.save.cleared });
 const persist = s => s.store.setItem(SAVE_KEY, serializeSave({ ...s.save, progress: progressOf(s) }));
@@ -309,35 +308,14 @@ function hint(s) {
   return shown;
 }
 
-function hintText(s) {
+function hintCommand(s) {
   const shown = hint(s);
   const target = hintTarget(s);
-  const following = target && nextHint(target.base, target.used, s.replay);
-  let text = 'This chapter is cleared: there is nothing left to hint at.';
-  if (shown) {
-    const cost = shown.cost > 0 ? ` (cost ${shown.cost} XP)` : '';
-    text = `Hint ${shown.level} of ${HINT_LEVELS}${cost}: ${shown.text}`;
-  }
-  if (following) {
-    const price = following.cost > 0 ? `costs ${following.cost} XP` : 'free';
-    text += `\nType hint again for hint ${following.level} (${price}).`;
-  }
-  return text;
-}
-
-function questText(s) {
-  const chapter = current(s);
-  const lines = [
-    `${chapter.title} (chapter ${s.index + 1} of ${s.chapters.length})`,
-    ...chapter.tasks.map((task, i) => `[${s.tasksDone[i] ? 'x' : ' '}] ${task.goal}`),
-  ];
-  if (s.phase === 'boss') lines.push(`Boss: ${chapter.boss.title}. Its briefing is in the Quest panel.`);
-  if (s.phase === 'done') lines.push('Chapter cleared.');
-  return lines.join('\n');
+  return hintNote(shown, target && nextHint(target.base, target.used, s.replay));
 }
 
 /** Game commands typed in the terminal; they are not Linux and never reach the backend. */
-const GAME_COMMANDS = new Map([['hint', hintText], ['quest', questText]]);
+const GAME_COMMANDS = new Map([['hint', hintCommand], ['quest', s => questNote(chapterView(s))]]);
 
 function gameTurn(s, text) {
   const result = { output: [{ stream: 'note', text: terminalText(text) }], status: 0, commands: [], blocked: [] };
