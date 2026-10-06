@@ -63,7 +63,7 @@ function show(ui, view) {
   doc.getElementById('tab-quest').innerHTML = questHTML(view);
   doc.getElementById('now').innerHTML = nowHTML(view.chapter);
   doc.getElementById('spells').innerHTML = spellsHTML(view.spellbook);
-  doc.getElementById('levels').innerHTML = chaptersHTML(view.chapters);
+  doc.getElementById('levels').innerHTML = chaptersHTML(view.chapters, view.chapter.phase);
   renderCrumbs(doc, view.prompt);
   ui.terminal.setPrompt(view.prompt);
   if (previous && view.rank.floor > previous.rank.floor) toast(ui, `Rank up: you are now ${esc(view.rank.title)}`);

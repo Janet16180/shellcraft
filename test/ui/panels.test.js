@@ -125,3 +125,9 @@ test('in the quest the lesson comes first, open, before the tasks', () => {
   assert.doesNotMatch(html, /lesson-again/);
   assert.ok(html.indexOf('You wake up inside a terminal') < html.indexOf('quest-log'));
 });
+
+test('the chapter you are in shows as cleared once you clear it, and stays marked as current', () => {
+  const html = chaptersHTML(sampleView().chapters, 'done');
+  assert.match(html, /data-ch="awakening" class="cur" aria-current="true">.*<span class="status cleared">cleared<\/span>/s);
+  assert.match(chaptersHTML(sampleView().chapters, 'boss'), /<span class="status playing">playing<\/span>/);
+});

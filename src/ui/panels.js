@@ -97,24 +97,27 @@ export function spellsHTML(spells) {
   return spells.map(spellHTML).join('');
 }
 
-function chapterRow({ id, number, title, status }) {
+function chapterRow({ id, number, title, status }, phase) {
   const playing = status === 'playing';
   const closed = status === 'locked' || status === 'soon';
   const cls = playing ? 'cur' : status;
   const attrs = `${playing ? ' aria-current="true"' : ''}${closed ? ' disabled' : ''}`;
-  return `<li><button type="button" data-ch="${esc(id)}" class="${cls}"${attrs}><span class="num">${String(number).padStart(2, '0')}</span><span class="title">${esc(title)}</span><span class="status ${status}">${STATUS_TEXT[status]}</span></button></li>`;
+  const shown = playing && phase === 'done' ? 'cleared' : status;
+  return `<li><button type="button" data-ch="${esc(id)}" class="${cls}"${attrs}><span class="num">${String(number).padStart(2, '0')}</span><span class="title">${esc(title)}</span><span class="status ${shown}">${STATUS_TEXT[shown]}</span></button></li>`;
 }
 
 /**
- * The Chapters panel, grouped by act. Locked and unwritten chapters are disabled.
+ * The Chapters panel, grouped by act. Locked and unwritten chapters are
+ * disabled. The chapter being played reads "cleared" once its phase is done.
  *
  * @param {{id: string, number: number, act: number, title: string, status: string}[]} chapters From the View.
+ * @param {'quest'|'boss'|'done'} phase The current chapter's phase.
  * @returns {string} HTML.
  */
-export function chaptersHTML(chapters) {
+export function chaptersHTML(chapters, phase) {
   const acts = [...new Set(chapters.map(c => c.act))];
   return acts.map(act => {
-    const rows = chapters.filter(c => c.act === act).map(chapterRow).join('');
+    const rows = chapters.filter(c => c.act === act).map(c => chapterRow(c, phase)).join('');
     return `<h3 class="act">Act ${actName(act)}</h3><ul class="levels">${rows}</ul>`;
   }).join('');
 }
