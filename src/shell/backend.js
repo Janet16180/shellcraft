@@ -47,7 +47,7 @@ function observe(sys) {
     if (p.key !== undefined) rec.key = p.key;
     return rec;
   });
-  return { user: sys.user, host: sys.host, home: sys.home, cwd: sys.cwd, tree: snapshot(sys.root), procs };
+  return { user: sys.user, groups: [...sys.groups], host: sys.host, home: sys.home, cwd: sys.cwd, tree: snapshot(sys.root), procs };
 }
 
 /**

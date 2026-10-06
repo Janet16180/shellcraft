@@ -85,7 +85,7 @@ test('load applies put, remove, proc, stop and cd in order', async () => {
   const home = obs.tree.children.home.children.hero.children;
   assert.ok(home.camp);
   assert.equal(home.forest, undefined);
-  assert.deepEqual(obs.procs.filter(p => p.key).map(p => p.key), ['a']);
+  assert.deepEqual(obs.procs.filter(p => p.key).map(p => p.key), ['shell', 'a']);
   assert.equal(obs.cwd, '/home/hero/camp');
 });
 
@@ -159,4 +159,19 @@ test('complete returns the completed line and the candidates when ambiguous', as
   const b = await shell();
   assert.deepEqual(await b.complete('cat rea'), { line: 'cat readme.txt ', candidates: [] });
   assert.deepEqual(await b.complete('cd fo'), { line: 'cd forest/', candidates: [] });
+});
+
+test('an observation lists the groups the player belongs to', async () => {
+  const b = createSimBackend({ now: () => NOW });
+  const obs = await b.observe();
+  assert.deepEqual(obs.groups, ['hero']);
+});
+
+test("the player's own interactive shell carries the key 'shell'", async () => {
+  const b = createSimBackend({ now: () => NOW });
+  const obs = await b.observe();
+  const shells = obs.procs.filter(p => p.key === 'shell');
+  assert.equal(shells.length, 1);
+  assert.equal(shells[0].cmd, '-bash');
+  assert.equal(shells[0].user, 'hero');
 });

@@ -54,7 +54,7 @@ export function makeProc({ pid, ppid, user, cmd, tty = '?', stat = 'S', cpu = 0,
 }
 
 function systemProcs(sys) {
-  const make = (pid, ppid, user, cmd, tty, stat) => makeProc({ pid, ppid, user, cmd, tty, stat });
+  const make = (pid, ppid, user, cmd, tty, stat, key) => makeProc({ pid, ppid, user, cmd, tty, stat, key });
   const cron = allocPid(sys, 300);
   const sshd = allocPid(sys, 60);
   sys.shellPid = allocPid(sys, 900);
@@ -63,7 +63,7 @@ function systemProcs(sys) {
     make(2, 0, 'root', '[kthreadd]', '?', 'S'),
     make(cron, 1, 'root', '/usr/sbin/cron -f', '?', 'Ss'),
     make(sshd, 1, 'root', '/usr/sbin/sshd -D', '?', 'Ss'),
-    make(sys.shellPid, 1, sys.user, '-bash', 'pts/0', 'Ss'),
+    make(sys.shellPid, 1, sys.user, '-bash', 'pts/0', 'Ss', 'shell'),
   ];
 }
 
