@@ -93,3 +93,31 @@ test('export alone lists the environment as declare -x lines; unset removes a va
   await run(b, 'unset SPELL');
   assert.equal((await run(b, 'echo "[$SPELL]"')).out, '[]\n');
 });
+
+test('a builtin given --help prints its bash usage line and summary, with status 2', async () => {
+  const b = await shell();
+  const pwd = await run(b, 'pwd --help');
+  assert.deepEqual([pwd.out, pwd.status], ['pwd: pwd [-LP]\n    Print the name of the current working directory.\n', 2]);
+  assert.match(pwd.note, /help pwd/);
+  assert.equal((await run(b, 'cd --help')).out.split('\n')[0], 'cd: cd [-L|[-P [-e]] [-@]] [dir]');
+  assert.equal((await run(b, 'echo --help')).out, '--help\n');
+  assert.equal((await run(b, 'true --help')).status, 0);
+});
+
+test('help NAME shows a builtin the same way, with status 0', async () => {
+  const r = await run(await shell(), 'help cd');
+  assert.deepEqual([r.out.split('\n')[1], r.status], ['    Change the shell working directory.', 0]);
+  assert.equal((await run(await shell(), 'help nope')).err, 'bash: help: no help topics match `nope\'.  Try `help help\' or `man -k nope\' or `info nope\'.\n');
+});
+
+test('builtins like cd have no manual page; the note points to help', async () => {
+  const r = await run(await shell(), 'man cd');
+  assert.deepEqual([r.err, r.status], ['No manual entry for cd\n', 16]);
+  assert.match(r.note, /help cd/);
+});
+
+test('the clear page describes clear itself', async () => {
+  const page = (await run(await shell(), 'man clear')).out;
+  assert.doesNotMatch(page, /Ctrl\+L/);
+  assert.match(page, /scrollback/);
+});

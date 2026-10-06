@@ -1,0 +1,4 @@
+[
+  { "name": "chapter 1 in the game world", "world": "game", "lines": ["whoami", "pwd", "ls", "ls -a", "ls -l", "ls -la", "cat readme.txt", "ls forest", "id", "clear", "ls -ld /tmp /root /home", "LS", "Whoami", "ls -help"] },
+  { "name": "chapter 2 in the game world", "world": "game", "lines": ["cd forest", "pwd", "ls", "cd ..", "pwd", "cd /", "pwd", "cd -", "cd", "pwd", "cd ~/forest", "pwd", "cd /var/log", "ls -l", "cat syslog", "cd /root", "cd ../../..", "pwd"] }
+]

@@ -39,3 +39,15 @@ test('remove deletes, cd is returned for the shell, proc is ignored', () => {
   assert.match(script, /rm -rf -- '\/home\/hero\/junk'/);
   assert.deepEqual(cds, ['/tmp']);
 });
+
+test('account files the container manages are left alone', () => {
+  const { script } = materialize([put('/etc', dir({ passwd: file('x'), motd: file('hi\n') }))], T);
+  assert.doesNotMatch(script, /\/etc\/passwd/);
+  assert.match(script, /\/etc\/motd/);
+});
+
+test('a child of a kept system directory is replaced, not merged', () => {
+  const { script } = materialize([put('/var', dir({ log: dir({ syslog: file('x') }) }))], T);
+  assert.ok(script.indexOf("rm -rf -- '/var/log'") < script.indexOf("mkdir -- '/var/log'"));
+  assert.doesNotMatch(script, /rm -rf -- '\/var'\n/);
+});

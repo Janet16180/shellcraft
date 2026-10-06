@@ -8,6 +8,18 @@ import { parseOptions } from '../options.js';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const CLEAR_USAGE = 'Usage: clear [options]\n\nOptions:\n  -T TERM     use this instead of $TERM\n  -V          print curses-version\n  -x          do not try to clear scrollback';
+
+function clear(args) {
+  const badOption = args.find(a => a.startsWith('-') && !/^-(x|V|T.+)$/.test(a));
+  const operand = args.find(a => !a.startsWith('-'));
+  let r = result(args.includes('-x') ? CLEAR_SCREEN.replace('\u001b[3J', '') : CLEAR_SCREEN);
+  if (badOption) r = result('', `clear: invalid option -- '${badOption[1] ?? '-'}'\n${CLEAR_USAGE}`, 1);
+  else if (operand) r = result('', CLEAR_USAGE, 1);
+  else if (args.includes('-V')) r = result('ncurses 6.4.20240113\n');
+  return r;
+}
+
 export const CLEAR_SCREEN = '\u001b[H\u001b[2J\u001b[3J';
 const two = n => String(n).padStart(2, '0');
 
@@ -94,6 +106,6 @@ export default {
   false: () => result('', '', 1),
   uname,
   date: (_args, { sys }) => result(`${formatDate(sys.now())}\n`),
-  clear: () => result(CLEAR_SCREEN),
+  clear,
   echo,
 };

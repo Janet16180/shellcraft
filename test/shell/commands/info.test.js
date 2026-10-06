@@ -66,3 +66,13 @@ test('echo -e reads every bash escape and stops at \\c', async () => {
   assert.equal((await run(b, "echo -e 'stop\\cnever'")).out, 'stop');
   assert.equal((await run(b, "echo -E 'a\\nb'")).out, 'a\\nb\n');
 });
+
+test('clear has no --help: it rejects the option like ncurses clear, with status 1', async () => {
+  const r = await run(await shell(), 'clear --help');
+  assert.deepEqual([r.out, r.status], ['', 1]);
+  assert.equal(r.err, "clear: invalid option -- '-'\nUsage: clear [options]\n\nOptions:\n  -T TERM     use this instead of $TERM\n  -V          print curses-version\n  -x          do not try to clear scrollback\n");
+});
+
+test('clear -x keeps the scrollback', async () => {
+  assert.equal((await run(await shell(), 'clear -x')).out, '\u001b[H\u001b[2J');
+});
