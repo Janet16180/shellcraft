@@ -102,3 +102,8 @@ test('entries named like object members are ordinary entries', () => {
   removeChild(root, '__proto__', 12);
   assert.equal(lookup(root, '/__proto__'), null);
 });
+
+test('byteLength counts UTF-8 bytes for every width of character', () => {
+  const encoded = text => new TextEncoder().encode(text).length;
+  for (const text of ['', 'abc', 'é', 'ü€', '\u{1F600}', 'a\u{1F600}b€é', '߿ࠀ￿']) assert.equal(byteLength(text), encoded(text), text);
+});

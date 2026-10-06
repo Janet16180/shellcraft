@@ -50,3 +50,14 @@ test('errorText gives the message for each error', () => {
   assert.equal(errorText('ENOTDIR'), 'Not a directory');
   assert.equal(errorText('EACCES'), 'Permission denied');
 });
+
+test('a path of 4096 bytes or a name over 255 bytes is too long, as on Linux', () => {
+  const s = sys();
+  assert.equal(resolve(s, `${'/a'.repeat(2047)}b`).error, 'ENOENT');
+  assert.equal(resolve(s, '/a'.repeat(2048)).error, 'ENAMETOOLONG');
+  assert.equal(resolve(s, 'b'.repeat(255)).error, 'ENOENT');
+  assert.equal(resolve(s, 'b'.repeat(256)).error, 'ENAMETOOLONG');
+  assert.equal(resolve(s, 'é'.repeat(128)).error, 'ENAMETOOLONG');
+  assert.equal(resolve(s, `nope/${'b'.repeat(256)}`).error, 'ENOENT');
+  assert.equal(errorText('ENAMETOOLONG'), 'File name too long');
+});

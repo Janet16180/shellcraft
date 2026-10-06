@@ -19,7 +19,7 @@ import { varValue, setVar } from './vars.js';
 import { BUILTINS, BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from './builtins.js';
 import { nameTable } from './table.js';
 
-const MAX_DEPTH = 8;
+const MAX_DEPTH = 32;
 const SYSTEM_HOMES = nameTable({ root: '/root', daemon: '/usr/sbin', bin: '/bin', sys: '/dev', nobody: '/nonexistent' });
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const CONTINUATION = 'In a real terminal, bash would wait for the rest of the command on a new line (a > prompt). Here the line ends where you pressed Enter.';
@@ -49,7 +49,8 @@ function expansionEnv(sh, sink) {
     lookupVar: name => varValue(sys, name),
     homeOf: user => (user === sys.user ? sys.home : SYSTEM_HOMES[user] ?? null),
     substitute: line => {
-      const r = capture(sh, line);
+      if (sh.run.depth >= MAX_DEPTH) errors.push('bash: command substitution: maximum nesting level exceeded');
+      const r = errors.length ? { out: '', err: '', status: 1 } : capture(sh, line);
       if (r.err) sink.write('err', r.err);
       env.substitutionStatus = r.status;
       return r.out;

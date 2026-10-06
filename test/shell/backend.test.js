@@ -267,3 +267,39 @@ async function runAllLines(b, lines) {
   for (const line of lines) results.push(await run(b, line));
   return results;
 }
+
+const HOSTILE = [
+  `echo $(( ${'('.repeat(20000)}1${')'.repeat(20000)} ))`,
+  `echo $(( ${'-'.repeat(20000)}1 ))`,
+  `echo $(( ${'!'.repeat(20000)}1 ))`,
+  'a=a; echo $((a))',
+  `echo ${'$(echo '.repeat(20000)}hi${')'.repeat(20000)}`,
+  `echo ${'"$(echo '.repeat(5000)}hi${')"'.repeat(5000)}`,
+  `cat ${'a/'.repeat(3000)}x`,
+  `touch ${'b'.repeat(300)}`,
+  `mkdir -p ${'d/'.repeat(2100)}`,
+  Array(5000).fill('echo x').join(' | '),
+  Array(5000).fill('true').join(' && '),
+  "echo 'bash x.sh' > x.sh; bash x.sh",
+  "echo './y.sh' > y.sh; chmod +x y.sh; ./y.sh",
+  "alias a='b'; alias b='a'; a",
+  `x=${'$x'.repeat(5000)}; echo \${#x}`,
+];
+
+test('run() resolves on hostile input instead of throwing', async () => {
+  for (const line of HOSTILE) {
+    const r = await (await shell()).run(line);
+    assert.equal(typeof r.status, 'number', line.slice(0, 60));
+  }
+});
+
+test('hostile nesting gets the messages bash would print', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'a=a; echo $((a))')).err, 'bash: a: expression recursion level exceeded (error token is "a")\n');
+  assert.match((await run(b, `echo $(( ${'('.repeat(2000)}1${')'.repeat(2000)} ))`)).err, /^bash: \(+1\)+: expression recursion level exceeded \(error token is "\(+1\)+"\)\n$/);
+  assert.match((await run(b, `cat ${'a/'.repeat(3000)}x`)).err, /^cat: (a\/)+x: File name too long\n$/);
+  assert.match((await run(b, `touch ${'b'.repeat(256)}`)).err, /^touch: cannot touch 'b+': File name too long\n$/);
+  assert.match((await run(b, `cd ${'a/'.repeat(3000)}`)).err, /^bash: cd: (a\/)+: File name too long\n$/);
+  assert.match((await run(b, `echo ${'$(echo '.repeat(100)}hi${')'.repeat(100)}`)).err, /^bash: command substitution: maximum nesting level exceeded\n$/);
+  assert.equal((await run(b, "echo 'bash x.sh' > x.sh; bash x.sh")).err.split('\n')[0], 'x.sh: line 1: x.sh: maximum nesting level exceeded');
+});
