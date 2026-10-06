@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import chapter, { LETTERS } from '../../../src/game/chapters/awakening.js';
 import { assertChapter } from '../../helpers/chapter.js';
 import { nodeAt } from '../../../src/game/checks.js';
+import { createRandom } from '../../../src/game/rng.js';
 import { PLAYER, startChapter, type, play, startBoss, notFound, codeSnippets } from './harness.js';
 
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -45,10 +46,12 @@ const NEAR_MISSES = [
   ['Look around your home', ['cd /tmp'], 'ls', 'ls ~'],
   ['Read the letter left for you', [], 'ls readme.txt', 'cat readme.txt'],
   ['Read the letter left for you', [], 'cat readme', 'cat readme.txt'],
+  ['Read the letter left for you', [], 'cat .bashrc', 'cat ~/readme.txt'],
   ['Open the manual page of a command', [], 'man', 'man ls'],
   ['Open the manual page of a command', [], 'man lss', 'man cat'],
   ['Ask a command for its quick help', [], 'ls -help', 'ls --help'],
   ['Ask a command for its quick help', [], 'help ls', 'cat --help'],
+  ['Ask a command for its quick help', [], 'LS --help', 'whoami --help'],
   ['Wipe the screen clean', [], 'cls', 'clear'],
 ];
 
@@ -64,6 +67,16 @@ test('the boss room puts four letters in the home, and exactly one is signed by 
     const { obs } = await startBoss(chapter, seed);
     const signed = LETTERS.map(name => nodeAt(obs.tree, `${obs.home}/${name}`).content).filter(isGenuine);
     assert.equal(signed.length, 1, `seed ${seed}`);
+  }
+});
+
+test('no letter asks pwd or clear for --help, which fail on real bash', () => {
+  for (let seed = 1; seed <= 40; seed++) {
+    const { patch } = chapter.boss.setup(createRandom(seed), PLAYER);
+    for (const { node } of patch) {
+      const text = node.content.replace(/\s+/g, ' ');
+      assert.ok(!(text.includes('quick help') && /full path of the directory|wipes the screen/.test(text)), `seed ${seed}: ${text}`);
+    }
   }
 });
 

@@ -148,7 +148,7 @@ export default {
         'man followed by a command name opens its manual page.',
         'man ls',
       ],
-      done: ctx => ctx.ran('man', record => record.args.length > 0),
+      done: ctx => ctx.ran('man'),
     },
     {
       goal: 'Ask a command for its quick help',

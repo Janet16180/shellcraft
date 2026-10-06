@@ -75,7 +75,7 @@ export default {
         'From your home, cd followed by a directory name moves you into that directory.',
         'cd forest',
       ],
-      done: ctx => ctx.ran('cd') && isInside(ctx.cwd, forestOf(ctx)),
+      done: ctx => isInside(ctx.cwd, forestOf(ctx)),
     },
     {
       goal: 'Walk down to the deepest part of the cave: forest/cave/deep',
@@ -84,7 +84,7 @@ export default {
         'Walk one room at a time with cd, or give cd a path with slashes, like cave/deep from the forest.',
         'cd ~/forest/cave/deep',
       ],
-      done: ctx => ctx.ran('cd') && ctx.cwd === deepOf(ctx),
+      done: ctx => ctx.cwd === deepOf(ctx),
     },
     {
       goal: 'Read what glitters down there',
@@ -139,7 +139,8 @@ export default {
         'Type cd fo, press the Tab key, then press Enter.',
         'cd forest/',
       ],
-      done: ctx => ctx.cwd === forestOf(ctx) && ctx.ran('cd') && ctx.completions.some(tab => tab.completed !== tab.line),
+      done: ctx => !isInside(ctx.before.cwd, forestOf(ctx)) && isInside(ctx.cwd, forestOf(ctx))
+        && ctx.completions.some(tab => tab.completed !== tab.line),
     },
   ],
   solve: ['cd forest', 'cd cave/deep', 'cat ancient_key.txt', 'cd ..', 'cd /home/hero/forest/river', 'cd -', 'cd', 'cd fo\t'],

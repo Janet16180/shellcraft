@@ -73,6 +73,18 @@ for (const [goal, prefix, miss, hit] of NEAR_MISSES) {
   });
 }
 
+test('climbing into the cave with .. from the river, not from deep, does not count', async () => {
+  assert.equal(await passes('From deep, climb back up into the cave with ..', ['cd forest/river'], 'cd ../cave'), false);
+});
+
+test('using Tab while already in the forest does not count as walking in with Tab', async () => {
+  assert.equal(await passes('Walk into the forest again, and let Tab finish the name', ['cd forest'], 'ls ca\t'), false);
+});
+
+test('cd - that stays in the same directory does not count as jumping back', async () => {
+  assert.equal(await passes('Jump back to where you were with cd -', ['cd forest', 'cd .'], 'cd -'), false);
+});
+
 test('the trapdoor drops the player in the dungeon and lights one beacon in the forest', async () => {
   for (const seed of SEEDS) {
     const { obs, secret } = await startBoss(chapter, seed);
