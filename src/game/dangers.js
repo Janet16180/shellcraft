@@ -28,9 +28,36 @@ function rmDanger(ctx, record) {
   return reason;
 }
 
+/**
+ * The name pgrep, pkill and killall match a process by: the first word of its
+ * command line, without a login shell's leading dash or a directory.
+ *
+ * @param {string} cmd A ProcRecord's cmd, like '-bash' or './shadow --devour'.
+ * @returns {string} The process name, like 'bash' or 'shadow'.
+ */
+export const processName = cmd => cmd.split(' ')[0].replace(/^-/, '').split('/').pop();
+
+// pkill reads its pattern as an extended regular expression; a JavaScript
+// RegExp agrees on the patterns a beginner types.
+function matchesPattern(pattern, name, exact) {
+  let found = false;
+  try {
+    found = new RegExp(exact ? `^(?:${pattern})$` : pattern).test(name);
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+  }
+  return found;
+}
+
+const TARGETS = new Map([
+  ['kill', ({ shell, operands }) => operands.includes(String(shell.pid))],
+  ['killall', ({ shell, operands }) => operands.includes(processName(shell.cmd))],
+  ['pkill', ({ shell, operands, exact }) => operands.some(p => matchesPattern(p, processName(shell.cmd), exact))],
+]);
+
 function targetsShell(ctx, record, operands) {
   const shell = ctx.before.procs.find(p => p.key === 'shell');
-  return record.name === 'kill' ? shell !== undefined && operands.includes(String(shell.pid)) : operands.includes('bash');
+  return shell !== undefined && TARGETS.get(record.name)({ shell, operands, exact: ctx.flag(record, 'x') });
 }
 
 function killDanger(ctx, record) {
@@ -49,8 +76,9 @@ const CHECKS = new Map([['rm', rmDanger], ['kill', killDanger], ['pkill', killDa
 /**
  * Dangerous attempts in a line, whether or not they succeeded: rm -r of /, of
  * home or of a directory holding home, and kill, pkill or killall sending a
- * signal that ends or stops an interactive bash to the player's shell (the
- * process with key 'shell', or the name bash for pkill and killall).
+ * signal that ends or stops an interactive bash to the player's shell: the
+ * process with key 'shell', by PID for kill, by name for killall, and by a
+ * pattern matching its name for pkill.
  *
  * @param {object} ctx The line's check context from makeContext.
  * @returns {string[]} One reason per dangerous command, in order.
