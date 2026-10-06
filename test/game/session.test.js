@@ -86,6 +86,21 @@ test('cleared chapters the list does not know are dropped from the save', async 
   assert.deepEqual(saved(store).cleared, ['awakening']);
 });
 
+test('the base world and the setups receive the player from the observation, host included', async () => {
+  const seen = [];
+  const chapters = fixtureChapters();
+  const { setup } = chapters[0];
+  chapters[0].setup = (random, player) => { seen.push(['setup', player]); return setup(random, player); };
+  const backend = createFakeBackend();
+  const session = createSession({
+    backend, chapters, store: createMemoryStore(), random: createRandom(1),
+    baseWorld: player => { seen.push(['world', player]); return fixtureWorld(player); },
+  });
+  await session.boot();
+  const player = { home: HOME, user: 'hero', host: 'kernelia' };
+  assert.deepEqual(seen, [['world', player], ['setup', player]]);
+});
+
 test('a line runs on the backend and the turn carries its result, observation, effects and view', async () => {
   const { session } = await booted();
   const turn = await session.submit('cd forest');

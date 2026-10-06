@@ -5,9 +5,9 @@
  */
 import assert from 'node:assert/strict';
 import { validatePatch } from '../../src/backend/spec.js';
+import { PLAYER } from '../../src/backend/player.js';
 import { createRandom } from '../../src/game/rng.js';
 
-const WHO = { home: '/home/hero', user: 'hero' };
 const ID = /^[a-z][a-z0-9-]*$/;
 // An angle-bracketed word is a placeholder the shell would read as a redirection.
 const ANGLE_PLACEHOLDER = /<[A-Za-z][\w-]*>/;
@@ -54,7 +54,7 @@ function assertBoss(boss, where) {
   for (const name of ['setup', 'done', 'solve']) assert.ok(isFunction(boss[name]), `${where} boss: ${name} must be a function`);
   assert.ok(isOptionalFunction(boss.near), `${where} boss: near must be a function when present`);
 
-  const room = boss.setup(createRandom(1), WHO);
+  const room = boss.setup(createRandom(1), PLAYER);
   assert.ok(room && Array.isArray(room.patch) && 'secret' in room, `${where} boss: setup must return { patch, secret }`);
   validatePatch(room.patch);
   assertHints(boss.hints, `${where} boss`, hint => (isFunction(hint) ? hint(room.secret) : hint));
@@ -99,7 +99,7 @@ export function assertChapter(chapter) {
   assert.ok(chapter.effects === undefined || isFunction(chapter.effects), `${where}: effects must be a function when present`);
   assert.ok(isFunction(chapter.setup), `${where}: setup must be a function`);
 
-  const patch = chapter.setup(createRandom(1), WHO);
+  const patch = chapter.setup(createRandom(1), PLAYER);
   assert.ok(Array.isArray(patch), `${where}: setup must return a patch (a list of operations)`);
   validatePatch(patch);
 }
