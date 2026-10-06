@@ -128,7 +128,8 @@ async function shellTurn(s, line) {
   const ctx = makeContext({ commands: result.commands, before, obs: after });
   const effects = [...lineEffects(ctx, result.blocked), ...(current(s).effects?.(ctx) ?? [])];
   const events = await advance(s, ctx);
-  events.push(...await hurt(s, result.blocked[0] ?? dangers(ctx)[0]));
+  const danger = result.blocked[0] ?? dangers(ctx)[0];
+  if (danger !== undefined) events.push(...await hurt(s, danger));
   if (s.obs !== after) effects.push(...worldEffects(after, s.obs));
   return { result, obs: s.obs, effects, events, view: view(s) };
 }
@@ -183,8 +184,6 @@ function clearChapter(s) {
 }
 
 async function hurt(s, reason) {
-  if (reason === undefined) return [];
-
   const { hearts, restored } = loseHeart(s.hearts);
   s.hearts = hearts;
   const events = [{ kind: 'heart-lost', reason, left: restored ? 0 : hearts }];
@@ -219,12 +218,14 @@ function hintTarget(s) {
 function hint(s) {
   requireBooted(s);
   const target = hintTarget(s);
-  if (!target) return null;
-
-  const next = nextHint(target.base, target.used, s.replay);
-  if (next) target.use();
-  const level = next?.level ?? HINT_LEVELS;
-  return { level, text: target.hints[level - 1], cost: next?.cost ?? 0 };
+  let shown = null;
+  if (target) {
+    const next = nextHint(target.base, target.used, s.replay);
+    if (next) target.use();
+    const level = next?.level ?? HINT_LEVELS;
+    shown = { level, text: target.hints[level - 1], cost: next?.cost ?? 0 };
+  }
+  return shown;
 }
 
 function hintText(s) {

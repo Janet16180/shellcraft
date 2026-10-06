@@ -51,10 +51,9 @@ function fromV2(data) {
     && isCount(data.xp)
     && typeof data.sound === 'boolean'
     && typeof data.introSeen === 'boolean';
-  if (!valid) return null;
-
-  const { chapter, cleared, xp, sound, introSeen } = data;
-  return { chapter, cleared: [...new Set(cleared)], xp, sound, introSeen };
+  return valid
+    ? { chapter: data.chapter, cleared: [...new Set(data.cleared)], xp: data.xp, sound: data.sound, introSeen: data.introSeen }
+    : null;
 }
 
 function fromV1(data) {
@@ -63,10 +62,10 @@ function fromV1(data) {
     && isV1Index(data.maxChapter)
     && isCount(data.xp)
     && typeof data.sound === 'boolean';
-  if (!valid) return null;
-
   // v1 counted every chapter below maxChapter as cleared.
-  return { chapter: V1_IDS[data.chapter], cleared: V1_IDS.slice(0, data.maxChapter), xp: data.xp, sound: data.sound, introSeen: false };
+  return valid
+    ? { chapter: V1_IDS[data.chapter], cleared: V1_IDS.slice(0, data.maxChapter), xp: data.xp, sound: data.sound, introSeen: false }
+    : null;
 }
 
 /**
