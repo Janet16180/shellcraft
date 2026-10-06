@@ -290,6 +290,20 @@ kbd {
   white-space: nowrap;
 }
 
+/* A new rank flashes gold in the HUD for a few seconds. */
+.rank.up {
+  padding: 0 6px;
+  box-shadow: inset 0 0 0 2px var(--accent);
+  animation: rank-up 0.5s steps(1) 6;
+}
+
+@keyframes rank-up {
+  50% {
+    color: var(--c-ink);
+    background: var(--accent);
+  }
+}
+
 .hearts {
   display: flex;
   gap: 4px;
@@ -372,11 +386,11 @@ kbd {
   image-rendering: pixelated;
 }
 
-/* Over the floor, clear of the door labels along the wall. */
+/* Over the floor: below the door labels along the wall and the map's banner band, above the hero. */
 .toast {
   position: absolute;
   left: 50%;
-  top: 52%;
+  top: 66%;
   transform: translate(-50%, -50%);
   max-width: 92%;
   padding: 6px 12px;

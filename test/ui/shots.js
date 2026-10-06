@@ -79,7 +79,9 @@ async function overflow(page) {
 
 async function lsWraps(page) {
   await type(page, 'ls');
-  return page.locator('#out .ln').last().evaluate(line => {
+  // The line after the echoed command is ls's output; game notes may follow it.
+  return page.locator('#out .cmdline').last().evaluate(echo => {
+    const line = echo.nextElementSibling;
     const rows = line.textContent.split('\n').length;
     return Math.round(line.getBoundingClientRect().height / parseFloat(getComputedStyle(line).lineHeight)) > rows;
   });
