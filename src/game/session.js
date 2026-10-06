@@ -76,7 +76,7 @@ function requireBooted(s) {
 const current = s => s.chapters[s.index];
 // Backticks mark typed names for the page; in bash they would run a command.
 const terminalText = text => text.replaceAll('`', '');
-const who = s => ({ home: s.obs.home, user: s.obs.user });
+const who = s => ({ home: s.obs.home, user: s.obs.user, host: s.obs.host });
 const statuses = s => chapterStatuses(s.chapters, { current: current(s)?.id ?? null, cleared: s.save.cleared });
 const persist = s => s.store.setItem(SAVE_KEY, serializeSave(s.save));
 
