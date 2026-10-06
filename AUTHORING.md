@@ -37,7 +37,7 @@ export default {
   title: 'The Whispering Forest',
   // Patch applied when the chapter starts, on top of the base world from world.js.
   // It must work on a fresh world and on a world the player changed in earlier chapters.
-  setup: random => [ /* patch ops */ ],
+  setup: (random, { home, user }) => [ /* patch ops */ ],
   lesson: `<p>...</p>`,                 // trusted HTML shown in the Quest panel
   tasks: [
     {
@@ -50,7 +50,7 @@ export default {
   boss: {
     title: 'Lost in the Dungeon',
     briefing: `<p>...</p>`,
-    setup: random => ({ patch: [ /* ops */ ], secret: { /* what done() compares against */ } }),
+    setup: (random, { home, user }) => ({ patch: [ /* ops */ ], secret: { /* what done() compares against */ } }),
     hints: ['nudge', 'technique', 'the exact line'],
     done: (ctx, secret) => boolean,
     solve: obs => ['lines'],            // derived from the observation like a player would, never from the secret

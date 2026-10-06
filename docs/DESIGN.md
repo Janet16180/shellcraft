@@ -67,10 +67,17 @@ await session.complete(line);         // -> { line, candidates }   (backend.comp
 session.setSound(on); session.markIntroSeen(); await session.reset();
 ```
 
-`store` is `{ load(): object|null, save(object): void }`; the UI passes a localStorage adapter.
+`store` is the localStorage subset `{ getItem(key): string|null, setItem(key, text) }`. The UI
+passes an adapter that never throws (falling back to memory when storage is unavailable); the
+engine owns the keys, JSON parsing, validation and the v1 migration (v1 is read only when no v2
+save exists, and is never deleted). `startChapter` raises for an unknown, `soon` or locked id.
 
 `Turn = { result: RunResult, obs: Observation, effects: Effect[], events: GameEvent[], view: View }`.
-Events: `task {index, xp}`, `boss-start`, `boss {xp}`, `chapter {recap, field}`, `heart-lost {reason}`, `hearts-restored`.
+Effects and events carry a `kind` field. Events: `task {index, goal, xp}`, `boss-start`, `boss {xp}`,
+`chapter {id, recap, field, xp, next}`, `heart-lost {reason, left}`, `hearts-restored {phase}`.
+A line costs at most one heart. At zero hearts the quest phase re-applies the chapter setup on
+the current world (finished tasks stay finished); the boss phase reruns `boss.setup` (a new
+random boss, hints kept).
 
 `View` holds everything the page draws: the chapter (id, number, total, act, title, phase
 `quest|boss|done`, lesson HTML, tasks with done/next, boss title and briefing), XP, rank (title,

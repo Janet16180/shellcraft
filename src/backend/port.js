@@ -71,7 +71,8 @@
  * @property {number} cpu Percent.
  * @property {number} mem Percent.
  * @property {string} cmd Full command line.
- * @property {string} [key] The key a patch started it under, if any.
+ * @property {string} [key] The key a patch started it under, if any. The player's own
+ *   interactive shell has the key 'shell', so the game can recognise it.
  */
 
 /**
