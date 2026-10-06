@@ -1,0 +1,16 @@
+[
+  { "name": "shell variables a login has", "world": "home", "lines": ["echo $COLUMNS $LINES", "echo $SHLVL $TERM $LOGNAME", "echo $0", "echo $HISTCONTROL", "echo $OLDPWD", "cd forest; echo $OLDPWD"] },
+  { "name": "known differences from a real machine", "world": "home",
+    "lines": ["date", "ps", "help", "env", "ls /", "ls /usr/bin | head -n 3", "ls -l /usr/bin/ls", "uname -v", "cat /etc/hostname"],
+    "intended": [
+      { "line": "date", "reason": "the clocks differ by the seconds between the two runs" },
+      { "line": "ps", "reason": "the container runs different processes with different PIDs than the simulated machine" },
+      { "line": "help", "reason": "real bash help lists every builtin; the simulator lists the commands it simulates" },
+      { "line": "env", "reason": "the environment of a docker exec differs from a login's, and bash orders it by hash" },
+      { "line": "ls /", "reason": "the simulated / holds only the world's directories, not a whole Ubuntu system" },
+      { "line": "ls /usr/bin | head -n 3", "reason": "the simulated /usr/bin holds only the programs the simulator implements" },
+      { "line": "ls -l /usr/bin/ls", "reason": "simulated programs are tiny placeholder files" },
+      { "line": "uname -v", "reason": "the kernel build string of the host differs from the simulated one" },
+      { "line": "cat /etc/hostname", "reason": "docker manages /etc/hostname itself; the test worlds do not define it" }
+    ] }
+]

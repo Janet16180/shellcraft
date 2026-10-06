@@ -13,6 +13,7 @@ test('a login starts with the usual exported variables', () => {
   assert.equal(varValue(s, 'LANG'), 'C.UTF-8');
   assert.equal(varValue(s, 'HOSTNAME'), 'kernelia');
   assert.equal(varValue(s, 'OLDPWD'), '');
+  assert.equal(varValue(s, 'COLUMNS'), '80');
   assert.ok(!('HOSTNAME' in exportedVars(s)));
   assert.equal(exportedVars(s).HOME, '/home/hero');
 });

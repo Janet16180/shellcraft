@@ -2,9 +2,13 @@
  * Tab completion of command names and paths.
  */
 
-import { lookup, normalize } from './fs.js';
+import { resolve } from './paths.js';
 import { compareNames } from './collate.js';
 import { can } from './perms.js';
+
+const LAST_WORD = /((?:\\.|[^\s\\])*\\?)$/;
+const escapeName = name => name.replace(/[\s!"#$&'()*;<=>?[\\\]^`{|}~]/g, '\\$&');
+const unescape = word => word.replace(/\\(.)/g, '$1');
 
 function commonPrefix(list) {
   let prefix = list[0];
@@ -15,16 +19,17 @@ function commonPrefix(list) {
 function pathCandidates(sys, word) {
   const slash = word.lastIndexOf('/');
   const dirPart = slash >= 0 ? word.slice(0, slash + 1) : '';
-  const base = word.slice(slash + 1);
-  const lookupPath = dirPart.startsWith('~') ? sys.home + dirPart.slice(1) : dirPart;
-  const node = lookup(sys.root, normalize(lookupPath || '.', sys.cwd));
-  if (!node || node.type !== 'dir' || !can(sys, node, 'r')) return [];
-  return Object.keys(node.children)
+  const base = unescape(word.slice(slash + 1));
+  const literalDir = unescape(dirPart);
+  const lookupPath = literalDir.startsWith('~') ? sys.home + literalDir.slice(1) : literalDir;
+  const r = resolve(sys, lookupPath || '.');
+  if (r.error || r.node.type !== 'dir' || !can(sys, r.node, 'r')) return [];
+  return Object.keys(r.node.children)
     .filter(k => k.startsWith(base) && (base.startsWith('.') || k[0] !== '.'))
     .sort(compareNames)
     .map(k => {
-      const isDir = node.children[k].type === 'dir';
-      return { text: dirPart + k + (isDir ? '/' : ' '), show: k + (isDir ? '/' : '') };
+      const isDir = r.node.children[k].type === 'dir';
+      return { text: dirPart + escapeName(k) + (isDir ? '/' : ' '), show: k + (isDir ? '/' : '') };
     });
 }
 
@@ -40,11 +45,11 @@ function pathCandidates(sys, word) {
  * @returns {{line: string, candidates: string[]}} The completed line and the names to list.
  */
 export function complete(sys, line, commandNames) {
-  const word = /(\S*)$/.exec(line)[1];
+  const word = LAST_WORD.exec(line)[1];
   const before = line.slice(0, line.length - word.length);
   const isCommand = !before.trim() || /[|;&]\s*$/.test(before);
   const cands = isCommand && !word.includes('/')
-    ? [...new Set([...commandNames, ...Object.keys(sys.aliases)])].filter(k => k.startsWith(word)).sort().map(k => ({ text: `${k} `, show: k }))
+    ? [...new Set([...commandNames, ...Object.keys(sys.aliases)])].filter(k => k.startsWith(word)).sort(compareNames).map(k => ({ text: `${k} `, show: k }))
     : pathCandidates(sys, word);
   const common = cands.length ? commonPrefix(cands.map(c => c.text)) : '';
   let out = { line, candidates: [] };
