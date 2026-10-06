@@ -7,7 +7,8 @@ standards every teammate follows.
 
 These are the user's rules (`~/.claude/CLAUDE.md`) applied to JavaScript.
 
-- ES modules, no globals, no classes unless one genuinely reduces complexity. No build step.
+- ES modules, no globals, no classes unless one genuinely reduces complexity. No build step for
+  development; only publishing bundles (`npm run bundle`, DESIGN section 1).
 - Flat control flow: guard clauses for invalid input at the top, then one path to a single
   return at the end. No deep nesting.
 - Design by contract, in the user's reading: a precondition catches a bug (a state that should

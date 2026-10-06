@@ -8,10 +8,12 @@
     "test": "node --test --test-reporter=dot \"test/**/*.test.js\"",
     "lint": "eslint .",
     "difftest": "node difftest/run.js",
-    "serve": "node scripts/serve.js 8765"
+    "serve": "node scripts/serve.js 8765",
+    "bundle": "node scripts/bundle.js"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
+    "esbuild": "0.28.2",
     "eslint": "9.39.5",
     "globals": "17.13.0",
     "playwright-core": "1.63.0"
