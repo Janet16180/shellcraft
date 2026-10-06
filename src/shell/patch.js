@@ -35,7 +35,7 @@ function applyOp(sys, op) {
   const target = op.op === 'cd' ? lookup(sys.root, op.path) : null;
   if (op.op === 'cd' && (!target || target.type !== 'dir')) throw new Error(`cd ${op.path}: not a directory`);
   if (op.op === 'put') insert(sys.root, op.path, fromSpec(op.node, sys.now()));
-  if (op.op === 'remove') detach(sys.root, op.path);
+  if (op.op === 'remove') detach(sys.root, op.path, sys.now());
   if (op.op === 'proc') startProc(sys, op.proc);
   if (op.op === 'stop') sys.procs = sys.procs.filter(p => p.key !== op.key);
   if (op.op === 'cd' && op.path !== sys.cwd) {

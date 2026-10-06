@@ -1,0 +1,50 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { tokenize } from '../../src/shell/lexer.js';
+import { expandWords, expandTarget, expandAssignment } from '../../src/shell/expand.js';
+import { newDir, newFile } from '../../src/shell/fs.js';
+
+const meta = { mode: 0o755, owner: 'hero', group: 'hero', mtime: 0 };
+const env = () => ({
+  sys: { root: newDir({ d: newDir({ 'a.txt': newFile('', meta), 'b.txt': newFile('', meta) }, meta) }, meta), cwd: '/d', user: 'hero', groups: ['hero'] },
+  lookupVar: name => ({ HOME: '/home/hero', X: 'a  b', E: '', S: ' lead trail ', G: '*.txt' })[name] ?? '',
+  homeOf: user => ({ root: '/root', hero: '/home/hero' })[user] ?? null,
+  substitute: line => `out of ${line}\n\n`,
+});
+const words = line => tokenize(line).tokens;
+const expand = line => expandWords(words(line), env());
+
+test('quote removal leaves the text', () => {
+  assert.deepEqual(expand(`echo 'a  b' "c d" e\\ f`), ['echo', 'a  b', 'c d', 'e f']);
+});
+
+test('unquoted variables split on blanks; quoted ones stay one word', () => {
+  assert.deepEqual(expand('echo $X "$X" x$X'), ['echo', 'a', 'b', 'a  b', 'xa', 'b']);
+  assert.deepEqual(expand('echo $S.'), ['echo', 'lead', 'trail', '.']);
+});
+
+test('an empty unquoted expansion disappears; an empty quoted one is an empty word', () => {
+  assert.deepEqual(expand('echo $E x "$E" \'\''), ['echo', 'x', '', '']);
+});
+
+test('tilde expands to the home of the user, or stays when the user is unknown', () => {
+  assert.deepEqual(expand('echo ~ ~/f ~root ~nobody "~"'), ['echo', '/home/hero', '/home/hero/f', '/root', '~nobody', '~']);
+});
+
+test('globs expand after variables, but not inside quotes', () => {
+  assert.deepEqual(expand('ls *.txt "*.txt" $G "$G" nomatch*'), ['ls', 'a.txt', 'b.txt', '*.txt', 'a.txt', 'b.txt', '*.txt', 'nomatch*']);
+});
+
+test('command substitution inserts the output without its trailing newlines', () => {
+  assert.deepEqual(expand('echo "$(pwd)" $(ls)'), ['echo', 'out of pwd', 'out', 'of', 'ls']);
+});
+
+test('a redirection target expands to one word or is ambiguous', () => {
+  assert.deepEqual(expandTarget(words('~/out.txt')[0], env()), { value: '/home/hero/out.txt', error: null });
+  assert.deepEqual(expandTarget(words('$X')[0], env()), { value: null, error: 'bash: $X: ambiguous redirect' });
+  assert.deepEqual(expandTarget(words('$E')[0], env()), { value: null, error: 'bash: $E: ambiguous redirect' });
+});
+
+test('an assignment value expands without splitting or globbing', () => {
+  assert.equal(expandAssignment(words('V=$X*')[0], env()), 'a  b*');
+});

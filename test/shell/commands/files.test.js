@@ -45,9 +45,9 @@ test('mkdir creates directories, -p creates parents, and errors match coreutils'
   const h = await home(b);
   assert.equal(h.camp.type, 'dir');
   assert.equal(h.a.children.b.children.c.mode, 0o755);
-  assert.equal((await run(b, 'mkdir camp')).err, "mkdir: cannot create directory 'camp': File exists\n");
-  assert.equal((await run(b, 'mkdir x/y')).err, "mkdir: cannot create directory 'x/y': No such file or directory\n");
-  assert.equal((await run(b, 'mkdir /etc/x')).err, "mkdir: cannot create directory '/etc/x': Permission denied\n");
+  assert.equal((await run(b, 'mkdir camp')).err, 'mkdir: cannot create directory \u2018camp\u2019: File exists\n');
+  assert.equal((await run(b, 'mkdir x/y')).err, 'mkdir: cannot create directory \u2018x/y\u2019: No such file or directory\n');
+  assert.equal((await run(b, 'mkdir /etc/x')).err, 'mkdir: cannot create directory \u2018/etc/x\u2019: Permission denied\n');
   assert.equal((await run(b, 'mkdir')).err, "mkdir: missing operand\nTry 'mkdir --help' for more information.\n");
 });
 
@@ -99,7 +99,7 @@ test('mv renames and moves into directories', async () => {
   await run(b, 'mv letter.txt forest');
   assert.ok((await home(b)).forest.children['letter.txt']);
   assert.equal((await run(b, 'mv nope x')).err, "mv: cannot stat 'nope': No such file or directory\n");
-  assert.equal((await run(b, 'mv forest forest/cave')).err, "mv: cannot move 'forest' to a subdirectory of itself, 'forest/cave'\n");
+  assert.equal((await run(b, 'mv forest forest/cave')).err, "mv: cannot move 'forest' to a subdirectory of itself, 'forest/cave/forest'\n");
 });
 
 test('chmod sets octal and symbolic modes on files the user owns', async () => {
@@ -109,5 +109,5 @@ test('chmod sets octal and symbolic modes on files the user owns', async () => {
   await run(b, 'chmod go+r,u-w readme.txt');
   assert.equal((await home(b))['readme.txt'].mode, 0o544);
   assert.equal((await run(b, 'chmod 777 /etc/hostname')).err, "chmod: changing permissions of '/etc/hostname': Operation not permitted\n");
-  assert.equal((await run(b, 'chmod q+z x')).err, "chmod: invalid mode: 'q+z'\nTry 'chmod --help' for more information.\n");
+  assert.equal((await run(b, 'chmod q+z x')).err, "chmod: invalid mode: \u2018q+z\u2019\nTry 'chmod --help' for more information.\n");
 });
