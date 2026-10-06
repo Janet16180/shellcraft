@@ -34,6 +34,7 @@ function awakening() {
       { goal: 'Print where you are', tip: 'pwd prints the directory you are in.', hints: ['Where are you?', 'Use pwd.', 'pwd'], done: ctx => ctx.ran('pwd') },
       {
         goal: 'Read the letter',
+        tip: 'cat prints a file.',
         hints: ['A letter waits.', 'Use cat.', 'cat letter.txt'],
         done: ctx => ctx.read(`${ctx.home}/letter.txt`),
         near: ctx => (ctx.tried('cat') && !ctx.read(`${ctx.home}/letter.txt`) ? 'The letter is `letter.txt`.' : null),
@@ -66,8 +67,8 @@ function forest() {
     setup: (_random, { home }) => [put(`${home}/forest/river`, dir())],
     lesson: '<p>Walk.</p>',
     tasks: [
-      { goal: 'Enter the forest', hints: ['Go in.', 'Use cd.', 'cd forest'], done: ctx => ctx.cwd === `${ctx.home}/forest` },
-      { goal: 'Come back home', hints: ['Go back.', 'Use cd ..', 'cd ..'], done: ctx => ctx.ran('cd') && ctx.cwd === ctx.home },
+      { goal: 'Enter the forest', tip: 'cd walks into a directory.', hints: ['Go in.', 'Use cd.', 'cd forest'], done: ctx => ctx.cwd === `${ctx.home}/forest` },
+      { goal: 'Come back home', tip: 'cd .. goes up one level.', hints: ['Go back.', 'Use cd ..', 'cd ..'], done: ctx => ctx.ran('cd') && ctx.cwd === ctx.home },
     ],
     solve: ['cd forest', 'cd ..'],
     effects: ctx => (ctx.cwd === `${ctx.home}/forest` ? [{ kind: 'forest-entered' }] : []),

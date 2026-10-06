@@ -435,7 +435,7 @@ test('the view lists every chapter with its status and the spellbook with what i
 
 test('the view carries the lesson, the task tips, the boss and the rank', async () => {
   const { view } = await booted();
-  assert.deepEqual(view.chapter.tasks.map(t => t.tip), ['pwd prints the directory you are in.', null]);
+  assert.deepEqual(view.chapter.tasks.map(t => t.tip), ['pwd prints the directory you are in.', 'cat prints a file.']);
   assert.equal(view.chapter.lesson, '<p>Look around.</p>');
   assert.deepEqual(view.chapter.boss, { title: 'The Sign', briefing: '<p>Do what the sign says.</p>', hints: [] });
   assert.deepEqual(view.rank, { title: 'Novice', floor: 0, next: 150 });

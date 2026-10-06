@@ -53,14 +53,14 @@ test('a task hint cannot be a function', () => {
   assert.throws(() => assertChapter(chapter), /task 1: hint 3 must be non-empty text/);
 });
 
-test('a task tip is optional, but when present it is non-empty text of at most 140 characters', () => {
+test('every task needs a tip of non-empty text, at most 140 characters', () => {
   const withTip = tip => {
     const chapter = playable();
     chapter.tasks[0].tip = tip;
     return chapter;
   };
   assert.doesNotThrow(() => assertChapter(withTip('pwd prints the directory you are in.')));
-  assert.doesNotThrow(() => assertChapter(withTip(undefined)));
+  assert.throws(() => assertChapter(withTip(undefined)), /task 1: tip must be non-empty text/);
   assert.throws(() => assertChapter(withTip('  ')), /task 1: tip must be non-empty text/);
   assert.throws(() => assertChapter(withTip('x'.repeat(141))), /task 1: tip .*140/);
 });
