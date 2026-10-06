@@ -13,7 +13,7 @@ import { openRedirects, writeTo } from './redirect.js';
 import { resolve, errorText } from './paths.js';
 import { can } from './perms.js';
 import { result, withNote } from './result.js';
-import { manText, hasManPage } from './man.js';
+import { manText, hasManPage, shortHelpNote } from './man.js';
 import { versionText } from './versions.js';
 import { varValue, setVar } from './vars.js';
 import { BUILTINS, BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from './builtins.js';
@@ -24,7 +24,7 @@ const SYSTEM_HOMES = nameTable({ root: '/root', daemon: '/usr/sbin', bin: '/bin'
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const CONTINUATION = 'In a real terminal, bash would wait for the rest of the command on a new line (a > prompt). Here the line ends where you pressed Enter.';
 const BACKGROUND = 'Background jobs are not simulated yet: the command ran in the foreground.';
-const OWN_OPTIONS = new Set(['clear']);
+const OWN_OPTIONS = new Set(['clear', 'find']);
 const helpNote = name => `Real bash prints a longer description here; help ${name} shows the same text.`;
 
 function firstOf(args, ...wanted) {
@@ -108,6 +108,16 @@ function unsimulatedBuiltin(name) {
   return withNote(result('', '', 1), `${name} is built into bash, but this game does not simulate it.`);
 }
 
+// The --version and --help that the shell answers for programs that do not
+// read their own options here.
+function standardOption(name, args) {
+  const own = BUILTINS.has(name) || OWN_OPTIONS.has(name);
+  let r = null;
+  if (!own && firstOf(args, '--version', '--help') === '--version' && versionText(name)) r = result(versionText(name));
+  else if (!own && args.includes('--help') && hasManPage(name)) r = withNote(result(manText(name, true)), shortHelpNote(name));
+  return r;
+}
+
 function dispatch(sh, argv, streams, overlay) {
   const { sys } = sh;
   const [name, ...args] = argv;
@@ -116,11 +126,11 @@ function dispatch(sh, argv, streams, overlay) {
     block: reason => sh.run.blocked.push(reason),
     runScript: (node, scriptName) => runScriptText(sh, node.content, scriptName),
   };
+  const standard = name.includes('/') ? null : standardOption(name, args);
   let r;
   if (name.includes('/')) r = runFile(sh, name, args, ctx);
   else if (args[0] === '--help' && name in BUILTIN_HELP) r = withNote(result(builtinHelp(name), '', 2), helpNote(name));
-  else if (firstOf(args, '--version', '--help') === '--version' && versionText(name) && !BUILTINS.has(name)) r = result(versionText(name));
-  else if (args.includes('--help') && hasManPage(name) && !BUILTINS.has(name) && !OWN_OPTIONS.has(name)) r = withNote(result(manText(name, true)), `Real ${name} --help prints a longer list of options.`);
+  else if (standard) r = standard;
   else if (!sh.commands[name] && BASH_BUILTINS.has(name)) r = unsimulatedBuiltin(name);
   else if (!sh.commands[name]) r = commandNotFound(name);
   else {

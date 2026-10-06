@@ -38,3 +38,14 @@ test('errors use the GNU messages; an unreadable directory is reported and skipp
   const root = await run(b, 'find /root');
   assert.deepEqual([root.out, root.err, root.status], ['/root\n', 'find: ‘/root’: Permission denied\n', 1]);
 });
+
+test('find -help and -version act wherever they appear, as GNU find does', async () => {
+  const b = await shell();
+  const help = await run(b, 'find -help');
+  assert.match(help.out, /^Usage: find \[-H\] \[-L\] \[-P\] \[-Olevel\] \[-D debugopts\] \[path\.\.\.\] \[expression\]\n/);
+  assert.equal(help.out.split('\n').length, 46);
+  assert.equal(help.status, 0);
+  for (const line of ['find --help', 'find . -name x -help']) assert.equal((await run(b, line)).out, help.out, line);
+  for (const line of ['find -version', 'find . -version', 'find --version']) assert.match((await run(b, line)).out, /^find \(GNU findutils\) 4\.9\.0\n/, line);
+  assert.equal((await run(b, 'find -bogus -help')).err, "find: unknown predicate `-bogus'\n");
+});

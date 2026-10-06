@@ -6,7 +6,8 @@
 import { lookup, normalize, joinPath } from '../fs.js';
 import { BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from '../builtins.js';
 import { can } from '../perms.js';
-import { manText, hasManPage, manEntries } from '../man.js';
+import { manText, hasManPage, manEntries, shortHelpNote } from '../man.js';
+import { versionText } from '../versions.js';
 import { compilePosix } from '../regex.js';
 import { result, withNote } from '../result.js';
 import { varValue, setVar, exportedVars } from '../vars.js';
@@ -78,12 +79,27 @@ function missingPage(section) {
   return result('', `${ask}\nFor example, try 'man man'.`, 1);
 }
 
+// man-db's short options. getopt reads a cluster like -help letter by letter,
+// so its first letter decides: -h is help, -v is no option at all.
+const MAN_LETTERS = 'CdDfkKlwWcRLmMSseiIauPr7EptTHXZ?Vh';
+
+function manOption(word) {
+  const letter = word[1];
+  let r = null;
+  if (letter === 'h' || letter === '?') r = withNote(result(manText('man', true)), shortHelpNote('man'));
+  else if (letter === 'V') r = result(versionText('man'));
+  else if (!MAN_LETTERS.includes(letter)) r = result('', `man: invalid option -- '${letter}'\nTry 'man --help' or 'man --usage' for more information.`, 1);
+  return r;
+}
+
 function man(args, ctx) {
   const mode = Object.hasOwn(SEARCHERS, args[0]) ? args[0] : null;
   const section = !mode && SECTION.test(args[0] ?? '') ? args[0] : null;
   const pages = args.slice(mode || section ? 1 : 0);
+  const option = !mode && /^-[^-]/.test(args[0] ?? '') ? manOption(args[0]) : null;
   let r;
-  if (mode) r = searchPages(mode, pages, ctx);
+  if (option) r = option;
+  else if (mode) r = searchPages(mode, pages, ctx);
   else if (!pages.length) r = missingPage(section);
   else r = manPage(pages[0], section);
   return r;

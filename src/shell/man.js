@@ -41,6 +41,12 @@ const PAGES = {
 };
 
 /**
+ * @param {string} name A command with a page.
+ * @returns {string} The note shown with its short `--help`.
+ */
+export const shortHelpNote = name => `Real ${name} --help prints a longer list of options.`;
+
+/**
  * @param {string} name A command name.
  * @returns {boolean} Whether the simulator has a page for it.
  */

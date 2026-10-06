@@ -178,3 +178,16 @@ test('the man pages give the real synopses', async () => {
 test('type knows the bash builtins the game does not simulate', async () => {
   assert.equal((await run(await shell(), 'type printf read')).out, 'printf is a shell builtin\nread is a shell builtin\n');
 });
+
+test('man -h and -help show its usage, and other unknown letters are invalid options', async () => {
+  const b = await shell();
+  for (const line of ['man -help', 'man -h', 'man -?']) {
+    const r = await run(b, line);
+    assert.match(r.out, /^Usage: man /, line);
+    assert.equal(r.status, 0);
+    assert.equal(r.note, 'Real man --help prints a longer list of options.');
+  }
+  const bad = await run(b, 'man -version');
+  assert.deepEqual([bad.err, bad.status], ["man: invalid option -- 'v'\nTry 'man --help' or 'man --usage' for more information.\n", 1]);
+  assert.equal((await run(b, 'man -V')).out, 'man 2.12.0\n');
+});
