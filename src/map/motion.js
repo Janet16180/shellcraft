@@ -46,9 +46,10 @@ export function createMotion({ reducedMotion, random }) {
       tw.start ??= now;
       const p = Math.min(1, (now - tw.start) / tw.ms);
       tw.fn(p);
-      if (p < 1) continue;
-      tweens.splice(tweens.indexOf(tw), 1);
-      tw.resolve();
+      if (p === 1) {
+        tweens.splice(tweens.indexOf(tw), 1);
+        tw.resolve();
+      }
     }
   }
 

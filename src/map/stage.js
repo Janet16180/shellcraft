@@ -6,7 +6,7 @@
 
 import { biomeFor } from './biomes.js';
 import { readRoom } from './room.js';
-import { layoutRoom, ART } from './layout.js';
+import { layoutRoom, ART, STAND } from './layout.js';
 import { describeRoom } from './describe.js';
 import { createMotion } from './motion.js';
 import { makeCanvas } from './paint.js';
@@ -18,9 +18,6 @@ const SHAKE_MS = 360;
 
 /** How long a red flash lasts, in ms. */
 export const FLASH_MS = 320;
-
-/** Where the hero stands when idle, in art pixels (feet). */
-export const STAND = { x: 160, y: 178 };
 
 /**
  * @typedef {object} Stage
@@ -53,7 +50,7 @@ export function createStage(canvas, reducedMotion) {
     state: {
       obs: null, scene: null, bgKey: '', revealed: new Set(),
       player: { ...STAND, walking: false }, daemon: { x: 262, y: 70, flashUntil: 0 },
-      fade: 0, flashUntil: 0, shakeUntil: 0, banner: null, bubbles: [], trip: null, hover: null,
+      fade: 0, flashUntil: 0, shakeUntil: 0, banner: null, bubbles: [], trip: null, hover: null, focus: null,
       gateOpen: false, token: 0,
     },
   };
@@ -71,6 +68,7 @@ export function settle(stage, obs) {
   state.obs = obs;
   state.scene = {
     ...biomeFor(obs.cwd, obs.home),
+    room,
     layout: layoutRoom(room, { narrow: view.narrow }),
     path: obs.cwd,
     home: obs.home,
@@ -102,9 +100,9 @@ export function fitCanvas(stage) {
     oy: Math.round((canvas.height - ART.height * scale) / 2),
   });
   const narrow = cssWidth < NARROW_CSS;
-  if (narrow === view.narrow) return;
+  const relayout = narrow !== view.narrow && state.obs !== null;
   view.narrow = narrow;
-  if (state.obs) settle(stage, state.obs);
+  if (relayout) settle(stage, state.obs);
 }
 
 /**

@@ -109,3 +109,17 @@ export function itemKind(item, biome) {
   else if (biome === 'scriptorium') kind = 'book';
   return kind;
 }
+
+/**
+ * Everything the player could pick in a room, for keyboard play and screen
+ * readers: every door and item (including those the picture folds into "+N")
+ * and the exit.
+ *
+ * @param {Room} room The room, from readRoom.
+ * @returns {{kind: 'door'|'item'|'exit', name: string, path: string, locked: boolean}[]} Doors, then items, then the exit.
+ */
+export function picksOf(room) {
+  const pick = kind => ({ name, path, locked }) => ({ kind, name, path, locked });
+  const exit = room.exit === null ? [] : [{ kind: 'exit', name: '..', path: room.exit, locked: false }];
+  return [...room.doors.map(pick('door')), ...room.items.map(pick('item')), ...exit];
+}

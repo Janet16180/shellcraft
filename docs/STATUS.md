@@ -13,16 +13,25 @@ Read this first when resuming, then `docs/DESIGN.md` and `AUTHORING.md`.
 
 ## In flight (teammates; each works in `.scratch/wt/<name>` on branch `slice/<name>`)
 
-| Name | Job | State |
-|---|---|---|
-| shell | simulator port (M1), then fixes + difftest (M2) | launched 2026-10-06 |
-| engine | session, checks, progress, effects, rng, save | launched |
-| author | world.js, chapters awakening + forest, boss rooms, verification logs | launched |
-| art | map renderer: overworld + dungeon, transitions, effects | launched |
-| ui | page, terminal, panels, sound, intro, main.js, screenshots | launched |
+Merged into main so far (2026-10-06): shell M1 (simulator behind the port), engine (session,
+rules, test helpers, Tab helper, `why`), art (overworld + dungeon map, motion, roster sprites,
+keyboard picks, intro focus), author (base world, chapters 1-2 with boss rooms, verification
+logs). 465 tests pass; lint 0 errors.
 
-Integration order: shell M1 -> main (others merge main), art API -> ui, engine + author on the
-real simulator, then ui wiring, then the lead's preview.
+| Name | Now | Waiting for |
+|---|---|---|
+| shell | M2: difftest harness, ls columns, quoting, the fixes; FIRST the 2-line commit: observe() returns `groups`, -bash has key 'shell' (the browser cannot boot without groups) | - |
+| engine | integration tests on real content: save/reload, zero hearts, replay, every hint | - |
+| author | forest lesson: bridge Linux's "up" with the map's dungeon below home | - |
+| art | layout bug: items under the hero's rest spot with two rows of doors (crowded-360) | - |
+| ui | page, terminal, intro, main.js, scripts/serve.js | the groups commit to boot for real |
+
+Decisions taken by the lead along the way (all in DESIGN/AUTHORING): Observation.groups; the
+player's shell has key 'shell'; store = getItem/setItem; setup(random, { home, user });
+baseWorld injected into the session; `kind` on effects and events; one heart per line; boss
+hints may be functions of the secret; ctx.completions (lost in a real-terminal mode, only
+forest's Tab task); required `why`; a tab in a solve line means pressing Tab; the forest lesson
+bridges "cd .. goes up" with the map's dungeon below home.
 
 ## After the slice
 

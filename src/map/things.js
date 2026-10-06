@@ -3,7 +3,7 @@
  * "+N" markers, the hero, the Shadow Daemon and particles.
  */
 
-import { GEMS, INK, TOON } from './palette.js';
+import { GEMS, INK, TOON, DAEMON } from './palette.js';
 import { SPRITES } from './sprites.js';
 import { itemKind } from './room.js';
 import { box, drawSprite } from './paint.js';
@@ -69,10 +69,26 @@ export function drawItem(ctx, item, biome, t, i) {
   drawSprite(ctx, image, x, y, { scale: ITEM_SCALE, alpha: item.hidden ? 0.6 : 1, colours });
   if (item.runnable) box(ctx, `rgba(155, 225, 93, ${0.25 + 0.2 * Math.sin(t / 250)})`, x - 2, y + 15, 20, 2);
   if (item.hidden && Math.sin(t / 200 + i * 2) > 0.6) {
-    box(ctx, '#ffffff', x + 14, y - 2, 1, 3);
-    box(ctx, '#ffffff', x + 13, y - 1, 3, 1);
+    box(ctx, INK.w, x + 14, y - 2, 1, 3);
+    box(ctx, INK.w, x + 13, y - 1, 3, 1);
   }
   if (item.locked) chainItem(ctx, x, y);
+}
+
+/**
+ * Ring an entry in pulsing gold, to point the player at it.
+ *
+ * @param {CanvasRenderingContext2D} ctx The art canvas.
+ * @param {{x: number, y: number, w: number, h: number}} at The entry's box.
+ * @param {number} t Animation clock in ms (a steady ring when frozen at 0).
+ */
+export function drawFocus(ctx, { x, y, w, h }, t) {
+  const colour = Math.floor(t / 300) % 2 ? INK.w : INK.y;
+  const [left, top, right, bottom] = [x - 4, y - 4, x + w + 3, y + h + 3];
+  box(ctx, colour, left, top, right - left + 1, 1);
+  box(ctx, colour, left, bottom, right - left + 1, 1);
+  box(ctx, colour, left, top, 1, bottom - top);
+  box(ctx, colour, right, top, 1, bottom - top);
 }
 
 /**
@@ -113,7 +129,7 @@ export function drawPlayer(ctx, { x, y, walking }, t) {
  * @param {boolean} flash Whether it is flashing.
  */
 export function drawDaemon(ctx, { x, y }, flash) {
-  const colours = { k: flash ? '#ff3355' : '#3b1d5c', r: flash ? '#ffffff' : '#ff3355', w: '#e8d7ff' };
+  const colours = { k: flash ? DAEMON.eye : DAEMON.body, r: flash ? INK.w : DAEMON.eye, w: DAEMON.glow };
   drawSprite(ctx, SPRITES.ghost, x, y, { scale: 2, alpha: 0.9, colours });
   box(ctx, 'rgba(155, 90, 255, 0.25)', x + 4, y + 26, 16, 2);
 }

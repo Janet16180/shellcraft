@@ -8,15 +8,17 @@
  * Plex Mono.
  */
 
-import { pickAt } from './layout.js';
-import { createStage, settle, fitCanvas, say, showBanner, shake, flash, burstAt, STAND } from './stage.js';
+import { pickAt, STAND } from './layout.js';
+import { picksOf } from './room.js';
+import { createStage, settle, fitCanvas, say, showBanner, shake, flash, burstAt } from './stage.js';
 import { paintFrame } from './render.js';
 import { journey } from './journey.js';
-import { INK } from './palette.js';
+import { INK, TOON, DAEMON } from './palette.js';
 
 export { biomeFor } from './biomes.js';
 export { layoutRoom } from './layout.js';
 export { describeRoom } from './describe.js';
+export { drawKey, KEY_KINDS } from './key.js';
 
 const SPARKLE = [INK.y, INK.G, INK.w];
 const DUST = [INK.l, INK.s, INK.w];
@@ -37,6 +39,11 @@ const DUST = [INK.l, INK.s, INK.w];
  *   the effects of a line, then settle on obs. A newer call cuts an older one short.
  * @property {(text: string, who?: 'player'|'daemon') => void} say Show a speech bubble.
  * @property {(title: string, sub?: string) => void} banner Show a banner across the room (the title in the pixel font).
+ * @property {(name: string|null) => void} focus Ring the door or item with this name ('..' for the exit)
+ *   in pulsing gold while it is on show; null clears it. show() clears it too.
+ * @property {() => {kind: 'door'|'item'|'exit', name: string, path: string, locked: boolean}[]} picks
+ *   Everything the player could pick in the room on show (also what the picture folds into "+N"),
+ *   for keyboard play.
  * @property {() => void} destroy Stop drawing and listening.
  */
 
@@ -48,7 +55,7 @@ const BEFORE = {
 function revealSparkle(stage, e) {
   const { scene } = stage.state;
   if (e.path !== scene.path) return;
-  [...scene.layout.doors, ...scene.layout.items].filter(x => x.hidden).forEach(x => burstAt(stage, x.path, ['#ffffff', INK.v]));
+  [...scene.layout.doors, ...scene.layout.items].filter(x => x.hidden).forEach(x => burstAt(stage, x.path, [INK.w, INK.v]));
 }
 
 const AFTER = {
@@ -66,13 +73,13 @@ const AFTER = {
   },
   'daemon-killed': stage => {
     const { daemon } = stage.state;
-    stage.motion.burst(daemon.x + 12, daemon.y + 12, ['#3b1d5c', '#ff3355', '#e8d7ff', '#ffd36b'], 70, 2.4);
+    stage.motion.burst(daemon.x + 12, daemon.y + 12, [DAEMON.body, DAEMON.eye, DAEMON.glow, TOON.y], 70, 2.4);
     shake(stage);
   },
   'gate-opened': stage => {
     stage.state.gateOpen = true;
     stage.state.scene.gateOpen = true;
-    stage.motion.burst(160, 40, ['#ffd36b', '#ffffff'], 50, 2);
+    stage.motion.burst(160, 40, [TOON.y, INK.w], 50, 2);
     shake(stage);
   },
 };
@@ -81,7 +88,7 @@ function show(stage, obs) {
   const { state } = stage;
   state.token += 1;
   stage.motion.finish();
-  Object.assign(state, { fade: 0, trip: null, gateOpen: false, hover: null });
+  Object.assign(state, { fade: 0, trip: null, gateOpen: false, hover: null, focus: null, banner: null, bubbles: [], flashUntil: 0, shakeUntil: 0 });
   Object.assign(state.player, STAND, { walking: false });
   state.revealed.clear();
   settle(stage, obs);
@@ -101,8 +108,8 @@ async function play(stage, effects, obs) {
   for (const effect of effects) BEFORE[effect.kind]?.(stage, effect, before.layout);
   if (obs.cwd !== before.path) await journey(stage, before.path, obs, token);
   else settle(stage, obs);
-  if (token !== state.token) return;
-  for (const effect of effects) AFTER[effect.kind]?.(stage, effect);
+  const current = token === state.token;
+  if (current) for (const effect of effects) AFTER[effect.kind]?.(stage, effect);
 }
 
 function pickFrom(stage, event) {
@@ -165,6 +172,8 @@ export function createMap(canvas, { reducedMotion = false, onPick = () => {} } =
     play: (effects, obs) => play(stage, effects, obs),
     say: (text, who) => say(stage, text, who),
     banner: (title, sub) => showBanner(stage, { title, sub }),
+    focus: name => { stage.state.focus = name; },
+    picks: () => (stage.state.scene ? picksOf(stage.state.scene.room) : []),
     destroy: () => {
       stage.state.token += 1;
       cancelAnimationFrame(frameId);

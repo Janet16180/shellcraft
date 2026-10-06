@@ -1,5 +1,5 @@
-/* global document, location, window */
-import { createMap } from '../../src/map/map.js';
+/* global document, location, window, devicePixelRatio */
+import { createMap, drawKey, KEY_KINDS } from '../../src/map/map.js';
 import { dir, file } from '../../src/backend/spec.js';
 import { observe, sampleTree, crowded } from './fixtures.js';
 
@@ -54,6 +54,22 @@ const CASES = {
     tree.children.opt = dir({ 'notes.txt': file('') });
     return { obs: observe('/opt', { tree }) };
   },
+  dark: () => {
+    const tree = sampleTree();
+    tree.children.tmp = dir({ loot: file('') }, { mode: 0o711 });
+    return { obs: observe('/tmp', { tree }) };
+  },
+  gone: () => {
+    const tree = sampleTree();
+    delete tree.children.home.children.hero.children.junk;
+    return { obs: observe('/home/hero/junk', { tree }) };
+  },
+  crowded: () => {
+    const tree = busyTree();
+    for (const name of ['bin', 'boot', 'lib', 'media', 'mnt', 'opt', 'proc', 'run', 'sbin', 'srv', 'sys']) tree.children[name] = dir({});
+    tree.children['swap.img'] = file('', { mode: 0o600 });
+    return { obs: observe('/', { tree }) };
+  },
 };
 
 const only = params.get('only')?.split(',') ?? Object.keys(CASES);
@@ -73,6 +89,24 @@ for (const name of only) {
   map.show(obs);
   if (reveal) map.play([{ kind: 'reveal', path: reveal }], obs);
   maps[name] = { map, obs };
+}
+
+const focus = params.get('focus');
+if (focus) Object.values(maps).forEach(({ map }) => map.focus(focus));
+
+if (params.has('key')) {
+  const key = document.createElement('figure');
+  key.innerHTML = '<figcaption>key</figcaption><div class="key"></div>';
+  document.querySelector('#cases').prepend(key);
+  for (const kind of KEY_KINDS) {
+    const cell = document.createElement('div');
+    cell.innerHTML = `<canvas class="key-art"></canvas><span>${kind}</span>`;
+    key.querySelector('.key').append(cell);
+    const canvas = cell.querySelector('canvas');
+    canvas.width = 48 * devicePixelRatio;
+    canvas.height = 48 * devicePixelRatio;
+    drawKey(canvas, kind);
+  }
 }
 
 window.harness = { maps, observe, busyTree, CASES };

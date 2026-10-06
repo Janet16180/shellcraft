@@ -67,21 +67,21 @@ function statusText(layout) {
  * @param {CanvasRenderingContext2D} g The screen canvas.
  * @param {View} view The mapping.
  * @param {import('./layout.js').Layout} layout The room.
- * @param {string|null} hover Path of the entry under the pointer, ringed in gold.
+ * @param {string[]} ringed Paths whose labels get a gold ring (under the pointer, or in focus).
  */
-export function drawLabels(g, view, layout, hover) {
+export function drawLabels(g, view, layout, ringed) {
   const gap = 2 * view.dpr;
   for (const door of layout.doors) {
     const text = fitLabel(door.name, charsIn(g, view, door.slot), '/');
-    tag(g, view, text, sx(view, door.cx), sy(view, door.y - 2) - gap, { colour: door.hidden ? LABEL.hidden : LABEL.door, anchor: 'bottom', ring: hover === door.path });
+    tag(g, view, text, sx(view, door.cx), sy(view, door.y - 2) - gap, { colour: door.hidden ? LABEL.hidden : LABEL.door, anchor: 'bottom', ring: ringed.includes(door.path) });
   }
   for (const item of layout.items) {
     const text = fitLabel(item.name, charsIn(g, view, item.slot));
-    tag(g, view, text, sx(view, item.cx), sy(view, item.y + item.h + 1) + gap, { colour: itemColour(item), ring: hover === item.path });
+    tag(g, view, text, sx(view, item.cx), sy(view, item.y + item.h + 1) + gap, { colour: itemColour(item), ring: ringed.includes(item.path) });
   }
   if (layout.moreDoors) tag(g, view, `+${layout.moreDoors.count}`, sx(view, layout.moreDoors.cx), sy(view, layout.moreDoors.y + 15), { colour: LABEL.more, anchor: 'middle' });
   if (layout.moreItems) tag(g, view, `+${layout.moreItems.count} more`, sx(view, layout.moreItems.cx), sy(view, layout.moreItems.y + 17) + gap, { colour: LABEL.more });
-  if (layout.exit) tag(g, view, '..', sx(view, layout.exit.x + layout.exit.w + 12), sy(view, layout.exit.y + 7), { colour: LABEL.door, anchor: 'middle', ring: hover === layout.exit.path });
+  if (layout.exit) tag(g, view, '..', sx(view, layout.exit.x + layout.exit.w + 12), sy(view, layout.exit.y + 7), { colour: LABEL.door, anchor: 'middle', ring: ringed.includes(layout.exit.path) });
   else tag(g, view, '/ (the root of everything)', sx(view, 160), sy(view, 193), { colour: LABEL.door, anchor: 'middle' });
   const status = statusText(layout);
   if (status) tag(g, view, status, sx(view, 160), sy(view, 110), { colour: LABEL.item, anchor: 'middle' });

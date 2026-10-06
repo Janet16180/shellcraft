@@ -8,7 +8,7 @@
 import { BIOMES } from './biomes.js';
 import { INK } from './palette.js';
 import { SPRITES } from './sprites.js';
-import { ART } from './layout.js';
+import { ART, HERO_REST } from './layout.js';
 import { box, drawSprite, makeCanvas, tile } from './paint.js';
 
 const TORCHES = [{ x: 2, y: 12 }, { x: 310, y: 12 }];
@@ -98,11 +98,15 @@ function scraps(ctx) {
 }
 
 function rugWithRing(ctx, wall) {
-  box(ctx, INK.k, 110, wall + 12, 100, 64);
-  box(ctx, INK.p, 112, wall + 14, 96, 60);
-  box(ctx, INK.v, 114, wall + 16, 92, 1);
-  box(ctx, INK.v, 114, wall + 71, 92, 1);
-  drawSprite(ctx, SPRITES.ring, 145, wall + 29, { scale: 3, alpha: 0.9 });
+  const top = wall + 12;
+  const bottom = HERO_REST.y - 2;
+  box(ctx, INK.k, 110, top, 100, bottom - top);
+  box(ctx, INK.p, 112, top + 2, 96, bottom - top - 4);
+  box(ctx, INK.v, 114, top + 4, 92, 1);
+  box(ctx, INK.v, 114, bottom - 5, 92, 1);
+  const scale = bottom - top >= 44 ? 3 : 2;
+  const size = 10 * scale;
+  drawSprite(ctx, SPRITES.ring, 160 - size / 2, Math.round((top + bottom - size) / 2), { scale, alpha: 0.9 });
 }
 
 function shields(ctx, wall) {
@@ -127,20 +131,20 @@ const DECOR = {
     rugWithRing(ctx, wall);
     shields(ctx, wall);
   },
-  archive: (ctx, wall) => scrolls(ctx, wall),
+  archive: scrolls,
   scriptorium: (ctx, wall) => {
     books(ctx, wall);
     desk(ctx);
   },
   cellar: ctx => big(ctx, SPRITES.barrel, [[10, 156], [30, 164], [266, 160], [288, 154]]),
-  scrap: ctx => scraps(ctx),
-  gatehouse: (ctx, wall) => shields(ctx, wall),
-  quarters: ctx => bed(ctx),
+  scrap: scraps,
+  gatehouse: shields,
+  quarters: bed,
   vault: ctx => big(ctx, SPRITES.chest, [[12, 150]]),
-  armory: (ctx, wall) => weapons(ctx, wall),
+  armory: weapons,
   workshop: ctx => big(ctx, SPRITES.anvil, [[18, 162]]),
   pit: ctx => big(ctx, SPRITES.rune, [[14, 156], [282, 156]], { alpha: 0.8 }),
-  corridor: (ctx, wall) => cobwebs(ctx, wall),
+  corridor: cobwebs,
 };
 
 /**
