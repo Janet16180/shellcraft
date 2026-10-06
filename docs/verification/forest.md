@@ -10,7 +10,7 @@ the simulator (`test/game/chapters/forest.test.js`). Man pages from the Ubuntu 2
 |---|---|
 | Linux keeps everything in one tree; it starts at `/`, the root directory | `hier(7)`: "/ This is the root directory. This is where the whole tree starts." |
 | `/home/hero` is a branch of it | R2 `pwd`: `/home/hero` |
-| A directory's parent is the directory that holds it; `..` is the parent, `.` the directory itself | `path_resolution(7)` ". and ..": "refer to the directory itself and to its parent directory" |
+| A directory's parent is the directory that holds it; `..` is the parent (round 2 dropped the unused `.` from the lesson) | `path_resolution(7)` ". and ..": "refer to the directory itself and to its parent directory" |
 | `cd` means change directory | `help cd`: "Change the shell working directory." |
 | A relative path starts from where you are; an absolute path starts at `/` and works from anywhere | `path_resolution(7)` Step 1: a pathname starting with `/` starts at the root directory, otherwise at the current working directory |
 | `cd forest/cave` goes several rooms deep at once | R2: `cd cave/deep` from the forest printed `/home/hero/forest/cave/deep` |
@@ -24,7 +24,7 @@ the simulator (`test/game/chapters/forest.test.js`). Man pages from the Ubuntu 2
 | Tab: `cd fo` then Tab writes `cd forest/` | R3: the line became `cd forest/`; `bash(1)` readline `mark-directories (On)`: "completed directory names have a slash appended"; SIM test |
 | When several names match, press Tab again to list them | R5: `cd ga` + Tab rang the bell, a second Tab listed `game/ gate/`; `bash(1)` `show-all-if-ambiguous (Off)` |
 
-Vertical words in chapters 1 and 2 were checked against this bridge: Linux's "up" (`cd ..`, recap, spells) means toward `/`. The map's "down" is the stairway from home into the dungeon, and the chapter 2 boss's trapdoor fall follows it. The cave's "down to the deepest part" and "climb back up into the cave" describe the cave itself, and agree with both.
+Vertical words in chapters 1 and 2 were checked against this bridge. "Up" appears only where the lesson explains Linux's word (the bridge) and in the recap's `cd ..` line. Goals, tips, hints and spell notes say "deeper" and "back out" (round 2, teaching review finding 4; a test keeps "up" and "down" out of them). The map's "down" is the stairway from home into the dungeon, and the chapter 2 boss's trapdoor fall follows it.
 
 ## Tasks and hints
 

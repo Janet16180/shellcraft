@@ -86,9 +86,9 @@ export default {
   lesson: `<p>Linux keeps everything in one tree of directories. The tree starts at <code>/</code>, the <b>root directory</b>. Your home, <code>/home/hero</code>, is one branch of it. On the map, each room is a directory. Its doors lead into the directories inside it, and the way out leads to its <b>parent</b>, the directory that holds it.</p>
 <p><code>cd</code> (change directory) walks you from room to room. Tell it where to go with a <b>path</b>:</p>
 <ul>
-<li>A <b>relative path</b> starts from where you are: <code>cd forest</code>. Slashes go several rooms deep at once: <code>cd forest/cave</code>.</li>
+<li>A <b>relative path</b> starts from where you are: <code>cd forest</code>. Slashes go several rooms deeper at once: <code>cd forest/cave</code>.</li>
 <li>An <b>absolute path</b> starts at the root with <code>/</code>, so it works from anywhere: <code>cd /home/hero/forest</code>.</li>
-<li><code>..</code> is the parent directory: <code>cd ..</code> takes you one level up the tree, toward <code>/</code>. People say up because diagrams draw <code>/</code> at the top. Kernelia draws the tree the way trees grow, with its root underground: from your home, the way toward <code>/</code> leads down the stairs into the dungeon. A single <code>.</code> is the directory you are in.</li>
+<li><code>..</code> is the parent directory: <code>cd ..</code> takes you one level up the tree, toward <code>/</code>. People say up because diagrams draw <code>/</code> at the top. Kernelia draws the tree the way trees grow, with its root underground: from your home, the way toward <code>/</code> leads down the stairs into the dungeon.</li>
 <li><code>~</code> stands for your home, so <code>cd ~/forest</code> also works from anywhere.</li>
 <li><code>cd</code> on its own takes you home. <code>cd -</code> jumps back to the directory you were in before, and prints its path.</li>
 </ul>
@@ -108,7 +108,7 @@ export default {
         ? 'That looked into the forest from outside. To walk in, use cd forest.' : null),
     },
     {
-      goal: 'Walk down to the deepest part of the cave: `forest/cave/deep`',
+      goal: 'Go deeper into the cave, all the way to `forest/cave/deep`',
       tip: 'A path with slashes goes several rooms deeper at once, like `cd cave/deep` from the forest.',
       hints: [
         'The cave is in the forest, and deep is inside the cave.',
@@ -119,7 +119,7 @@ export default {
       near: pathNear,
     },
     {
-      goal: 'Read what glitters down there',
+      goal: 'Read what glitters in there',
       tip: '`ls` shows the names in the room you are in, and `cat` prints a file.',
       hints: [
         'Something glitters in deep. List the room to learn its name.',
@@ -129,7 +129,7 @@ export default {
       done: ctx => ctx.read(`${deepOf(ctx)}/ancient_key.txt`),
     },
     {
-      goal: 'From deep, climb back up into the cave with `..`',
+      goal: 'From deep, step back out into the cave with `..`',
       tip: '`..` is the parent directory, so `cd ..` from deep steps back out into the cave.',
       hints: [
         'deep is inside the cave, so the cave is its parent.',
@@ -225,7 +225,7 @@ export default {
     {
       name: 'cd',
       summary: 'Change directory.',
-      examples: [['cd forest', 'relative path'], ['cd ..', 'up to the parent'], ['cd /home/hero', 'absolute path'], ['cd ~/forest', '`~` is your home'], ['cd', 'go home'], ['cd -', 'back to the previous directory']],
+      examples: [['cd forest', 'relative path'], ['cd ..', 'back out to the parent'], ['cd /home/hero', 'absolute path'], ['cd ~/forest', '`~` is your home'], ['cd', 'go home'], ['cd -', 'back to the previous directory']],
     },
     { name: 'Tab', summary: 'Finish a name for you. Type the first letters, then press Tab.', examples: [['cd fo', 'then press Tab']] },
   ],

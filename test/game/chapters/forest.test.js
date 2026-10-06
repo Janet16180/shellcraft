@@ -56,6 +56,15 @@ test('the lesson bridges Linux\'s "up" toward / with the map\'s stairs down into
   assert.match(text, /\bdungeon\b/);
 });
 
+test('goals, tips, hints and spell notes say deeper and back out, keeping up for the lesson and recap only', () => {
+  const words = [
+    ...chapter.tasks.flatMap(task => [task.goal, task.tip, ...task.hints]),
+    ...chapter.boss.hints.filter(hint => typeof hint === 'string'),
+    ...chapter.spells.flatMap(spell => [spell.summary, ...spell.examples.map(([, note]) => note)]),
+  ];
+  for (const text of words) assert.doesNotMatch(text, /\b(up|down)\b/i, text);
+});
+
 test('Tab completes cd fo to cd forest/, as the lesson says', async () => {
   const backend = await startChapter(chapter);
   assert.equal((await backend.complete('cd fo')).line, 'cd forest/');
@@ -64,10 +73,10 @@ test('Tab completes cd fo to cd forest/, as the lesson says', async () => {
 const NEAR_MISSES = [
   ['Enter the forest', [], 'ls forest', 'cd forest'],
   ['Enter the forest', [], 'cd junk', 'cd forest/cave'],
-  ['Walk down to the deepest part of the cave: `forest/cave/deep`', ['cd forest'], 'cd cave', 'cd cave/deep'],
-  ['Read what glitters down there', ['cd forest/cave/deep'], 'ls', 'cat ancient_key.txt'],
-  ['From deep, climb back up into the cave with `..`', ['cd forest/cave/deep'], 'cd ~/forest/cave', 'cd ..'],
-  ['From deep, climb back up into the cave with `..`', ['cd forest/cave/deep'], 'cd ../..', 'cd ../'],
+  ['Go deeper into the cave, all the way to `forest/cave/deep`', ['cd forest'], 'cd cave', 'cd cave/deep'],
+  ['Read what glitters in there', ['cd forest/cave/deep'], 'ls', 'cat ancient_key.txt'],
+  ['From deep, step back out into the cave with `..`', ['cd forest/cave/deep'], 'cd ~/forest/cave', 'cd ..'],
+  ['From deep, step back out into the cave with `..`', ['cd forest/cave/deep'], 'cd ../..', 'cd ../'],
   ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd ../river', 'cd /home/hero/forest/river'],
   ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd /home/hero/forest/clearing', 'cd ~/forest/river'],
   ['Jump back to where you were with `cd -`', ['cd forest/cave', 'cd /home/hero/forest/river'], 'cd ..', 'cd -'],
@@ -88,12 +97,12 @@ const NEAR_NOTES = [
   ['Enter the forest', [], 'ls forest', /cd forest/],
   ['Enter the forest', [], 'cd forest', null],
   ['Enter the forest', ['cd forest'], 'ls ~/forest', null],
-  ['Walk down to the deepest part of the cave: `forest/cave/deep`', ['cd forest'], 'cd forest/cave/deep', /already in the forest.*cave\/deep/],
-  ['Walk down to the deepest part of the cave: `forest/cave/deep`', [], 'cd /forest/cave/deep', /\/home\/hero\/forest/],
-  ['Walk down to the deepest part of the cave: `forest/cave/deep`', ['cd forest'], 'cd cave/deep', null],
-  ['Walk down to the deepest part of the cave: `forest/cave/deep`', [], 'cd forest/caev/deep', null],
-  ['From deep, climb back up into the cave with `..`', ['cd forest/cave/deep'], 'cd ~/forest/cave', /\.\./],
-  ['From deep, climb back up into the cave with `..`', ['cd forest/cave/deep'], 'cd ..', null],
+  ['Go deeper into the cave, all the way to `forest/cave/deep`', ['cd forest'], 'cd forest/cave/deep', /already in the forest.*cave\/deep/],
+  ['Go deeper into the cave, all the way to `forest/cave/deep`', [], 'cd /forest/cave/deep', /\/home\/hero\/forest/],
+  ['Go deeper into the cave, all the way to `forest/cave/deep`', ['cd forest'], 'cd cave/deep', null],
+  ['Go deeper into the cave, all the way to `forest/cave/deep`', [], 'cd forest/caev/deep', null],
+  ['From deep, step back out into the cave with `..`', ['cd forest/cave/deep'], 'cd ~/forest/cave', /\.\./],
+  ['From deep, step back out into the cave with `..`', ['cd forest/cave/deep'], 'cd ..', null],
   ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd ../river', /relative/],
   ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd /forest/river', /\/home\/hero\/forest/],
   ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd /home/hero/forest/river', null],
@@ -121,7 +130,7 @@ for (const [goal, prefix, line, note] of NEAR_NOTES) {
 }
 
 test('climbing into the cave with .. from the river, not from deep, does not count', async () => {
-  assert.equal(await passes('From deep, climb back up into the cave with `..`', ['cd forest/river'], 'cd ../cave'), false);
+  assert.equal(await passes('From deep, step back out into the cave with `..`', ['cd forest/river'], 'cd ../cave'), false);
 });
 
 test('using Tab while already in the forest does not count as walking in with Tab', async () => {
@@ -235,7 +244,7 @@ test('the exact boss hint beats the boss from the dungeon, from home and from th
   }
 });
 
-const NOT_COMMANDS = new Set(['/', '/home/hero', '..', '.', '~', 'cd forest/', '~/forest/river']);
+const NOT_COMMANDS = new Set(['/', '/home/hero', '..', '~', 'cd forest/', '~/forest/river']);
 
 test('every command the chapter shows runs in the simulator', async () => {
   const lines = [

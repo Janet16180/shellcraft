@@ -120,10 +120,7 @@ export default {
     ...LETTERS.map(name => remove(`${player.home}/${name}`)),
     cd(player.home),
   ],
-  lesson: `<p>You wake up inside a terminal. The line waiting for you is the <b>prompt</b>:</p>
-<pre class="anat"><span class="pu">hero@kernelia</span>:<span class="pp">~</span>$</pre>
-<p><b>hero</b> is your user name and <b>kernelia</b> is the machine. After the colon comes the directory you are in: <b>~</b> is short for your home, <code>/home/hero</code>. The <b>$</b> means you are a normal user. Root, the administrator, gets a <b>#</b> instead.</p>
-<p>Type a command after the prompt and press <kbd>Enter</kbd>. Commands are case-sensitive: <code>ls</code> works, <code>LS</code> does not.</p>
+  lesson: `<p>You met the <b>prompt</b> in the intro: <code>hero@kernelia:~$</code>. The <code>~</code> in it is short for your home, <code>/home/hero</code>. Type a command after the prompt and press <kbd>Enter</kbd>. Commands are case-sensitive: <code>ls</code> works, <code>LS</code> does not.</p>
 <ul>
 <li><code>whoami</code> prints your user name.</li>
 <li><code>pwd</code> prints the full path of the directory you are in. The name means <b>p</b>rint <b>w</b>orking <b>d</b>irectory.</li>
