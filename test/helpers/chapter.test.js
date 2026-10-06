@@ -53,6 +53,30 @@ test('a task hint cannot be a function', () => {
   assert.throws(() => assertChapter(chapter), /task 1: hint 3 must be non-empty text/);
 });
 
+test('a task tip is optional, but when present it is non-empty text of at most 140 characters', () => {
+  const withTip = tip => {
+    const chapter = playable();
+    chapter.tasks[0].tip = tip;
+    return chapter;
+  };
+  assert.doesNotThrow(() => assertChapter(withTip('pwd prints the directory you are in.')));
+  assert.doesNotThrow(() => assertChapter(withTip(undefined)));
+  assert.throws(() => assertChapter(withTip('  ')), /task 1: tip must be non-empty text/);
+  assert.throws(() => assertChapter(withTip('x'.repeat(141))), /task 1: tip .*140/);
+});
+
+test('near is optional for tasks and the boss, but must be a function when present', () => {
+  const chapter = playable();
+  chapter.tasks[1].near = () => null;
+  chapter.boss.near = () => null;
+  assert.doesNotThrow(() => assertChapter(chapter));
+  chapter.tasks[1].near = 'close';
+  assert.throws(() => assertChapter(chapter), /task 2: near must be a function/);
+  const boss = playable();
+  boss.boss.near = 'close';
+  assert.throws(() => assertChapter(boss), /boss: near must be a function/);
+});
+
 test('missing check functions are rejected', () => {
   const chapter = playable();
   chapter.tasks[0].done = true;
