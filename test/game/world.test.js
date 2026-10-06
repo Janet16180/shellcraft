@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { validatePatch } from '../../src/backend/spec.js';
 import { baseWorld, restore, HOME_NAMES } from '../../src/game/world.js';
 import { createSimBackend } from '../../src/shell/backend.js';
+import { PLAYER } from '../../src/backend/player.js';
 
-const PLAYER = { home: '/home/hero', user: 'hero' };
 
 function nodeIn(patch, path) {
   const top = patch.find(op => op.op === 'put' && (path === op.path || path.startsWith(`${op.path}/`)));
@@ -80,6 +80,7 @@ test('the system files name the player, their home and the host', () => {
   assert.match(nodeIn(patch, '/etc/group').content, /^hero:x:1000:$/m);
   assert.doesNotMatch(nodeIn(patch, '/etc/group').content, /[:,]hero(,|$)/m, 'hero is in no other group, as the simulator says');
   assert.equal(nodeIn(patch, '/etc/hostname').content, 'kernelia\n');
+  assert.match(nodeIn(patch, '/etc/hosts').content, /^127\.0\.0\.1 localhost\n127\.0\.1\.1 kernelia\n/);
   assert.match(nodeIn(patch, '/home/hero/readme.txt').content, /-- The Guardian of Root\n$/);
 });
 
@@ -88,8 +89,10 @@ test('every line of the syslog has the rsyslog timestamp, the host and a tag', (
   for (const line of lines) assert.match(line, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}\+00:00 kernelia [\w-]+(\[\d+\])?: /, line);
 });
 
-test('a home that is not /home/USER is a bug and raises', () => {
-  assert.throws(() => baseWorld({ home: '/root', user: 'hero' }), /home/);
+test('a home that is not /home/USER, or a missing host, is a bug and raises', () => {
+  assert.throws(() => baseWorld({ ...PLAYER, home: '/root' }), /home/);
+  assert.throws(() => baseWorld({ home: '/home/hero', user: 'hero' }), /host/);
+  assert.throws(() => baseWorld({ ...PLAYER, host: '' }), /host/);
   assert.throws(() => restore('forest', { home: '/home/other', user: 'hero' }), /home/);
 });
 
@@ -103,8 +106,27 @@ test('restoring a name the home never had raises', () => {
   assert.throws(() => restore('camp', PLAYER), /unknown/);
 });
 
+test('another machine name reaches every file that names the host, and kernelia appears nowhere', () => {
+  const patch = baseWorld({ ...PLAYER, host: 'lab7' });
+  assert.equal(nodeIn(patch, '/etc/hostname').content, 'lab7\n');
+  assert.match(nodeIn(patch, '/etc/hosts').content, /^127\.0\.1\.1 lab7$/m);
+  assert.match(nodeIn(patch, '/etc/motd').content, /lab7/);
+  assert.match(nodeIn(patch, '/var/log/syslog').content, / lab7 guardian: /);
+  assert.match(nodeIn(patch, '/var/log/auth.log').content, / lab7 CRON\[/);
+  for (const op of patch.filter(o => o.op === 'put')) {
+    walk(op.node, op.path, (node, path) => assert.doesNotMatch(node.content ?? '', /kernelia/, path));
+  }
+});
+
+test('/etc/hosts is the file Ubuntu\'s server installer writes, owned by root', () => {
+  const hosts = nodeIn(baseWorld(PLAYER), '/etc/hosts');
+  assert.deepEqual([hosts.owner, hosts.mode], ['root', 0o644]);
+  assert.equal(hosts.content.split('\n').length, 10);
+  assert.match(hosts.content, /^::1 {5}ip6-localhost ip6-loopback$/m);
+});
+
 test('another player gets their own name and home in every owned node', () => {
-  const player = { home: '/home/ada', user: 'ada' };
+  const player = { ...PLAYER, home: '/home/ada', user: 'ada' };
   const home = nodeIn(baseWorld(player), '/home/ada');
   walk(home, '/home/ada', (node, path) => assert.equal(node.owner, 'ada', path));
   assert.match(nodeIn(baseWorld(player), '/home/ada/forest/river/fish.txt').content, /\/home\/ada\/forest\/river/);

@@ -186,3 +186,84 @@ test('resize raises for anything but a positive integer', async () => {
   const b = await shell();
   for (const bad of [0, -3, 2.5, '80', NaN]) await assert.rejects(b.resize(bad), /positive integer/, String(bad));
 });
+
+const PROTOTYPE_NAMES = Object.getOwnPropertyNames(Object.prototype);
+
+test('a missing file named like an object member is missing, not forbidden', async () => {
+  const b = await shell();
+  for (const name of ['constructor', 'toString']) {
+    const r = await run(b, `cat ${name}`);
+    assert.deepEqual([r.err, r.status], [`cat: ${name}: No such file or directory\n`, 1]);
+  }
+});
+
+test('ls takes an operand named constructor as a file, not an option', async () => {
+  const r = await run(await shell(), 'ls constructor');
+  assert.deepEqual([r.err, r.status], ["ls: cannot access 'constructor': No such file or directory\n", 2]);
+});
+
+test('touch __proto__ creates an ordinary entry that ls and observe show', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'touch __proto__')).status, 0);
+  assert.equal((await run(b, 'ls -1 __proto__')).out, '__proto__\n');
+  const home = (await b.observe()).tree.children.home.children.hero.children;
+  assert.ok(Object.hasOwn(home, '__proto__'));
+  assert.equal(home.__proto__.type, 'file');
+  assert.equal(Object.getPrototypeOf(home), Object.prototype);
+});
+
+test('a redirection can create a file named hasOwnProperty', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'echo hi > hasOwnProperty')).status, 0);
+  assert.equal((await run(b, 'cat hasOwnProperty')).out, 'hi\n');
+});
+
+test('mkdir valueOf creates the directory', async () => {
+  const b = await shell();
+  assert.deepEqual(await run(b, 'mkdir valueOf').then(r => [r.err, r.status]), ['', 0]);
+  assert.equal((await run(b, 'cd valueOf; pwd')).out, '/home/hero/valueOf\n');
+});
+
+test('rm of a missing constructor file fails like any missing file', async () => {
+  const r = await run(await shell(), 'rm constructor');
+  assert.deepEqual([r.err, r.status], ["rm: cannot remove 'constructor': No such file or directory\n", 1]);
+});
+
+test('typing an object member name as a command is an unknown command', async () => {
+  const r = await run(await shell(), 'constructor');
+  assert.deepEqual([r.err, r.status], ['bash: constructor: command not found\n', 127]);
+});
+
+test('a world can put a file named like an object member', async () => {
+  const b = await shell([put('/home/hero/constructor', file('built\n', { owner: 'hero' }))]);
+  assert.equal((await run(b, 'cat constructor')).out, 'built\n');
+});
+
+const NAME_LINES = [
+  'cat NAME', 'ls NAME', 'rm NAME', 'head NAME', 'wc NAME', 'chmod 644 NAME', 'tree NAME', 'cd NAME', 'ls *NAME*',
+  'touch NAME', 'ls -l NAME', 'echo hi > NAME', 'cat NAME', 'cp NAME NAME.bak', 'mv NAME.bak NAME.old', 'grep hi NAME NAME.old',
+  'find . -name NAME', 'rm NAME NAME.old', 'mkdir NAME', 'cd NAME', 'pwd', 'cd ..', 'rmdir NAME',
+  'NAME', 'NAME --version', 'NAME --help', 'help NAME', 'type NAME', 'which NAME', 'man NAME', 'man -f NAME',
+  'echo ~NAME', 'echo $NAME', 'NAME=v; echo $NAME', 'echo $((NAME + 1))', 'export NAME=w; printenv NAME', 'unset NAME; echo "[$NAME]"',
+  'alias NAME', "alias NAME='echo aliased'", 'NAME', 'type NAME', 'unalias NAME', 'NAME',
+  'ls --NAME', 'grep --NAME x readme.txt', 'kill -s NAME 1', 'kill -NAME 1', 'find . -NAME', 'echo hi | grep "[[:NAME:]]"', 'pkill NAME',
+];
+
+test('every name an object inherits behaves like an ordinary name', async () => {
+  const ordinary = 'zzq';
+  const lines = name => NAME_LINES.map(line => line.replaceAll('NAME', name));
+  const want = await runAllLines(await shell(), lines(ordinary));
+  for (const name of PROTOTYPE_NAMES) {
+    const got = await runAllLines(await shell(), lines(name));
+    got.forEach((r, i) => {
+      const swap = text => text.replaceAll(ordinary, name);
+      assert.deepEqual([r.out, r.err, r.status], [swap(want[i].out), swap(want[i].err), want[i].status], `${name}: ${lines(name)[i]}`);
+    });
+  }
+});
+
+async function runAllLines(b, lines) {
+  const results = [];
+  for (const line of lines) results.push(await run(b, line));
+  return results;
+}

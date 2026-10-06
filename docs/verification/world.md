@@ -35,9 +35,11 @@ Runs, all 2026-10-06, `docker run --rm --hostname kernelia -e LC_ALL=C.UTF-8 -e 
 | hero is in the group `hero` only (`id`: `groups=1000(hero)`), as the simulator's `id` prints | R4: `useradd` adds no supplementary group (`users:x:100:` stays empty). `adduser` would also add `users` (R1), so the world follows `useradd` |
 | `syslog:x:101:102:...` and `sshd:x:102:65534::/run/sshd:...` | R1 (dynamic system ids in install order; a real machine may differ) |
 | `/etc/group` lines are real, `adm:x:4:syslog` | R2 diff: ours equals the real file minus the `systemd-*` and `messagebus` groups (and minus `hero` in `users`, see R4) |
-| `/etc/hostname` is `kernelia` | R2 diff: identical |
+| `/etc/hostname` is the host name (`kernelia` for the reference player; `baseWorld` takes `host` and never writes a literal) | R2 diff: identical |
+| `/etc/hosts`: `127.0.0.1 localhost`, `127.0.1.1 HOST`, then the IPv6 block (`::1     ip6-localhost ip6-loopback`, `fe00::0 ip6-localnet`, `ff00::0 ip6-mcastprefix`, `ff02::1 ip6-allnodes`, `ff02::2 ip6-allrouters`) | the file Ubuntu's server installer writes: subiquity, branch `ubuntu/noble` (d007ed5, 2026-09-11), `subiquity/models/subiquity.py` `HOSTS_CONTENT`, byte for byte with `{hostname}` filled in. Docker's own `/etc/hosts` is written by Docker and is not used as evidence. `hosts(5)` EXAMPLES: "127.0.1.1 is often used for the FQDN of the machine" |
 | `/etc/os-release` content | base image `/usr/lib/os-release`, byte for byte. **Simplification:** on Ubuntu `/etc/os-release` is a symlink to `../usr/lib/os-release`; the spec has no symlinks, so it is a regular file here |
 | `/etc/crontab` content, hourly jobs at minute 17 | R1 `cat /etc/crontab` (cron 3.0pl1-184ubuntu2), copied verbatim |
+| `/etc/motd` names the host: "Welcome to HOST (Ubuntu 24.04.5 LTS)." | the version matches `/etc/os-release` |
 | `/etc/motd`: shown at login | `motd(5)`: "displayed by pam_motd(8) after a successful login". Ubuntu ships no `/etc/motd`; an admin may create one, so ours is an admin's message |
 | motd: "most files belong to root: you can read many of them, but you cannot change them" | R2: `/etc` files are root 0644 (readable), writes refused; the syslog files belong to `syslog`, hence "most" and "many" |
 | syslog line format `2026-09-25T09:00:02.412577+00:00 kernelia TAG: message` | R1: rsyslog 8.2312 on 24.04 writes RFC 3339 timestamps with microseconds, e.g. `2026-10-06T17:23:22.051148+00:00 kernelia guardian: a new apprentice has awakened` |

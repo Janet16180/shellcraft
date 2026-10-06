@@ -13,9 +13,10 @@ import copy from './copy.js';
 import procs from './procs.js';
 import shell from './shell.js';
 import { NO_BINARY } from '../builtins.js';
+import { nameTable } from '../table.js';
 
 /** @type {Record<string, (args: string[], ctx: object) => import('../result.js').Result>} */
-export const COMMANDS = Object.freeze({ ...info, ...nav, ...ls, ...files, ...copy, ...text, ...grep, ...find, ...procs, ...shell });
+export const COMMANDS = Object.freeze(nameTable({ ...info, ...nav, ...ls, ...files, ...copy, ...text, ...grep, ...find, ...procs, ...shell }));
 
 /** Commands that are programs, with one executable file each in /usr/bin. */
 export const BINARIES = Object.keys(COMMANDS).filter(name => !NO_BINARY.has(name)).sort();

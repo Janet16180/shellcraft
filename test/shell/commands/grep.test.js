@@ -61,6 +61,17 @@ test('grep reads piped input and highlights matches in the markup', async () => 
   assert.equal(r.output[0].html, 's<span class="g-match">word</span>\n');
 });
 
+test('highlighting escapes the text around each match, never inside it', async () => {
+  const b = await shell([put('/home/hero/q.txt', file('say "quoted" <lt> & amp\n', { owner: 'hero' }))]);
+  const html = async line => (await b.run(line)).output[0].html;
+  const rest = '<span class="g-match">';
+  assert.equal(await html('grep quot q.txt'), `say &quot;${rest}quot</span>ed&quot; &lt;lt&gt; &amp; amp\n`);
+  assert.equal(await html('grep amp q.txt'), `say &quot;quoted&quot; &lt;lt&gt; &amp; ${rest}amp</span>\n`);
+  assert.equal(await html('grep "<lt>" q.txt'), `say &quot;quoted&quot; ${rest}&lt;lt&gt;</span> &amp; amp\n`);
+  assert.equal(await html('grep "&" q.txt'), `say &quot;quoted&quot; &lt;lt&gt; ${rest}&amp;</span> amp\n`);
+  assert.equal(await html('grep -o \'"\' q.txt'), `${rest}&quot;</span>\n${rest}&quot;</span>\n`);
+});
+
 test('unknown options are rejected with the usage line', async () => {
   const r = await run(await market(), 'grep -k x inv.txt');
   assert.deepEqual([r.err, r.status], ["grep: invalid option -- 'k'\nUsage: grep [OPTION]... PATTERNS [FILE]...\nTry 'grep --help' for more information.\n", 2]);

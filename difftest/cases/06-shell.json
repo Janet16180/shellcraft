@@ -9,5 +9,7 @@
   { "name": "arithmetic", "world": "home", "lines": ["echo $((1+2))", "N=6", "echo $((N*7))", "echo $(( $N / 4 ))", "echo $((N % 4))", "echo $((1/0)); echo after", "echo $?", "echo $((2>1)) $((1==2))", "echo $((-3+1))", "echo $((1+))"] },
   { "name": "builtins with arguments", "world": "home", "lines": ["pwd extra", "pwd -P", "pwd -L", "SPELL=fire", "export SPELL", "export -p | grep SPELL", "unset SPELL", "echo \"[$SPELL]\"", "unset NOPE", "export A=1 B=2", "printenv A B", "echo -e 'bell\\a|back\\\\slash|\\x41|\\0101|stop\\cnever'", "echo -e '\\e[0m' | wc -c", "true extra", "false extra; echo $?", "cd ~ extra"] },
   { "name": "history", "world": "home", "lines": ["pwd", "ls", "  echo hidden", "history"] },
-  { "name": "echo options", "world": "home", "lines": ["echo -n hi", "echo -e 'a\\nb'", "echo -E 'a\\nb'", "echo -ne 'x\\ty\\n'", "echo -- -n", "echo -x", "echo 'a\\nb'", "echo \"tab\there\"", "echo *", "echo .*", "echo f*", "echo nomatch*", "echo '*'", "echo \\*", "echo [fg]*", "echo ?ate", "echo */"] }
+  { "name": "echo options", "world": "home", "lines": ["echo -n hi", "echo -e 'a\\nb'", "echo -E 'a\\nb'", "echo -ne 'x\\ty\\n'", "echo -- -n", "echo -x", "echo 'a\\nb'", "echo \"tab\there\"", "echo *", "echo .*", "echo f*", "echo nomatch*", "echo '*'", "echo \\*", "echo [fg]*", "echo ?ate", "echo */"] },
+  { "name": "names like object members", "world": "home",
+    "lines": ["cat constructor", "cat toString", "ls constructor", "touch __proto__", "ls", "echo hi > hasOwnProperty", "cat hasOwnProperty", "mkdir valueOf", "ls -d valueOf", "rm constructor", "constructor", "echo $constructor", "__proto__=v; echo $__proto__", "alias constructor", "help toString", "echo ~constructor", "ls --constructor"] }
 ]

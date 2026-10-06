@@ -4,7 +4,12 @@
  * A node is `{type: 'dir'|'file', mode, owner, group, mtime}` plus `children`
  * (a directory) or `content` (a file). Paths are absolute strings; every
  * function here works on a root node and plain paths, never on shell state.
+ *
+ * Invariant: a directory's `children` object has no prototype, so any name the
+ * player types, even `constructor` or `__proto__`, is an ordinary entry.
  */
+
+import { nameTable } from './table.js';
 
 const DIR_SIZE = 4096;
 
@@ -100,13 +105,13 @@ export const byteLength = text => encoder.encode(text).length;
 export const sizeOf = node => (node.type === 'dir' ? DIR_SIZE : byteLength(node.content));
 
 /**
- * Build a directory node.
+ * Build a directory node. Its children are copied into a prototype-free table.
  *
  * @param {Record<string, object>} children Child nodes by name.
  * @param {{mode: number, owner: string, group: string, mtime: number}} meta Mode, ownership and time.
  * @returns {object} The node.
  */
-export const newDir = (children, { mode, owner, group, mtime }) => ({ type: 'dir', mode, owner, group, mtime, children });
+export const newDir = (children, { mode, owner, group, mtime }) => ({ type: 'dir', mode, owner, group, mtime, children: nameTable(children) });
 
 /**
  * Build a file node.
@@ -126,8 +131,7 @@ export const newFile = (content, { mode, owner, group, mtime }) => ({ type: 'fil
  */
 export function cloneNode(node, mtime) {
   if (node.type === 'file') return { ...node, mtime };
-  const children = {};
-  for (const [name, child] of Object.entries(node.children)) children[name] = cloneNode(child, mtime);
+  const children = nameTable(Object.fromEntries(Object.entries(node.children).map(([name, child]) => [name, cloneNode(child, mtime)])));
   return { ...node, children, mtime };
 }
 
@@ -141,13 +145,13 @@ export function cloneNode(node, mtime) {
 export function fromSpec(spec, mtime) {
   const meta = { mode: spec.mode, owner: spec.owner, group: spec.group, mtime };
   if (spec.type === 'file') return newFile(spec.content, meta);
-  const children = {};
-  for (const [name, child] of Object.entries(spec.children)) children[name] = fromSpec(child, mtime);
-  return newDir(children, meta);
+  return newDir(Object.fromEntries(Object.entries(spec.children).map(([name, child]) => [name, fromSpec(child, mtime)])), meta);
 }
 
 /**
  * Snapshot a node as the port's TreeNode, sharing nothing with the tree.
+ * Children are plain objects whose names, `__proto__` included, are own
+ * properties: read them with Object.hasOwn.
  *
  * @param {object} node A filesystem node.
  * @returns {import('../backend/port.js').TreeNode} The snapshot.
@@ -155,9 +159,7 @@ export function fromSpec(spec, mtime) {
 export function snapshot(node) {
   const base = { type: node.type, mode: node.mode, owner: node.owner, group: node.group, size: sizeOf(node), mtime: node.mtime };
   if (node.type === 'file') return { ...base, content: node.content };
-  const children = {};
-  for (const [name, child] of Object.entries(node.children)) children[name] = snapshot(child);
-  return { ...base, children };
+  return { ...base, children: Object.fromEntries(Object.entries(node.children).map(([name, child]) => [name, snapshot(child)])) };
 }
 
 /**

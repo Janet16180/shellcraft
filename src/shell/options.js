@@ -63,7 +63,7 @@ export function parseOptions(name, args, known, withValue = '') {
 export function mapLongOptions(name, args, table, ignored = /^--colou?r(=|$)/) {
   const end = args.includes('--') ? args.indexOf('--') : args.length;
   const options = args.slice(0, end).filter(a => !ignored.test(a));
-  const unknown = options.find(a => a.startsWith('--') && !(a in table));
-  const mapped = [...options.map(a => (a in table ? `-${table[a]}` : a)), ...args.slice(end)];
+  const unknown = options.find(a => a.startsWith('--') && !Object.hasOwn(table, a));
+  const mapped = [...options.map(a => (Object.hasOwn(table, a) ? `-${table[a]}` : a)), ...args.slice(end)];
   return { args: mapped, err: unknown ? `${name}: unrecognized option '${unknown}'\n${usage(name)}` : null };
 }
