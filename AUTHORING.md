@@ -42,8 +42,10 @@ export default {
   tasks: [
     {
       goal: 'Enter the forest',
+      tip: 'cd followed by a directory name walks you into it.',  // one sentence, shown with the goal
       hints: ['nudge', 'technique', 'cd forest'],   // level 3 is a line safe to paste
       done: ctx => ctx.cwd === `${ctx.home}/forest`,
+      near: ctx => null,                    // optional: a note when the line got close the wrong way
     },
   ],
   solve: ['cd forest'],                 // lines a player would type to finish every task, in order
@@ -55,6 +57,7 @@ export default {
     setup: (random, { home, user }) => ({ patch: [ /* ops */ ], secret: { /* what done() compares against */ } }),
     hints: ['nudge', 'technique', secret => `cd ${secret.target}`],  // an entry may be a function of the secret
     done: (ctx, secret) => boolean,
+    near: (ctx, secret) => null,        // optional, like a task's near
     solve: obs => ['lines'],            // derived from the observation like a player would, never from the secret
   },
   recap: [['cd dir', 'enter a directory']],
@@ -79,6 +82,16 @@ The check context `ctx` (implemented in `src/game/checks.js`) sees only the port
 
 A task is checked after every line until it passes once; tasks complete in any order but the
 panel highlights the first unfinished one.
+
+`tip` is required: one sentence of at most 140 characters that teaches what the task needs, shown
+next to the goal in the task strip above the terminal, so the player never has to scroll back to
+the lesson to start. The lesson stays as the full reference.
+
+`near` is optional. When the line reached the goal's place or result by a method the task does not
+accept (a relative path where it asks for an absolute one, `cd forest` typed out where it asks for
+Tab), return one short sentence saying what the task wants; otherwise `null`. A task must never
+fail silently when the player did almost the right thing. The session shows at most one coach note
+per line: a task's (or the boss's) `near` note first, else a generic note from `src/game/coach.js`.
 
 ## 3. Content rules
 

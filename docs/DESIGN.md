@@ -92,6 +92,17 @@ backend: `travel {from, to}`, `created {path}`, `removed {path}`, `unknown-comma
 `guardian {reason}`, and chapter-defined ones (`daemon-defied`, `daemon-killed`,
 `gate-opened`). The map animates the kinds it knows and ignores the rest; the UI plays sounds.
 
+### 2.3.1 Coach notes (`src/game/coach.js`)
+
+Teaching notes for common beginner mistakes are game rules, so they live in the game layer and
+are derived from `CommandRecord`s and the observation, which keeps them working on a real bash:
+a name with the wrong case, a missing extension (`cat readme`), `cat` of a directory, a long
+option with one dash (`ls -help`), `/forest` for `~/forest`, a name with a space typed without
+quotes, a missing space (`cdforest`, `cd..`, `ls-l`), Windows commands (`cls`, `dir`, `copy`).
+At most one note per line, after any task or boss `near` note (AUTHORING section 2). Notes appear
+as `note` chunks with tone `coach`. The simulator keeps only notes that explain where the
+simulation differs from real Linux (a pager that prints instead of paging).
+
 ### 2.4 Map API (`src/map/`, consumed by the UI and the intro)
 
 ```js
