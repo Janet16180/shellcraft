@@ -5,7 +5,7 @@
  */
 
 import { esc, inlineCode } from './output.js';
-import { hintLabel, hintTitle } from './hints.js';
+import { hintLabel, hintTitle, isExactCommand } from './hints.js';
 
 const STATUS_TEXT = { playing: 'playing', open: 'open', cleared: 'cleared', locked: 'locked', soon: 'coming soon' };
 const PHASE_TEXT = { quest: 'Quest', boss: 'Boss room', done: 'Cleared' };
@@ -34,15 +34,15 @@ function revealedHints({ phase, tasks, boss }) {
 }
 
 // The last hint is the exact line to type, so all of it is code.
-function hintText(level, text) {
-  return level === 3 ? `<code>${esc(text)}</code>` : inlineCode(text);
+function hintText(level, levels, text) {
+  return isExactCommand(level, levels) ? `<code>${esc(text)}</code>` : inlineCode(text);
 }
 
-function hintsHTML(hint, hints) {
-  const revealed = hints.map(({ level, text }) => `<li><b>${esc(hintTitle(level))}</b><span>${hintText(level, text)}</span></li>`).join('');
+function hintsHTML(hint, levels, hints) {
+  const revealed = hints.map(({ level, text }) => `<li><b>${esc(hintTitle(level, levels))}</b><span>${hintText(level, levels, text)}</span></li>`).join('');
   return `<div class="hintbox">
     ${revealed ? `<ul class="hints" aria-label="Hints">${revealed}</ul>` : ''}
-    <button class="px-btn small" id="hintBtn" type="button"${hint ? '' : ' disabled'}>${esc(hintLabel(hint))}</button>
+    <button class="px-btn small" id="hintBtn" type="button"${hint ? '' : ' disabled'}>${esc(hintLabel(hint, levels))}</button>
   </div>`;
 }
 
@@ -63,12 +63,12 @@ function clearedHTML() {
  * way on comes first. The hints shown are the ones revealed for the next task,
  * or for the boss.
  *
- * @param {{chapter: object, hint: {level: number, cost: number}|null}} view The session View.
+ * @param {{chapter: object, hint: {level: number, cost: number}|null, hintLevels: number}} view The session View.
  * @returns {string} HTML.
  */
-export function questHTML({ chapter, hint }) {
+export function questHTML({ chapter, hint, hintLevels }) {
   const { number, title, phase, lesson, tasks, boss } = chapter;
-  const hints = hintsHTML(hint, revealedHints(chapter));
+  const hints = hintsHTML(hint, hintLevels, revealedHints(chapter));
   const lessonAgain = `<details class="lesson-again"><summary>Read the lesson again</summary><div class="lesson">${lesson}</div></details>`;
   let body = `<div class="lesson">${lesson}</div><ol class="quest-log" aria-label="Tasks">${tasks.map(taskRow).join('')}</ol>${hints}`;
   if (phase === 'boss') body = bossHTML(boss) + hints + lessonAgain;

@@ -53,3 +53,34 @@ test('the guard refuses rm -r of home and kill -9 of the shell', async () => {
   assert.ok(obs.tree.children.home.children.hero);
   assert.ok(obs.procs.some(p => p.key === 'shell'));
 });
+
+test('like the simulator, the guard refuses rm -r of any directory holding home and leaves it in place', async () => {
+  const backend = createFakeBackend();
+  for (const line of ['rm -rf /home', 'rm -r /home/', 'rm -R ~']) {
+    const result = await backend.run(line);
+    assert.equal(result.blocked.length, 1, line);
+    assert.equal(result.status, 1, line);
+  }
+  assert.ok((await backend.observe()).tree.children.home.children.hero);
+});
+
+test('a command named like an object property is simply not found', async () => {
+  assert.equal((await createFakeBackend().run('constructor')).status, 127);
+});
+
+test('like the simulator, the guard refuses every signal that ends or stops the shell, from kill, pkill or killall', async () => {
+  const backend = createFakeBackend();
+  for (const line of ['kill -HUP 733', 'kill -s STOP 733', 'pkill -9 bash', 'pkill -9 ba', 'killall -s KILL bash']) {
+    assert.equal((await backend.run(line)).blocked.length, 1, line);
+  }
+  for (const line of ['kill 733', 'kill -INT 733', 'pkill bash', 'killall -9 ba']) assert.deepEqual((await backend.run(line)).blocked, [], line);
+  assert.ok((await backend.observe()).procs.some(p => p.key === 'shell'));
+});
+
+test('kill with a deadly signal removes another process', async () => {
+  const backend = createFakeBackend();
+  await backend.load([proc({ key: 'daemon', user: 'hero', cmd: './shadow' })]);
+  const { pid } = (await backend.observe()).procs.find(p => p.key === 'daemon');
+  await backend.run(`kill -9 ${pid}`);
+  assert.equal((await backend.observe()).procs.some(p => p.key === 'daemon'), false);
+});

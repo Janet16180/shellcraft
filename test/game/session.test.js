@@ -10,8 +10,7 @@ import { fixtureChapters, fixtureWorld } from '../helpers/fixture-chapters.js';
 
 const HOME = '/home/hero';
 
-function makeSession({ stored = {}, chapters = fixtureChapters(), seed = 1 } = {}) {
-  const backend = createFakeBackend();
+function makeSession({ stored = {}, chapters = fixtureChapters(), seed = 1, backend = createFakeBackend() } = {}) {
   const store = createMemoryStore(stored);
   const session = createSession({ backend, chapters, baseWorld: fixtureWorld, store, random: createRandom(seed) });
   return { backend, store, session };
@@ -87,6 +86,21 @@ test('cleared chapters the list does not know are dropped from the save', async 
   assert.deepEqual(saved(store).cleared, ['awakening']);
 });
 
+test('the base world and the setups receive the player from the observation, host included', async () => {
+  const seen = [];
+  const chapters = fixtureChapters();
+  const { setup } = chapters[0];
+  chapters[0].setup = (random, player) => { seen.push(['setup', player]); return setup(random, player); };
+  const backend = createFakeBackend();
+  const session = createSession({
+    backend, chapters, store: createMemoryStore(), random: createRandom(1),
+    baseWorld: player => { seen.push(['world', player]); return fixtureWorld(player); },
+  });
+  await session.boot();
+  const player = { home: HOME, user: 'hero', host: 'kernelia' };
+  assert.deepEqual(seen, [['world', player], ['setup', player]]);
+});
+
 test('a line runs on the backend and the turn carries its result, observation, effects and view', async () => {
   const { session } = await booted();
   const turn = await session.submit('cd forest');
@@ -144,12 +158,12 @@ test('solving the boss clears the chapter, pays the boss and the bonus, and open
   const [chapters] = fixtureChapters();
   assert.deepEqual(turn.events, [
     { kind: 'boss', xp: 30 },
-    { kind: 'chapter', id: 'awakening', recap: chapters.recap, why: chapters.why, field: chapters.field, xp: 20, next: 'forest' },
+    { kind: 'chapter', id: 'awakening', recap: chapters.recap, why: chapters.why, field: chapters.field, xp: 20, total: 50, next: 'forest' },
   ]);
   assert.equal(turn.view.chapter.phase, 'done');
   assert.equal(turn.view.xp, 70);
   assert.deepEqual(turn.view.chapters.map(c => [c.status, c.current]), [['cleared', true], ['open', false], ['soon', false]]);
-  assert.deepEqual(saved(store), { version: 2, chapter: 'forest', cleared: ['awakening'], xp: 70, sound: false, introSeen: false });
+  assert.deepEqual(saved(store), { version: 2, chapter: 'forest', cleared: ['awakening'], xp: 70, sound: false, introSeen: false, progress: null });
 });
 
 test('a cleared chapter can be started again while it is the current one', async () => {
@@ -206,6 +220,7 @@ test('asking after the third hint repeats it at no cost', async () => {
   session.hint();
   session.hint();
   assert.deepEqual(session.hint(), { level: 3, text: 'pwd', cost: 0 });
+  assert.equal((await session.submit('pwd')).events[0].xp, 2);
 });
 
 test('the hint is about the first unfinished task', async () => {
@@ -342,12 +357,36 @@ test('in the boss room the boss near note gets the secret, and it is never asked
   assert.deepEqual(coachNotes(await session.submit('ls')).map(c => c.text), [`not yet: ${name}`]);
 });
 
-test('a refusal by the guard costs a heart', async () => {
+test('a dangerous line costs a heart with the game\'s reason, and the guard\'s refusal shows as the guardian', async () => {
   const { session } = await booted();
   const turn = await session.submit('rm -r ~');
   assert.deepEqual(turn.effects, [{ kind: 'guardian', reason: 'The Guardian blocked rm -r on your home.' }]);
-  assert.deepEqual(turn.events, [{ kind: 'heart-lost', reason: 'The Guardian blocked rm -r on your home.', left: 2 }]);
+  assert.deepEqual(kinds(turn.events), ['heart-lost']);
+  assert.match(turn.events[0].reason, /delete everything in your home/);
+  assert.equal(turn.events[0].left, 2);
   assert.equal(turn.view.hearts.left, 2);
+});
+
+function withBlocked(backend, change) {
+  return { ...backend, run: async line => {
+    const result = await backend.run(line);
+    return { ...result, blocked: change(result.blocked) };
+  } };
+}
+
+test('a dangerous line costs a heart even when the backend refuses nothing, like a real bash', async () => {
+  const { session } = await booted({ backend: withBlocked(createFakeBackend(), () => []) });
+  const turn = await session.submit('rm -r ~');
+  assert.deepEqual(kinds(turn.events), ['heart-lost']);
+  assert.deepEqual(kinds(turn.effects).filter(k => k === 'guardian'), []);
+});
+
+test('a refusal by the guard alone shows the guardian but costs no heart', async () => {
+  const { session } = await booted({ backend: withBlocked(createFakeBackend(), () => ['refused for the test']) });
+  const turn = await session.submit('ls');
+  assert.deepEqual(turn.effects, [{ kind: 'guardian', reason: 'refused for the test' }]);
+  assert.deepEqual(turn.events, []);
+  assert.equal(turn.view.hearts.left, 3);
 });
 
 test('a dangerous attempt that real Linux refuses also costs a heart', async () => {
@@ -392,6 +431,65 @@ test('at zero hearts in the boss room the boss restarts and can still be solved'
   assert.deepEqual(kinds(last.events), ['boss', 'chapter']);
 });
 
+async function reload(store) {
+  const session = createSession({ backend: createFakeBackend(), chapters: fixtureChapters(), baseWorld: fixtureWorld, store, random: createRandom(2) });
+  const view = await session.boot();
+  return { session, view };
+}
+
+test('a reload keeps finished tasks done on a fresh world and never pays them twice', async () => {
+  const { session, store } = await booted();
+  await session.submit('pwd');
+  assert.deepEqual(saved(store).progress, { chapter: 'awakening', phase: 'quest', tasks: [true, false], hints: [0, 0], bossHints: 0 });
+
+  const again = await reload(store);
+  assert.deepEqual(again.view.chapter.tasks.map(t => [t.done, t.next]), [[true, false], [false, true]]);
+  assert.equal(again.view.xp, 10);
+  assert.deepEqual((await again.session.submit('pwd')).events, []);
+  assert.deepEqual(kinds((await again.session.submit('cat letter.txt')).events), ['task', 'boss-start']);
+});
+
+test('a reload keeps the hints already shown, and their cost', async () => {
+  const { session, store } = await booted();
+  session.hint();
+  session.hint();
+  assert.deepEqual(saved(store).progress.hints, [2, 0]);
+
+  const again = await reload(store);
+  assert.deepEqual(again.view.chapter.tasks[0].hints.map(h => h.level), [1, 2]);
+  assert.deepEqual(again.view.hint, { level: 3, cost: 5 });
+  assert.equal((await again.session.submit('pwd')).events[0].xp, 7);
+});
+
+test('a reload during the boss sets up a new boss room and keeps the boss hints', async () => {
+  const { session, store } = await booted();
+  await reachBoss(session);
+  session.hint();
+  session.hint();
+  assert.deepEqual(saved(store).progress, { chapter: 'awakening', phase: 'boss', tasks: [true, true], hints: [0, 0], bossHints: 2 });
+
+  const again = await reload(store);
+  assert.equal(again.view.chapter.phase, 'boss');
+  assert.equal(again.view.chapter.boss.hints.length, 2);
+  const [last] = await play(again.session, fixtureChapters()[0].boss.solve(again.session.observation()));
+  assert.deepEqual(last.events.map(e => [e.kind, e.xp]), [['boss', 27], ['chapter', 20]]);
+  assert.equal(saved(store).progress, null);
+});
+
+test('saved progress that does not fit the chapter is ignored', async () => {
+  const progress = fields => ({ chapter: 'awakening', phase: 'quest', tasks: [true, false], hints: [0, 0], bossHints: 0, ...fields });
+  const odds = [
+    progress({ chapter: 'forest' }),
+    progress({ tasks: [true], hints: [0] }),
+    progress({ phase: 'boss' }),
+    progress({ tasks: [true, true] }),
+  ];
+  for (const odd of odds) {
+    const { view } = await booted({ stored: v2({ chapter: 'awakening', progress: odd }) });
+    assert.deepEqual(view.chapter.tasks.map(t => t.done), [false, false], JSON.stringify(odd));
+  }
+});
+
 test('continuing to the next chapter applies only its setup to the current world', async () => {
   const { session, backend } = await booted();
   await clearAwakening(session);
@@ -433,12 +531,13 @@ test('the view lists every chapter with its status and the spellbook with what i
   assert.equal(view.spellbook[0].summary, 'Print the working directory.');
 });
 
-test('the view carries the lesson, the task tips, the boss and the rank', async () => {
+test('the view carries the lesson, the task tips, the boss, the rank and the number of hint levels', async () => {
   const { view } = await booted();
   assert.deepEqual(view.chapter.tasks.map(t => t.tip), ['pwd prints the directory you are in.', 'cat prints a file.']);
   assert.equal(view.chapter.lesson, '<p>Look around.</p>');
   assert.deepEqual(view.chapter.boss, { title: 'The Sign', briefing: '<p>Do what the sign says.</p>', hints: [] });
   assert.deepEqual(view.rank, { title: 'Novice', floor: 0, next: 150 });
+  assert.equal(view.hintLevels, 3);
 });
 
 test('sound and the intro flag are saved', async () => {
@@ -460,8 +559,18 @@ test('reset erases progress but keeps sound and the intro flag', async () => {
   session.markIntroSeen();
   const view = await session.reset();
   assert.deepEqual([view.chapter.id, view.xp, view.chapter.replay], ['awakening', 0, false]);
-  assert.deepEqual(saved(store), { version: 2, chapter: 'awakening', cleared: [], xp: 0, sound: true, introSeen: true });
+  assert.deepEqual(saved(store), {
+    version: 2, chapter: 'awakening', cleared: [], xp: 0, sound: true, introSeen: true,
+    progress: { chapter: 'awakening', phase: 'quest', tasks: [false, false], hints: [0, 0], bossHints: 0 },
+  });
   assert.equal(exists(await backend.observe(), `${HOME}/sign.txt`), false);
+});
+
+test('the view says whether the player has started: any XP, a cleared chapter or a later chapter', async () => {
+  const { session, view } = await booted();
+  assert.equal(view.started, false);
+  assert.equal((await session.submit('pwd')).view.started, true);
+  assert.equal((await booted({ stored: v2({ chapter: 'awakening', cleared: ['awakening'] }) })).view.started, true);
 });
 
 test('the session hands out the latest observation it holds', async () => {
@@ -487,6 +596,46 @@ test('tab completion is answered by the backend', async () => {
   assert.deepEqual(await session.complete('cd fo'), { line: 'cd fo', candidates: [] });
 });
 
+function gatedBackend() {
+  const backend = createFakeBackend();
+  const waiting = [];
+  const gate = { open: () => waiting.splice(0).forEach(resolve => resolve()) };
+  const run = async line => {
+    await new Promise(resolve => waiting.push(resolve));
+    return backend.run(line);
+  };
+  return { backend: { ...backend, run }, gate };
+}
+
+test('a call that changes state while a line is still running raises, and the line still finishes cleanly', { timeout: 5000 }, async () => {
+  const { backend, gate } = gatedBackend();
+  const { session } = await booted({ backend });
+  const pending = session.submit('pwd');
+  const overlap = /another session call is running/;
+  await assert.rejects(session.submit('ls'), overlap);
+  await assert.rejects(session.reset(), overlap);
+  await assert.rejects(session.startChapter('awakening'), overlap);
+  await assert.rejects(session.boot(), overlap);
+  await assert.rejects(session.complete('pw'), overlap);
+  assert.throws(() => session.hint(), overlap);
+  assert.throws(() => session.setSound(true), overlap);
+  assert.throws(() => session.markIntroSeen(), overlap);
+  assert.equal(session.view().xp, 0);
+  assert.equal(session.observation().cwd, HOME);
+
+  gate.open();
+  const turn = await pending;
+  assert.deepEqual(kinds(turn.events), ['task']);
+  assert.deepEqual([turn.view.xp, turn.view.chapter.phase, turn.view.sound], [10, 'quest', false]);
+  assert.equal((await session.reset()).xp, 0);
+});
+
+test('a call that raised leaves the session free for the next one', async () => {
+  const { session } = await booted();
+  await assert.rejects(session.startChapter('nowhere'), /unknown chapter/);
+  assert.deepEqual(kinds((await session.submit('pwd')).events), ['task']);
+});
+
 test('using the session before boot raises', async () => {
   const { session } = makeSession();
   await assert.rejects(session.submit('ls'), /boot/);
@@ -494,6 +643,10 @@ test('using the session before boot raises', async () => {
   assert.throws(() => session.view(), /boot/);
   assert.throws(() => session.observation(), /boot/);
   assert.throws(() => session.hint(), /boot/);
+});
+
+test('an empty chapter list raises', () => {
+  assert.throws(() => makeSession({ chapters: [] }), /empty/);
 });
 
 test('a chapter list with repeated ids raises', () => {

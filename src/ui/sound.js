@@ -19,7 +19,8 @@ const SFX = {
  * Create the sound player. Browsers only allow audio after the player has
  * interacted with the page, so the audio context is made on the first sound.
  *
- * @returns {{setOn: (on: boolean) => void, play: (name: string) => void}} The player.
+ * @returns {{setOn: (on: boolean) => void, play: (name: string) => void}} The player. `play`
+ *   raises on a name it has no sound for, even while the sound is off.
  */
 export function createSound() {
   let on = false;
@@ -38,6 +39,13 @@ export function createSound() {
     osc.stop(t + dur + 0.02);
   }
 
+  /**
+   * Play one effect, if the sound is on.
+   *
+   * @param {string} name One of the effects in SFX.
+   * @returns {void}
+   * @throws {Error} If there is no effect by that name, whether the sound is on or off.
+   */
   function play(name) {
     if (!(name in SFX)) throw new Error(`unknown sound: ${name}`);
     if (!on) return;

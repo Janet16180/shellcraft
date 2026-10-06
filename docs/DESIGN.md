@@ -19,8 +19,12 @@ its concept and look and adds what Ring Zero taught us (`~/learning/GAME_METHODO
 Defaults chosen by the lead (change if the user disagrees):
 - Reference system: **Ubuntu 24.04, bash 5.2, coreutils 9.4, `LC_ALL=C.UTF-8`** (the WSL
   default). Sorting and `ls` order follow C.UTF-8 byte order: capitals before lowercase.
-- Delivery: a multi-file claude.ai artifact (index.html + ES modules), no build step. Previews go
-  to a separate private artifact; the original link is replaced only after the user approves.
+- Delivery: development uses index.html + ES modules with no build step. The artifact host runs
+  pages in a sandboxed frame with an opaque origin, where module scripts fail CORS and the page
+  stays dark, so publishing goes through `npm run bundle` (scripts/bundle.js): one
+  self-contained `dist/index.html` with the CSS inlined and the modules bundled by esbuild into a
+  classic script. Previews go to a separate private artifact; the original link is replaced only
+  after the user approves.
 
 ## 2. Architecture
 

@@ -3,15 +3,18 @@
  * into the backend and the rule modules; the rules themselves live in
  * checks.js, effects.js, progress.js and save.js.
  *
- * Callers await each call before making the next one.
+ * Callers await each call before making the next one: a call that changes
+ * state while another is still running raises (view and observation may be
+ * read at any time).
  *
  * @typedef {import('../backend/port.js').RunResult} RunResult
  * @typedef {import('../backend/port.js').Observation} Observation
  * @typedef {import('./effects.js').Effect} Effect
  *
  * @typedef {object} GameEvent One of: `task {index, goal, xp}`, `boss-start {title}`,
- *   `boss {xp}`, `chapter {id, recap, why, field, xp, next}`, `heart-lost {reason, left}`,
- *   `hearts-restored {phase}`; each has a `kind`.
+ *   `boss {xp}`, `chapter {id, recap, why, field, xp, total, next}` (total is the
+ *   boss and clear XP together), `heart-lost {reason, left}`, `hearts-restored {phase}`;
+ *   each has a `kind`.
  *
  * @typedef {object} Turn
  * @property {RunResult} result What the terminal shows for the line.
@@ -22,11 +25,11 @@
  */
 import { makeContext } from './checks.js';
 import { coachNote } from './coach.js';
-import { lineEffects, worldEffects, dangers } from './effects.js';
-import { XP, MAX_HEARTS, payout, nextHint, rankFor, loseHeart, chapterStatuses, canStart, resumeChapter } from './progress.js';
+import { hintNote, questNote, terminalText } from './commands.js';
+import { lineEffects, worldEffects } from './effects.js';
+import { dangers } from './dangers.js';
+import { XP, MAX_HEARTS, HINT_LEVELS, payout, nextHint, rankFor, loseHeart, chapterStatuses, canStart, resumeChapter } from './progress.js';
 import { SAVE_KEY, V1_SAVE_KEY, freshSave, parseSave, serializeSave } from './save.js';
-
-const HINT_LEVELS = 3;
 
 /**
  * Create a session.
@@ -38,7 +41,8 @@ const HINT_LEVELS = 3;
  * @param {{getItem: (key: string) => string|null, setItem: (key: string, text: string) => void}} deps.store
  *   Where the save lives, such as window.localStorage. Errors it throws propagate.
  * @param {() => number} deps.random Random numbers in [0, 1) for chapter setups.
- * @returns {object} The session API (DESIGN.md section 2.2).
+ * @returns {object} The session API (DESIGN.md section 2.2). Its methods raise
+ *   when called before boot(), or while another state-changing call is running.
  * @throws {Error} If the chapter list is empty or repeats an id.
  */
 export function createSession({ backend, chapters, baseWorld, store, random }) {
@@ -48,23 +52,27 @@ export function createSession({ backend, chapters, baseWorld, store, random }) {
 
   const s = {
     backend, chapters, baseWorld, store, random,
-    save: null, boot: null, obs: null, index: null, completions: [],
+    save: null, boot: null, obs: null, index: null, completions: [], busy: false,
     phase: 'quest', tasksDone: [], hints: [], bossHints: 0, secret: undefined, hearts: MAX_HEARTS, replay: false,
   };
+  const idle = work => (...args) => {
+    requireIdle(s);
+    return work(...args);
+  };
   return {
-    boot: () => boot(s),
-    startChapter: (id, options) => startChapter(s, id, options),
-    submit: line => submit(s, line),
-    hint: () => hint(s),
+    boot: () => exclusive(s, () => boot(s)),
+    startChapter: (id, options) => exclusive(s, () => startChapter(s, id, options)),
+    submit: line => exclusive(s, () => submit(s, line)),
+    complete: line => exclusive(s, () => complete(s, line)),
+    reset: () => exclusive(s, () => reset(s)),
+    hint: idle(() => hint(s)),
+    setSound: idle(on => setSound(s, on)),
+    markIntroSeen: idle(() => updateSave(s, { introSeen: true })),
     view: () => view(s),
     observation: () => {
       requireBooted(s);
       return s.obs;
     },
-    complete: line => complete(s, line),
-    setSound: on => setSound(s, on),
-    markIntroSeen: () => updateSave(s, { introSeen: true }),
-    reset: () => reset(s),
   };
 }
 
@@ -72,20 +80,56 @@ function requireBooted(s) {
   if (s.index === null) throw new Error('call boot() before using the session');
 }
 
+function requireIdle(s) {
+  if (s.busy) throw new Error('another session call is running; await it before making the next one');
+}
+
+async function exclusive(s, work) {
+  requireIdle(s);
+  s.busy = true;
+  try {
+    return await work();
+  } finally {
+    s.busy = false;
+  }
+}
+
 const current = s => s.chapters[s.index];
-// Backticks mark typed names for the page; in bash they would run a command.
-const terminalText = text => text.replaceAll('`', '');
-const who = s => ({ home: s.obs.home, user: s.obs.user });
+const who = s => ({ home: s.obs.home, user: s.obs.user, host: s.obs.host });
 const statuses = s => chapterStatuses(s.chapters, { current: current(s)?.id ?? null, cleared: s.save.cleared });
-const persist = s => s.store.setItem(SAVE_KEY, serializeSave(s.save));
+const persist = s => s.store.setItem(SAVE_KEY, serializeSave({ ...s.save, progress: progressOf(s) }));
+
+function progressOf(s) {
+  const { phase, tasksDone, hints, bossHints } = s;
+  return phase === 'done' ? null : { chapter: current(s).id, phase, tasks: [...tasksDone], hints: [...hints], bossHints };
+}
 
 async function boot(s) {
   const { save, status } = parseSave({ v2: s.store.getItem(SAVE_KEY), v1: s.store.getItem(V1_SAVE_KEY) });
+  const { progress, ...kept } = save;
   const known = new Set(s.chapters.map(c => c.id));
-  s.save = { ...save, cleared: save.cleared.filter(id => known.has(id)) };
+  s.save = { ...kept, cleared: kept.cleared.filter(id => known.has(id)) };
   s.boot = status;
   s.obs = await s.backend.observe();
-  return start(s, resumeChapter(s.chapters, { saved: save.chapter, cleared: s.save.cleared }), true);
+  await start(s, resumeChapter(s.chapters, { saved: save.chapter, cleared: s.save.cleared }), true);
+  await restoreProgress(s, progress);
+  return view(s);
+}
+
+// The world is rebuilt fresh on reload; finished tasks and shown hints carry
+// over, and a boss in progress gets a new room.
+async function restoreProgress(s, progress) {
+  const chapter = current(s);
+  const fits = progress?.chapter === chapter.id
+    && progress.tasks.length === chapter.tasks.length
+    && (progress.phase === 'boss') === progress.tasks.every(Boolean);
+  if (fits) {
+    s.tasksDone = [...progress.tasks];
+    s.hints = [...progress.hints];
+    s.bossHints = progress.bossHints;
+    if (progress.phase === 'boss') await openBossRoom(s);
+    persist(s);
+  }
 }
 
 async function startChapter(s, id, { fresh = true } = {}) {
@@ -144,7 +188,7 @@ async function shellTurn(s, line, completions) {
   const completed = events.some(e => e.kind === 'task' || e.kind === 'boss');
   const note = (completed ? null : nearNote(s, ctx)) ?? coachNote(ctx);
   const output = note === null ? result.output : [...result.output, { stream: 'note', tone: 'coach', text: terminalText(note) }];
-  const danger = result.blocked[0] ?? dangers(ctx)[0];
+  const [danger] = dangers(ctx);
   if (danger !== undefined) events.push(...await hurt(s, danger));
   if (s.obs !== after) effects.push(...worldEffects(after, s.obs));
   return { result: { ...result, output }, obs: s.obs, effects, events, view: view(s) };
@@ -206,7 +250,7 @@ function clearChapter(s) {
   s.save.chapter = next ?? chapter.id;
   return [
     { kind: 'boss', xp: bossXp },
-    { kind: 'chapter', id: chapter.id, recap: chapter.recap, why: chapter.why, field: chapter.field, xp: clearXp, next },
+    { kind: 'chapter', id: chapter.id, recap: chapter.recap, why: chapter.why, field: chapter.field, xp: clearXp, total: bossXp + clearXp, next },
   ];
 }
 
@@ -255,42 +299,24 @@ function hint(s) {
   let shown = null;
   if (target) {
     const next = nextHint(target.base, target.used, s.replay);
-    if (next) target.use();
+    if (next) {
+      target.use();
+      persist(s);
+    }
     const level = next?.level ?? HINT_LEVELS;
     shown = { level, text: resolveHint(s, target.hints[level - 1]), cost: next?.cost ?? 0 };
   }
   return shown;
 }
 
-function hintText(s) {
+function hintCommand(s) {
   const shown = hint(s);
   const target = hintTarget(s);
-  const following = target && nextHint(target.base, target.used, s.replay);
-  let text = 'This chapter is cleared: there is nothing left to hint at.';
-  if (shown) {
-    const cost = shown.cost > 0 ? ` (cost ${shown.cost} XP)` : '';
-    text = `Hint ${shown.level} of ${HINT_LEVELS}${cost}: ${shown.text}`;
-  }
-  if (following) {
-    const price = following.cost > 0 ? `costs ${following.cost} XP` : 'free';
-    text += `\nType hint again for hint ${following.level} (${price}).`;
-  }
-  return text;
-}
-
-function questText(s) {
-  const chapter = current(s);
-  const lines = [
-    `${chapter.title} (chapter ${s.index + 1} of ${s.chapters.length})`,
-    ...chapter.tasks.map((task, i) => `[${s.tasksDone[i] ? 'x' : ' '}] ${task.goal}`),
-  ];
-  if (s.phase === 'boss') lines.push(`Boss: ${chapter.boss.title}. Its briefing is in the Quest panel.`);
-  if (s.phase === 'done') lines.push('Chapter cleared.');
-  return lines.join('\n');
+  return hintNote(shown, target && nextHint(target.base, target.used, s.replay));
 }
 
 /** Game commands typed in the terminal; they are not Linux and never reach the backend. */
-const GAME_COMMANDS = new Map([['hint', hintText], ['quest', questText]]);
+const GAME_COMMANDS = new Map([['hint', hintCommand], ['quest', s => questNote(chapterView(s))]]);
 
 function gameTurn(s, text) {
   const result = { output: [{ stream: 'note', text: terminalText(text) }], status: 0, commands: [], blocked: [] };
@@ -311,8 +337,8 @@ function updateSave(s, fields) {
 
 async function reset(s) {
   requireBooted(s);
-  const { sound, introSeen } = s.save;
-  s.save = { ...freshSave(), sound, introSeen };
+  const { chapter, cleared, xp } = freshSave();
+  s.save = { ...s.save, chapter, cleared, xp };
   return start(s, resumeChapter(s.chapters, { saved: null, cleared: [] }), true);
 }
 
@@ -347,7 +373,9 @@ function view(s) {
   return {
     chapter: chapterView(s),
     hint: target ? nextHint(target.base, target.used, s.replay) : null,
+    hintLevels: HINT_LEVELS,
     xp: s.save.xp,
+    started: s.save.xp > 0 || s.save.cleared.length > 0 || s.index > 0,
     rank: rankFor(s.save.xp),
     hearts: { left: s.hearts, max: MAX_HEARTS },
     sound: s.save.sound,

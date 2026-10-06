@@ -8,11 +8,12 @@ import { createSimBackend } from '../../../src/shell/backend.js';
 import { makeContext } from '../../../src/game/checks.js';
 import { createRandom } from '../../../src/game/rng.js';
 import { baseWorld } from '../../../src/game/world.js';
+import { PLAYER } from '../../../src/backend/player.js';
 import { typeLine } from '../../helpers/type-line.js';
 import { coachNote } from '../../../src/game/coach.js';
 import assert from 'node:assert/strict';
 
-export const PLAYER = { home: '/home/hero', user: 'hero' };
+export { PLAYER };
 const NOW = Date.UTC(2026, 9, 6, 12);
 
 /**

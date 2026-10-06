@@ -9,8 +9,6 @@
  */
 import { put, cd, dir, file } from '../backend/spec.js';
 
-const HOST = 'kernelia';
-
 const SCROLL = [
   'THE SCROLL OF AGES', '==================',
   'In the beginning there was only the kernel,', 'and the kernel was silent.',
@@ -264,24 +262,36 @@ SHELL=/bin/sh
 #
 `;
 
-const motd = home => `Welcome to Kernelia (Ubuntu 24.04.5 LTS).
+// What Ubuntu's server installer (subiquity, subiquity/models/subiquity.py HOSTS_CONTENT) writes.
+const hosts = host => `127.0.0.1 localhost
+127.0.1.1 ${host}
+
+# The following lines are desirable for IPv6 capable hosts
+::1     ip6-localhost ip6-loopback
+fe00::0 ip6-localnet
+ff00::0 ip6-mcastprefix
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+`;
+
+const motd = (home, host) => `Welcome to ${host} (Ubuntu 24.04.5 LTS).
 
 Your home is ${home}. Outside it, most files belong to root:
 you can read many of them, but you cannot change them.
 `;
 
-const syslog = home => `2026-09-25T09:00:02.412577+00:00 ${HOST} guardian: a new apprentice has awakened in ${home}
-2026-09-25T09:13:37.104829+00:00 ${HOST} watchtower: dragon sighted near /dev/null
-2026-09-25T09:17:01.205316+00:00 ${HOST} CRON[1203]: (root) CMD (cd / && run-parts --report /etc/cron.hourly)
-2026-09-25T09:42:00.008163+00:00 ${HOST} shadow_daemon: awake, and the CPU is mine
-2026-09-25T09:42:15.311740+00:00 ${HOST} shadow_daemon: caught SIGTERM, and kept running
-2026-09-25T10:17:01.198771+00:00 ${HOST} CRON[1377]: (root) CMD (cd / && run-parts --report /etc/cron.hourly)
+const syslog = (home, host) => `2026-09-25T09:00:02.412577+00:00 ${host} guardian: a new apprentice has awakened in ${home}
+2026-09-25T09:13:37.104829+00:00 ${host} watchtower: dragon sighted near /dev/null
+2026-09-25T09:17:01.205316+00:00 ${host} CRON[1203]: (root) CMD (cd / && run-parts --report /etc/cron.hourly)
+2026-09-25T09:42:00.008163+00:00 ${host} shadow_daemon: awake, and the CPU is mine
+2026-09-25T09:42:15.311740+00:00 ${host} shadow_daemon: caught SIGTERM, and kept running
+2026-09-25T10:17:01.198771+00:00 ${host} CRON[1377]: (root) CMD (cd / && run-parts --report /etc/cron.hourly)
 `;
 
-const AUTH_LOG = `2026-09-25T09:17:01.201244+00:00 ${HOST} CRON[1202]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
-2026-09-25T09:17:01.209512+00:00 ${HOST} CRON[1202]: pam_unix(cron:session): session closed for user root
-2026-09-25T10:17:01.195160+00:00 ${HOST} CRON[1376]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
-2026-09-25T10:17:01.202945+00:00 ${HOST} CRON[1376]: pam_unix(cron:session): session closed for user root
+const authLog = host => `2026-09-25T09:17:01.201244+00:00 ${host} CRON[1202]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-09-25T09:17:01.209512+00:00 ${host} CRON[1202]: pam_unix(cron:session): session closed for user root
+2026-09-25T10:17:01.195160+00:00 ${host} CRON[1376]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-09-25T10:17:01.202945+00:00 ${host} CRON[1376]: pam_unix(cron:session): session closed for user root
 `;
 
 const DPKG_LOG = `2026-09-17 02:29:17 install unminimize:amd64 <none> 0.2.1
@@ -314,23 +324,28 @@ function checkPlayer({ home, user }) {
   if (home !== `/home/${user}`) throw new Error(`the player's home must be /home/${user}, got ${home}`);
 }
 
-function etc({ home, user }) {
+function checkHost({ host }) {
+  if (typeof host !== 'string' || host === '') throw new Error(`the machine needs a host name, got ${host}`);
+}
+
+function etc({ home, user, host }) {
   return dir({
     crontab: file(CRONTAB),
     group: file(groups(user)),
-    hostname: file(`${HOST}\n`),
-    motd: file(motd(home)),
+    hostname: file(`${host}\n`),
+    hosts: file(hosts(host)),
+    motd: file(motd(home, host)),
     'os-release': file(OS_RELEASE),
     passwd: file(`${SYSTEM_USERS}${user}:x:1000:1000:${capitalize(user)},,,:${home}:/bin/bash\n`),
   });
 }
 
-function varLog(home) {
+function varLog({ home, host }) {
   return dir({
     apt: dir({ 'history.log': file(APT_HISTORY) }),
-    'auth.log': file(AUTH_LOG, { owner: 'syslog', group: 'adm', mode: 0o640 }),
+    'auth.log': file(authLog(host), { owner: 'syslog', group: 'adm', mode: 0o640 }),
     'dpkg.log': file(DPKG_LOG),
-    syslog: file(syslog(home), { owner: 'syslog', group: 'adm', mode: 0o640 }),
+    syslog: file(syslog(home, host), { owner: 'syslog', group: 'adm', mode: 0o640 }),
   }, { group: 'syslog', mode: 0o775 });
 }
 
@@ -353,18 +368,19 @@ export const HOME_NAMES = Object.keys(HOME_ENTRIES);
  * it. Loading it replaces /etc, /home, /root, /tmp and /var, then puts the
  * player at home.
  *
- * @param {{home: string, user: string}} player The player's user name and home.
+ * @param {{home: string, user: string, host: string}} player The player's user name, home and machine name.
  * @returns {object[]} The patch.
- * @throws {Error} If home is not /home/USER.
+ * @throws {Error} If home is not /home/USER, or host is missing or empty.
  */
 export function baseWorld(player) {
   checkPlayer(player);
+  checkHost(player);
   return [
     put('/etc', etc(player)),
     put('/home', dir({ [player.user]: homeDir(player) })),
     put('/root', dir({}, { mode: 0o700 })),
     put('/tmp', dir({}, { mode: 0o1777 })),
-    put('/var', dir({ log: varLog(player.home) })),
+    put('/var', dir({ log: varLog(player) })),
     cd(player.home),
   ];
 }

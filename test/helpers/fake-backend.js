@@ -2,19 +2,21 @@
  * An in-memory backend implementing the port (src/backend/port.js) for engine
  * and UI tests. It understands a handful of commands, split on ';' and spaces
  * (no quotes, pipes or redirections): cd, pwd, whoami, echo, ls, cat, touch,
- * mkdir, rm, kill. Like the simulator it guards `rm -r` of home and `kill -9`
- * of the player's shell, reporting them in `blocked`.
+ * mkdir, rm, kill, pkill, killall. Like the simulator it guards `rm -r` of home
+ * or of any directory holding it, and any signal that ends or stops the
+ * player's shell, reporting them in `blocked`. A guard refusal only becomes a guardian effect; hearts come from
+ * src/game/dangers.js.
  *
  * `loads` and `lines` record what the game asked for, for assertions.
  */
 import { dir, file } from '../../src/backend/spec.js';
-import { nodeAt } from '../../src/backend/tree.js';
+import { nodeAt, isInside, parentOf, baseName } from '../../src/backend/tree.js';
+import { requestedSignal, endsInteractiveShell } from '../../src/backend/signals.js';
 import { resolvePath } from '../../src/game/checks.js';
+import { processName } from '../../src/game/dangers.js';
 
 const SHELL_PID = 733;
 
-const parentOf = path => path.slice(0, path.lastIndexOf('/')) || '/';
-const baseName = path => path.slice(path.lastIndexOf('/') + 1);
 
 /**
  * Create a fake backend.
@@ -64,7 +66,7 @@ export function createFakeBackend({ user = 'hero', host = 'kernelia', home = '/h
       for (const words of line.split(';').map(part => part.trim().split(/\s+/).filter(Boolean)).filter(w => w.length > 0)) {
         const [name, ...args] = words;
         const cwd = world.cwd;
-        const out = (commands[name] ?? notFound(name))(args, result);
+        const out = (Object.hasOwn(commands, name) ? commands[name] : notFound(name))(args, result);
         result.output.push(...out.output);
         result.status = out.status;
         result.commands.push({ name, args, cwd, status: out.status, stdout: out.stdout, pipeline: result.commands.length, stage: 0, stages: 1, redirects: [] });
@@ -86,6 +88,25 @@ const fail = (text, status = 1) => ({ status, stdout: '', output: [{ stream: 'er
 const notFound = name => () => fail(`${name}: command not found`, 127);
 const options = args => args.filter(a => a.startsWith('-')).join('');
 const operands = args => args.filter(a => !a.startsWith('-'));
+
+function signal(world, name) {
+  return (args, result) => {
+    const asked = requestedSignal(name, args);
+    const sent = asked.status === 'send' && asked.signal !== 0;
+    // Like the simulator: kill by PID, killall by exact name, pkill by a name containing the pattern.
+    const matches = {
+      kill: p => asked.operands.includes(String(p.pid)),
+      killall: p => asked.operands.includes(processName(p.cmd)),
+      pkill: p => asked.operands.some(pattern => processName(p.cmd).includes(pattern)),
+    };
+    const named = matches[name];
+    const targets = sent ? world.procs.filter(named) : [];
+    const shellHit = targets.some(p => p.key === 'shell') && endsInteractiveShell(asked.signal);
+    if (shellHit) result.blocked.push('The Guardian kept your shell alive.');
+    world.procs = world.procs.filter(p => p.key === 'shell' || !targets.includes(p));
+    return asked.status === 'send' ? ok() : fail(`${name}: bad signal`);
+  };
+}
 
 function makeCommands({ world, user, home, abs, get, put }) {
   const create = (path, node) => {
@@ -120,7 +141,7 @@ function makeCommands({ world, user, home, abs, get, put }) {
       const recursive = /[rR]/.test(options(args));
       const node = get(path);
       let out = ok();
-      if (recursive && path === home) {
+      if (recursive && path !== '/' && isInside(home, path)) {
         result.blocked.push('The Guardian blocked rm -r on your home.');
         out = fail('rm: blocked by the Guardian');
       } else if (recursive && path === '/') out = fail("rm: it is dangerous to operate recursively on '/'");
@@ -129,12 +150,8 @@ function makeCommands({ world, user, home, abs, get, put }) {
       else delete get(parentOf(path)).children[baseName(path)];
       return out;
     },
-    kill: (args, result) => {
-      const pid = Number(operands(args)[0]);
-      const shellKill = pid === SHELL_PID && options(args) === '-9';
-      if (shellKill) result.blocked.push('The Guardian revived your shell.');
-      else world.procs = world.procs.filter(p => p.pid !== pid);
-      return ok();
-    },
+    kill: signal(world, 'kill'),
+    pkill: signal(world, 'pkill'),
+    killall: signal(world, 'killall'),
   };
 }

@@ -7,7 +7,8 @@ import { put, remove, cd, dir, file } from '../../backend/spec.js';
 import { restore } from '../world.js';
 import { LETTERS } from './awakening.js';
 import { pick, token } from '../rng.js';
-import { isInside, directoriesUnder } from './kit.js';
+import { isInside } from '../../backend/tree.js';
+import { directoriesUnder } from './kit.js';
 
 const DROPS = ['/var/log', '/var/log/apt', '/tmp', '/etc'];
 const SPOTS = ['', '/clearing', '/river', '/cave', '/cave/deep'];
@@ -190,7 +191,7 @@ export default {
   recap: [
     ['cd forest', 'enter a directory with a relative path'],
     ['cd forest/cave', 'go several rooms deep at once'],
-    ['cd ..', 'go up to the parent directory'],
+    ['cd ..', 'step back out to the parent directory'],
     ['cd /home/hero/forest', 'an absolute path works from anywhere'],
     ['cd ~/forest', '`~` is your home'],
     ['cd', 'go home'],

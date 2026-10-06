@@ -1,7 +1,10 @@
 /**
  * Serve the game locally the way the artifact host serves it.
  *
- *   node scripts/serve.js PORT
+ *   node scripts/serve.js PORT [DIR]
+ *
+ * DIR defaults to the repository; `dist` serves the bundled page that
+ * scripts/bundle.js builds, exactly as it is published.
  *
  * Listens on 127.0.0.1 only. index.html is page content without a document
  * skeleton (the host adds one at publish time), so it is served wrapped in the
@@ -111,11 +114,13 @@ export function startServer({ root, port }) {
 
 function parsePort(text) {
   const port = Number(text);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error(`usage: node scripts/serve.js PORT (1 to 65535), got ${text}`);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error(`usage: node scripts/serve.js PORT [DIR] (PORT 1 to 65535), got ${text}`);
   return port;
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { url } = await startServer({ root: resolve(import.meta.dirname, '..'), port: parsePort(process.argv[2]) });
+  const repo = resolve(import.meta.dirname, '..');
+  const root = resolve(repo, process.argv[3] ?? '.');
+  const { url } = await startServer({ root, port: parsePort(process.argv[2]) });
   console.log(`Shellcraft at ${url}/  (Ctrl+C stops it)`);
 }

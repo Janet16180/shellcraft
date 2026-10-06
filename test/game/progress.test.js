@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  XP, MAX_HEARTS, payout, nextHint, rankFor, loseHeart, chapterStatuses, canStart, resumeChapter,
+  XP, MAX_HEARTS, HINT_LEVELS, payout, nextHint, rankFor, loseHeart, chapterStatuses, canStart, resumeChapter,
 } from '../../src/game/progress.js';
 
 const list = [
@@ -12,6 +12,11 @@ const list = [
 
 test('a task pays 10, a boss 30 and clearing a chapter 20 more', () => {
   assert.deepEqual(XP, { task: 10, boss: 30, clear: 20 });
+});
+
+test('there are three hint levels, one per cost', () => {
+  assert.equal(HINT_LEVELS, 3);
+  assert.equal(nextHint(XP.task, HINT_LEVELS, false), null);
 });
 
 test('a payout without hints is the full amount', () => {

@@ -5,9 +5,6 @@
  */
 import { nodeAt } from '../backend/tree.js';
 
-// Chapters imported nodeAt from here before src/backend/tree.js existed.
-export { nodeAt };
-
 /** Commands that read a file's content. */
 export const READERS = new Set(['cat', 'less', 'more', 'head', 'tail']);
 

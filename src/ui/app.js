@@ -38,9 +38,10 @@ const RANK_FLASH_MS = 3200;
 export async function startApp({ doc, session, createMap, createIntroBackend, resizeTerminal }) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const sound = createSound();
-  const ui = { doc, session, sound, reducedMotion, view: null, mapQueue: createQueue(), rankUp: null };
+  const ui = { doc, session, sound, reducedMotion, view: null, queue: createQueue(), mapQueue: createQueue(), rankUp: null };
   ui.terminal = createTerminal({
     root: doc.getElementById('term'),
+    queue: ui.queue,
     onSubmit: line => runLine(ui, line),
     onComplete: line => session.complete(line),
     onKey: () => sound.play('key'),
@@ -50,11 +51,19 @@ export async function startApp({ doc, session, createMap, createIntroBackend, re
   ui.map = createMap(doc.getElementById('map'), { reducedMotion, onPick: pick => ui.terminal.insert(commandForPick(pick)) });
   ui.intro = () => playIntro({ doc, createMap, createBackend: createIntroBackend, reducedMotion, sound, onDone: line => finishIntro(ui, line) });
   doc.getElementById('brand').innerHTML = logoSVG('SHELLCRAFT');
-  renderRoster(doc.getElementById('rosterList'), drawKey, devicePixelRatio || 1);
   wireControls(ui);
-  show(ui, await session.boot());
-  showRoom(ui);
+  await act(ui, async () => {
+    show(ui, await session.boot());
+    showRoom(ui);
+  });
+  renderRoster(doc.getElementById('rosterList'), drawKey, devicePixelRatio || 1, ui.view.prompt.home);
   showTitle(ui);
+}
+
+// Every session call runs in the queue the player's lines use, so two never overlap (the session
+// raises if they do).
+function act(ui, step) {
+  return ui.queue.add(step);
 }
 
 function show(ui, view) {
@@ -165,8 +174,10 @@ async function runLine(ui, line) {
 }
 
 function revealHint(ui) {
-  if (ui.session.hint()) ui.sound.play('hint');
-  show(ui, ui.session.view());
+  return act(ui, () => {
+    if (ui.session.hint()) ui.sound.play('hint');
+    show(ui, ui.session.view());
+  });
 }
 
 function applyTurn(ui, turn) {
@@ -179,7 +190,7 @@ function applyTurn(ui, turn) {
     roomSettled(ui);
   });
   show(ui, turn.view);
-  for (const event of turn.events) onEvent(ui, event, turn.events);
+  for (const event of turn.events) onEvent(ui, event);
 }
 
 const EVENTS = {
@@ -200,9 +211,8 @@ const EVENTS = {
     noteHTML(ui, `Boss defeated. <b>+${xp} XP</b>`);
     ui.sound.play('ok');
   },
-  chapter(ui, event, events) {
-    const xp = events.filter(e => e.kind === 'boss' || e.kind === 'chapter').reduce((sum, e) => sum + e.xp, 0);
-    ui.log = { ...event, xp, rankUp: ui.rankUp };
+  chapter(ui, event) {
+    ui.log = { ...event, rankUp: ui.rankUp };
     afterMap(ui, () => openDebrief(ui));
   },
   'heart-lost'(ui, { reason }) {
@@ -215,10 +225,10 @@ const EVENTS = {
   },
 };
 
-function onEvent(ui, event, events) {
+function onEvent(ui, event) {
   const handler = EVENTS[event.kind];
   if (!handler) throw new Error(`unknown event: ${event.kind}`);
-  handler(ui, event, events);
+  handler(ui, event);
 }
 
 function afterMap(ui, step) {
@@ -237,11 +247,11 @@ function openBoss(ui) {
 
 function openDebrief(ui) {
   const { chapters, chapter } = ui.view;
-  const { recap, field, why = '', xp } = ui.log;
+  const { recap, field, why = '', total } = ui.log;
   const index = chapters.findIndex(c => c.id === chapter.id);
   ui.sound.play('level');
   confetti(ui.doc.getElementById('confetti'), { origins: [[0.25, 0.3], [0.75, 0.3]] });
-  const html = debriefHTML({ chapter, recap, why, field, xp, rankUp: ui.log.rankUp, next: chapters[index + 1] ?? null });
+  const html = debriefHTML({ chapter, recap, why, field, xp: total, rankUp: ui.log.rankUp, next: chapters[index + 1] ?? null });
   const card = showCard(ui, html, 'log');
   card.querySelector('#stayBtn').onclick = () => {
     hideCard(ui);
@@ -253,8 +263,10 @@ function openDebrief(ui) {
 
 async function startChapter(ui, id, fresh) {
   hideCard(ui);
-  show(ui, await ui.session.startChapter(id, { fresh }));
-  showRoom(ui);
+  await act(ui, async () => {
+    show(ui, await ui.session.startChapter(id, { fresh }));
+    showRoom(ui);
+  });
   ui.terminal.clear();
   chapterBanner(ui);
   if (fresh) ui.terminal.printLine('You jumped to this chapter, so the world was set up fresh.', 'sys');
@@ -264,13 +276,14 @@ async function startChapter(ui, id, fresh) {
 
 function showTitle(ui) {
   const { view } = ui;
-  const started = view.xp > 0 || view.chapter.number > 1;
-  const card = showCard(ui, titleCardHTML(started ? view.chapter : null));
+  const card = showCard(ui, titleCardHTML(view.started ? view.chapter : null));
   card.querySelector('#goBtn').onclick = () => begin(ui);
   const fresh = card.querySelector('#newBtn');
   if (fresh) fresh.onclick = async () => {
-    show(ui, await ui.session.reset());
-    showRoom(ui);
+    await act(ui, async () => {
+      show(ui, await ui.session.reset());
+      showRoom(ui);
+    });
     begin(ui);
   };
 }
@@ -286,10 +299,12 @@ function begin(ui) {
   else ui.intro();
 }
 
-function finishIntro(ui, yourTurn) {
+async function finishIntro(ui, yourTurn) {
   const first = !ui.view.introSeen;
-  ui.session.markIntroSeen();
-  ui.view = ui.session.view();
+  await act(ui, () => {
+    ui.session.markIntroSeen();
+    ui.view = ui.session.view();
+  });
   if (first) showCallout(ui, `Your turn: type <code>${esc(yourTurn)}</code> and press <kbd>Enter</kbd>.`);
   ui.terminal.focus();
 }
@@ -347,11 +362,11 @@ function wireControls(ui) {
     if (event.target.closest('#hintBtn')) revealHint(ui);
     if (event.target.closest('#logBtn')) openDebrief(ui);
   });
-  doc.getElementById('soundBtn').addEventListener('click', () => {
+  doc.getElementById('soundBtn').addEventListener('click', () => act(ui, () => {
     session.setSound(!ui.view.sound);
     show(ui, session.view());
     ui.sound.play('ok');
-  });
+  }));
   doc.getElementById('introBtn').addEventListener('click', () => ui.intro());
   doc.getElementById('keyBtn').addEventListener('click', () => {
     const roster = doc.getElementById('roster');
@@ -380,8 +395,10 @@ function wireReset(ui) {
     armed = !armed;
     button.textContent = armed ? 'Click again to erase all progress' : 'Reset progress';
     if (armed) return;
-    show(ui, await ui.session.reset());
-    showRoom(ui);
+    await act(ui, async () => {
+      show(ui, await ui.session.reset());
+      showRoom(ui);
+    });
     ui.terminal.clear();
     chapterBanner(ui);
     showTab(ui.doc, 'quest');

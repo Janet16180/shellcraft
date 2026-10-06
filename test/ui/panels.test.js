@@ -105,6 +105,14 @@ test('the exact-command hint is all code; the others are prose', () => {
   assert.match(html, /<span><code>pwd<\/code><\/span>/);
 });
 
+test('the hint levels and the exact-command one follow the count the View gives', () => {
+  const view = sampleView({ hintLevels: 4, hint: { level: 4, cost: 5 } });
+  view.chapter.tasks[1].hints = [{ level: 3, text: 'Use `pwd`.', cost: 4 }];
+  const html = questHTML(view);
+  assert.match(html, /Hint 4 of 4: the exact command \(-5 XP\)/);
+  assert.match(html, /<span>Use <code>pwd<\/code>\.<\/span>/);
+});
+
 test('the strip over the terminal names the next task, where it is in the list, and its tip', () => {
   assert.equal(nowHTML(sampleView().chapter), '<b>Next task 2 of 3:</b> Find out where you are standing<span class="tip"><code>pwd</code> prints the full path of the directory you are in.</span>');
 });

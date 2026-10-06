@@ -1,8 +1,9 @@
-/* global document, window, getComputedStyle */
+/* global document, window, getComputedStyle, KeyboardEvent */
 /**
  * Screenshots of the real game for visual review (not part of npm test).
  *
  *   node test/ui/shots.js OUT_DIR
+ *   node test/ui/shots.js OUT_DIR --published
  *
  * Serves the worktree with scripts/serve.js on a free 127.0.0.1 port (it wraps
  * index.html in the artifact host's skeleton, so the shots match production).
@@ -12,15 +13,25 @@
  * and 360, and the intro as still frames with reduced motion. It reports page
  * errors, horizontal overflow, plain `ls` lines that wrap, an input squeezed
  * by a long prompt, a terminal that scrolls sideways, a boss divider printed
- * after the new prompt, cards that open
- * scrolled, and a page that scrolls when the app should fit the window.
+ * after the new prompt, cards that open scrolled, a page that scrolls when
+ * the app should fit the window, and session calls that overlap when the
+ * player clicks everything at once (the session raises on overlap).
+ *
+ * With --published it checks the build the artifact host publishes instead:
+ * it bundles the page with scripts/bundle.js into OUT_DIR/published, serves
+ * that, and loads it at 1400 and 360 inside an iframe sandboxed to scripts
+ * only, which gives it an opaque origin as on the host. There it reports any
+ * page or console error and a title card that never appears, then starts,
+ * skips the intro, types whoami and checks the first task completes.
+ *
  * Stops the server and the browser it starts.
  */
 
-import { mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { chromium } from 'playwright-core';
+import { chromium, errors as playwrightErrors } from 'playwright-core';
 import { startServer } from '../../scripts/serve.js';
+import { bundlePage } from '../../scripts/bundle.js';
 import chapters from '../../src/game/chapters/index.js';
 
 const ROOT = resolve(import.meta.dirname, '../..');
@@ -34,16 +45,33 @@ async function openPage(browser, base, { width, height = 900, reduced = false, t
     isMobile: touch,
   });
   const page = await context.newPage();
-  const errors = [];
-  page.on('pageerror', error => errors.push(`${width}px: ${error}`));
-  page.on('console', msg => { if (msg.type() === 'error' && !msg.text().startsWith('Failed to load resource')) errors.push(`${width}px: ${msg.text()}`); });
-  // The artifact host supplies the tab icon, so a local /favicon.ico 404 is expected.
-  page.on('response', res => { if (res.status() >= 400 && !res.url().endsWith('/favicon.ico')) errors.push(`${width}px: ${res.status()} ${res.url()}`); });
+  const errors = watchErrors(page, `${width}px`);
   await page.goto(`${base}/index.html`);
   await page.waitForSelector('#goBtn');
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(600);
   return { page, context, errors };
+}
+
+// Errors from the page and from any frame in it, collected under a tag.
+function watchErrors(page, tag) {
+  const errors = [];
+  page.on('pageerror', error => errors.push(`${tag}: ${error}`));
+  page.on('console', msg => { if (msg.type() === 'error' && !msg.text().startsWith('Failed to load resource')) errors.push(`${tag}: ${msg.text()}`); });
+  // The artifact host supplies the tab icon, so a local /favicon.ico 404 is expected.
+  page.on('response', res => { if (res.status() >= 400 && !res.url().endsWith('/favicon.ico')) errors.push(`${tag}: ${res.status()} ${res.url()}`); });
+  return errors;
+}
+
+async function appears(locator) {
+  let shown = true;
+  try {
+    await locator.waitFor({ timeout: 10000 });
+  } catch (error) {
+    if (!(error instanceof playwrightErrors.TimeoutError)) throw error;
+    shown = false;
+  }
+  return shown;
 }
 
 async function startSkippingIntro(page) {
@@ -211,6 +239,31 @@ async function fitProblems(browser, base, out, width, height) {
   return errors;
 }
 
+// A line, Tab, a hint, the sound button, a chapter restart and a reset in one tick: each must wait
+// its turn, or the session raises and the page reports an error.
+async function rushProblems(browser, base) {
+  const { page, context, errors } = await openPage(browser, base, { width: 1400 });
+  await startSkippingIntro(page);
+  await page.evaluate(() => {
+    const cmd = document.getElementById('cmd');
+    const press = key => cmd.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    const click = selector => document.querySelector(selector).click();
+    cmd.value = 'ls';
+    press('Enter');
+    cmd.value = 'cat rea';
+    press('Tab');
+    click('#hintBtn');
+    click('#soundBtn');
+    click('#levels button[data-ch]');
+    click('#resetBtn');
+    click('#resetBtn');
+    click('#soundBtn');
+  });
+  await page.waitForTimeout(3000);
+  await context.close();
+  return errors.map(error => `rush: ${error}`);
+}
+
 async function titleTallTouch(browser, base, out) {
   const title = await openPage(browser, base, { width: 1400 });
   await shot(title.page, out, 'title-1400');
@@ -229,22 +282,69 @@ async function titleTallTouch(browser, base, out) {
   return [...title.errors, ...tall.errors, ...touch.errors];
 }
 
+// The host runs the page in a frame sandboxed to scripts only: an opaque origin, no storage, and
+// module scripts from a URL fail CORS. The published page must start and play there.
+async function framedProblems(browser, base, out, width) {
+  const tag = `published ${width}px`;
+  const context = await browser.newContext({ viewport: { width, height: width < 600 ? 740 : 900 } });
+  const page = await context.newPage();
+  const errors = watchErrors(page, tag);
+  await page.setContent(`<style>body{margin:0}iframe{display:block;border:0;width:100vw;height:100vh}</style>
+    <iframe sandbox="allow-scripts" src="${base}/index.html"></iframe>`);
+  const frame = page.frameLocator('iframe');
+  if (await appears(frame.locator('#goBtn'))) {
+    await frame.locator('#goBtn').click();
+    await frame.locator('#introSkip').click();
+    await frame.locator('#cmd').fill('whoami');
+    await frame.locator('#cmd').press('Enter');
+    if (!await appears(frame.locator('.quest-log li:first-child.done'))) errors.push(`${tag}: whoami did not complete the first task`);
+  } else {
+    errors.push(`${tag}: the title card never appeared`);
+  }
+  await shot(page, out, `published-${width}`);
+  await context.close();
+  return errors;
+}
+
+async function writePublished(out) {
+  const site = join(out, 'published');
+  await mkdir(site, { recursive: true });
+  await writeFile(join(site, 'index.html'), await bundlePage());
+  return site;
+}
+
+async function publishedShots(browser, base, out) {
+  return [...await framedProblems(browser, base, out, 1400), ...await framedProblems(browser, base, out, 360)];
+}
+
+async function gameShotsAll(browser, base, out) {
+  return [
+    ...await titleTallTouch(browser, base, out),
+    ...await rushProblems(browser, base),
+    ...await fitProblems(browser, base, out, 1400, 900),
+    ...await fitProblems(browser, base, out, 900, 700),
+    ...await gameShots(browser, base, out, 1400),
+    ...await gameShots(browser, base, out, 900),
+    ...await gameShots(browser, base, out, 360),
+    ...await introShots(browser, base, out, 1400, false),
+    ...await introShots(browser, base, out, 360, false),
+    ...await introShots(browser, base, out, 900, true),
+  ];
+}
+
 async function main() {
-  const [outArg] = process.argv.slice(2);
-  if (!outArg) throw new Error('usage: node test/ui/shots.js OUT_DIR');
+  const args = process.argv.slice(2);
+  const outArg = args.find(arg => !arg.startsWith('--'));
+  if (!outArg) throw new Error('usage: node test/ui/shots.js OUT_DIR [--published]');
+  const published = args.includes('--published');
   const out = resolve(outArg);
   await mkdir(out, { recursive: true });
-  const { server, url: base } = await startServer({ root: ROOT, port: 0 });
+  const root = published ? await writePublished(out) : ROOT;
+  const { server, url: base } = await startServer({ root, port: 0 });
   const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true });
   const errors = [];
   try {
-    errors.push(...await titleTallTouch(browser, base, out));
-    errors.push(...await fitProblems(browser, base, out, 1400, 900));
-    errors.push(...await fitProblems(browser, base, out, 900, 700));
-    for (const width of [1400, 900, 360]) errors.push(...await gameShots(browser, base, out, width));
-    errors.push(...await introShots(browser, base, out, 1400, false));
-    errors.push(...await introShots(browser, base, out, 360, false));
-    errors.push(...await introShots(browser, base, out, 900, true));
+    errors.push(...await (published ? publishedShots : gameShotsAll)(browser, base, out));
   } finally {
     await browser.close();
     server.close();

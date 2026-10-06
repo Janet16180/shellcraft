@@ -8,11 +8,14 @@ import * as overworld from './overworld.js';
 import * as dungeon from './dungeon.js';
 import { drawItem, drawPlayer, padlockDoor } from './things.js';
 import { makeCanvas } from './paint.js';
+import { joinPath } from '../backend/tree.js';
+import { PLAYER } from '../backend/player.js';
 
-const HOME = '/home/hero';
-const COTTAGE = { biome: 'cottage', path: `${HOME}/forest`, home: HOME };
-const DOOR = { x: 2, y: 2, w: 22, h: 34, hidden: false, path: `${HOME}/forest` };
-const ITEM = { x: 4, y: 3, name: 'readme.txt', path: `${HOME}/readme.txt`, hidden: false, locked: false, runnable: false };
+const HOME = PLAYER.home;
+const FOREST = joinPath(HOME, 'forest');
+const COTTAGE = { biome: 'cottage', path: FOREST, home: HOME };
+const DOOR = { x: 2, y: 2, w: 22, h: 34, hidden: false, path: FOREST };
+const ITEM = { x: 4, y: 3, name: 'readme.txt', path: joinPath(HOME, 'readme.txt'), hidden: false, locked: false, runnable: false };
 const EXIT = { x: 2, y: 2, w: 28, h: 14 };
 
 const KEYS = {

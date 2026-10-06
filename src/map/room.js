@@ -5,8 +5,7 @@
  */
 
 import { allows } from '../backend/access.js';
-import { nodeAt, compareNames } from '../backend/tree.js';
-import { joinPath, parentOf } from './paths.js';
+import { nodeAt, compareNames, joinPath, parentOf } from '../backend/tree.js';
 
 /**
  * @typedef {object} Entry
