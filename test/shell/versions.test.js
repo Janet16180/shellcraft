@@ -18,3 +18,11 @@ test('programs without a known version text give null', () => {
   assert.equal(versionText('cd'), null);
   assert.equal(versionText('ps'), null);
 });
+
+test('hostname prints the net-tools version', () => {
+  assert.equal(versionText('hostname'), 'hostname 3.23\n');
+});
+
+test('man, apropos and whatis print the man-db version', () => {
+  for (const name of ['man', 'apropos', 'whatis']) assert.equal(versionText(name), `${name} 2.12.0\n`);
+});

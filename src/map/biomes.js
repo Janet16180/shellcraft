@@ -4,7 +4,8 @@
  * few rooms that say what their directory really holds.
  */
 
-import { within } from './paths.js';
+import { isInside } from '../backend/tree.js';
+import { joinPath } from './paths.js';
 
 /**
  * Every biome: its realm, the name shown to the player, and its colours. The
@@ -50,11 +51,10 @@ const DUNGEON_WINGS = [
   ['/usr', 'workshop'], ['/dev', 'pit'],
 ];
 
-const firstMatch = (rules, path) => rules.find(([at]) => within(path, at));
+const firstMatch = (rules, path, place = at => at) => rules.find(([at]) => isInside(path, place(at)));
 
 function overworldBiome(path, home) {
-  const rel = path.slice(home.length + 1);
-  return firstMatch(OVERWORLD_AREAS, rel)?.[1] ?? 'cottage';
+  return firstMatch(OVERWORLD_AREAS, path, area => joinPath(home, area))?.[1] ?? 'cottage';
 }
 
 function dungeonBiome(path) {
@@ -73,6 +73,6 @@ function dungeonBiome(path) {
 export function biomeFor(path, home) {
   if (!path.startsWith('/') || !home.startsWith('/')) throw new Error(`biomeFor needs absolute paths, got ${path} and ${home}`);
 
-  const biome = within(path, home) ? overworldBiome(path, home) : dungeonBiome(path);
+  const biome = isInside(path, home) ? overworldBiome(path, home) : dungeonBiome(path);
   return { realm: BIOMES[biome].realm, biome, name: BIOMES[biome].name };
 }

@@ -1,5 +1,5 @@
 [
   { "name": "common typing mistakes", "world": "home", "lines": ["cd..", "ls-l", "ls-la", "LS", "Ls -l", "sl", "pwdd", "cls", "dir", "whoami now", "cd ..forest"] },
-  { "name": "options typed with one dash", "world": "home", "lines": ["whoami -help", "whoami --foo", "whoami -", "pwd -help", "pwd -x", "pwd foo", "pwd -P", "cd -help", "cd -x", "cd -L /tmp", "pwd", "cd -- ~", "pwd", "cat --foo readme.txt", "mkdir --bogus x", "head --nope readme.txt", "rm --what x"] },
+  { "name": "options typed with one dash", "world": "home", "lines": ["whoami -help", "whoami --foo", "whoami -", "pwd -help", "pwd -x", "pwd foo", "pwd -P", "cd -help", "cd -x", "cd -@ /tmp", "cd -L /tmp", "pwd", "cd -- ~", "pwd", "cat --foo readme.txt", "mkdir --bogus x", "head --nope readme.txt", "rm --what x"] },
   { "name": "quoting mistakes", "world": "home", "lines": ["cat 'readme.txt'", "cat \"readme.txt\"", "cat readme.txt\\ ", "ls forest/ library/"] }
 ]

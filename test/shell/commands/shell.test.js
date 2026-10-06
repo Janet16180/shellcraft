@@ -129,7 +129,27 @@ test('man -k searches page names and descriptions like apropos', async () => {
   assert.match(r.out, /^pwd \(1\) {14}- print name of current\/working directory$/m);
   assert.match(r.note, /only the pages of the commands it simulates/);
   assert.deepEqual(await run(b, 'man -k zzz').then(x => [x.err, x.status]), ['zzz: nothing appropriate.\n', 16]);
-  assert.deepEqual(await run(b, 'man -k').then(x => [x.err, x.status]), ['apropos what?\n', 1]);
+  assert.deepEqual(await run(b, 'man -k').then(x => [x.out, x.err, x.status]), ['apropos what?\n', '', 1]);
+  assert.deepEqual(await run(b, 'man -f').then(x => [x.out, x.err, x.status]), ['whatis what?\n', '', 1]);
+});
+
+test('apropos and whatis search the pages like man -k and man -f', async () => {
+  const b = await shell();
+  const found = await run(b, 'apropos directory');
+  assert.equal(found.out, (await run(b, 'man -k directory')).out);
+  assert.match(found.note, /only the pages of the commands it simulates/);
+  assert.equal((await run(b, 'whatis ls')).out, 'ls (1)               - list directory contents\n');
+  const missing = await run(b, 'whatis ls nope');
+  assert.deepEqual([missing.out, missing.err, missing.status], ['ls (1)               - list directory contents\n', 'nope: nothing appropriate.\n', 16]);
+  assert.deepEqual(await run(b, 'apropos').then(x => [x.out, x.status]), ['apropos what?\n', 1]);
+  assert.deepEqual(await run(b, 'whatis').then(x => [x.out, x.status]), ['whatis what?\n', 1]);
+  assert.equal((await run(b, 'whatis apropos whatis')).out,
+    'apropos (1)          - search the manual page names and descriptions\nwhatis (1)           - display one-line manual page descriptions\n');
+});
+
+test('apropos and whatis reject options the game does not simulate', async () => {
+  const r = await run(await shell(), 'apropos -x dir');
+  assert.deepEqual([r.err, r.status], ["apropos: invalid option -- 'x'\nTry 'apropos --help' or 'apropos --usage' for more information.\n", 1]);
 });
 
 test('man -f gives the one-line description of a page', async () => {
@@ -153,4 +173,8 @@ test('the man pages give the real synopses', async () => {
   assert.match((await run(b, 'man clear')).out, /^ {7}clear \[-x\] \[-T terminal-type\]$/m);
   assert.match((await run(b, 'man man')).out, /^ {7}man \[man options\] \[\[section\] page \.\.\.\] \.\.\.$/m);
   assert.match((await run(b, 'man ls')).note, /^A real man page is longer and opens in a pager/);
+});
+
+test('type knows the bash builtins the game does not simulate', async () => {
+  assert.equal((await run(await shell(), 'type printf read')).out, 'printf is a shell builtin\nread is a shell builtin\n');
 });

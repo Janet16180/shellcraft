@@ -23,3 +23,9 @@ test('who has a page with its real synopsis and the options the game simulates',
   assert.match(help, /^Usage: who \[OPTION\]\.\.\. \[ FILE \| ARG1 ARG2 \]\nPrint information about users who are currently logged in\.\n/);
   for (const option of ['-H', '-m', '-q', '-s']) assert.match(help, new RegExp(`^  ${option} `, 'm'));
 });
+
+test('the man page describes man, not the pager that shows it', () => {
+  const page = manText('man', false);
+  assert.match(page, /Find and display the manual page for each PAGE, usually the name of a program, utility or function\./);
+  assert.doesNotMatch(page, /arrow|quit with q/);
+});

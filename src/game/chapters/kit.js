@@ -1,20 +1,8 @@
 /**
- * Small path helpers shared by chapter modules: where a path sits relative to
- * a directory, and what an observed tree holds, the way a player finds out
- * with ls.
+ * A path helper shared by chapter modules: what an observed tree holds, the
+ * way a player finds out with ls.
  */
-import { nodeAt } from '../checks.js';
-
-/**
- * Whether a path is a directory or anything below it.
- *
- * @param {string} path Absolute path to test.
- * @param {string} dirPath Absolute path of the directory.
- * @returns {boolean} True for dirPath itself and every path under it.
- */
-export function isInside(path, dirPath) {
-  return path === dirPath || path.startsWith(`${dirPath}/`);
-}
+import { nodeAt } from '../../backend/tree.js';
 
 /**
  * Every directory at or below a path, as absolute paths, parents first.

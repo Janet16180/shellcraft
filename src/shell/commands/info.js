@@ -2,9 +2,10 @@
  * Commands that report on the user and the machine, plus echo and clear.
  */
 
-import { result } from '../result.js';
+import { result, withNote } from '../result.js';
 import { localeQuote } from '../quote.js';
-import { parseOptions } from '../options.js';
+import { parseOptions, mapLongOptions } from '../options.js';
+import { versionText } from '../versions.js';
 import { builtinOptions } from '../builtins.js';
 import { TERMINAL } from '../system.js';
 
@@ -90,6 +91,66 @@ function who(args, { sys, stdin }) {
   return r;
 }
 
+const HOSTNAME_USAGE = `Usage: hostname [-b] {hostname|-F file}         set host name (from file)
+       hostname [-a|-A|-d|-f|-i|-I|-s|-y]       display formatted name
+       hostname                                 display host name
+
+       {yp,nis,}domainname {nisdomain|-F file}  set NIS domain name (from file)
+       {yp,nis,}domainname                      display NIS domain name
+
+       dnsdomainname                            display dns domain name
+
+       hostname -V|--version|-h|--help          print info and exit
+
+Program name:
+       {yp,nis,}domainname=hostname -y
+       dnsdomainname=hostname -d
+
+Program options:
+    -a, --alias            alias names
+    -A, --all-fqdns        all long host names (FQDNs)
+    -b, --boot             set default hostname if none available
+    -d, --domain           DNS domain name
+    -f, --fqdn, --long     long host name (FQDN)
+    -F, --file             read host name or NIS domain name from given file
+    -i, --ip-address       addresses for the host name
+    -I, --all-ip-addresses all addresses for the host
+    -s, --short            short host name
+    -y, --yp, --nis        NIS/YP domain name
+
+Description:
+   This command can get or set the host name or the NIS domain name. You can
+   also get the DNS domain or the FQDN (fully qualified domain name).
+   Unless you are using bind or NIS for host lookups you can change the
+   FQDN (Fully Qualified Domain Name) and the DNS domain name (which is
+   part of the FQDN) in the /etc/hosts file.`;
+const HOSTNAME_LONG = {
+  '--version': 'V', '--help': 'h', '--short': 's', '--boot': 'b', '--file': 'F', '--alias': 'a', '--all-fqdns': 'A',
+  '--domain': 'd', '--fqdn': 'f', '--long': 'f', '--ip-address': 'i', '--all-ip-addresses': 'I', '--yp': 'y', '--nis': 'y',
+};
+const NETWORK_OPTIONS = 'aAdfiIy';
+const optionLetters = arg => HOSTNAME_LONG[arg] ?? (arg.startsWith('--') ? '' : arg.slice(1));
+
+/**
+ * The net-tools hostname. -V and -h act in the order given; options that look
+ * up names on the network are not simulated and say so.
+ */
+function hostname(args, { sys }) {
+  const long = mapLongOptions('hostname', args, HOSTNAME_LONG);
+  const o = parseOptions('hostname', long.args, 'VhsbaAdfiIy', 'F');
+  const error = long.err ?? o.err;
+  const action = [...o.flags].find(f => 'Vh'.includes(f));
+  const network = args.find(a => a.startsWith('-') && [...optionLetters(a)].some(l => NETWORK_OPTIONS.includes(l)));
+  let r = result(`${sys.host}\n`);
+  if (error) r = result(`${HOSTNAME_USAGE}\n`, error.split('\n')[0], 255);
+  else if (action === 'V') r = result(versionText('hostname'));
+  else if (action === 'h') r = result(`${HOSTNAME_USAGE}\n`, '', 255);
+  else if (o.rest.length > 1) r = result('', HOSTNAME_USAGE, 255);
+  else if (o.rest.length === 1 || 'F' in o.vals) r = result('', 'hostname: you must be root to change the host name', 1);
+  else if (network) r = withNote(result('', '', 1), `hostname ${network} looks up the network, which this game does not simulate.`);
+  return r;
+}
+
 function id(args, { sys }) {
   const o = parseOptions('id', args, 'ugGnr');
   if (o.err) return result('', o.err, 1);
@@ -142,7 +203,7 @@ export default {
   who,
   id,
   groups: (_args, { sys }) => result(`${sys.groups.join(' ')}\n`),
-  hostname: (_args, { sys }) => result(`${sys.host}\n`),
+  hostname,
   true: () => result(),
   false: () => result('', '', 1),
   uname,

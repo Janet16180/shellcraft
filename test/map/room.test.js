@@ -20,6 +20,12 @@ test('entries sort in C.UTF-8 byte order, capitals before lowercase', () => {
   assert.deepEqual(names(readRoom(observe('/tmp', { tree }), none).items), ['B', 'Z', '_x', 'a', 'b']);
 });
 
+test('names beyond the basic plane sort by code point, as ls does in C.UTF-8', () => {
+  const tree = sampleTree();
+  tree.children.tmp.children = { '\u{1F600}.txt': file(''), '\uFF5E.txt': file('') };
+  assert.deepEqual(names(readRoom(observe('/tmp', { tree }), none).items), ['\uFF5E.txt', '\u{1F600}.txt']);
+});
+
 test('hidden entries appear only in a directory that was revealed', () => {
   const obs = observe('/home/hero');
   assert.equal(names(readRoom(obs, none).items).includes('.secret_map'), false);

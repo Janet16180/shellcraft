@@ -24,10 +24,10 @@ const SPARKLE = [INK.y, INK.G, INK.w];
 const DUST = [INK.l, INK.s, INK.w];
 
 /**
- * @typedef {{kind: string, path?: string, from?: string, to?: string, reason?: string}} Effect
- *   An effect from the engine: travel {from, to}, created {path}, removed {path},
- *   reveal {path}, unknown-command, guardian {reason}, daemon-defied,
- *   daemon-killed, gate-opened. Unknown kinds are ignored.
+ * The map animates travel, created, removed, reveal, unknown-command, guardian,
+ * daemon-defied, daemon-killed and gate-opened, and ignores other kinds.
+ *
+ * @typedef {import('../game/effects.js').Effect} Effect
  */
 
 /**
