@@ -2,20 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run } from '../helpers.js';
 import { proc } from '../../../src/backend/spec.js';
-import { parseSignal } from '../../../src/shell/commands/procs.js';
 
 const withProcs = () => shell([
   proc({ key: 'sleeper', user: 'hero', cmd: 'sleep 9999', tty: 'pts/0' }),
   proc({ key: 'daemon', user: 'hero', cmd: './shadow_daemon --devour-cpu', cpu: 99.7, mem: 12.4, stat: 'R', ignores: ['TERM'] }),
 ]);
 const pidOf = async (b, key) => (await b.observe()).procs.find(p => p.key === key).pid;
-
-test('parseSignal reads numbers and names with or without SIG', () => {
-  assert.equal(parseSignal('9'), 9);
-  assert.equal(parseSignal('KILL'), 9);
-  assert.equal(parseSignal('sigterm'), 15);
-  assert.equal(parseSignal('NOPE'), null);
-});
 
 test('ps shows the terminal processes; ps aux and ps -ef show all', async () => {
   const b = await withProcs();
@@ -82,4 +74,48 @@ test('kill -l lists all 64 signals and translates numbers and names', async () =
   assert.equal((await run(b, 'kill -l 9')).out, 'KILL\n');
   assert.equal((await run(b, 'kill -l TERM')).out, '15\n');
   assert.equal((await run(b, 'kill -s')).err, 'bash: kill: -s: option requires an argument\n');
+});
+
+test('kill takes -sNAME and -nNUM as bash does', async () => {
+  const b = await withProcs();
+  await run(b, `kill -sKILL ${await pidOf(b, 'daemon')}`);
+  assert.equal((await b.observe()).procs.some(p => p.key === 'daemon'), false);
+  const bad = await run(b, `kill -sigkill ${await pidOf(b, 'sleeper')}`);
+  assert.deepEqual([bad.err, bad.status], ['bash: kill: igkill: invalid signal specification\n', 1]);
+});
+
+test('pkill takes --signal and skips the values of its other options', async () => {
+  const b = await withProcs();
+  await run(b, 'pkill -u hero --signal KILL shadow');
+  assert.equal((await b.observe()).procs.some(p => p.key === 'daemon'), false);
+  assert.equal((await b.observe()).procs.some(p => p.key === 'sleeper'), true);
+  const bad = await run(b, 'pkill --signal NOPE sleep');
+  assert.match(bad.err, /^Unknown signal "NOPE"\.\nUsage:\n pkill \[options\] <pattern>\n/);
+  assert.equal(bad.status, 2);
+  const missing = await run(b, 'pkill --signal');
+  assert.match(missing.err, /^pkill: option '--signal' requires an argument\n\nUsage:\n/);
+});
+
+test('killall reads -s and -NAME, and lists its signals', async () => {
+  const b = await withProcs();
+  await run(b, 'killall shadow_daemon -s KILL');
+  assert.equal((await b.observe()).procs.some(p => p.key === 'daemon'), false);
+  const bad = await run(b, 'killall -s kill sleep');
+  assert.deepEqual([bad.err, bad.status], ['kill: unknown signal; killall -l lists signals.\n', 1]);
+  assert.match((await run(b, 'killall -l')).out, /^HUP INT QUIT .* STKFLT\nCHLD .* POLL PWR SYS\n$/);
+  const usage = await run(b, 'killall');
+  assert.match(usage.err, /^Usage: killall \[OPTION\]\.\.\. \[--\] NAME\.\.\.\n {7}killall -l, --list\n/);
+  assert.equal(usage.status, 1);
+  assert.equal((await run(b, 'killall -kill sleep')).err, usage.err);
+});
+
+test('signals that end an interactive bash are blocked; ignored ones only get a note', async () => {
+  const b = await shell();
+  const pid = (await b.observe()).procs.find(p => p.key === 'shell').pid;
+  assert.equal((await b.run(`kill -ILL ${pid}`)).blocked.length, 1);
+  const term = await b.run(`kill -TTOU ${pid}`);
+  assert.deepEqual(term.blocked, []);
+  assert.match(term.output.find(c => c.stream === 'note').text, /Interactive bash ignores SIGTTOU/);
+  const winch = await b.run(`kill -WINCH ${pid}`);
+  assert.deepEqual([winch.blocked, winch.output], [[], []]);
 });
