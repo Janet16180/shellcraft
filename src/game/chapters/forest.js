@@ -56,12 +56,12 @@ export default {
     ...LETTERS.map(name => remove(`${player.home}/${name}`)),
     cd(player.home),
   ],
-  lesson: `<p>Linux keeps everything in one tree of directories. The top of the tree is <code>/</code>, the <b>root directory</b>. Your home, <code>/home/hero</code>, is one branch of it. On the map, each room is a directory. Its doors lead into the directories inside it, and the way out leads to its <b>parent</b>, the directory that holds it.</p>
+  lesson: `<p>Linux keeps everything in one tree of directories. The tree starts at <code>/</code>, the <b>root directory</b>. Your home, <code>/home/hero</code>, is one branch of it. On the map, each room is a directory. Its doors lead into the directories inside it, and the way out leads to its <b>parent</b>, the directory that holds it.</p>
 <p><code>cd</code> (change directory) walks you from room to room. Tell it where to go with a <b>path</b>:</p>
 <ul>
 <li>A <b>relative path</b> starts from where you are: <code>cd forest</code>. Slashes go several rooms deep at once: <code>cd forest/cave</code>.</li>
 <li>An <b>absolute path</b> starts at the root with <code>/</code>, so it works from anywhere: <code>cd /home/hero/forest</code>.</li>
-<li><code>..</code> is the parent directory: <code>cd ..</code> takes you one level up the tree, toward <code>/</code>. A single <code>.</code> is the directory you are in.</li>
+<li><code>..</code> is the parent directory: <code>cd ..</code> takes you one level up the tree, toward <code>/</code>. People say up because diagrams draw <code>/</code> at the top. Kernelia draws the tree the way trees grow, with its root underground: from your home, the way toward <code>/</code> leads down the stairs into the dungeon. A single <code>.</code> is the directory you are in.</li>
 <li><code>~</code> stands for your home, so <code>cd ~/forest</code> also works from anywhere.</li>
 <li><code>cd</code> on its own takes you home. <code>cd -</code> jumps back to the directory you were in before, and prints its path.</li>
 </ul>
@@ -107,7 +107,7 @@ export default {
     {
       goal: 'Jump to the river with an absolute path',
       hints: [
-        'An absolute path works from anywhere, because it starts at the top of the tree.',
+        'An absolute path works from anywhere, because it starts at the root of the tree, /.',
         'Start the path with / and name every directory on the way: home, hero, forest, river.',
         'cd /home/hero/forest/river',
       ],
@@ -168,11 +168,11 @@ export default {
     ['ls ~/forest', 'paths work with other commands too'],
     ['cd fo', 'then press Tab to finish the name'],
   ],
-  why: `<p>Why one tree? On Linux, every disk, USB stick and network share appears as a directory somewhere under <code>/</code> once it is mounted. There are no drive letters like <code>C:</code>, so one absolute path names one place.</p>
+  why: `<p>Why one tree? On Linux, every disk, USB stick and network share appears as a directory somewhere in the tree that starts at <code>/</code>, once it is mounted. There are no drive letters like <code>C:</code>, so one absolute path names one place.</p>
 <p>Why two kinds of path? A relative path is short when the place is near. An absolute path means the same place wherever you stand, which is why configuration files and scripts often use them.</p>
 <p>Why <code>~</code>? Your home is where your own files live, and you go there more than anywhere else. Bash replaces <code>~</code> with your home's path before the command runs, so <code>cd ~/forest</code> is really <code>cd /home/hero/forest</code>.</p>`,
   field: [
-    ['ls /', 'look at the top of a real tree: bin, etc, home, usr, var and more'],
+    ['ls /', 'look at the root of a real tree: bin, etc, home, usr, var and more'],
     ['cd /etc', 'the directory where system settings live'],
     ['pushd /tmp', 'like cd, but remembers where you were; popd takes you back'],
   ],
