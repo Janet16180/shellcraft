@@ -191,3 +191,17 @@ test('man -h and -help show its usage, and other unknown letters are invalid opt
   assert.deepEqual([bad.err, bad.status], ["man: invalid option -- 'v'\nTry 'man --help' or 'man --usage' for more information.\n", 1]);
   assert.equal((await run(b, 'man -V')).out, 'man 2.12.0\n');
 });
+
+test('which reads only -a and -s, and rejects anything else as debianutils does', async () => {
+  const b = await shell();
+  for (const [line, letter] of [['which --help', '-'], ['which --version', '-'], ['which -x ls', 'x']]) {
+    const r = await run(b, line);
+    assert.deepEqual([r.out, r.err, r.status, r.note], ['Usage: /usr/bin/which [-as] args\n', `Illegal option -${letter}\n`, 2, ''], line);
+  }
+  assert.deepEqual(await run(b, 'which -s ls').then(r => [r.out, r.status]), ['', 0]);
+  assert.deepEqual(await run(b, 'which -s nope').then(r => [r.out, r.status]), ['', 1]);
+  assert.equal((await run(b, 'which -a ls')).out, '/usr/bin/ls\n');
+  assert.deepEqual(await run(b, 'which -- ls').then(r => [r.out, r.status]), ['/usr/bin/ls\n', 0]);
+  assert.deepEqual(await run(b, 'which ls -a').then(r => [r.out, r.status]), ['/usr/bin/ls\n', 1]);
+  assert.deepEqual(await run(b, 'which').then(r => [r.out, r.err, r.status]), ['', '', 1]);
+});

@@ -23,7 +23,7 @@ const MAX_DEPTH = 32;
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const CONTINUATION = 'In a real terminal, bash would wait for the rest of the command on a new line (a > prompt). Here the line ends where you pressed Enter.';
 const BACKGROUND = 'Background jobs are not simulated yet: the command ran in the foreground.';
-const OWN_OPTIONS = new Set(['clear', 'find']);
+const OWN_OPTIONS = new Set(['clear', 'find', 'which']);
 const helpNote = name => `Real bash prints a longer description here; help ${name} shows the same text.`;
 
 function firstOf(args, ...wanted) {
