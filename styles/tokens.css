@@ -1,7 +1,7 @@
 /* Shellcraft's one set of design tokens. The game keeps a single dark look by
    choice, so colour-scheme is dark and every colour is set here. Layout: a HUD
    bar, then the map and the quest log on the left and a tall terminal on the
-   right; one column below 900px. */
+   right; one column up to 760px. */
 
 :root {
   color-scheme: dark;

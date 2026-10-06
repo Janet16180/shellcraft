@@ -1,4 +1,4 @@
-/* global document, getComputedStyle */
+/* global document, window, getComputedStyle */
 /**
  * Screenshots of the real game for visual review (not part of npm test).
  *
@@ -10,8 +10,10 @@
  * lines, beats each boss with the third hint, and walks down into the dungeon.
  * It also shoots the title, a tall window, the touch keys, the intro at 1400
  * and 360, and the intro as still frames with reduced motion. It reports page
- * errors, horizontal overflow and plain `ls` lines that wrap. Stops the
- * server and the browser it starts.
+ * errors, horizontal overflow, plain `ls` lines that wrap, an input squeezed
+ * by a long prompt, a terminal that scrolls sideways, cards that open
+ * scrolled, and a page that scrolls when the app should fit the window.
+ * Stops the server and the browser it starts.
  */
 
 import { mkdir } from 'node:fs/promises';
@@ -83,13 +85,39 @@ async function lsWraps(page) {
   });
 }
 
+const LONG_DIR = '~/a_rather_long_directory_name/another_long_directory/third_level_here/fourth';
+
+// A long working directory must not squeeze the input away or scroll the terminal sideways.
+async function longPromptProblems(page, width) {
+  await type(page, `mkdir -p ${LONG_DIR}`);
+  await type(page, `cd ${LONG_DIR}`);
+  const { input, glyph, screenWide } = await page.evaluate(() => {
+    const screen = document.getElementById('screen');
+    const probe = document.createElement('span');
+    probe.textContent = '0123456789';
+    screen.append(probe);
+    const glyphWidth = probe.getBoundingClientRect().width / 10;
+    probe.remove();
+    return { input: document.getElementById('cmd').getBoundingClientRect().width, glyph: glyphWidth, screenWide: screen.scrollWidth - screen.clientWidth };
+  });
+  const problems = [];
+  if (input < 8 * glyph) problems.push(`${width}px: with a long prompt the input is ${Math.round(input)}px wide`);
+  if (screenWide > 0) problems.push(`${width}px: the terminal scrolls sideways by ${screenWide}px`);
+  return problems;
+}
+
+async function cardTopProblems(page, width, name) {
+  const top = await page.locator('#card').evaluate(card => card.scrollTop);
+  return top === 0 ? [] : [`${width}px: the ${name} opened scrolled down by ${top}px`];
+}
+
 async function beatBoss(page) {
   for (let i = 0; i < 3; i += 1) await type(page, 'hint', 300);
   const note = await page.locator('#out .ln.note').last().textContent();
   await type(page, /Hint 3 of 3[^:]*: (.+)/.exec(note)[1].trim(), 2500);
 }
 
-async function playChapter(page, out, width, { id, solve }) {
+async function playChapter(page, out, width, { id, solve }, problems) {
   for (const [i, line] of solve.entries()) {
     if (i === solve.length - 1) await shot(page, out, `${id}-quest-${width}`, true);
     await solveLine(page, line);
@@ -101,6 +129,7 @@ async function playChapter(page, out, width, { id, solve }) {
   await beatBoss(page);
   await page.waitForSelector('#card.log');
   await page.waitForTimeout(800);
+  problems.push(...await cardTopProblems(page, width, `${id} adventure log`));
   await shot(page, out, `${id}-debrief-${width}`);
 }
 
@@ -109,10 +138,13 @@ async function gameShots(browser, base, out, width) {
   await startSkippingIntro(page);
   if (await lsWraps(page)) errors.push(`${width}px: plain ls lines wrap`);
   await page.locator('#term').screenshot({ path: join(out, `ls-${width}.png`) });
-  await playChapter(page, out, width, PLAYABLE[0]);
+  await playChapter(page, out, width, PLAYABLE[0], errors);
   await page.click('#nextBtn');
-  await playChapter(page, out, width, PLAYABLE[1]);
+  await playChapter(page, out, width, PLAYABLE[1], errors);
   await page.click('#stayBtn');
+  await shot(page, out, `cleared-${width}`, true);
+  errors.push(...await longPromptProblems(page, width));
+  await page.locator('#term').screenshot({ path: join(out, `longprompt-${width}.png`) });
   for (const line of ['cd', 'cd ..']) await type(page, line, 3500);
   await shot(page, out, `stairs-${width}`);
   await type(page, 'cd /', 3500);
@@ -145,6 +177,29 @@ async function introShots(browser, base, out, width, reduced) {
   return errors;
 }
 
+// On a window that fits the app, many lines of output must scroll inside the terminal, never the page.
+async function fitProblems(browser, base, out, width, height) {
+  const { page, context, errors } = await openPage(browser, base, { width, height });
+  await startSkippingIntro(page);
+  for (let i = 0; i < 60; i += 1) await type(page, i % 2 ? 'pwd' : 'ls', 60);
+  await type(page, 'cat readme.txt');
+  const state = await page.evaluate(() => ({
+    scrollY: window.scrollY,
+    pageTall: document.documentElement.scrollHeight - window.innerHeight,
+    hudTop: document.querySelector('.hud').getBoundingClientRect().top,
+    inputBottom: document.getElementById('cmd').getBoundingClientRect().bottom,
+    viewport: window.innerHeight,
+  }));
+  await shot(page, out, `fit-${width}x${height}`);
+  await context.close();
+  const tag = `${width}x${height}`;
+  if (state.scrollY !== 0) errors.push(`${tag}: the page scrolled to ${state.scrollY}`);
+  if (state.pageTall !== 0) errors.push(`${tag}: the page is ${state.pageTall}px taller than the window`);
+  if (state.hudTop < 0) errors.push(`${tag}: the HUD is off the top`);
+  if (state.inputBottom > state.viewport) errors.push(`${tag}: the input is below the window`);
+  return errors;
+}
+
 async function titleTallTouch(browser, base, out) {
   const title = await openPage(browser, base, { width: 1400 });
   await shot(title.page, out, 'title-1400');
@@ -173,6 +228,8 @@ async function main() {
   const errors = [];
   try {
     errors.push(...await titleTallTouch(browser, base, out));
+    errors.push(...await fitProblems(browser, base, out, 1400, 900));
+    errors.push(...await fitProblems(browser, base, out, 900, 700));
     for (const width of [1400, 900, 360]) errors.push(...await gameShots(browser, base, out, width));
     errors.push(...await introShots(browser, base, out, 1400, false));
     errors.push(...await introShots(browser, base, out, 360, false));
@@ -181,7 +238,7 @@ async function main() {
     await browser.close();
     server.close();
   }
-  console.log(errors.length ? `problems:\n${errors.join('\n')}` : 'no page errors, no horizontal overflow, no wrapped ls lines');
+  console.log(errors.length ? `problems:\n${errors.join('\n')}` : 'no problems found');
 }
 
 await main();

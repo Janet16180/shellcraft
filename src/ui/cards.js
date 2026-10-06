@@ -5,6 +5,7 @@
 
 import { esc, inlineCode } from './output.js';
 import { keepFocusIn } from './focus.js';
+import { logoSVG } from './logo.js';
 
 function pairs(list) {
   return `<dl>${list.map(([command, meaning]) => `<dt>${esc(command)}</dt><dd>${inlineCode(meaning)}</dd>`).join('')}</dl>`;
@@ -19,7 +20,7 @@ function pairs(list) {
 export function titleCardHTML(resume) {
   const go = resume ? `Continue: chapter ${resume.number}` : 'Start adventure';
   return `<div class="eyebrow">A terminal adventure</div>
-    <h2 class="title-logo" id="cardTitle">SHELLCRAFT</h2>
+    <h2 class="title-logo" id="cardTitle">${logoSVG('SHELLCRAFT')}</h2>
     <p>A Shadow Daemon has taken over the machine Kernelia. Explore a world made of files and directories, cast real Linux commands, and learn the terminal along the way.</p>
     <p>The commands you learn here work in bash on a real Linux system. Where the game's simulation differs, the terminal tells you.</p>
     <div class="actions">

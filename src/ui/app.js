@@ -15,6 +15,7 @@ import { bootText, restoredText } from './messages.js';
 import { createSound } from './sound.js';
 import { renderRoster, picksHTML } from './roster.js';
 import { createQueue } from './queue.js';
+import { logoSVG } from './logo.js';
 import { playIntro } from '../intro/player.js';
 import { biomeFor, drawKey } from '../map/map.js';
 
@@ -45,6 +46,7 @@ export async function startApp({ doc, session, createMap, createIntroBackend, re
   });
   ui.map = createMap(doc.getElementById('map'), { reducedMotion, onPick: pick => ui.terminal.insert(commandForPick(pick)) });
   ui.intro = () => playIntro({ doc, createMap, createBackend: createIntroBackend, reducedMotion, sound, onDone: line => finishIntro(ui, line) });
+  doc.getElementById('brand').innerHTML = logoSVG('SHELLCRAFT');
   renderRoster(doc.getElementById('rosterList'), drawKey, devicePixelRatio || 1);
   wireControls(ui);
   show(ui, await session.boot());

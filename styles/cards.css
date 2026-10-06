@@ -75,15 +75,13 @@
 }
 
 .card .title-logo {
-  font-family: var(--font-title);
-  font-weight: 500;
-  font-variant-ligatures: none;
-  font-size: clamp(44px, 13vw, 78px);
-  line-height: 1;
-  letter-spacing: 0.04em;
-  margin: 8px 0 14px;
-  color: var(--accent);
-  text-shadow: 0 0.06em 0 var(--accent-deep), 0 0.12em 0 var(--c-rust), 0.06em 0.18em 0 var(--c-ink);
+  margin: 10px 0 18px;
+  line-height: 0;
+}
+
+.title-logo .logo {
+  width: min(100%, 520px);
+  height: auto;
 }
 
 .blink {

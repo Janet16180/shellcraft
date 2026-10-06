@@ -70,8 +70,11 @@ kbd {
   box-shadow: inset 0 0 0 2px var(--line), inset 0 -3px 0 0 var(--line);
 }
 
+/* Pinned to its container's corner so it can never stretch a scrolling area or the page. */
 .sr-only {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 1px;
   height: 1px;
   margin: -1px;
@@ -211,10 +214,28 @@ kbd {
 }
 
 .brand {
-  font-size: 26px;
-  letter-spacing: 0.06em;
-  color: var(--accent);
-  text-shadow: 3px 3px 0 var(--c-rust), 5px 5px 0 var(--c-ink);
+  line-height: 0;
+}
+
+.brand .logo {
+  height: 27px;
+  width: auto;
+}
+
+.logo .ink {
+  fill: var(--c-ink);
+}
+
+.logo .rust {
+  fill: var(--c-rust);
+}
+
+.logo .gold {
+  fill: var(--c-gold);
+}
+
+.logo .ember {
+  fill: var(--c-ember);
 }
 
 .chap {
@@ -510,6 +531,21 @@ kbd {
 .panel ul {
   margin: 0 0 10px;
   padding-left: 20px;
+}
+
+.lesson-again {
+  margin-top: 16px;
+}
+
+.lesson-again summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.lesson-again summary:hover {
+  color: var(--text);
 }
 
 .panel .replay {
@@ -1004,9 +1040,10 @@ kbd {
   border-right: 12px solid transparent;
 }
 
-/* Wide and tall enough: the page fits the window like an app. The left column scrolls on its own
-   and the terminal fills the height, so its input line is always in view. */
-@media (min-width: 901px) and (min-height: 600px) {
+/* Wide and tall enough: the page fits the window like an app. The left column scrolls on its own,
+   the terminal fills the row and scrolls inside, so the page never scrolls and the input line is
+   always in view. */
+@media (min-width: 761px) and (min-height: 600px) {
   body {
     overflow: hidden;
   }
@@ -1018,10 +1055,12 @@ kbd {
   .grid {
     flex: 1;
     min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
   }
 
   /* The padding keeps the windows' outer frames and shadows inside the scrolling box. */
   .side {
+    position: relative;
     overflow-y: auto;
     padding: 10px 16px 18px 10px;
     margin: -10px -16px -18px -10px;
@@ -1033,12 +1072,13 @@ kbd {
 
   .term {
     height: auto;
+    min-height: 0;
   }
 }
 
 /* On a tall window the map also stays in view while the quest panel scrolls under it; on a
    shorter one the panel needs the whole column to be readable. */
-@media (min-width: 901px) and (min-height: 960px) {
+@media (min-width: 761px) and (min-height: 960px) {
   .mapwrap {
     position: sticky;
     top: 0;
@@ -1049,7 +1089,7 @@ kbd {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 760px) {
   .grid {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "map" "term" "panel" "roster";
@@ -1067,8 +1107,8 @@ kbd {
     height: 70vh;
   }
 
-  .brand {
-    font-size: 22px;
+  .brand .logo {
+    height: 22px;
   }
 
   /* In one column a full-width map would push the terminal off the screen. */
