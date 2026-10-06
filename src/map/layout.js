@@ -155,8 +155,9 @@ export function findEntry(layout, name) {
 }
 
 /**
- * Cut a label to a number of characters, marking the cut with an ellipsis.
- * The suffix (a door's slash) always survives.
+ * Cut a label to a number of characters (code points, so a character beyond
+ * the basic plane is never split), marking the cut with an ellipsis. The
+ * suffix (a door's slash) always survives.
  *
  * @param {string} text The full name.
  * @param {number} max Characters available, suffix included.
@@ -168,6 +169,7 @@ export function fitLabel(text, max, suffix = '') {
   if (max < suffix.length + 2) throw new Error(`no room for a label in ${max} characters`);
 
   const room = max - suffix.length;
-  const body = text.length <= room ? text : `${text.slice(0, room - 1)}…`;
+  const chars = [...text];
+  const body = chars.length <= room ? text : `${chars.slice(0, room - 1).join('')}…`;
   return body + suffix;
 }

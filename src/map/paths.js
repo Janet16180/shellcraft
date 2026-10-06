@@ -23,16 +23,3 @@ export function parentOf(path) {
 export function joinPath(dir, name) {
   return dir === '/' ? `/${name}` : `${dir}/${name}`;
 }
-
-/**
- * Whether a path is a directory or lies below it. Works for absolute and for
- * relative paths alike.
- *
- * @param {string} path The path to test.
- * @param {string} dir The directory.
- * @returns {boolean} True for the directory itself and anything under it.
- */
-export function within(path, dir) {
-  const prefix = dir.endsWith('/') ? dir : `${dir}/`;
-  return path === dir || path.startsWith(prefix);
-}

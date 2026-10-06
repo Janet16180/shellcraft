@@ -157,6 +157,17 @@
   margin: 0 0 8px;
 }
 
+.rankup {
+  font-size: 18px;
+  color: var(--magic);
+}
+
+.rankup b {
+  font-family: var(--font-title);
+  font-weight: 500;
+  font-size: 22px;
+}
+
 .xpgain.replay {
   font-size: 18px;
   color: var(--muted);

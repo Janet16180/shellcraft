@@ -3,6 +3,10 @@
  * backend port's data (CommandRecords and Observations), so checks work the
  * same with the simulator or a real bash.
  */
+import { nodeAt } from '../backend/tree.js';
+
+// Chapters imported nodeAt from here before src/backend/tree.js existed.
+export { nodeAt };
 
 /** Commands that read a file's content. */
 export const READERS = new Set(['cat', 'less', 'more', 'head', 'tail']);
@@ -27,24 +31,6 @@ export function resolvePath(arg, cwd, home) {
     else if (part !== '' && part !== '.') parts.push(part);
   }
   return `/${parts.join('/')}`;
-}
-
-/**
- * Find the node at an absolute path in an observed tree.
- *
- * @param {object} tree The TreeNode rooted at '/'.
- * @param {string} path Absolute path.
- * @returns {object|null} The TreeNode, or null if nothing is there.
- * @throws {Error} If path is not absolute.
- */
-export function nodeAt(tree, path) {
-  if (!path.startsWith('/')) throw new Error(`path must be absolute, got ${path}`);
-
-  let node = tree;
-  for (const name of path.split('/').filter(Boolean)) {
-    node = node?.children?.[name] ?? null;
-  }
-  return node;
 }
 
 function shortOptions(args) {

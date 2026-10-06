@@ -15,12 +15,14 @@ import { bootText, restoredText } from './messages.js';
 import { createSound } from './sound.js';
 import { renderRoster, picksHTML } from './roster.js';
 import { createQueue } from './queue.js';
+import { createToasts } from './toasts.js';
 import { logoSVG } from './logo.js';
 import { playIntro } from '../intro/player.js';
 import { biomeFor, drawKey } from '../map/map.js';
 
 const TABS = ['quest', 'spells', 'levels'];
 const TOAST_MS = 2600;
+const RANK_FLASH_MS = 3200;
 
 /**
  * Start the page.
@@ -36,7 +38,7 @@ const TOAST_MS = 2600;
 export async function startApp({ doc, session, createMap, createIntroBackend, resizeTerminal }) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const sound = createSound();
-  const ui = { doc, session, sound, reducedMotion, view: null, mapQueue: createQueue(), toastTimer: 0 };
+  const ui = { doc, session, sound, reducedMotion, view: null, mapQueue: createQueue(), rankUp: null };
   ui.terminal = createTerminal({
     root: doc.getElementById('term'),
     onSubmit: line => runLine(ui, line),
@@ -44,6 +46,7 @@ export async function startApp({ doc, session, createMap, createIntroBackend, re
     onKey: () => sound.play('key'),
     onResize: resizeTerminal,
   });
+  ui.toasts = createToastLine(doc);
   ui.map = createMap(doc.getElementById('map'), { reducedMotion, onPick: pick => ui.terminal.insert(commandForPick(pick)) });
   ui.intro = () => playIntro({ doc, createMap, createBackend: createIntroBackend, reducedMotion, sound, onDone: line => finishIntro(ui, line) });
   doc.getElementById('brand').innerHTML = logoSVG('SHELLCRAFT');
@@ -66,7 +69,7 @@ function show(ui, view) {
   doc.getElementById('levels').innerHTML = chaptersHTML(view.chapters);
   renderCrumbs(doc, view.prompt);
   ui.terminal.setPrompt(view.prompt);
-  if (previous && view.rank.floor > previous.rank.floor) toast(ui, `Rank up: you are now ${esc(view.rank.title)}`);
+  if (previous && view.rank.floor > previous.rank.floor) rankUp(ui, view.rank.title);
 }
 
 // Through the queue, so an animation still waiting from an earlier line cannot draw over the new room.
@@ -97,13 +100,49 @@ function renderCrumbs(doc, { cwd, home }) {
   doc.getElementById('crumbs').innerHTML = `<button type="button" data-cd="/" aria-label="the root directory, /">/</button>${buttons.join('/')}${area}`;
 }
 
-function toast(ui, html) {
-  const el = ui.doc.getElementById('toast');
-  el.innerHTML = html;
-  el.classList.add('on');
-  ui.doc.getElementById('announce').textContent = el.textContent;
-  clearTimeout(ui.toastTimer);
-  ui.toastTimer = setTimeout(() => el.classList.remove('on'), TOAST_MS);
+function createToastLine(doc) {
+  const el = doc.getElementById('toast');
+  return createToasts({
+    show: html => {
+      el.innerHTML = html;
+      el.classList.add('on');
+      doc.getElementById('announce').textContent = el.textContent;
+    },
+    hide: () => el.classList.remove('on'),
+    wait: done => {
+      const id = setTimeout(done, TOAST_MS);
+      return { cancel: () => clearTimeout(id) };
+    },
+  });
+}
+
+// Cards hold the toasts back, so a celebration is never spent behind one.
+function showCard(ui, html, kind) {
+  ui.toasts.hold();
+  return openCard(ui.doc, html, kind);
+}
+
+function hideCard(ui) {
+  closeCard(ui.doc);
+  ui.toasts.release();
+}
+
+// A note in the terminal, where the player is looking; html is built from escaped parts.
+function noteHTML(ui, html) {
+  ui.terminal.print([{ stream: 'note', text: '', html }]);
+}
+
+function rankUp(ui, title) {
+  ui.rankUp = title;
+  ui.toasts.add(`Rank up! You are now ${esc(title)}`);
+  noteHTML(ui, `<b>Rank up!</b> You are now ${esc(title)}.`);
+  ui.map.banner('RANK UP', `You are now ${title}`);
+  ui.sound.play('level');
+  const rank = ui.doc.getElementById('rank');
+  rank.classList.remove('up');
+  void rank.offsetWidth;
+  rank.classList.add('up');
+  setTimeout(() => rank.classList.remove('up'), RANK_FLASH_MS);
 }
 
 function shake(ui) {
@@ -131,6 +170,7 @@ function revealHint(ui) {
 }
 
 function applyTurn(ui, turn) {
+  ui.rankUp = null;
   ui.terminal.print(turn.result.output);
   if (turn.result.output.some(chunk => chunk.stream === 'err')) ui.sound.play('err');
   if (turn.effects.some(e => e.kind === 'travel')) ui.sound.play('step');
@@ -144,7 +184,8 @@ function applyTurn(ui, turn) {
 
 const EVENTS = {
   task(ui, { goal, xp }) {
-    toast(ui, `Quest complete: ${inlineCode(goal)}  +${xp} XP`);
+    ui.toasts.add(`+${xp} XP &middot; Task done: ${inlineCode(goal)}`);
+    noteHTML(ui, `Task done: ${inlineCode(goal)} <b>+${xp} XP</b>`);
     ui.sound.play('ok');
     confetti(ui.doc.getElementById('confetti'), { origins: [[0.3, 0.3]], count: 30 });
   },
@@ -155,12 +196,13 @@ const EVENTS = {
     afterMap(ui, () => openBoss(ui));
   },
   boss(ui, { xp }) {
-    toast(ui, `Boss defeated  +${xp} XP`);
+    ui.toasts.add(`+${xp} XP &middot; Boss defeated`);
+    noteHTML(ui, `Boss defeated. <b>+${xp} XP</b>`);
     ui.sound.play('ok');
   },
   chapter(ui, event, events) {
     const xp = events.filter(e => e.kind === 'boss' || e.kind === 'chapter').reduce((sum, e) => sum + e.xp, 0);
-    ui.log = { ...event, xp };
+    ui.log = { ...event, xp, rankUp: ui.rankUp };
     afterMap(ui, () => openDebrief(ui));
   },
   'heart-lost'(ui, { reason }) {
@@ -186,9 +228,9 @@ function afterMap(ui, step) {
 function openBoss(ui) {
   const { chapter } = ui.view;
   ui.sound.play('boss');
-  const card = openCard(ui.doc, bossCardHTML(chapter.boss, chapter.number), 'boss');
+  const card = showCard(ui, bossCardHTML(chapter.boss, chapter.number), 'boss');
   card.querySelector('#bossGo').onclick = () => {
-    closeCard(ui.doc);
+    hideCard(ui);
     ui.terminal.focus();
   };
 }
@@ -199,10 +241,10 @@ function openDebrief(ui) {
   const index = chapters.findIndex(c => c.id === chapter.id);
   ui.sound.play('level');
   confetti(ui.doc.getElementById('confetti'), { origins: [[0.25, 0.3], [0.75, 0.3]] });
-  const html = debriefHTML({ chapter, recap, why, field, xp, next: chapters[index + 1] ?? null });
-  const card = openCard(ui.doc, html, 'log');
+  const html = debriefHTML({ chapter, recap, why, field, xp, rankUp: ui.log.rankUp, next: chapters[index + 1] ?? null });
+  const card = showCard(ui, html, 'log');
   card.querySelector('#stayBtn').onclick = () => {
-    closeCard(ui.doc);
+    hideCard(ui);
     ui.terminal.focus();
   };
   const next = card.querySelector('#nextBtn');
@@ -210,7 +252,7 @@ function openDebrief(ui) {
 }
 
 async function startChapter(ui, id, fresh) {
-  closeCard(ui.doc);
+  hideCard(ui);
   show(ui, await ui.session.startChapter(id, { fresh }));
   showRoom(ui);
   ui.terminal.clear();
@@ -223,7 +265,7 @@ async function startChapter(ui, id, fresh) {
 function showTitle(ui) {
   const { view } = ui;
   const started = view.xp > 0 || view.chapter.number > 1;
-  const card = openCard(ui.doc, titleCardHTML(started ? view.chapter : null));
+  const card = showCard(ui, titleCardHTML(started ? view.chapter : null));
   card.querySelector('#goBtn').onclick = () => begin(ui);
   const fresh = card.querySelector('#newBtn');
   if (fresh) fresh.onclick = async () => {
@@ -234,7 +276,7 @@ function showTitle(ui) {
 }
 
 function begin(ui) {
-  closeCard(ui.doc);
+  hideCard(ui);
   ui.terminal.clear();
   ui.terminal.printLine('Welcome to Kernelia GNU/Linux (simulated).', 'sys');
   const saved = bootText(ui.view.boot);
@@ -248,7 +290,7 @@ function finishIntro(ui, yourTurn) {
   const first = !ui.view.introSeen;
   ui.session.markIntroSeen();
   ui.view = ui.session.view();
-  if (first && yourTurn) showCallout(ui, `Your turn: type <code>${esc(yourTurn)}</code> and press <kbd>Enter</kbd>.`);
+  if (first) showCallout(ui, `Your turn: type <code>${esc(yourTurn)}</code> and press <kbd>Enter</kbd>.`);
   ui.terminal.focus();
 }
 
@@ -311,6 +353,12 @@ function wireControls(ui) {
     ui.sound.play('ok');
   });
   doc.getElementById('introBtn').addEventListener('click', () => ui.intro());
+  doc.getElementById('keyBtn').addEventListener('click', () => {
+    const roster = doc.getElementById('roster');
+    roster.open = true;
+    roster.scrollIntoView({ block: 'nearest' });
+    roster.querySelector('summary').focus({ preventScroll: true });
+  });
   wireReset(ui);
 }
 

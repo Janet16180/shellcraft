@@ -60,14 +60,17 @@ function nextHTML(next) {
  * @param {string} log.why Trusted HTML, may be empty.
  * @param {string[][]} log.field Commands to try on a real machine.
  * @param {number} log.xp XP this clear paid; 0 on a replay.
+ * @param {string|null} [log.rankUp] The rank reached with this clear, if any.
  * @param {{id: string, number: number, title: string, status: string} | null} log.next The next chapter.
  * @returns {string} HTML.
  */
-export function debriefHTML({ chapter, recap, why, field, xp, next }) {
+export function debriefHTML({ chapter, recap, why, field, xp, rankUp = null, next }) {
   const gain = xp ? `<p class="xpgain">+${xp} XP</p>` : '<p class="xpgain replay">Replays pay no XP</p>';
+  const rank = rankUp ? `<p class="rankup">Rank up! You are now <b>${esc(rankUp)}</b>.</p>` : '';
   return `<div class="eyebrow">Chapter ${chapter.number} cleared &middot; Adventure log</div>
     <h2 id="cardTitle">${esc(chapter.title)}</h2>
     ${gain}
+    ${rank}
     <h3>Spells mastered</h3>
     ${pairs(recap)}
     ${why ? `<h3>Why it matters</h3><div class="why">${why}</div>` : ''}

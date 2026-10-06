@@ -11,7 +11,8 @@
  * It also shoots the title, a tall window, the touch keys, the intro at 1400
  * and 360, and the intro as still frames with reduced motion. It reports page
  * errors, horizontal overflow, plain `ls` lines that wrap, an input squeezed
- * by a long prompt, a terminal that scrolls sideways, cards that open
+ * by a long prompt, a terminal that scrolls sideways, a boss divider printed
+ * after the new prompt, cards that open
  * scrolled, and a page that scrolls when the app should fit the window.
  * Stops the server and the browser it starts.
  */
@@ -79,7 +80,9 @@ async function overflow(page) {
 
 async function lsWraps(page) {
   await type(page, 'ls');
-  return page.locator('#out .ln').last().evaluate(line => {
+  // The line after the echoed command is ls's output; game notes may follow it.
+  return page.locator('#out .cmdline').last().evaluate(echo => {
+    const line = echo.nextElementSibling;
     const rows = line.textContent.split('\n').length;
     return Math.round(line.getBoundingClientRect().height / parseFloat(getComputedStyle(line).lineHeight)) > rows;
   });
@@ -106,6 +109,13 @@ async function longPromptProblems(page, width) {
   return problems;
 }
 
+// The boss room may move the player (the trapdoor), so its divider must already sit under the
+// line that opened it, before any new prompt.
+async function dividerProblems(page, width, id) {
+  const last = (await page.locator('#out .ln').last().textContent()).trim();
+  return last.startsWith('-- Boss room:') ? [] : [`${width}px: ${id}: the boss divider is not the last line before the new prompt ("${last}")`];
+}
+
 async function cardTopProblems(page, width, name) {
   const top = await page.locator('#card').evaluate(card => card.scrollTop);
   return top === 0 ? [] : [`${width}px: the ${name} opened scrolled down by ${top}px`];
@@ -124,6 +134,7 @@ async function playChapter(page, out, width, { id, solve }, problems) {
   }
   await page.waitForSelector('#card.boss');
   await page.waitForTimeout(800);
+  problems.push(...await dividerProblems(page, width, id));
   await shot(page, out, `${id}-boss-${width}`);
   await page.click('#bossGo');
   await beatBoss(page);

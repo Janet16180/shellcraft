@@ -190,6 +190,6 @@ test('the coach explains common mistakes on the real world and simulator', async
     ['The file is readme.txt: .txt is part of its name.'],
     ['forest is a directory (a door). cat reads files. ls forest shows what is inside; cd forest walks in.'],
     ['A path that starts with / starts at the root, not at your home. Your forest is /home/hero/forest, or ~/forest.'],
-    ['One dash starts short options, so -help means -h -e -l -p. Long options take two dashes: --help.'],
+    ['For most commands, one dash starts short options, so -help means -h -e -l -p. Long options take two dashes: --help.'],
   ]);
 });
