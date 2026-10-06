@@ -1,5 +1,6 @@
 import { chunkLine, clears, displayPath, esc, promptHTML } from './output.js';
 import { createHistory } from './history.js';
+import { createQueue } from './queue.js';
 
 const MAX_LINES = 600;
 
@@ -49,13 +50,10 @@ function submit(t) {
   const line = t.input.value;
   t.input.value = '';
   t.history.push(line);
-  const run = t.queue.then(() => {
+  return t.queue.add(() => {
     echo(t, line);
     return t.onSubmit(line);
   });
-  // A failed line still reports its error through `run`; the queue itself must survive it.
-  t.queue = run.then(() => {}, () => {});
-  return run;
 }
 
 async function complete(t) {
@@ -146,7 +144,7 @@ export function createTerminal({ root, onSubmit, onComplete, onKey = () => {} })
     title: root.querySelector('#termTitle'),
     history: createHistory(),
     prompt: null,
-    queue: Promise.resolve(),
+    queue: createQueue(),
     tabLeaves: false,
     onSubmit,
     onComplete,

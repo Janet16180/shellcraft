@@ -14,6 +14,7 @@ import { confetti } from './confetti.js';
 import { bootText, restoredText } from './messages.js';
 import { createSound } from './sound.js';
 import { renderRoster, picksHTML } from './roster.js';
+import { createQueue } from './queue.js';
 import { playIntro } from '../intro/player.js';
 import { biomeFor, drawKey } from '../map/map.js';
 
@@ -33,7 +34,7 @@ const TOAST_MS = 2600;
 export async function startApp({ doc, session, createMap, createIntroBackend }) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const sound = createSound();
-  const ui = { doc, session, sound, reducedMotion, view: null, mapQueue: Promise.resolve(), toastTimer: 0 };
+  const ui = { doc, session, sound, reducedMotion, view: null, mapQueue: createQueue(), toastTimer: 0 };
   ui.terminal = createTerminal({
     root: doc.getElementById('term'),
     onSubmit: line => runLine(ui, line),
@@ -171,11 +172,8 @@ function onEvent(ui, event, events) {
   handler(ui, event, events);
 }
 
-// Map work runs in order. A step that fails still reports through `run`; the queue survives it.
 function afterMap(ui, step) {
-  const run = ui.mapQueue.then(step);
-  ui.mapQueue = run.then(() => {}, () => {});
-  return run;
+  return ui.mapQueue.add(step);
 }
 
 function openBoss(ui) {
