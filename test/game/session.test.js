@@ -10,8 +10,7 @@ import { fixtureChapters, fixtureWorld } from '../helpers/fixture-chapters.js';
 
 const HOME = '/home/hero';
 
-function makeSession({ stored = {}, chapters = fixtureChapters(), seed = 1 } = {}) {
-  const backend = createFakeBackend();
+function makeSession({ stored = {}, chapters = fixtureChapters(), seed = 1, backend = createFakeBackend() } = {}) {
   const store = createMemoryStore(stored);
   const session = createSession({ backend, chapters, baseWorld: fixtureWorld, store, random: createRandom(seed) });
   return { backend, store, session };
@@ -342,12 +341,36 @@ test('in the boss room the boss near note gets the secret, and it is never asked
   assert.deepEqual(coachNotes(await session.submit('ls')).map(c => c.text), [`not yet: ${name}`]);
 });
 
-test('a refusal by the guard costs a heart', async () => {
+test('a dangerous line costs a heart with the game\'s reason, and the guard\'s refusal shows as the guardian', async () => {
   const { session } = await booted();
   const turn = await session.submit('rm -r ~');
   assert.deepEqual(turn.effects, [{ kind: 'guardian', reason: 'The Guardian blocked rm -r on your home.' }]);
-  assert.deepEqual(turn.events, [{ kind: 'heart-lost', reason: 'The Guardian blocked rm -r on your home.', left: 2 }]);
+  assert.deepEqual(kinds(turn.events), ['heart-lost']);
+  assert.match(turn.events[0].reason, /delete everything in your home/);
+  assert.equal(turn.events[0].left, 2);
   assert.equal(turn.view.hearts.left, 2);
+});
+
+function withBlocked(backend, change) {
+  return { ...backend, run: async line => {
+    const result = await backend.run(line);
+    return { ...result, blocked: change(result.blocked) };
+  } };
+}
+
+test('a dangerous line costs a heart even when the backend refuses nothing, like a real bash', async () => {
+  const { session } = await booted({ backend: withBlocked(createFakeBackend(), () => []) });
+  const turn = await session.submit('rm -r ~');
+  assert.deepEqual(kinds(turn.events), ['heart-lost']);
+  assert.deepEqual(kinds(turn.effects).filter(k => k === 'guardian'), []);
+});
+
+test('a refusal by the guard alone shows the guardian but costs no heart', async () => {
+  const { session } = await booted({ backend: withBlocked(createFakeBackend(), () => ['refused for the test']) });
+  const turn = await session.submit('ls');
+  assert.deepEqual(turn.effects, [{ kind: 'guardian', reason: 'refused for the test' }]);
+  assert.deepEqual(turn.events, []);
+  assert.equal(turn.view.hearts.left, 3);
 });
 
 test('a dangerous attempt that real Linux refuses also costs a heart', async () => {

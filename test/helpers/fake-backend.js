@@ -2,13 +2,15 @@
  * An in-memory backend implementing the port (src/backend/port.js) for engine
  * and UI tests. It understands a handful of commands, split on ';' and spaces
  * (no quotes, pipes or redirections): cd, pwd, whoami, echo, ls, cat, touch,
- * mkdir, rm, kill. Like the simulator it guards `rm -r` of home and `kill -9`
- * of the player's shell, reporting them in `blocked`.
+ * mkdir, rm, kill. Like the simulator it guards `rm -r` of home or of any
+ * directory holding it, and `kill -9` of the player's shell, reporting them in
+ * `blocked`. A guard refusal only becomes a guardian effect; hearts come from
+ * src/game/dangers.js.
  *
  * `loads` and `lines` record what the game asked for, for assertions.
  */
 import { dir, file } from '../../src/backend/spec.js';
-import { nodeAt } from '../../src/backend/tree.js';
+import { nodeAt, isInside } from '../../src/backend/tree.js';
 import { resolvePath } from '../../src/game/checks.js';
 
 const SHELL_PID = 733;
@@ -64,7 +66,7 @@ export function createFakeBackend({ user = 'hero', host = 'kernelia', home = '/h
       for (const words of line.split(';').map(part => part.trim().split(/\s+/).filter(Boolean)).filter(w => w.length > 0)) {
         const [name, ...args] = words;
         const cwd = world.cwd;
-        const out = (commands[name] ?? notFound(name))(args, result);
+        const out = (Object.hasOwn(commands, name) ? commands[name] : notFound(name))(args, result);
         result.output.push(...out.output);
         result.status = out.status;
         result.commands.push({ name, args, cwd, status: out.status, stdout: out.stdout, pipeline: result.commands.length, stage: 0, stages: 1, redirects: [] });
@@ -120,7 +122,7 @@ function makeCommands({ world, user, home, abs, get, put }) {
       const recursive = /[rR]/.test(options(args));
       const node = get(path);
       let out = ok();
-      if (recursive && path === home) {
+      if (recursive && path !== '/' && isInside(home, path)) {
         result.blocked.push('The Guardian blocked rm -r on your home.');
         out = fail('rm: blocked by the Guardian');
       } else if (recursive && path === '/') out = fail("rm: it is dangerous to operate recursively on '/'");

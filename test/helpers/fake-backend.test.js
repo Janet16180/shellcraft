@@ -53,3 +53,17 @@ test('the guard refuses rm -r of home and kill -9 of the shell', async () => {
   assert.ok(obs.tree.children.home.children.hero);
   assert.ok(obs.procs.some(p => p.key === 'shell'));
 });
+
+test('like the simulator, the guard refuses rm -r of any directory holding home and leaves it in place', async () => {
+  const backend = createFakeBackend();
+  for (const line of ['rm -rf /home', 'rm -r /home/', 'rm -R ~']) {
+    const result = await backend.run(line);
+    assert.equal(result.blocked.length, 1, line);
+    assert.equal(result.status, 1, line);
+  }
+  assert.ok((await backend.observe()).tree.children.home.children.hero);
+});
+
+test('a command named like an object property is simply not found', async () => {
+  assert.equal((await createFakeBackend().run('constructor')).status, 127);
+});
