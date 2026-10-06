@@ -6,11 +6,12 @@
 import { lookup, joinPath, normalize } from './fs.js';
 import { compareNames } from '../backend/tree.js';
 import { can } from './perms.js';
+import { nameTable } from './table.js';
 
-const CLASSES = {
+const CLASSES = nameTable({
   alpha: 'A-Za-z', digit: '0-9', alnum: 'A-Za-z0-9', upper: 'A-Z', lower: 'a-z', space: ' \\t\\n\\r\\f\\v',
   blank: ' \\t', punct: '!-\\/:-@\\[-`{-~', xdigit: '0-9A-Fa-f', cntrl: '\\x00-\\x1f\\x7f', print: ' -~', graph: '!-~',
-};
+});
 const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 const escapeClass = s => s.replace(/[\]\\[^-]/g, '\\$&');
 
