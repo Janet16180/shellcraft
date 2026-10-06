@@ -882,6 +882,12 @@ kbd {
   color: var(--accent);
 }
 
+.task-strip .tip {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+}
+
 .screen {
   flex: 1;
   tab-size: 8;
