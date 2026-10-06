@@ -70,8 +70,11 @@ kbd {
   box-shadow: inset 0 0 0 2px var(--line), inset 0 -3px 0 0 var(--line);
 }
 
+/* Pinned to its container's corner so it can never stretch a scrolling area or the page. */
 .sr-only {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 1px;
   height: 1px;
   margin: -1px;
@@ -1004,9 +1007,10 @@ kbd {
   border-right: 12px solid transparent;
 }
 
-/* Wide and tall enough: the page fits the window like an app. The left column scrolls on its own
-   and the terminal fills the height, so its input line is always in view. */
-@media (min-width: 901px) and (min-height: 600px) {
+/* Wide and tall enough: the page fits the window like an app. The left column scrolls on its own,
+   the terminal fills the row and scrolls inside, so the page never scrolls and the input line is
+   always in view. */
+@media (min-width: 761px) and (min-height: 600px) {
   body {
     overflow: hidden;
   }
@@ -1018,10 +1022,12 @@ kbd {
   .grid {
     flex: 1;
     min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
   }
 
   /* The padding keeps the windows' outer frames and shadows inside the scrolling box. */
   .side {
+    position: relative;
     overflow-y: auto;
     padding: 10px 16px 18px 10px;
     margin: -10px -16px -18px -10px;
@@ -1033,12 +1039,13 @@ kbd {
 
   .term {
     height: auto;
+    min-height: 0;
   }
 }
 
 /* On a tall window the map also stays in view while the quest panel scrolls under it; on a
    shorter one the panel needs the whole column to be readable. */
-@media (min-width: 901px) and (min-height: 960px) {
+@media (min-width: 761px) and (min-height: 960px) {
   .mapwrap {
     position: sticky;
     top: 0;
@@ -1049,7 +1056,7 @@ kbd {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 760px) {
   .grid {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "map" "term" "panel" "roster";
