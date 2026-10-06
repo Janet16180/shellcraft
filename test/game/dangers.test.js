@@ -57,9 +57,10 @@ test('a kill that sends nothing, or sends to another process, is not dangerous',
   for (const args of lines) assert.deepEqual(killing('kill', args), [], args.join(' '));
 });
 
-test('pkill and killall of bash with a deadly signal are dangerous', () => {
+test('pkill whose pattern matches the shell name, or killall of that exact name, with a deadly signal is dangerous', () => {
   const lines = [
     ['pkill', ['-9', 'bash']], ['pkill', ['--signal', 'KILL', 'bash']], ['pkill', ['--signal=HUP', 'bash']], ['pkill', ['-u', 'hero', '-9', 'bash']],
+    ['pkill', ['-9', 'ba']], ['pkill', ['-9', 'sh']], ['pkill', ['-HUP', '^ba']], ['pkill', ['-9', 'b.sh$']],
     ['killall', ['-9', 'bash']], ['killall', ['-s', 'KILL', 'bash']], ['killall', ['-HUP', 'bash']],
   ];
   for (const [name, args] of lines) assert.equal(killing(name, args).length, 1, `${name} ${args.join(' ')}`);
@@ -67,10 +68,19 @@ test('pkill and killall of bash with a deadly signal are dangerous', () => {
 
 test('pkill and killall of something else, with a polite signal, or with a bad one are not dangerous', () => {
   const lines = [
-    ['pkill', ['bash']], ['pkill', ['-9', 'sleep']], ['killall', ['bash']], ['killall', ['-9', 'shadow']],
+    ['pkill', ['bash']], ['pkill', ['-9', 'sleep']], ['pkill', ['-9', 'cron']], ['pkill', ['-9', '[']], ['pkill', ['-x', '-9', 'ba']],
+    ['killall', ['bash']], ['killall', ['-9', 'shadow']], ['killall', ['-9', 'ba']],
     ['killall', ['-s', 'kill', 'bash']], ['killall', ['-kill', 'bash']],
   ];
   for (const [name, args] of lines) assert.deepEqual(killing(name, args), [], `${name} ${args.join(' ')}`);
+});
+
+test('the shell name comes from the shell process, not a fixed bash', () => {
+  const zsh = { ...SHELL, cmd: '-zsh' };
+  const killing = (name, args) => dangers(context([record(name, args)], {}, { procs: [zsh] }));
+  assert.equal(killing('pkill', ['-9', 'zsh']).length, 1);
+  assert.equal(killing('killall', ['-9', 'zsh']).length, 1);
+  assert.deepEqual(killing('pkill', ['-9', 'bash']), []);
 });
 
 test('the shell reason names the signal, and says STOP freezes the shell instead of ending it', () => {
