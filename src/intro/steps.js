@@ -23,11 +23,12 @@
  */
 
 import { cd, dir, file, put } from '../backend/spec.js';
+import { PLAYER } from '../backend/player.js';
 
-const HOME = '/home/hero';
-const OWN = { owner: 'hero' };
+const { user: USER, host: HOST, home: HOME } = PLAYER;
+const OWN = { owner: USER };
 
-export const README = `Welcome to Kernelia, hero.
+export const README = `Welcome to Kernelia, ${USER}.
 This scroll is the file readme.txt in your home directory.
 Doors are directories. Walk through one with cd.
 `;
@@ -44,9 +45,9 @@ export const WORLD = [
 
 /** The pieces of the prompt, in order, with the role each one plays and its label. */
 export const PROMPT_PIECES = [
-  { text: 'hero', role: 'user', label: 'user' },
+  { text: USER, role: 'user', label: 'user' },
   { text: '@', role: null, label: '' },
-  { text: 'kernelia', role: 'host', label: 'machine' },
+  { text: HOST, role: 'host', label: 'machine' },
   { text: ':', role: null, label: '' },
   { text: '~', role: 'cwd', label: 'directory' },
   { text: '$', role: 'sigil', label: 'regular user' },
@@ -66,7 +67,7 @@ export const STEPS = [
     title: 'The prompt: who you are',
     focus: 'user',
     text: [
-      'The line the terminal waits on is the <b>prompt</b>. Its first word, <code>hero</code>, is your user name.',
+      `The line the terminal waits on is the <b>prompt</b>. Its first word, <code>${USER}</code>, is your user name.`,
       'Every file and every running program on Linux belongs to a user.',
     ],
   },
@@ -75,7 +76,7 @@ export const STEPS = [
     title: 'The prompt: which machine',
     focus: 'host',
     text: [
-      'After the <code>@</code> comes <code>kernelia</code>, the name of the machine you are logged in to (its hostname).',
+      `After the <code>@</code> comes <code>${HOST}</code>, the name of the machine you are logged in to (its hostname).`,
       'It matters when you work on several machines at once: the prompt tells you which one you are typing into.',
     ],
   },
@@ -84,7 +85,7 @@ export const STEPS = [
     title: 'The prompt: where you are',
     focus: 'cwd',
     text: [
-      'After the colon comes the directory you are in. <code>~</code> (a tilde) is short for your home directory, <code>/home/hero</code>.',
+      `After the colon comes the directory you are in. <code>~</code> (a tilde) is short for your home directory, <code>${HOME}</code>.`,
       'When you move, this part of the prompt changes with you.',
     ],
   },

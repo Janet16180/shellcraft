@@ -4,6 +4,7 @@
  */
 
 import { createSimBackend } from './shell/backend.js';
+import { PLAYER } from './backend/player.js';
 import { createSession } from './game/session.js';
 import chapters from './game/chapters/index.js';
 import { baseWorld } from './game/world.js';
@@ -11,7 +12,7 @@ import { createMap } from './map/map.js';
 import { createStore } from './ui/store.js';
 import { startApp } from './ui/app.js';
 
-const backend = createSimBackend();
+const backend = createSimBackend(PLAYER);
 const session = createSession({
   backend,
   chapters,
@@ -24,6 +25,6 @@ startApp({
   doc: document,
   session,
   createMap,
-  createIntroBackend: createSimBackend,
+  createIntroBackend: () => createSimBackend(PLAYER),
   resizeTerminal: columns => backend.resize(columns),
 });
