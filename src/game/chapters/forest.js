@@ -72,16 +72,16 @@ export default {
       goal: 'Enter the forest',
       hints: [
         'The forest is a door in your home. Walk through it.',
-        'From your home, cd followed by a directory name moves you into that directory.',
+        'From your home, `cd` followed by a directory name moves you into that directory.',
         'cd forest',
       ],
       done: ctx => isInside(ctx.cwd, forestOf(ctx)),
     },
     {
-      goal: 'Walk down to the deepest part of the cave: forest/cave/deep',
+      goal: 'Walk down to the deepest part of the cave: `forest/cave/deep`',
       hints: [
         'The cave is in the forest, and deep is inside the cave.',
-        'Walk one room at a time with cd, or give cd a path with slashes, like cave/deep from the forest.',
+        'Walk one room at a time with `cd`, or give `cd` a path with slashes, like `cave/deep` from the forest.',
         'cd ~/forest/cave/deep',
       ],
       done: ctx => ctx.cwd === deepOf(ctx),
@@ -90,16 +90,16 @@ export default {
       goal: 'Read what glitters down there',
       hints: [
         'Something glitters in deep. List the room to learn its name.',
-        'ls shows the file name, then cat prints the file.',
+        '`ls` shows the file name, then `cat` prints the file.',
         'cat ~/forest/cave/deep/ancient_key.txt',
       ],
       done: ctx => ctx.read(`${deepOf(ctx)}/ancient_key.txt`),
     },
     {
-      goal: 'From deep, climb back up into the cave with ..',
+      goal: 'From deep, climb back up into the cave with `..`',
       hints: [
         'deep is inside the cave, so the cave is its parent.',
-        '.. means the parent of the directory you are in. Stand in deep first.',
+        '`..` means the parent of the directory you are in. Stand in deep first.',
         'cd ..',
       ],
       done: ctx => ctx.before.cwd === deepOf(ctx) && ctx.cwd === caveOf(ctx) && ctx.ran('cd', climbsWithDots),
@@ -107,18 +107,18 @@ export default {
     {
       goal: 'Jump to the river with an absolute path',
       hints: [
-        'An absolute path works from anywhere, because it starts at the root of the tree, /.',
-        'Start the path with / and name every directory on the way: home, hero, forest, river.',
+        'An absolute path works from anywhere, because it starts at the root of the tree, `/`.',
+        'Start the path with `/` and name every directory on the way: home, hero, forest, river.',
         'cd /home/hero/forest/river',
       ],
       done: ctx => ctx.cwd === riverOf(ctx)
         && ctx.ran('cd', record => (record.args[0] ?? '').startsWith('/') && ctx.hasPath(record, riverOf(ctx))),
     },
     {
-      goal: 'Jump back to where you were with cd -',
+      goal: 'Jump back to where you were with `cd -`',
       hints: [
         'The shell remembers the directory you were in before this one.',
-        'A dash after cd means: go back to the previous directory.',
+        'A dash after `cd` means: go back to the previous directory.',
         'cd -',
       ],
       done: ctx => ctx.ran('cd', record => record.args[0] === '-') && ctx.cwd !== ctx.before.cwd,
@@ -127,7 +127,7 @@ export default {
       goal: 'Go home with the shortest command there is',
       hints: [
         'There is a way home that needs no path at all.',
-        'cd with nothing after it takes you home.',
+        '`cd` with nothing after it takes you home.',
         'cd',
       ],
       done: ctx => ctx.cwd === ctx.home && ctx.ran('cd', record => record.args.length === 0),
@@ -150,8 +150,8 @@ export default {
 <p>The Guardian has lit a beacon somewhere in the forest: a directory whose name starts with <code>beacon_</code>. Find it from where you stand, then reach it with a single <code>cd</code> and an absolute path. The jump only counts if you take it from the dungeon.</p>`,
     setup: setupBoss,
     hints: [
-      'ls can look into another directory from where you stand, if you give it a path.',
-      'Search with ls ~/forest, then ls ~/forest/NAME for each room. Jump with cd and a path that starts with / or ~.',
+      '`ls` can look into another directory from where you stand, if you give it a path.',
+      'Search with `ls ~/forest`, then `ls ~/forest/NAME` for each room. Jump with `cd` and a path that starts with `/` or `~`.',
       secret => `cd ${secret.target}`,
     ],
     done: (ctx, secret) => jumpedFromDungeon(ctx, secret.target),
@@ -162,7 +162,7 @@ export default {
     ['cd forest/cave', 'go several rooms deep at once'],
     ['cd ..', 'go up to the parent directory'],
     ['cd /home/hero/forest', 'an absolute path works from anywhere'],
-    ['cd ~/forest', '~ is your home'],
+    ['cd ~/forest', '`~` is your home'],
     ['cd', 'go home'],
     ['cd -', 'go back to the previous directory'],
     ['ls ~/forest', 'paths work with other commands too'],
@@ -172,15 +172,15 @@ export default {
 <p>Why two kinds of path? A relative path is short when the place is near. An absolute path means the same place wherever you stand, which is why configuration files and scripts often use them.</p>
 <p>Why <code>~</code>? Your home is where your own files live, and you go there more than anywhere else. Bash replaces <code>~</code> with your home's path before the command runs, so <code>cd ~/forest</code> is really <code>cd /home/hero/forest</code>.</p>`,
   field: [
-    ['ls /', 'look at the root of a real tree: bin, etc, home, usr, var and more'],
+    ['ls /', 'look at the root of a real tree: `bin`, `etc`, `home`, `usr`, `var` and more'],
     ['cd /etc', 'the directory where system settings live'],
-    ['pushd /tmp', 'like cd, but remembers where you were; popd takes you back'],
+    ['pushd /tmp', 'like `cd`, but remembers where you were; `popd` takes you back'],
   ],
   spells: [
     {
       name: 'cd',
       summary: 'Change directory.',
-      examples: [['cd forest', 'relative path'], ['cd ..', 'up to the parent'], ['cd /home/hero', 'absolute path'], ['cd ~/forest', '~ is your home'], ['cd', 'go home'], ['cd -', 'back to the previous directory']],
+      examples: [['cd forest', 'relative path'], ['cd ..', 'up to the parent'], ['cd /home/hero', 'absolute path'], ['cd ~/forest', '`~` is your home'], ['cd', 'go home'], ['cd -', 'back to the previous directory']],
     },
     { name: 'Tab', summary: 'Finish a name for you. Type the first letters, then press Tab.', examples: [['cd fo', 'then press Tab']] },
   ],

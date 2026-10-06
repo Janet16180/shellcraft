@@ -27,6 +27,27 @@ test('the slice plays the first two chapters and marks the rest as coming soon',
   assert.deepEqual(chapters.map(chapter => Boolean(chapter.soon)), ORDER.map((_, i) => i >= 2));
 });
 
+function proseOf(chapter) {
+  const hints = [...chapter.tasks.map(task => task.hints), chapter.boss.hints].flatMap(hints => hints.slice(0, 2));
+  return [
+    ...chapter.tasks.map(task => task.goal),
+    ...hints,
+    ...chapter.spells.flatMap(spell => [spell.summary, ...spell.examples.map(([, note]) => note)]),
+    ...[...chapter.recap, ...chapter.field].map(([, meaning]) => meaning),
+  ];
+}
+
+test('backticks that mark typed names in goals, hints, spells and the adventure log come in pairs', () => {
+  for (const chapter of chapters.filter(c => !c.soon)) {
+    for (const text of proseOf(chapter)) assert.equal((text.match(/`/g) ?? []).length % 2, 0, `${chapter.id}: ${text}`);
+  }
+});
+
+test('the names the player types in goals and notes are marked as code', () => {
+  const marked = chapters.filter(c => !c.soon).flatMap(proseOf).join('\n');
+  for (const name of ['`forest/cave/deep`', '`..`', '`cd -`', '`/home/hero`', '`~`']) assert.ok(marked.includes(name), name);
+});
+
 async function playThrough(session, chapter) {
   const turns = [];
   for (const line of chapter.solve) turns.push(await typeLine(line, session));

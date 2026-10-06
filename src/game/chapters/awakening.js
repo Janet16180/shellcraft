@@ -109,7 +109,7 @@ export default {
       goal: 'Ask the terminal who you are',
       hints: [
         'Your name is in the prompt, but a command can tell you too.',
-        'The command is who am i, written as one word.',
+        'The command is `whoami`: who am i, written as one word.',
         'whoami',
       ],
       done: ctx => ctx.ran('whoami'),
@@ -117,8 +117,8 @@ export default {
     {
       goal: 'Find out where you are standing',
       hints: [
-        'The prompt shows ~, a short name. Ask for the full path.',
-        'pwd means print working directory.',
+        'The prompt shows `~`, a short name. Ask for the full path.',
+        '`pwd` means print working directory.',
         'pwd',
       ],
       done: ctx => ctx.ran('pwd'),
@@ -127,7 +127,7 @@ export default {
       goal: 'Look around your home',
       hints: [
         'What is in this room? Ask for a list.',
-        'ls lists the directory you are in.',
+        '`ls` lists the directory you are in.',
         'ls',
       ],
       done: ctx => ctx.ran('ls', record => listsHome(ctx, record)),
@@ -135,8 +135,8 @@ export default {
     {
       goal: 'Read the letter left for you',
       hints: [
-        'There is a .txt file in your home. Print it on the screen.',
-        'cat followed by a file name prints that file.',
+        'There is a `.txt` file in your home. Print it on the screen.',
+        '`cat` followed by a file name prints that file.',
         'cat readme.txt',
       ],
       done: ctx => ctx.read(`${ctx.home}/readme.txt`),
@@ -145,7 +145,7 @@ export default {
       goal: 'Open the manual page of a command',
       hints: [
         'Most commands come with a manual. One command opens it.',
-        'man followed by a command name opens its manual page.',
+        '`man` followed by a command name opens its manual page.',
         'man ls',
       ],
       done: ctx => ctx.ran('man'),
@@ -154,7 +154,7 @@ export default {
       goal: 'Ask a command for its quick help',
       hints: [
         'Many commands explain themselves if you ask with an option.',
-        'Add --help after the command name: two dashes, then help.',
+        'Add `--help` after the command name: two dashes, then help.',
         'ls --help',
       ],
       done: ctx => ctx.commands.some(record => record.status === 0 && record.args.includes('--help')),
@@ -163,7 +163,7 @@ export default {
       goal: 'Wipe the screen clean',
       hints: [
         'The screen is getting full. Start again with an empty one.',
-        'The command is the plain English word clear.',
+        'The command is the plain English word `clear`.',
         'clear',
       ],
       done: ctx => ctx.ran('clear'),
@@ -176,8 +176,8 @@ export default {
 <p>The Guardian signs exactly as in <code>readme.txt</code>. Find the real letter and do what it asks.</p>`,
     setup: setupBoss,
     hints: [
-      'Read every letter, then compare each signature with the one at the end of readme.txt.',
-      'ls shows the letters and cat prints them. The real letter asks for a manual page (man COMMAND) or for a quick help (COMMAND --help).',
+      'Read every letter, then compare each signature with the one at the end of `readme.txt`.',
+      '`ls` shows the letters and `cat` prints them. The real letter asks for a manual page (`man COMMAND`) or for a quick help (`COMMAND --help`).',
       secret => (secret.how === 'man' ? `man ${secret.command}` : `${secret.command} --help`),
     ],
     done: (ctx, secret) => (secret.how === 'man'
@@ -199,13 +199,13 @@ export default {
 <p>Why type commands instead of clicking? A command is exact and repeatable: you can save it, share it, run it again tomorrow, or run it on a machine with no screen at all. Many servers are run that way.</p>
 <p>Why <code>man</code>? The manual lives on the machine itself, so the answer to "what does this option do?" is one command away, even offline. Some minimal systems, like Docker images, leave the manual pages out to save space.</p>`,
   field: [
-    ['hostname', 'print the name of the machine, the part of the prompt after the @'],
+    ['hostname', 'print the name of the machine, the part of the prompt after the `@`'],
     ['man -k directory', 'search the short descriptions of the manual pages for a word'],
     ['man man', 'the manual of the manual'],
   ],
   spells: [
-    { name: 'whoami', summary: 'Print your user name.', examples: [['whoami', 'prints: hero']] },
-    { name: 'pwd', summary: 'Print working directory: the full path of where you are.', examples: [['pwd', 'prints: /home/hero']] },
+    { name: 'whoami', summary: 'Print your user name.', examples: [['whoami', 'prints: `hero`']] },
+    { name: 'pwd', summary: 'Print working directory: the full path of where you are.', examples: [['pwd', 'prints: `/home/hero`']] },
     { name: 'ls', summary: 'List what is in a directory.', examples: [['ls', 'the directory you are in'], ['ls forest', 'another directory']] },
     { name: 'cat', summary: 'Print files on the screen (short for concatenate).', examples: [['cat readme.txt', 'print one file'], ['cat -n readme.txt', 'with line numbers']] },
     { name: 'clear', summary: 'Clear the terminal screen. Ctrl+L clears it too.', examples: [['clear', 'start with an empty screen']] },

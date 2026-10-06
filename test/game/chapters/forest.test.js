@@ -64,13 +64,13 @@ test('Tab completes cd fo to cd forest/, as the lesson says', async () => {
 const NEAR_MISSES = [
   ['Enter the forest', [], 'ls forest', 'cd forest'],
   ['Enter the forest', [], 'cd junk', 'cd forest/cave'],
-  ['Walk down to the deepest part of the cave: forest/cave/deep', ['cd forest'], 'cd cave', 'cd cave/deep'],
+  ['Walk down to the deepest part of the cave: `forest/cave/deep`', ['cd forest'], 'cd cave', 'cd cave/deep'],
   ['Read what glitters down there', ['cd forest/cave/deep'], 'ls', 'cat ancient_key.txt'],
-  ['From deep, climb back up into the cave with ..', ['cd forest/cave/deep'], 'cd ~/forest/cave', 'cd ..'],
-  ['From deep, climb back up into the cave with ..', ['cd forest/cave/deep'], 'cd ../..', 'cd ../'],
+  ['From deep, climb back up into the cave with `..`', ['cd forest/cave/deep'], 'cd ~/forest/cave', 'cd ..'],
+  ['From deep, climb back up into the cave with `..`', ['cd forest/cave/deep'], 'cd ../..', 'cd ../'],
   ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd ../river', 'cd /home/hero/forest/river'],
   ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd /home/hero/forest/clearing', 'cd ~/forest/river'],
-  ['Jump back to where you were with cd -', ['cd forest/cave', 'cd /home/hero/forest/river'], 'cd ..', 'cd -'],
+  ['Jump back to where you were with `cd -`', ['cd forest/cave', 'cd /home/hero/forest/river'], 'cd ..', 'cd -'],
   ['Go home with the shortest command there is', ['cd forest'], 'cd /home/hero', 'cd'],
   ['Go home with the shortest command there is', ['cd forest'], 'cd ~', 'cd'],
   ['Walk into the forest again, and let Tab finish the name', [], 'cd forest', 'cd fo\t'],
@@ -85,7 +85,7 @@ for (const [goal, prefix, miss, hit] of NEAR_MISSES) {
 }
 
 test('climbing into the cave with .. from the river, not from deep, does not count', async () => {
-  assert.equal(await passes('From deep, climb back up into the cave with ..', ['cd forest/river'], 'cd ../cave'), false);
+  assert.equal(await passes('From deep, climb back up into the cave with `..`', ['cd forest/river'], 'cd ../cave'), false);
 });
 
 test('using Tab while already in the forest does not count as walking in with Tab', async () => {
@@ -93,7 +93,7 @@ test('using Tab while already in the forest does not count as walking in with Ta
 });
 
 test('cd - that stays in the same directory does not count as jumping back', async () => {
-  assert.equal(await passes('Jump back to where you were with cd -', ['cd forest', 'cd .'], 'cd -'), false);
+  assert.equal(await passes('Jump back to where you were with `cd -`', ['cd forest', 'cd .'], 'cd -'), false);
 });
 
 test('the trapdoor drops the player in the dungeon and lights one beacon in the forest', async () => {
