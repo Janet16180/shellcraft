@@ -1,6 +1,5 @@
 import { chunkLine, clears, columnsFor, displayPath, esc, promptHTML } from './output.js';
 import { createHistory } from './history.js';
-import { createQueue } from './queue.js';
 
 const MAX_LINES = 600;
 
@@ -58,7 +57,9 @@ function submit(t) {
 
 async function complete(t) {
   const typed = t.input.value;
-  const { line, candidates } = await t.onComplete(typed);
+  const { line, candidates } = await t.queue.add(() => t.onComplete(typed));
+  // The player may have typed on while the completion waited its turn.
+  if (t.input.value !== typed) return;
   if (candidates.length > 1 && line === typed) {
     echo(t, typed);
     printLine(t, candidates.join('  '), 'out');
@@ -155,14 +156,16 @@ function wire(t, root) {
  *
  * @param {object} opts
  * @param {HTMLElement} opts.root The terminal section holding #out, #screen, #cmd, #prompt, #termTitle and #keys.
- * @param {(line: string) => Promise<void>} opts.onSubmit Runs a line the player entered. Lines typed meanwhile wait.
+ * @param {{add: (step: () => unknown) => Promise<unknown>}} opts.queue The page's one ordered queue: lines,
+ *   Tab completions and resizes wait their turn in it, behind any other session call.
+ * @param {(line: string) => Promise<void>} opts.onSubmit Runs a line the player entered.
  * @param {(line: string) => Promise<{line: string, candidates: string[]}>} opts.onComplete Tab completion.
  * @param {() => void} [opts.onKey] Called on each printable key (the key click sound).
  * @param {(columns: number) => unknown} [opts.onResize] Told the width in characters at the start and when it changes.
  * @returns {{print: Function, printLine: Function, setPrompt: Function, insert: Function, focus: Function, clear: Function}}
  *   The terminal's controls.
  */
-export function createTerminal({ root, onSubmit, onComplete, onKey = () => {}, onResize = () => {} }) {
+export function createTerminal({ root, queue, onSubmit, onComplete, onKey = () => {}, onResize = () => {} }) {
   const t = {
     out: root.querySelector('#out'),
     screen: root.querySelector('#screen'),
@@ -171,7 +174,7 @@ export function createTerminal({ root, onSubmit, onComplete, onKey = () => {}, o
     title: root.querySelector('#termTitle'),
     history: createHistory(),
     prompt: null,
-    queue: createQueue(),
+    queue,
     tabLeaves: false,
     onSubmit,
     onComplete,
