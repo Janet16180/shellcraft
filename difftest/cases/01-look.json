@@ -14,6 +14,15 @@
   { "name": "cat", "world": "home", "lines": ["cat readme.txt", "cat -n readme.txt", "cat readme.txt .secret_map", "cat nope", "cat forest", "cat /etc/vault.conf", "cat /etc/motd", "cat -z readme.txt", "cat -n forest/cave/bat.txt nope"] },
   { "name": "echo", "world": "home", "lines": ["echo hello", "echo   spaced    words", "echo 'single  quoted'", "echo \"double  $HOME\"", "echo -n no newline", "echo -e 'a\\tb'", "echo $USER", "echo", "echo ~", "echo ~/forest"] },
   { "name": "clear", "world": "home", "lines": ["clear"] },
+  { "name": "clear options", "world": "home", "lines": ["clear --help", "clear -x", "clear foo", "clear -V", "help nope"],
+    "intended": [{ "line": "clear -V", "reason": "the simulator reports the ncurses version of Ubuntu 24.04's package, which may differ in a container image update" }] },
+  { "name": "builtin help", "world": "home", "lines": ["pwd --help", "cd --help", "help cd", "help pwd cd", "echo --help", "true --help", "false --help"],
+    "intended": [
+      { "line": "pwd --help", "reason": "the simulator prints bash's usage and summary lines, not the full description (same status, 2)" },
+      { "line": "cd --help", "reason": "the simulator prints bash's usage and summary lines, not the full description (same status, 2)" },
+      { "line": "help cd", "reason": "the simulator prints bash's usage and summary lines, not the full description" },
+      { "line": "help pwd cd", "reason": "the simulator prints bash's usage and summary lines, not the full description" }
+    ] },
   { "name": "help for commands", "world": "home",
     "lines": ["man ls", "ls --help", "man", "man nope"],
     "intended": [

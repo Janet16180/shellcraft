@@ -4,7 +4,7 @@
  */
 
 import { lookup, normalize, joinPath } from '../fs.js';
-import { BUILTINS } from '../builtins.js';
+import { BUILTINS, BUILTIN_HELP, builtinHelp } from '../builtins.js';
 import { can } from '../perms.js';
 import { manText, hasManPage } from '../man.js';
 import { result, withNote } from '../result.js';
@@ -28,7 +28,10 @@ export function findInPath(sys, name) {
 
 function man(args) {
   if (!args.length) return result('', "What manual page do you want?\nFor example, try 'man man'.", 1);
-  if (!hasManPage(args[0])) return result('', `No manual entry for ${args[0]}`, 16);
+  if (!hasManPage(args[0])) {
+    const builtin = args[0] in BUILTIN_HELP ? `${args[0]} is built into bash, so it has no manual page of its own. Try help ${args[0]}.` : null;
+    return withNote(result('', `No manual entry for ${args[0]}`, 16), builtin);
+  }
   return withNote(result(manText(args[0], false)), 'A real man page opens in a pager: arrow keys to scroll, / to search, q to quit.');
 }
 
@@ -128,6 +131,14 @@ function bash(args, { sys, runScript }) {
   return r;
 }
 
+function help(args) {
+  const missing = args.find(a => !(a in BUILTIN_HELP));
+  let r = withNote(result(`${HELP}\n`), 'In real bash, help lists the shell builtins. Use man COMMAND to learn any real command.');
+  if (missing) r = result('', `bash: help: no help topics match \`${missing}'.  Try \`help help' or \`man -k ${missing}' or \`info ${missing}'.`, 1);
+  else if (args.length) r = withNote(result(args.map(builtinHelp).join('')), 'Real bash prints a longer description for each builtin.');
+  return r;
+}
+
 const HELP = [
   'Commands you can use here:',
   '  Look around   pwd  ls  cd  tree  whoami  hostname  date',
@@ -158,5 +169,5 @@ export default {
   logout: exit,
   bash,
   sh: bash,
-  help: () => withNote(result(`${HELP}\n`), 'In real bash, help lists the shell builtins. Use man COMMAND to learn any real command.'),
+  help,
 };
