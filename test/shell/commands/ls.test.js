@@ -16,9 +16,9 @@ test('names sort in C.UTF-8 byte order and fill terminal columns', async () => {
   assert.equal(r.out, " 10.txt   Banana.txt  'a$b'\t  \"it's\"\t  'tab'$'\\t''x'\n 9.txt\t  Zebra        apple.txt  'my notes.txt'\n B\t  _under       cherry\t   run.sh\n");
 });
 
-test('COLUMNS sets the width of the column layout', async () => {
+test('a terminal resize sets the width of the column layout', async () => {
   const b = await names();
-  await run(b, 'COLUMNS=40');
+  await b.resize(40);
   assert.equal((await run(b, 'ls names')).out, " 10.txt       _under\t 'my notes.txt'\n 9.txt\t     'a$b'\t  run.sh\n B\t      apple.txt  'tab'$'\\t''x'\n Banana.txt   cherry\n Zebra\t     \"it's\"\n");
 });
 
@@ -126,4 +126,18 @@ test('ls output carries coloured markup for directories and executables', async 
   const r = await (await names()).run('ls -1 names');
   assert.match(r.output[0].html, /<span class="c-dir">B<\/span>/);
   assert.match(r.output[0].html, /<span class="c-exe">run\.sh<\/span>/);
+});
+
+test('on a terminal ls follows the terminal width, not a COLUMNS variable the user sets', async () => {
+  const b = await names();
+  await run(b, 'COLUMNS=40');
+  assert.equal((await run(b, 'ls names')).out.split('\n').length, 4);
+});
+
+test('into a pipe, ls -C uses an exported COLUMNS, else 80, and quotes nothing', async () => {
+  const b = await names();
+  const wide = (await run(b, 'ls -C names | cat')).out;
+  const narrow = (await run(b, 'COLUMNS=40 ls -C names | cat')).out;
+  assert.equal(wide.split('\n')[0], '10.txt\tB\t    Zebra   a$b        cherry  my notes.txt  tab\tx');
+  assert.ok(narrow.split('\n').length > wide.split('\n').length);
 });

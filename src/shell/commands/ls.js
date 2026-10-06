@@ -11,7 +11,7 @@ import { can } from '../perms.js';
 import { parseOptions } from '../options.js';
 import { layoutColumns } from '../columns.js';
 import { shellQuote, needsQuoting } from '../quote.js';
-import { varValue } from '../vars.js';
+import { exportedVars } from '../vars.js';
 import { result } from '../result.js';
 import { esc, span } from '../html.js';
 import { MONTHS } from './info.js';
@@ -179,14 +179,20 @@ function classify(sys, operands, opts) {
   return { files, dirs, errs };
 }
 
-function listing(name, args, { sys, piped }) {
+function lineWidth(sys, piped, overlay) {
+  const env = parseInt(overlay.COLUMNS ?? exportedVars(sys).COLUMNS, 10);
+  let width = sys.columns;
+  if (piped) width = env > 0 ? env : 80;
+  return width;
+}
+
+function listing(name, args, { sys, piped, env }) {
   const parsed = parseLs(name, args, !piped);
   if (parsed.error) return result('', parsed.error, 2);
   const { opts } = parsed;
   const operands = parsed.operands.length ? parsed.operands : ['.'];
   const { files, dirs, errs } = classify(sys, operands, opts);
-  const width = parseInt(varValue(sys, 'COLUMNS'), 10) || 80;
-  const ctx = { now: sys.now(), width };
+  const ctx = { now: sys.now(), width: lineWidth(sys, piped, env) };
   const sections = [];
   if (files.length) sections.push(formatEntries(sortEntries(files, opts), opts, ctx));
   const header = operands.length > 1 || files.length > 0;

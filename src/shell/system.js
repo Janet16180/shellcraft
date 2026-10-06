@@ -5,7 +5,7 @@
  */
 
 import { newDir, newFile, insert } from './fs.js';
-import { initialVars } from './vars.js';
+import { initialVars, setVar } from './vars.js';
 
 const ROOT_META = { owner: 'root', group: 'root' };
 const BINARY = '\u007fELF\u0002\u0001\u0001\u0000';
@@ -83,8 +83,23 @@ export function createSystem({ user, host, home, now, random, binaries }) {
     root: baseTree(home, user, binaries, now()),
     cwd: home, oldpwd: null,
     vars: initialVars({ user, home, host }), aliases: { ll: 'ls -alF', la: 'ls -A' }, history: [], hashed: new Set(),
-    lastStatus: 0, umask: 0o022, procs: [], nextPid: 300, shellPid: 0,
+    lastStatus: 0, umask: 0o022, procs: [], nextPid: 300, shellPid: 0, columns: 80,
   };
   sys.procs = systemProcs(sys);
   return sys;
+}
+
+/**
+ * Change the terminal width, as a window resize does: programs writing to the
+ * terminal lay out for it, and bash updates COLUMNS.
+ *
+ * @param {object} sys The machine state.
+ * @param {number} columns Character columns the terminal shows.
+ * @returns {void}
+ * @throws {Error} If columns is not a positive integer.
+ */
+export function resizeTerminal(sys, columns) {
+  if (!Number.isInteger(columns) || columns <= 0) throw new Error(`resize needs a positive integer column count, got ${columns}`);
+  sys.columns = columns;
+  setVar(sys, 'COLUMNS', String(columns));
 }
