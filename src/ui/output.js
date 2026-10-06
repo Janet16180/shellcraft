@@ -3,6 +3,8 @@
  * backend's output chunks into lines the page can append.
  */
 
+import { isInside } from '../backend/tree.js';
+
 const ENTITIES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
 /**
@@ -35,10 +37,7 @@ export function inlineCode(text) {
  * @returns {string} The path to display.
  */
 export function displayPath(path, home) {
-  let shown = path;
-  if (path === home) shown = '~';
-  else if (path.startsWith(`${home}/`)) shown = `~${path.slice(home.length)}`;
-  return shown;
+  return isInside(path, home) ? `~${path.slice(home.length)}` : path;
 }
 
 /**
