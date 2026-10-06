@@ -36,6 +36,7 @@ const MISTAKES = {
   'ls-l': 'Put a space before the option: ls -l',
   'ls-a': 'Put a space before the option: ls -a',
   'ls-la': 'Put a space before the option: ls -la',
+  who: 'who is a real command (it lists who is logged in), but this game does not simulate it. whoami prints your user name.',
 };
 
 
@@ -44,6 +45,9 @@ function firstOf(args, ...wanted) {
   return args.slice(0, end).find(a => wanted.includes(a));
 }
 
+const UNSIMULATED = new Set(['w', 'nl', 'cut', 'tr', 'du', 'df', 'ln', 'stat', 'diff', 'tar', 'chown', 'rev', 'seq', 'yes', 'od', 'tee', 'xargs',
+  'basename', 'dirname', 'realpath', 'readlink', 'printf', 'test', 'read', 'tac', 'shuf', 'cmp', 'comm', 'paste', 'join', 'split', 'fold',
+  'expand', 'md5sum', 'sha256sum', 'base64', 'sleep', 'watch', 'free', 'uptime', 'lsblk', 'mount', 'apt', 'perl', 'gzip', 'whereis', 'stty', 'tput']);
 const isAssignment = word => 'lit' in word.parts[0] && !word.parts[0].q && ASSIGNMENT.test(word.parts[0].lit);
 const withNewline = text => (text && !text.endsWith('\n') ? `${text}\n` : text);
 
@@ -99,9 +103,16 @@ function runFile(sh, name, args, ctx) {
   return res;
 }
 
-function commandNotFound(sh, name) {
+function notFoundHint(sh, name) {
   const lower = name.toLowerCase();
-  const hint = MISTAKES[name] ?? (lower !== name && sh.commands[lower] ? `Commands are case-sensitive. Try ${lower}` : null);
+  let hint = MISTAKES[name] ?? null;
+  if (!hint && UNSIMULATED.has(name)) hint = `${name} is a real command on Ubuntu, but this game does not simulate it.`;
+  else if (!hint && lower !== name && sh.commands[lower]) hint = `Commands are case-sensitive. Try ${lower}`;
+  return hint;
+}
+
+function commandNotFound(sh, name) {
+  const hint = notFoundHint(sh, name);
   return withNote(result('', `bash: ${name}: command not found`, 127), hint);
 }
 
@@ -117,7 +128,7 @@ function dispatch(sh, argv, streams, overlay) {
   if (name.includes('/')) r = runFile(sh, name, args, ctx);
   else if (args[0] === '--help' && name in BUILTIN_HELP) r = withNote(result(builtinHelp(name), '', 2), helpNote(name));
   else if (firstOf(args, '--version', '--help') === '--version' && versionText(name) && !BUILTINS.has(name)) r = result(versionText(name));
-  else if (args.includes('--help') && hasManPage(name) && !BUILTINS.has(name) && !OWN_OPTIONS.has(name)) r = result(manText(name, true));
+  else if (args.includes('--help') && hasManPage(name) && !BUILTINS.has(name) && !OWN_OPTIONS.has(name)) r = withNote(result(manText(name, true)), `Real ${name} --help prints a longer list of options.`);
   else if (!sh.commands[name]) r = commandNotFound(sh, name);
   else {
     if (!BUILTINS.has(name)) sys.hashed.add(name);
