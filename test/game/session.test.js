@@ -143,7 +143,7 @@ test('solving the boss clears the chapter, pays the boss and the bonus, and open
   const [chapters] = fixtureChapters();
   assert.deepEqual(turn.events, [
     { kind: 'boss', xp: 30 },
-    { kind: 'chapter', id: 'awakening', recap: chapters.recap, why: chapters.why, field: chapters.field, xp: 20, next: 'forest' },
+    { kind: 'chapter', id: 'awakening', recap: chapters.recap, why: chapters.why, field: chapters.field, xp: 20, total: 50, next: 'forest' },
   ]);
   assert.equal(turn.view.chapter.phase, 'done');
   assert.equal(turn.view.xp, 70);
@@ -549,6 +549,13 @@ test('reset erases progress but keeps sound and the intro flag', async () => {
     progress: { chapter: 'awakening', phase: 'quest', tasks: [false, false], hints: [0, 0], bossHints: 0 },
   });
   assert.equal(exists(await backend.observe(), `${HOME}/sign.txt`), false);
+});
+
+test('the view says whether the player has started: any XP, a cleared chapter or a later chapter', async () => {
+  const { session, view } = await booted();
+  assert.equal(view.started, false);
+  assert.equal((await session.submit('pwd')).view.started, true);
+  assert.equal((await booted({ stored: v2({ chapter: 'awakening', cleared: ['awakening'] }) })).view.started, true);
 });
 
 test('the session hands out the latest observation it holds', async () => {

@@ -12,7 +12,7 @@
  * @typedef {import('./effects.js').Effect} Effect
  *
  * @typedef {object} GameEvent One of: `task {index, goal, xp}`, `boss-start {title}`,
- *   `boss {xp}`, `chapter {id, recap, why, field, xp, next}`, `heart-lost {reason, left}`,
+ *   `boss {xp}`, `chapter {id, recap, why, field, xp, total, next}` (total: the boss and clear XP together), `heart-lost {reason, left}`,
  *   `hearts-restored {phase}`; each has a `kind`.
  *
  * @typedef {object} Turn
@@ -249,7 +249,7 @@ function clearChapter(s) {
   s.save.chapter = next ?? chapter.id;
   return [
     { kind: 'boss', xp: bossXp },
-    { kind: 'chapter', id: chapter.id, recap: chapter.recap, why: chapter.why, field: chapter.field, xp: clearXp, next },
+    { kind: 'chapter', id: chapter.id, recap: chapter.recap, why: chapter.why, field: chapter.field, xp: clearXp, total: bossXp + clearXp, next },
   ];
 }
 
@@ -374,6 +374,7 @@ function view(s) {
     hint: target ? nextHint(target.base, target.used, s.replay) : null,
     hintLevels: HINT_LEVELS,
     xp: s.save.xp,
+    started: s.save.xp > 0 || s.save.cleared.length > 0 || s.index > 0,
     rank: rankFor(s.save.xp),
     hearts: { left: s.hearts, max: MAX_HEARTS },
     sound: s.save.sound,
