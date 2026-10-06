@@ -72,7 +72,7 @@ function forest() {
         const grove = pick(random, ['oak', 'elm', 'ash']);
         return { patch: [put(`${home}/forest/${grove}`, dir()), put(`${home}/forest/sign.txt`, file(`${grove}\n`))], secret: { grove } };
       },
-      hints: ['Read the sign.', 'cd into the grove.', 'cd forest/GROVE'],
+      hints: ['Read the sign.', 'cd into the grove.', secret => `cd ~/forest/${secret.grove}`],
       done: (ctx, secret) => ctx.cwd === `${ctx.home}/forest/${secret.grove}`,
       solve: obs => [`cd ${obs.home}/forest/${signText(obs, `${obs.home}/forest/sign.txt`)}`],
     },

@@ -167,7 +167,11 @@ test('hints come in three levels: a free nudge, the technique for 3 XP and the c
     { level: 2, text: 'Use pwd.', cost: 3 },
     { level: 3, text: 'pwd', cost: 5 },
   ]);
-  assert.deepEqual(session.view().chapter.tasks[0].hints, ['Where are you?', 'Use pwd.', 'pwd']);
+  assert.deepEqual(session.view().chapter.tasks[0].hints, [
+    { level: 1, text: 'Where are you?', cost: 0 },
+    { level: 2, text: 'Use pwd.', cost: 3 },
+    { level: 3, text: 'pwd', cost: 5 },
+  ]);
 });
 
 test('the view says what the next hint costs, and nothing once all three are shown', async () => {
@@ -208,9 +212,19 @@ test('in the boss room the hint is about the boss and its cost comes off the bos
   const turn = await reachBoss(session);
   assert.equal(session.hint().text, 'Read the sign.');
   session.hint();
-  assert.deepEqual(session.view().chapter.boss.hints, ['Read the sign.', 'It names a file to create.']);
+  assert.deepEqual(session.view().chapter.boss.hints.map(h => h.text), ['Read the sign.', 'It names a file to create.']);
   const [last] = await play(session, fixtureChapters()[0].boss.solve(turn.obs));
   assert.equal(last.events[0].xp, 27);
+});
+
+test('a boss hint written as a function receives the boss secret', async () => {
+  const { session } = await booted({ stored: v2({ chapter: 'forest', cleared: ['awakening'] }) });
+  const turn = (await play(session, fixtureChapters()[1].solve)).at(-1);
+  const grove = turn.obs.tree.children.home.children.hero.children.forest.children['sign.txt'].content.trim();
+  session.hint();
+  session.hint();
+  assert.equal(session.hint().text, `cd ~/forest/${grove}`);
+  assert.equal(session.view().chapter.boss.hints[2].text, `cd ~/forest/${grove}`);
 });
 
 test('there is no hint once the chapter is cleared', async () => {
@@ -223,10 +237,17 @@ test('there is no hint once the chapter is cleared', async () => {
 test('typing hint answers as a note and never reaches the backend', async () => {
   const { session, backend } = await booted();
   const turn = await session.submit('  hint ');
-  assert.deepEqual(turn.result, { output: [{ stream: 'note', text: 'Hint 1 of 3: Where are you?' }], status: 0, commands: [], blocked: [] });
+  const note = 'Hint 1 of 3: Where are you?\nType hint again for hint 2 (costs 3 XP).';
+  assert.deepEqual(turn.result, { output: [{ stream: 'note', text: note }], status: 0, commands: [], blocked: [] });
   assert.deepEqual([turn.effects, turn.events], [[], []]);
   assert.deepEqual(backend.lines, []);
-  assert.equal((await session.submit('hint')).result.output[0].text, 'Hint 2 of 3 (costs 3 XP): Use pwd.');
+  assert.equal((await session.submit('hint')).result.output[0].text, 'Hint 2 of 3 (cost 3 XP): Use pwd.\nType hint again for hint 3 (costs 5 XP).');
+  assert.equal((await session.submit('hint')).result.output[0].text, 'Hint 3 of 3 (cost 5 XP): pwd');
+});
+
+test('typing hint in a replayed chapter says the next hint is free', async () => {
+  const { session } = await booted({ stored: v2({ chapter: 'awakening', cleared: ['awakening'] }) });
+  assert.equal((await session.submit('hint')).result.output[0].text, 'Hint 1 of 3: Where are you?\nType hint again for hint 2 (free).');
 });
 
 test('typing quest lists the tasks with their state', async () => {
@@ -364,6 +385,24 @@ test('reset erases progress but keeps sound and the intro flag', async () => {
   assert.equal(exists(await backend.observe(), `${HOME}/sign.txt`), false);
 });
 
+test('the session hands out the latest observation it holds', async () => {
+  const { session } = await booted();
+  assert.equal(session.observation().cwd, HOME);
+  await session.submit('cd forest');
+  assert.equal(session.observation().cwd, `${HOME}/forest`);
+});
+
+test('checks see the Tab completions made since the previous line', async () => {
+  const chapters = fixtureChapters();
+  const seen = [];
+  chapters[0].tasks[0].done = ctx => { seen.push(ctx.completions); return false; };
+  const { session } = await booted({ chapters });
+  await session.complete('pw');
+  await session.complete('pwd');
+  await play(session, ['pwd', 'hint', 'ls']);
+  assert.deepEqual(seen, [[{ line: 'pw', completed: 'pw' }, { line: 'pwd', completed: 'pwd' }], []]);
+});
+
 test('tab completion is answered by the backend', async () => {
   const { session } = await booted();
   assert.deepEqual(await session.complete('cd fo'), { line: 'cd fo', candidates: [] });
@@ -374,6 +413,7 @@ test('using the session before boot raises', async () => {
   await assert.rejects(session.submit('ls'), /boot/);
   await assert.rejects(session.startChapter('awakening'), /boot/);
   assert.throws(() => session.view(), /boot/);
+  assert.throws(() => session.observation(), /boot/);
   assert.throws(() => session.hint(), /boot/);
 });
 
