@@ -67,7 +67,7 @@ function show(ui, view) {
 // Through the queue, so an animation still waiting from an earlier line cannot draw over the new room.
 function showRoom(ui) {
   const obs = ui.session.observation();
-  ui.mapQueue = ui.mapQueue.then(() => {
+  afterMap(ui, () => {
     ui.map.show(obs);
     roomSettled(ui);
   });
@@ -129,7 +129,10 @@ function applyTurn(ui, turn) {
   ui.terminal.print(turn.result.output);
   if (turn.result.output.some(chunk => chunk.stream === 'err')) ui.sound.play('err');
   if (turn.effects.some(e => e.kind === 'travel')) ui.sound.play('step');
-  ui.mapQueue = ui.mapQueue.then(() => ui.map.play(turn.effects, turn.obs)).then(() => roomSettled(ui));
+  afterMap(ui, async () => {
+    await ui.map.play(turn.effects, turn.obs);
+    roomSettled(ui);
+  });
   show(ui, turn.view);
   for (const event of turn.events) onEvent(ui, event, turn.events);
 }
@@ -168,8 +171,11 @@ function onEvent(ui, event, events) {
   handler(ui, event, events);
 }
 
-function afterMap(ui, open) {
-  ui.mapQueue = ui.mapQueue.then(open);
+// Map work runs in order. A step that fails still reports through `run`; the queue survives it.
+function afterMap(ui, step) {
+  const run = ui.mapQueue.then(step);
+  ui.mapQueue = run.then(() => {}, () => {});
+  return run;
 }
 
 function openBoss(ui) {
