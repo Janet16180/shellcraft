@@ -533,6 +533,21 @@ kbd {
   padding-left: 20px;
 }
 
+.lesson-again {
+  margin-top: 16px;
+}
+
+.lesson-again summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.lesson-again summary:hover {
+  color: var(--text);
+}
+
 .panel .replay {
   color: var(--muted);
   font-style: italic;

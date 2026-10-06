@@ -113,3 +113,15 @@ test('in the boss room the strip names the boss; a cleared chapter says so', () 
   assert.equal(nowHTML(withPhase('boss').chapter), '<b>Boss room:</b> The Lost Name');
   assert.equal(nowHTML(withPhase('done').chapter), '<b>Chapter cleared.</b> Explore freely, or pick a chapter in the Chapters tab.');
 });
+
+test('in the boss room the briefing opens the panel and the lesson is folded below it', () => {
+  const html = questHTML(withPhase('boss'));
+  assert.ok(html.indexOf('boss-brief') < html.indexOf('You wake up inside a terminal'));
+  assert.match(html, /<details class="lesson-again"><summary>Read the lesson again<\/summary><div class="lesson"><p>You wake up/);
+});
+
+test('in the quest the lesson comes first, open, before the tasks', () => {
+  const html = questHTML(sampleView());
+  assert.doesNotMatch(html, /lesson-again/);
+  assert.ok(html.indexOf('You wake up inside a terminal') < html.indexOf('quest-log'));
+});
