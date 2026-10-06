@@ -206,3 +206,12 @@ test('a reload during the forest boss gives a new room on a fresh world that can
   const [last] = await playLines(second.session, FOREST.boss.solve(second.session.observation()));
   assert.deepEqual(kinds(last.events), ['boss', 'chapter']);
 });
+
+test('a typing mistake on the real simulator prints exactly one note, the coach\'s', async () => {
+  const { session } = await bootReal();
+  for (const line of ['cls', 'cd..', 'ls-l', 'WHOAMI', 'CD forest', 'del readme.txt']) {
+    const notes = (await session.submit(line)).result.output.filter(c => c.stream === 'note');
+    assert.equal(notes.length, 1, `${line}: ${JSON.stringify(notes)}`);
+    assert.equal(notes[0].tone, 'coach', line);
+  }
+});

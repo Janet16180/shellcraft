@@ -12,8 +12,9 @@
  * @typedef {import('./effects.js').Effect} Effect
  *
  * @typedef {object} GameEvent One of: `task {index, goal, xp}`, `boss-start {title}`,
- *   `boss {xp}`, `chapter {id, recap, why, field, xp, total, next}` (total: the boss and clear XP together), `heart-lost {reason, left}`,
- *   `hearts-restored {phase}`; each has a `kind`.
+ *   `boss {xp}`, `chapter {id, recap, why, field, xp, total, next}` (total is the
+ *   boss and clear XP together), `heart-lost {reason, left}`, `hearts-restored {phase}`;
+ *   each has a `kind`.
  *
  * @typedef {object} Turn
  * @property {RunResult} result What the terminal shows for the line.
