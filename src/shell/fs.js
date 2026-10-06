@@ -1,0 +1,188 @@
+/**
+ * The simulated filesystem: an in-memory tree of directory and file nodes.
+ *
+ * A node is `{type: 'dir'|'file', mode, owner, group, mtime}` plus `children`
+ * (a directory) or `content` (a file). Paths are absolute strings; every
+ * function here works on a root node and plain paths, never on shell state.
+ */
+
+const DIR_SIZE = 4096;
+
+/**
+ * Resolve a path against a working directory, removing `.`, `..` and repeated slashes.
+ *
+ * @param {string} path Absolute or relative path.
+ * @param {string} cwd Absolute working directory.
+ * @returns {string} The absolute path.
+ */
+export function normalize(path, cwd) {
+  const parts = (path.startsWith('/') ? path : `${cwd}/${path}`).split('/');
+  const out = [];
+  for (const part of parts) {
+    if (part === '..') out.pop();
+    else if (part && part !== '.') out.push(part);
+  }
+  return `/${out.join('/')}`;
+}
+
+/**
+ * Find the node at an absolute path.
+ *
+ * @param {object} root The root directory node.
+ * @param {string} abs Absolute normalized path.
+ * @returns {object|null} The node, or null if any component is missing or not a directory.
+ */
+export function lookup(root, abs) {
+  let node = root;
+  for (const part of abs.split('/').filter(Boolean)) {
+    node = node && node.type === 'dir' ? node.children[part] ?? null : null;
+  }
+  return node;
+}
+
+/**
+ * @param {string} abs Absolute path.
+ * @returns {string} Its parent directory ('/' for top-level entries and for '/').
+ */
+export const parentOf = abs => {
+  const i = abs.lastIndexOf('/');
+  return i <= 0 ? '/' : abs.slice(0, i);
+};
+
+/**
+ * @param {string} abs Absolute path.
+ * @returns {string} The last component ('' for '/').
+ */
+export const baseName = abs => abs.slice(abs.lastIndexOf('/') + 1);
+
+/**
+ * @param {string} parent Absolute directory path.
+ * @param {string} name Entry name.
+ * @returns {string} The absolute path of the entry.
+ */
+export const joinPath = (parent, name) => (parent === '/' ? `/${name}` : `${parent}/${name}`);
+
+/**
+ * Join a path as the user typed it with an entry name, for display.
+ *
+ * @param {string} shown The typed prefix ('' for the current directory).
+ * @param {string} name Entry name.
+ * @returns {string} The displayed path.
+ */
+export const joinDisp = (shown, name) => {
+  if (shown === '') return name;
+  return shown.endsWith('/') ? shown + name : `${shown}/${name}`;
+};
+
+/**
+ * Split text into lines, ignoring the final newline.
+ *
+ * @param {string} text Any text.
+ * @returns {string[]} The lines (none for empty text).
+ */
+export function splitLines(text) {
+  if (!text) return [];
+  return (text.endsWith('\n') ? text.slice(0, -1) : text).split('\n');
+}
+
+const encoder = new TextEncoder();
+
+/**
+ * @param {string} text Any text.
+ * @returns {number} Its length in UTF-8 bytes.
+ */
+export const byteLength = text => encoder.encode(text).length;
+
+/**
+ * @param {object} node A file or directory node.
+ * @returns {number} Its size as ls reports it: bytes for a file, 4096 for a directory.
+ */
+export const sizeOf = node => (node.type === 'dir' ? DIR_SIZE : byteLength(node.content));
+
+/**
+ * Build a directory node.
+ *
+ * @param {Record<string, object>} children Child nodes by name.
+ * @param {{mode: number, owner: string, group: string, mtime: number}} meta Mode, ownership and time.
+ * @returns {object} The node.
+ */
+export const newDir = (children, { mode, owner, group, mtime }) => ({ type: 'dir', mode, owner, group, mtime, children });
+
+/**
+ * Build a file node.
+ *
+ * @param {string} content The file's text.
+ * @param {{mode: number, owner: string, group: string, mtime: number}} meta Mode, ownership and time.
+ * @returns {object} The node.
+ */
+export const newFile = (content, { mode, owner, group, mtime }) => ({ type: 'file', mode, owner, group, mtime, content });
+
+/**
+ * Deep-copy a node, stamping every copy with a new time.
+ *
+ * @param {object} node The node to copy.
+ * @param {number} mtime The copies' modification time.
+ * @returns {object} The copy.
+ */
+export function cloneNode(node, mtime) {
+  if (node.type === 'file') return { ...node, mtime };
+  const children = {};
+  for (const [name, child] of Object.entries(node.children)) children[name] = cloneNode(child, mtime);
+  return { ...node, children, mtime };
+}
+
+/**
+ * Turn a node described with src/backend/spec.js into a filesystem node.
+ *
+ * @param {object} spec A dir() or file() description.
+ * @param {number} mtime Modification time for every node.
+ * @returns {object} The node.
+ */
+export function fromSpec(spec, mtime) {
+  const meta = { mode: spec.mode, owner: spec.owner, group: spec.group, mtime };
+  if (spec.type === 'file') return newFile(spec.content, meta);
+  const children = {};
+  for (const [name, child] of Object.entries(spec.children)) children[name] = fromSpec(child, mtime);
+  return newDir(children, meta);
+}
+
+/**
+ * Snapshot a node as the port's TreeNode, sharing nothing with the tree.
+ *
+ * @param {object} node A filesystem node.
+ * @returns {import('../backend/port.js').TreeNode} The snapshot.
+ */
+export function snapshot(node) {
+  const base = { type: node.type, mode: node.mode, owner: node.owner, group: node.group, size: sizeOf(node), mtime: node.mtime };
+  if (node.type === 'file') return { ...base, content: node.content };
+  const children = {};
+  for (const [name, child] of Object.entries(node.children)) children[name] = snapshot(child);
+  return { ...base, children };
+}
+
+/**
+ * Place a node at an absolute path, replacing what was there.
+ *
+ * @param {object} root The root directory node.
+ * @param {string} abs Absolute path other than '/'.
+ * @param {object} node The node to place.
+ * @returns {void}
+ * @throws {Error} If the parent does not exist or is not a directory.
+ */
+export function insert(root, abs, node) {
+  const parent = lookup(root, parentOf(abs));
+  if (!parent || parent.type !== 'dir') throw new Error(`cannot place ${abs}: ${parentOf(abs)} is not a directory`);
+  parent.children[baseName(abs)] = node;
+}
+
+/**
+ * Remove the node at an absolute path, if there is one.
+ *
+ * @param {object} root The root directory node.
+ * @param {string} abs Absolute path other than '/'.
+ * @returns {void}
+ */
+export function detach(root, abs) {
+  const parent = lookup(root, parentOf(abs));
+  if (parent && parent.type === 'dir') delete parent.children[baseName(abs)];
+}

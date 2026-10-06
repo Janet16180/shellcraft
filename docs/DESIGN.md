@@ -57,7 +57,7 @@ once in `src/backend/access.js`: the simulator enforces it and the map draws pad
 ### 2.2 Session API (`src/game/session.js`, consumed by the UI)
 
 ```js
-const session = createSession({ backend, chapters, store, random });
+const session = createSession({ backend, chapters, baseWorld, store, random });  // baseWorld from world.js, injected by main.js
 await session.boot();                 // -> View   load the save (validated), start the current chapter
 await session.startChapter(id, { fresh });   // -> View
 await session.submit(line);           // -> Turn
@@ -67,10 +67,17 @@ await session.complete(line);         // -> { line, candidates }   (backend.comp
 session.setSound(on); session.markIntroSeen(); await session.reset();
 ```
 
-`store` is `{ load(): object|null, save(object): void }`; the UI passes a localStorage adapter.
+`store` is the localStorage subset `{ getItem(key): string|null, setItem(key, text) }`. The UI
+passes an adapter that never throws (falling back to memory when storage is unavailable); the
+engine owns the keys, JSON parsing, validation and the v1 migration (v1 is read only when no v2
+save exists, and is never deleted). `startChapter` raises for an unknown, `soon` or locked id.
 
 `Turn = { result: RunResult, obs: Observation, effects: Effect[], events: GameEvent[], view: View }`.
-Events: `task {index, xp}`, `boss-start`, `boss {xp}`, `chapter {recap, field}`, `heart-lost {reason}`, `hearts-restored`.
+Effects and events carry a `kind` field. Events: `task {index, goal, xp}`, `boss-start`, `boss {xp}`,
+`chapter {id, recap, field, xp, next}`, `heart-lost {reason, left}`, `hearts-restored {phase}`.
+A line costs at most one heart. At zero hearts the quest phase re-applies the chapter setup on
+the current world (finished tasks stay finished); the boss phase reruns `boss.setup` (a new
+random boss, hints kept).
 
 `View` holds everything the page draws: the chapter (id, number, total, act, title, phase
 `quest|boss|done`, lesson HTML, tasks with done/next, boss title and briefing), XP, rank (title,
@@ -94,7 +101,7 @@ map.say(text, who);             // speech bubble
 map.destroy();
 ```
 
-Pure exports, tested: `biomeFor(path, home)` -> `{ realm: 'overworld'|'dungeon', biome }`,
+Pure exports, tested: `biomeFor(path, home)` -> `{ realm: 'overworld'|'dungeon', biome, name }`,
 `layoutRoom(...)`, `describeRoom(obs)` (the text alternative for screen readers).
 
 ## 3. The world
@@ -198,7 +205,7 @@ The game teaches what real Linux does, so the simulator is tested against real b
 | engine | `src/game/` except `chapters/` and `world.js`; `test/game/` except chapter tests; `test/helpers/` | session, checks, progress, effects, rng, save + v1 migration |
 | author | `src/game/chapters/`, `src/game/world.js`, `test/game/chapters/`, `test/game/world.test.js`, `docs/verification/` | world spec (ported v1 areas + dungeon), chapters 1 and 2 with boss rooms |
 | art | `src/map/`, `test/map/` | overworld + dungeon renderer, transitions, effects, labels, describeRoom |
-| ui | `index.html`, `styles/`, `src/ui/`, `src/intro/`, `src/main.js`, `test/ui/`, `test/intro/` | page, terminal, panels, sound, intro, wiring, screenshots |
+| ui | `index.html`, `styles/`, `src/ui/`, `src/intro/`, `src/main.js`, `scripts/serve.js`, `test/ui/`, `test/intro/` | page, terminal, panels, sound, intro, wiring, screenshots |
 
 - Each teammate works in its own git worktree `.scratch/wt/<name>` on branch `slice/<name>`.
   The lead merges into `main` and tells the others to merge `main` in.
