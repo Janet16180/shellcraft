@@ -3,7 +3,8 @@
  */
 
 import { validatePatch } from '../backend/spec.js';
-import { lookup, fromSpec, insert, detach, parentOf, depthOf, heightOf, MAX_TREE_DEPTH } from './fs.js';
+import { lookup, fromSpec, insert, detach, depthOf, heightOf, MAX_TREE_DEPTH } from './fs.js';
+import { parentOf } from '../backend/tree.js';
 import { allocPid, makeProc, TERMINAL } from './system.js';
 import { parseSignal, signalName } from '../backend/signals.js';
 

@@ -3,8 +3,8 @@
  * backslash, so `"*"x*` is the pattern `\*x*`.
  */
 
-import { lookup, joinPath, normalize } from './fs.js';
-import { compareNames } from '../backend/tree.js';
+import { lookup, normalize } from './fs.js';
+import { compareNames, joinPath } from '../backend/tree.js';
 import { can } from './perms.js';
 import { nameTable } from './table.js';
 

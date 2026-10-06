@@ -3,7 +3,8 @@
  * export, env, printenv, sudo, editors, exit, bash, help.
  */
 
-import { lookup, normalize, joinPath } from '../fs.js';
+import { lookup, normalize } from '../fs.js';
+import { joinPath } from '../../backend/tree.js';
 import { BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from '../builtins.js';
 import { can } from '../perms.js';
 import { manText, hasManPage, manEntries, shortHelpNote } from '../man.js';

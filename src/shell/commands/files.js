@@ -4,9 +4,9 @@
  * C.UTF-8, including which ones quote with straight and which with curly quotes.
  */
 
-import { baseName, newDir, newFile, addChild, removeChild, joinDisp } from '../fs.js';
+import { newDir, newFile, addChild, removeChild, joinDisp } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
-import { compareNames } from '../../backend/tree.js';
+import { compareNames, baseName } from '../../backend/tree.js';
 import { can, canChangeEntries, canUnlink, canChmod } from '../perms.js';
 import { parseOptions, optionFailure } from '../options.js';
 import { shellQuote, localeQuote } from '../quote.js';

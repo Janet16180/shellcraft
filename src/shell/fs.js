@@ -13,6 +13,7 @@
  */
 
 import { nameTable } from './table.js';
+import { parentOf, baseName } from '../backend/tree.js';
 
 const DIR_SIZE = 4096;
 
@@ -73,28 +74,6 @@ export function lookup(root, abs) {
   }
   return node;
 }
-
-/**
- * @param {string} abs Absolute path.
- * @returns {string} Its parent directory ('/' for top-level entries and for '/').
- */
-export const parentOf = abs => {
-  const i = abs.lastIndexOf('/');
-  return i <= 0 ? '/' : abs.slice(0, i);
-};
-
-/**
- * @param {string} abs Absolute path.
- * @returns {string} The last component ('' for '/').
- */
-export const baseName = abs => abs.slice(abs.lastIndexOf('/') + 1);
-
-/**
- * @param {string} parent Absolute directory path.
- * @param {string} name Entry name.
- * @returns {string} The absolute path of the entry.
- */
-export const joinPath = (parent, name) => (parent === '/' ? `/${name}` : `${parent}/${name}`);
 
 /**
  * Join a path as the user typed it with an entry name, for display.

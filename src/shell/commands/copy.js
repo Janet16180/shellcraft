@@ -4,9 +4,9 @@
  * target (`forest/readme.txt`).
  */
 
-import { baseName, joinDisp, joinPath, newDir, newFile, addChild, removeChild, depthOf, heightOf, MAX_TREE_DEPTH } from '../fs.js';
+import { joinDisp, newDir, newFile, addChild, removeChild, depthOf, heightOf, MAX_TREE_DEPTH } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
-import { compareNames, isInside } from '../../backend/tree.js';
+import { compareNames, isInside, baseName, joinPath } from '../../backend/tree.js';
 import { can, canChangeEntries, canUnlink } from '../perms.js';
 import { parseOptions, optionFailure } from '../options.js';
 import { shellQuote } from '../quote.js';

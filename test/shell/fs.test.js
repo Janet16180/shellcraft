@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalize, lookup, parentOf, baseName, joinPath, joinDisp, splitLines, byteLength, sizeOf, newDir, newFile, cloneNode, fromSpec, snapshot, insert, detach, addChild, removeChild, heightOf, MAX_TREE_DEPTH } from '../../src/shell/fs.js';
+import { normalize, lookup, joinDisp, splitLines, byteLength, sizeOf, newDir, newFile, cloneNode, fromSpec, snapshot, insert, detach, addChild, removeChild, heightOf, MAX_TREE_DEPTH } from '../../src/shell/fs.js';
 import { dir, file } from '../../src/backend/spec.js';
 import { nameTable } from '../../src/shell/table.js';
 
@@ -21,12 +21,7 @@ test('lookup finds nodes and returns null through files or missing names', () =>
   assert.equal(lookup(root, '/nope'), null);
 });
 
-test('path helpers split and join paths', () => {
-  assert.equal(parentOf('/home/hero'), '/home');
-  assert.equal(parentOf('/home'), '/');
-  assert.equal(baseName('/home/hero'), 'hero');
-  assert.equal(joinPath('/', 'etc'), '/etc');
-  assert.equal(joinPath('/etc', 'passwd'), '/etc/passwd');
+test('joinDisp joins a typed path and a name for display', () => {
   assert.equal(joinDisp('', 'a'), 'a');
   assert.equal(joinDisp('dir/', 'a'), 'dir/a');
   assert.equal(joinDisp('dir', 'a'), 'dir/a');
