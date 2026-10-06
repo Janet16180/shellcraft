@@ -977,6 +977,12 @@ kbd {
   .brand {
     font-size: 22px;
   }
+
+  /* In one column a full-width map would push the terminal off the screen. */
+  .mapwrap .stage {
+    width: min(100%, 620px);
+    align-self: center;
+  }
 }
 
 @media (max-width: 480px) {
