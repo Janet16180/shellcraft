@@ -58,7 +58,7 @@ Man pages from the Ubuntu 24.04 host.
 | Look around: "That listed another directory. To look around your home, run ls in your home with nothing after it." | `ls(1)`: with no FILE, the current directory |
 | Read the letter: "ls only shows the name. cat prints what is inside: cat readme.txt" | `ls(1)` lists names; `cat(1)` prints contents; R2 |
 | Read the letter: "That was another file. The letter is readme.txt." | game text; `readme.txt` is the letter (world.md) |
-| Quick help: "One dash starts short options, so -help means -h -e -l -p. Long options take two dashes: --help." | D: `ls -help` -> `ls: invalid option -- 'e'`: ls took `-h` as an option, then rejected `e`, so the cluster is read letter by letter; `ls(1)`: `--help display this help and exit` |
+| Quick help: `ls -help` is left to the generic coach (`src/game/coach.js`: "One dash starts short options... Long options take two dashes: --help."); a test checks the coach answers it |
 | Quick help: "echo prints its words back, even --help." | D: `echo --help` prints `--help`, status 0 (`echo` is a shell builtin with no `--help`) |
 | Clear task goal says "with the `clear` command" | Ctrl+L is handled by the page's terminal, so the session cannot see it; the lesson keeps "Ctrl+L clears it too" (true, see above) |
 | Boss: a forged deed gets "Somewhere, the Shadow Daemon snickers. That letter was signed SIGNER. Compare the signatures with readme.txt." | game text; SIGNER is the forged letter's real signature (SIM test) |

@@ -4,7 +4,7 @@ import chapter, { LETTERS } from '../../../src/game/chapters/awakening.js';
 import { assertChapter } from '../../helpers/chapter.js';
 import { nodeAt } from '../../../src/game/checks.js';
 import { createRandom } from '../../../src/game/rng.js';
-import { PLAYER, startChapter, type, play, startBoss, notFound, codeSnippets } from './harness.js';
+import { PLAYER, startChapter, type, play, startBoss, notFound, codeSnippets, nearTitle, assertNear } from './harness.js';
 
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const GOAL = Object.fromEntries(chapter.tasks.map((task, i) => [task.goal, i]));
@@ -71,20 +71,18 @@ const NEAR_NOTES = [
   ['Read the letter left for you', [], 'ls readme.txt', /cat/],
   ['Read the letter left for you', [], 'cat .bashrc', /readme\.txt/],
   ['Read the letter left for you', [], 'cat readme.txt', null],
-  ['Ask a command for its quick help', [], 'ls -help', /two dashes/],
+  ['Ask a command for its quick help', [], 'ls -help', { coach: /two dashes/ }],
   ['Ask a command for its quick help', [], 'echo --help', /echo/],
   ['Ask a command for its quick help', [], 'ls --help', null],
   ['Ask a command for its quick help', [], 'pwd', null],
 ];
 
 for (const [goal, prefix, line, note] of NEAR_NOTES) {
-  test(`"${goal}" gives ${note ? 'a near note' : 'no near note'} for ${line}`, async () => {
+  test(`"${goal}" ${nearTitle(note)} for ${line}`, async () => {
     const backend = await startChapter(chapter);
     await play(chapter, backend, prefix);
     const { ctx } = await type(backend, line);
-    const got = chapter.tasks[GOAL[goal]].near(ctx);
-    if (note) assert.match(got, note);
-    else assert.equal(got, null);
+    assertNear(chapter.tasks[GOAL[goal]].near?.(ctx) ?? null, ctx, note);
   });
 }
 
