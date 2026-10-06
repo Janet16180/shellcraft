@@ -316,6 +316,7 @@ function chapterView(s) {
     replay: s.replay,
     tasks: chapter.tasks.map((task, i) => ({
       goal: task.goal,
+      tip: task.tip ?? null,
       done: s.tasksDone[i],
       next: i === next,
       hints: revealed(s, task.hints, s.hints[i], XP.task),
@@ -337,7 +338,7 @@ function view(s) {
     hearts: { left: s.hearts, max: MAX_HEARTS },
     sound: s.save.sound,
     introSeen: s.save.introSeen,
-    chapters: s.chapters.map((c, i) => ({ id: c.id, number: i + 1, act: c.act, title: c.title, status: status[i] })),
+    chapters: s.chapters.map((c, i) => ({ id: c.id, number: i + 1, act: c.act, title: c.title, status: status[i], current: i === s.index })),
     spellbook: s.chapters.flatMap((c, i) => (c.spells ?? []).map(spell => ({ ...spell, chapter: c.id, unlocked: canStart(status[i]) }))),
     prompt: { user, host, cwd, home },
     boot: s.boot,

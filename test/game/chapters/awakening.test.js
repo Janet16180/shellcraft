@@ -53,6 +53,7 @@ const NEAR_MISSES = [
   ['Ask a command for its quick help', [], 'help ls', 'cat --help'],
   ['Ask a command for its quick help', [], 'LS --help', 'whoami --help'],
   ['Ask a command for its quick help', [], 'clear --help', 'pwd --help'],
+  ['Ask a command for its quick help', [], 'echo --help', 'ls --help'],
   ['Wipe the screen clean', [], 'cls', 'clear'],
 ];
 

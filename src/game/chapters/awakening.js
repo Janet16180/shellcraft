@@ -157,7 +157,8 @@ export default {
         'Add `--help` after the command name: two dashes, then help.',
         'ls --help',
       ],
-      done: ctx => ctx.commands.some(record => record.args.includes('--help') && record.stdout !== ''),
+      // bash's echo prints --help back instead of answering it.
+      done: ctx => ctx.commands.some(record => record.name !== 'echo' && record.args.includes('--help') && record.stdout !== ''),
     },
     {
       goal: 'Wipe the screen clean',
@@ -197,7 +198,7 @@ export default {
   ],
   why: `<p>Why does the prompt show your name, the machine and the directory? People often have several terminals open, some on other machines over SSH. The prompt tells you at a glance who you are, where you are, and on which machine your next command will run.</p>
 <p>Why type commands instead of clicking? A command is exact and repeatable: you can save it, share it, run it again tomorrow, or run it on a machine with no screen at all. Many servers are run that way.</p>
-<p>Why <code>man</code>? The manual lives on the machine itself, so the answer to "what does this option do?" is one command away, even offline. Some minimal systems, like Docker images, leave the manual pages out to save space.</p>`,
+<p>Why <code>man</code>? The manual lives on the machine itself, so the answer to "what does this option do?" is one command away, even offline. Some minimal systems, like many Docker images, leave the manual pages out to save space.</p>`,
   field: [
     ['hostname', 'print the name of the machine, the part of the prompt after the `@`'],
     ['man -k directory', 'search the short descriptions of the manual pages for a word'],

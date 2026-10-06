@@ -89,7 +89,8 @@ export function loseHeart(hearts) {
 
 /**
  * The status of every chapter in the list. A chapter opens when the one before
- * it is cleared; placeholders are 'soon'; the current chapter is 'playing'.
+ * it is cleared; placeholders are 'soon'; the current chapter is 'playing'
+ * until it is cleared, and 'cleared' from then on, even during a replay.
  *
  * @param {{id: string, soon?: boolean}[]} chapters The chapter list in order.
  * @param {{current: string|null, cleared: string[]}} progress The chapter being played and the cleared ids.
@@ -100,8 +101,8 @@ export function chapterStatuses(chapters, { current, cleared }) {
   return chapters.map((chapter, i) => {
     let status = 'locked';
     if (chapter.soon) status = 'soon';
-    else if (chapter.id === current) status = 'playing';
     else if (done.has(chapter.id)) status = 'cleared';
+    else if (chapter.id === current) status = 'playing';
     else if (i === 0 || done.has(chapters[i - 1].id)) status = 'open';
     return status;
   });
