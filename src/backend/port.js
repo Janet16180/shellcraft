@@ -18,7 +18,18 @@
  * `html` is optional pre-escaped markup (colours for ls, grep); without it the
  * UI shows `text`.
  *
- * @typedef {{stream: 'out'|'err'|'note', text: string, html?: string, tone?: string}} OutputChunk
+ * The vocabulary is closed, so the page can render any backend:
+ * - `html` may use only these span classes: `c-dir` (a directory name), `c-exe`
+ *   (an executable file), `g-file`, `g-sep` and `g-num` (grep's file name,
+ *   separator and line number) and `g-match` (grep's matched text). It never
+ *   contains raw terminal escape codes; a backend that receives colours from a
+ *   real terminal translates them into these classes or drops them.
+ * - `tone` is one of: `clear` on an 'out' chunk (the screen is cleared; the
+ *   text is the real escape sequence, which the page does not print), and
+ *   `coach` on a 'note' chunk (a teaching note added by the game layer, never
+ *   by a backend).
+ *
+ * @typedef {{stream: 'out'|'err'|'note', text: string, html?: string, tone?: 'clear'|'coach'}} OutputChunk
  */
 
 /**
