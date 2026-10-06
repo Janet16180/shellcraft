@@ -47,6 +47,8 @@ export default {
     },
   ],
   solve: ['cd forest'],                 // lines a player would type to finish every task, in order
+                                        // a tab character (\t) in a line means the player presses Tab there;
+                                        // tests type such lines with typeLine() from test/helpers
   boss: {
     title: 'Lost in the Dungeon',
     briefing: `<p>...</p>`,
