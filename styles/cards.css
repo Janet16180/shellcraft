@@ -19,8 +19,6 @@
   overflow: auto;
   margin: auto;
   padding: 28px 28px 30px;
-  background: var(--panel);
-  box-shadow: var(--window);
   line-height: 1.55;
 }
 
@@ -78,7 +76,8 @@
 
 .title-logo {
   font-family: var(--font-title);
-  font-weight: 700;
+  font-weight: 500;
+  font-variant-ligatures: none;
   font-size: clamp(44px, 13vw, 78px);
   line-height: 1;
   letter-spacing: 0.04em;
@@ -152,7 +151,8 @@
 }
 
 .xpgain {
-  font-family: var(--font-title);
+  font-family: var(--font-mono);
+  font-weight: 600;
   font-size: 26px;
   color: var(--accent);
   text-shadow: 3px 3px 0 var(--c-ink);

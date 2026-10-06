@@ -12,16 +12,16 @@ import { keepFocusIn } from '../ui/focus.js';
 const TYPE_MS = 75;
 const PAUSE_MS = 300;
 
-const FRAME_HTML = `<div class="intro" role="dialog" aria-modal="true" aria-labelledby="introTitle">
+const FRAME_HTML = `<div class="intro window" role="dialog" aria-modal="true" aria-labelledby="introTitle">
   <header class="intro-head">
     <span class="eyebrow" id="introCount"></span>
     <button class="px-btn small ghost" id="introSkip" type="button">Skip intro</button>
   </header>
-  <div class="intro-stage stage" id="introStage">
+  <div class="intro-stage stage window" id="introStage">
     <canvas id="introMap" width="640" height="400" aria-hidden="true"></canvas>
     <div class="scroll" id="introScroll" hidden><pre></pre></div>
   </div>
-  <div class="intro-term">
+  <div class="intro-term window">
     <div class="intro-screen" id="introScreen" aria-hidden="true"></div>
     <div class="intro-figure" id="introFigure"></div>
   </div>
@@ -43,7 +43,7 @@ function promptOf(obs) {
 }
 
 function travelEffects(before, after) {
-  return before.cwd === after.cwd ? [] : [{ type: 'travel', from: before.cwd, to: after.cwd }];
+  return before.cwd === after.cwd ? [] : [{ kind: 'travel', from: before.cwd, to: after.cwd }];
 }
 
 function outputHTML(output) {
@@ -66,7 +66,7 @@ function figureHTML(step) {
 
 function renderChrome(it, step, index) {
   it.$('introCount').textContent = `How to play · ${index + 1} of ${STEPS.length}`;
-  it.$('introTitle').textContent = step.title;
+  it.$('introTitle').innerHTML = step.title;
   it.$('introText').innerHTML = step.text.map(p => `<p>${p}</p>`).join('') + (step.keys ? keysHTML(step.keys) : '');
   it.$('introFigure').innerHTML = figureHTML(step);
   it.$('introScroll').hidden = true;

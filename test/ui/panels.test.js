@@ -33,6 +33,14 @@ test('revealed hints stay listed under their level', () => {
   assert.match(html, /<b>A nudge<\/b><span>Which command prints the working directory\?<\/span>/);
 });
 
+test('in the boss room the revealed hints are the boss hints', () => {
+  const view = withPhase('boss');
+  view.chapter.boss.hints = ['Look for a name nobody would type.', 'Use ls.'];
+  const html = questHTML(view);
+  assert.match(html, /<b>A nudge<\/b><span>Look for a name nobody would type\.<\/span>.*<b>The technique<\/b><span>Use ls\.<\/span>/s);
+  assert.doesNotMatch(html, /Which command prints/);
+});
+
 test('with every hint revealed the hint button is disabled', () => {
   assert.match(questHTML(sampleView({ hint: null })), /<button[^>]*id="hintBtn"[^>]*disabled>No more hints for this step/);
 });
@@ -52,7 +60,7 @@ test('a cleared chapter offers the adventure log and no hints', () => {
 });
 
 test('locked spells hide their examples', () => {
-  const html = spellsHTML(sampleView().spells);
+  const html = spellsHTML(sampleView().spellbook);
   assert.match(html, /<div class="spell locked"><h3>cd<\/h3><p>Locked: you learn it in a later chapter\.<\/p><\/div>/);
 });
 

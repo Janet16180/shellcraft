@@ -1,6 +1,5 @@
 import { actName } from './panels.js';
 
-const MAX_HEARTS = 3;
 const HEART = '<svg viewBox="0 0 7 6" width="21" height="18" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M1 0h2v1h1V0h2v1h1v2H6v1H5v1H4v1H3V5H2V4H1V3H0V1h1z"/></svg>';
 
 /**
@@ -28,19 +27,18 @@ export function chapterLabel({ act, number, total }) {
 /**
  * Pixel hearts, the lost ones dimmed.
  *
- * @param {number} hearts Hearts left.
- * @param {number} [max] Hearts in all.
+ * @param {{left: number, max: number}} hearts Hearts left and in all.
  * @returns {string} SVG markup.
  */
-export function heartsHTML(hearts, max = MAX_HEARTS) {
-  return Array.from({ length: max }, (_, i) => (i < hearts ? HEART : HEART.replace('<svg', '<svg class="lost"'))).join('');
+export function heartsHTML({ left, max }) {
+  return Array.from({ length: max }, (_, i) => (i < left ? HEART : HEART.replace('<svg', '<svg class="lost"'))).join('');
 }
 
 /**
  * Draw the HUD from the View.
  *
  * @param {Document} doc The page.
- * @param {{chapter: object, xp: number, rank: object, hearts: number, sound: boolean}} view The session View.
+ * @param {{chapter: object, xp: number, rank: object, hearts: {left: number, max: number}, sound: boolean}} view The session View.
  * @returns {void}
  */
 export function renderHUD(doc, { chapter, xp, rank, hearts, sound }) {
@@ -53,7 +51,7 @@ export function renderHUD(doc, { chapter, xp, rank, hearts, sound }) {
   doc.getElementById('rank').textContent = rank.title;
   const heartsEl = doc.getElementById('hearts');
   heartsEl.innerHTML = heartsHTML(hearts);
-  heartsEl.setAttribute('aria-label', `${hearts} of ${MAX_HEARTS} hearts`);
+  heartsEl.setAttribute('aria-label', `${hearts.left} of ${hearts.max} hearts`);
   const soundBtn = doc.getElementById('soundBtn');
   soundBtn.textContent = `Sound: ${sound ? 'on' : 'off'}`;
   soundBtn.setAttribute('aria-pressed', String(sound));

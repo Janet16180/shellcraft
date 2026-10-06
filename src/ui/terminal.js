@@ -1,4 +1,4 @@
-import { chunkLine, displayPath, esc, promptHTML } from './output.js';
+import { chunkLine, clears, displayPath, esc, promptHTML } from './output.js';
 import { createHistory } from './history.js';
 
 const MAX_LINES = 600;
@@ -15,6 +15,7 @@ function append(t, cls, html) {
 function print(t, chunks) {
   for (const chunk of chunks) {
     const line = chunkLine(chunk);
+    if (clears(chunk)) t.out.replaceChildren();
     if (line) append(t, line.cls, line.html);
   }
 }

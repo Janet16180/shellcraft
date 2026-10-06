@@ -16,7 +16,7 @@ test('the chapter label names the act and the place in the book', () => {
 });
 
 test('hearts show filled and lost hearts, lost ones marked', () => {
-  const html = heartsHTML(2, 3);
+  const html = heartsHTML({ left: 2, max: 3 });
   assert.equal((html.match(/<svg/g) ?? []).length, 3);
   assert.equal((html.match(/class="lost"/g) ?? []).length, 1);
 });

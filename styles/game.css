@@ -35,11 +35,14 @@ button {
   outline-offset: 4px;
 }
 
+/* Pixelify Sans: weight 500 keeps C apart from O and 2 apart from 8, and its fi
+   ligature looks like an A, so ligatures are off. */
 h1,
 h2,
 h3 {
   font-family: var(--font-title);
-  font-weight: 700;
+  font-weight: 500;
+  font-variant-ligatures: none;
   line-height: 1.2;
   text-wrap: balance;
   margin: 0;
@@ -159,12 +162,18 @@ kbd {
   }
 }
 
+/* A window: a light 4px frame with notched corners, an ink outline round it and a hard
+   drop shadow. Set --frame on an element to recolour its frame. */
 .window {
   background: var(--panel);
-  box-shadow: var(--window);
+  box-shadow:
+    0 -4px 0 0 var(--frame), 0 4px 0 0 var(--frame), -4px 0 0 0 var(--frame), 4px 0 0 0 var(--frame),
+    0 -8px 0 0 var(--c-ink), 0 8px 0 0 var(--c-ink), -8px 0 0 0 var(--c-ink), 8px 0 0 0 var(--c-ink),
+    -4px -4px 0 0 var(--c-ink), 4px -4px 0 0 var(--c-ink), -4px 4px 0 0 var(--c-ink), 4px 4px 0 0 var(--c-ink),
+    inset 0 0 0 4px var(--c-ink),
+    10px 10px 0 0 rgba(0, 0, 0, 0.45);
 }
 
-/* ---------- layout ---------- */
 
 .app {
   max-width: 1400px;
@@ -277,7 +286,6 @@ kbd {
   80% { transform: translateX(3px); }
 }
 
-/* ---------- map ---------- */
 
 .mapwrap {
   grid-area: map;
@@ -321,8 +329,7 @@ kbd {
 .stage {
   position: relative;
   line-height: 0;
-  background: #000;
-  box-shadow: var(--window);
+  background: var(--c-ink);
 }
 
 .stage canvas {
@@ -424,7 +431,6 @@ kbd {
   color: var(--muted);
 }
 
-/* ---------- quest, spellbook, chapters ---------- */
 
 .panelwrap {
   grid-area: panel;
@@ -500,7 +506,7 @@ kbd {
 }
 
 .lesson .warn {
-  color: #ffb0bd;
+  color: var(--warn-text);
 }
 
 /* The quest log: one framed row per task; the next one is gold, done ones are ticked. */
@@ -724,7 +730,7 @@ kbd {
   font-variant-numeric: tabular-nums;
 }
 
-.levels .act {
+.act {
   margin: 10px 0 4px;
   font-size: 12px;
   letter-spacing: 0.14em;
@@ -762,18 +768,19 @@ kbd {
   color: var(--muted);
 }
 
-/* ---------- terminal ---------- */
 
 .term {
   grid-area: term;
+  position: sticky;
+  top: 16px;
+  align-self: start;
   display: flex;
   flex-direction: column;
-  min-height: 600px;
-  max-height: calc(100vh - 140px);
+  height: calc(100vh - 140px);
+  min-height: 560px;
+  max-height: 960px;
   min-width: 0;
   background: var(--term-bg);
-  box-shadow: var(--window);
-  position: relative;
 }
 
 .termbar {
@@ -903,13 +910,9 @@ kbd {
   border: 0;
   outline: none;
   padding: 0;
-  color: #fff;
+  color: var(--text);
   font: inherit;
   caret-color: var(--accent);
-}
-
-.term:focus-within {
-  box-shadow: var(--window), 0 0 0 10px rgba(255, 211, 72, 0.18);
 }
 
 .keys {
@@ -932,24 +935,24 @@ kbd {
 }
 
 .callout {
-  position: absolute;
-  right: 18px;
-  bottom: 64px;
-  max-width: min(340px, calc(100% - 36px));
+  position: relative;
+  margin-top: 16px;
+  max-width: 360px;
   padding: 10px 14px;
   background: var(--c-ink);
   box-shadow: inset 0 0 0 3px var(--accent), 6px 6px 0 rgba(0, 0, 0, 0.5);
+  font-family: var(--font-prose);
   font-size: 15px;
   line-height: 1.4;
-  z-index: 2;
+  white-space: normal;
 }
 
-.callout::after {
+.callout::before {
   content: "";
   position: absolute;
   left: 28px;
-  bottom: -12px;
-  border-top: 12px solid var(--accent);
+  top: -12px;
+  border-bottom: 12px solid var(--accent);
   border-right: 12px solid transparent;
 }
 
@@ -960,6 +963,8 @@ kbd {
   }
 
   .term {
+    position: relative;
+    top: 0;
     min-height: 0;
     height: 70vh;
     max-height: none;

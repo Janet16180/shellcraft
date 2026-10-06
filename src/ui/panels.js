@@ -28,8 +28,13 @@ function taskRow({ goal, done, next }, index) {
   return `<li class="${cls}"${current}><span class="num" aria-hidden="true">${done ? '&#10003;' : index + 1}</span><span class="goal">${esc(goal)}${state}</span></li>`;
 }
 
+function revealedHints({ phase, tasks, boss }) {
+  if (phase === 'boss') return boss.hints;
+  return tasks.find(task => task.next)?.hints ?? [];
+}
+
 function hintsHTML(hint, hints) {
-  const revealed = hints.map(h => `<li><b>${esc(hintTitle(h.level))}</b><span>${esc(h.text)}</span></li>`).join('');
+  const revealed = hints.map((text, i) => `<li><b>${esc(hintTitle(i + 1))}</b><span>${esc(text)}</span></li>`).join('');
   return `<div class="hintbox">
     ${revealed ? `<ul class="hints" aria-label="Hints">${revealed}</ul>` : ''}
     <button class="px-btn small" id="hintBtn" type="button"${hint ? '' : ' disabled'}>${esc(hintLabel(hint))}</button>
@@ -48,12 +53,13 @@ function clearedHTML() {
 }
 
 /**
- * The Quest panel: lesson, quest log or boss briefing, and hints.
+ * The Quest panel: lesson, quest log or boss briefing, and hints. The hints
+ * shown are the ones revealed for the next task, or for the boss.
  *
- * @param {{chapter: object, hint: {level: number, cost: number}|null, hints: {level: number, text: string}[]}} view The session View.
+ * @param {{chapter: object, hint: {level: number, cost: number}|null}} view The session View.
  * @returns {string} HTML.
  */
-export function questHTML({ chapter, hint, hints }) {
+export function questHTML({ chapter, hint }) {
   const { number, title, phase, lesson, tasks, boss } = chapter;
   let body = `<ol class="quest-log" aria-label="Tasks">${tasks.map(taskRow).join('')}</ol>`;
   if (phase === 'boss') body = bossHTML(boss);
@@ -62,7 +68,7 @@ export function questHTML({ chapter, hint, hints }) {
     <h2>${esc(title)}</h2>
     <div class="lesson">${lesson}</div>
     ${body}
-    ${phase === 'done' ? '' : hintsHTML(hint, hints)}`;
+    ${phase === 'done' ? '' : hintsHTML(hint, revealedHints(chapter))}`;
 }
 
 function spellHTML({ name, summary, examples, unlocked }) {

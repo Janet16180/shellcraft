@@ -1,0 +1,22 @@
+/**
+ * The composition root: the simulated bash, the game session over it, the map
+ * and the page. Nothing else lives here.
+ */
+
+import { createSimBackend } from './shell/backend.js';
+import { createSession } from './game/session.js';
+import chapters from './game/chapters/index.js';
+import { baseWorld } from './game/world.js';
+import { createMap, describeRoom } from './map/index.js';
+import { createStore } from './ui/store.js';
+import { startApp } from './ui/app.js';
+
+const session = createSession({
+  backend: createSimBackend(),
+  chapters,
+  baseWorld,
+  store: createStore(() => window.localStorage),
+  random: Math.random,
+});
+
+startApp({ doc: document, session, createMap, describeRoom, createIntroBackend: createSimBackend });

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { esc, displayPath, promptHTML, chunkLine } from '../../src/ui/output.js';
+import { esc, displayPath, promptHTML, chunkLine, clears } from '../../src/ui/output.js';
 
 const HERO = { user: 'hero', host: 'kernelia', home: '/home/hero' };
 
@@ -58,4 +58,11 @@ test('standard error is marked as an error line', () => {
 test('a note is the game speaking: marked, prefixed and coloured by its tone', () => {
   assert.deepEqual(chunkLine({ stream: 'note', text: 'A real pager opens here.' }), { cls: 'ln note', html: '» A real pager opens here.' });
   assert.equal(chunkLine({ stream: 'note', text: 'Ha!', tone: 'daemon' }).cls, 'ln note tone-daemon');
+});
+
+test('the clear chunk is an instruction to the screen, not text to print', () => {
+  const chunk = { stream: 'out', text: '\u001b[H\u001b[2J\u001b[3J', tone: 'clear' };
+  assert.equal(chunkLine(chunk), null);
+  assert.equal(clears(chunk), true);
+  assert.equal(clears({ stream: 'out', text: 'hi\n' }), false);
 });

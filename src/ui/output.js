@@ -42,14 +42,25 @@ export function promptHTML({ user, host, cwd, home }) {
 }
 
 /**
+ * Whether a chunk is `clear` asking for an empty screen.
+ *
+ * @param {import('../backend/port.js').OutputChunk} chunk One piece of output.
+ * @returns {boolean} True for the chunk the backend marks with the tone 'clear'.
+ */
+export function clears(chunk) {
+  return chunk.tone === 'clear';
+}
+
+/**
  * Turn one output chunk into a terminal line. The final newline a program
  * writes is dropped because each line is its own block.
  *
  * @param {import('../backend/port.js').OutputChunk} chunk One piece of output.
  * @returns {{cls: string, html: string} | null} Classes and HTML for the line, or null when there is nothing to show.
  */
-export function chunkLine({ stream, text, html, tone }) {
-  if (text === '' && !html) return null;
+export function chunkLine(chunk) {
+  const { stream, text, html, tone } = chunk;
+  if ((text === '' && !html) || clears(chunk)) return null;
   const classes = ['ln'];
   if (stream !== 'out') classes.push(stream);
   if (tone) classes.push(`tone-${tone}`);

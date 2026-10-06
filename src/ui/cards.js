@@ -89,7 +89,7 @@ export function debriefHTML({ chapter, recap, why, field, xp, next }) {
 export function openCard(doc, html, kind = '') {
   const overlay = doc.getElementById('overlay');
   const card = doc.getElementById('card');
-  card.className = `card ${kind}`.trim();
+  card.className = `card window ${kind}`.trim();
   card.innerHTML = html;
   overlay.hidden = false;
   overlay.classList.remove('show');

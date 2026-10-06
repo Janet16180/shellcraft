@@ -6,7 +6,8 @@
  * type one line; going Back replays the lines of the earlier steps.
  *
  * Step fields:
- * - id, title: a unique name and the caption heading.
+ * - id, title: a unique name and the caption heading (trusted HTML: code for commands,
+ *   because the pixel title font blurs c into o).
  * - text: caption paragraphs, trusted HTML (p-level content: code, kbd, b, em).
  * - type: a line to type and run when the step opens.
  * - focus: for the prompt steps, the piece of the prompt being explained.
@@ -30,15 +31,13 @@ This scroll is the file readme.txt in your home directory.
 Doors are directories. Walk through one with cd.
 `;
 
-/** The intro's world: a home with one door and one scroll. */
+/** The intro's world, added to the backend's empty home: one door and one scroll. */
 export const WORLD = [
-  put(HOME, dir({
-    forest: dir({
-      cave: dir({}, OWN),
-      'mushroom.txt': file('A glowing mushroom. It hums quietly.\n', OWN),
-    }, OWN),
-    'readme.txt': file(README, OWN),
-  }, { ...OWN, mode: 0o750 })),
+  put(`${HOME}/forest`, dir({
+    cave: dir({}, OWN),
+    'mushroom.txt': file('A glowing mushroom. It hums quietly.\n', OWN),
+  }, OWN)),
+  put(`${HOME}/readme.txt`, file(README, OWN)),
   cd(HOME),
 ];
 
@@ -104,7 +103,7 @@ export const STEPS = [
   },
   {
     id: 'ls',
-    title: 'Look around with ls',
+    title: 'Look around with <code>ls</code>',
     type: 'ls',
     text: [
       '<code>ls</code> lists the files and directories where you are (names that start with a dot stay hidden unless you ask). The room lights up: each <b>door</b> is a directory and each <b>item</b> is a file.',
@@ -114,7 +113,7 @@ export const STEPS = [
   },
   {
     id: 'cd-forest',
-    title: 'Walk through a door with cd',
+    title: 'Walk through a door with <code>cd</code>',
     type: 'cd forest',
     say: 'Into the forest!',
     text: [
@@ -125,7 +124,7 @@ export const STEPS = [
   },
   {
     id: 'cd-up',
-    title: 'Go back up with cd ..',
+    title: 'Go back up with <code>cd ..</code>',
     type: 'cd ..',
     text: [
       '<code>..</code> (two dots) is the parent directory: the one this directory sits in. The parent of <code>~/forest</code> is your home, so you are back where you started.',
@@ -134,7 +133,7 @@ export const STEPS = [
   },
   {
     id: 'cat',
-    title: 'Read a file with cat',
+    title: 'Read a file with <code>cat</code>',
     type: 'cat readme.txt',
     scroll: true,
     text: [

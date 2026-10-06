@@ -57,7 +57,7 @@ function show(ui, view) {
   ui.sound.setOn(view.sound);
   renderHUD(doc, view);
   doc.getElementById('tab-quest').innerHTML = questHTML(view);
-  doc.getElementById('spells').innerHTML = spellsHTML(view.spells);
+  doc.getElementById('spells').innerHTML = spellsHTML(view.spellbook);
   doc.getElementById('levels').innerHTML = chaptersHTML(view.chapters);
   renderCrumbs(doc, view.prompt);
   ui.terminal.setPrompt(view.prompt);
@@ -129,7 +129,7 @@ function typedHint(ui) {
   }
   const hint = revealHint(ui);
   if (hint) ui.terminal.printLine(`${hintTitle(hint.level)}: ${hint.text}`, 'hint');
-  ui.terminal.printLine(typedHintFollowUp(ui.view.hint), 'sys');
+  ui.terminal.printLine(hint ? typedHintFollowUp(ui.view.hint) : 'There are no more hints for this step.', 'sys');
   ui.hintPending = Boolean(ui.view.hint);
 }
 
@@ -141,19 +141,23 @@ function revealHint(ui) {
 }
 
 function applyTurn(ui, turn) {
-  if (turn.result.commands.some(c => c.name === 'clear' && c.status === 0)) ui.terminal.clear();
   ui.terminal.print(turn.result.output);
   if (turn.result.output.some(chunk => chunk.stream === 'err')) ui.sound.play('err');
-  if (turn.effects.some(e => e.type === 'travel')) ui.sound.play('step');
+  if (turn.effects.some(e => e.kind === 'travel')) ui.sound.play('step');
   ui.mapQueue = ui.mapQueue.then(() => ui.map.play(turn.effects, turn.obs));
   announceRoom(ui, turn.obs);
   show(ui, turn.view);
-  for (const event of turn.events) onEvent(ui, event);
+  for (const event of turn.events) onEvent(ui, event, turn.events);
 }
 
+const RESTORED = {
+  quest: 'The Guardian set this chapter up again and refilled your hearts. Finished tasks stay finished, and your XP is safe.',
+  boss: 'The Guardian built a new boss room and refilled your hearts. Your hints and XP are safe.',
+};
+
 const EVENTS = {
-  task(ui, { index, xp }) {
-    toast(ui, `Quest complete: ${ui.view.chapter.tasks[index].goal}  +${xp} XP`);
+  task(ui, { goal, xp }) {
+    toast(ui, `Quest complete: ${goal}  +${xp} XP`);
     ui.sound.play('ok');
     confetti(ui.doc.getElementById('confetti'), { origins: [[0.3, 0.3]], count: 30 });
   },
@@ -164,8 +168,10 @@ const EVENTS = {
     toast(ui, `Boss defeated  +${xp} XP`);
     ui.sound.play('ok');
   },
-  chapter(ui, event) {
-    afterMap(ui, () => openDebrief(ui, event));
+  chapter(ui, event, events) {
+    const xp = events.filter(e => e.kind === 'boss' || e.kind === 'chapter').reduce((sum, e) => sum + e.xp, 0);
+    ui.log = { ...event, xp };
+    afterMap(ui, () => openDebrief(ui));
   },
   'heart-lost'(ui, { reason }) {
     ui.terminal.printLine(`[Guardian] ${reason}`, 'note');
@@ -173,18 +179,15 @@ const EVENTS = {
     shake(ui);
     ui.map.say('Ouch!', 'player');
   },
-  'hearts-restored'(ui) {
-    ui.terminal.printLine('[Guardian] You ran out of hearts. The Guardian set this part of the world up again and refilled them. Your XP is safe.', 'note');
-  },
-  notice(ui, { text }) {
-    ui.terminal.printLine(text, 'note');
+  'hearts-restored'(ui, { phase }) {
+    ui.terminal.printLine(`[Guardian] You ran out of hearts. ${RESTORED[phase]}`, 'note');
   },
 };
 
-function onEvent(ui, event) {
-  const handler = EVENTS[event.type];
-  if (!handler) throw new Error(`unknown event: ${event.type}`);
-  handler(ui, event);
+function onEvent(ui, event, events) {
+  const handler = EVENTS[event.kind];
+  if (!handler) throw new Error(`unknown event: ${event.kind}`);
+  handler(ui, event, events);
 }
 
 function afterMap(ui, open) {
@@ -202,12 +205,13 @@ function openBoss(ui) {
   };
 }
 
-function openDebrief(ui, event) {
+function openDebrief(ui) {
   const { chapters, chapter } = ui.view;
+  const { recap, field, why = '', xp } = ui.log;
   const index = chapters.findIndex(c => c.id === chapter.id);
   ui.sound.play('level');
   confetti(ui.doc.getElementById('confetti'), { origins: [[0.25, 0.3], [0.75, 0.3]] });
-  const html = debriefHTML({ chapter, recap: event.recap, why: event.why ?? '', field: event.field, xp: event.xp ?? 0, next: chapters[index + 1] ?? null });
+  const html = debriefHTML({ chapter, recap, why, field, xp, next: chapters[index + 1] ?? null });
   const card = openCard(ui.doc, html, 'log');
   card.querySelector('#stayBtn').onclick = () => {
     closeCard(ui.doc);
@@ -261,7 +265,7 @@ function showCallout(ui, html) {
   callout.className = 'callout';
   callout.setAttribute('role', 'note');
   callout.innerHTML = html;
-  ui.doc.getElementById('term').append(callout);
+  ui.doc.getElementById('screen').append(callout);
 }
 
 function showTab(doc, name) {
@@ -306,7 +310,7 @@ function wireControls(ui) {
   });
   doc.getElementById('tab-quest').addEventListener('click', event => {
     if (event.target.closest('#hintBtn')) revealHint(ui);
-    if (event.target.closest('#logBtn')) openDebrief(ui, ui.view.chapter);
+    if (event.target.closest('#logBtn')) openDebrief(ui);
   });
   doc.getElementById('soundBtn').addEventListener('click', () => {
     session.setSound(!ui.view.sound);

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { STEPS, WORLD, PROMPT_PIECES } from '../../src/intro/steps.js';
 import { validatePatch } from '../../src/backend/spec.js';
+import { createSimBackend } from '../../src/shell/backend.js';
 
 const ALLOWED_TAGS = new Set(['code', 'kbd', 'b', 'em']);
 const ROLES = new Set(['command', 'option', 'argument']);
@@ -20,7 +21,7 @@ function balanced(html) {
 }
 
 function captions(step) {
-  return [...step.text, ...(step.keys ?? []).map(([, what]) => what)];
+  return [step.title, ...step.text, ...(step.keys ?? []).map(([, what]) => what)];
 }
 
 test('every step has a unique id, a title and at least one caption paragraph', () => {
@@ -32,7 +33,7 @@ test('every step has a unique id, a title and at least one caption paragraph', (
   }
 });
 
-test('captions use only inline tags, balanced, and never angle-bracket placeholders', () => {
+test('titles and captions use only inline tags, balanced, and never angle-bracket placeholders', () => {
   for (const step of STEPS) {
     for (const html of captions(step)) {
       for (const tag of tagsIn(html)) assert.ok(ALLOWED_TAGS.has(tag), `${step.id}: <${tag}>`);
@@ -79,4 +80,61 @@ test('the keys step covers Enter, Tab, Up, man and hint', () => {
 
 test('the intro world is a valid patch', () => {
   assert.equal(validatePatch(WORLD), WORLD);
+});
+
+async function introShell() {
+  const backend = createSimBackend();
+  await backend.load(WORLD);
+  return backend;
+}
+
+const text = result => result.output.map(c => c.text).join('');
+
+test('every line the intro types runs without an error in the simulator, in storyboard order', async () => {
+  const backend = await introShell();
+  for (const step of STEPS.filter(s => s.type)) {
+    const result = await backend.run(step.type);
+    assert.equal(result.status, 0, step.type);
+    assert.ok(result.output.every(c => c.stream !== 'err'), step.type);
+  }
+});
+
+test('ls shows forest as a directory and readme.txt as a file, as the captions say', async () => {
+  const backend = await introShell();
+  assert.match(text(await backend.run('ls')), /forest\s+readme\.txt/);
+  const home = (await backend.observe()).tree.children.home.children.hero.children;
+  assert.equal(home.forest.type, 'dir');
+  assert.equal(home['readme.txt'].type, 'file');
+});
+
+test('cd forest prints nothing and the prompt shows ~/forest; cd .. comes back home', async () => {
+  const backend = await introShell();
+  assert.equal(text(await backend.run('cd forest')), '');
+  assert.equal((await backend.observe()).cwd, '/home/hero/forest');
+  await backend.run('cd ..');
+  assert.equal((await backend.observe()).cwd, '/home/hero');
+});
+
+test('ls -l forest prints one long line per entry with permissions, owner and size', async () => {
+  const backend = await introShell();
+  const lines = text(await backend.run('ls -l forest')).trim().split('\n');
+  assert.match(lines[0], /^total \d+$/);
+  assert.match(lines[1], /^drwxr-xr-x +\d+ hero hero +\d+ .+ cave$/);
+  assert.match(lines[2], /^-rw-r--r-- +\d+ hero hero +\d+ .+ mushroom\.txt$/);
+});
+
+test('Tab after cd fo completes to cd forest/, as the keys step says', async () => {
+  const backend = await introShell();
+  assert.equal((await backend.complete('cd fo')).line, 'cd forest/');
+});
+
+test('the prompt pieces match the simulator user, host and home', async () => {
+  const obs = await (await introShell()).observe();
+  assert.deepEqual([obs.user, obs.host, obs.home], ['hero', 'kernelia', '/home/hero']);
+});
+
+test('a title that names a command shows it in the monospace face', () => {
+  for (const step of STEPS.filter(s => s.type && /with /.test(s.title))) {
+    assert.match(step.title, /<code>[^<]+<\/code>$/, step.id);
+  }
 });
