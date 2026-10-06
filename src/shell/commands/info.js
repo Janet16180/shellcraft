@@ -6,6 +6,7 @@ import { result } from '../result.js';
 import { localeQuote } from '../quote.js';
 import { parseOptions } from '../options.js';
 import { builtinOptions } from '../builtins.js';
+import { TERMINAL } from '../system.js';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -62,6 +63,33 @@ function uname(args, { sys }) {
   return result(`${keys.map(k => UNAME_FIELDS[k](sys)).join(' ')}\n`);
 }
 
+const WHO_HEADING = 'NAME     LINE         TIME             COMMENT\n';
+
+function loginLine({ user, line, time }) {
+  const d = new Date(time);
+  const date = `${d.getUTCFullYear()}-${two(d.getUTCMonth() + 1)}-${two(d.getUTCDate())} ${two(d.getUTCHours())}:${two(d.getUTCMinutes())}`;
+  return `${user.padEnd(8)} ${line.padEnd(12)} ${date}\n`;
+}
+
+/**
+ * The machine's only login record is the player's session on the terminal.
+ * A FILE operand names another record file, and the simulator has none, so
+ * it lists no one. `-m` (or any two operands, like `am i`) keeps the record of
+ * the terminal on standard input, so it lists no one when input is redirected.
+ */
+function who(args, { sys, stdin }) {
+  const o = parseOptions('who', args, 'Hmqs');
+  const records = o.rest.length === 1 ? [] : [{ user: sys.user, line: TERMINAL, time: sys.loginTime }];
+  const onlyStdin = o.flags.has('m') || o.rest.length === 2;
+  const shown = onlyStdin && stdin != null ? [] : records;
+  let text = (o.flags.has('H') ? WHO_HEADING : '') + shown.map(loginLine).join('');
+  if (o.flags.has('q')) text = `${records.map(r => r.user).join(' ')}\n# users=${records.length}\n`;
+  let r = result(text);
+  if (o.err) r = result('', o.err, 1);
+  else if (o.rest.length > 2) r = result('', `who: extra operand ${localeQuote(o.rest[2])}\nTry 'who --help' for more information.`, 1);
+  return r;
+}
+
 function id(args, { sys }) {
   const o = parseOptions('id', args, 'ugGnr');
   if (o.err) return result('', o.err, 1);
@@ -111,6 +139,7 @@ function echo(args) {
 export default {
   pwd,
   whoami,
+  who,
   id,
   groups: (_args, { sys }) => result(`${sys.groups.join(' ')}\n`),
   hostname: (_args, { sys }) => result(`${sys.host}\n`),

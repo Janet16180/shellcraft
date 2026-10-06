@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { materialize } from '../../difftest/materialize.js';
+import { materialize, loginRecord } from '../../difftest/materialize.js';
 import { put, remove, cd, proc, dir, file } from '../../src/backend/spec.js';
 
 const T = Date.UTC(2026, 9, 6, 10);
@@ -50,4 +50,9 @@ test('a child of a kept system directory is replaced, not merged', () => {
   const { script } = materialize([put('/var', dir({ log: dir({ syslog: file('x') }) }))], T);
   assert.ok(script.indexOf("rm -rf -- '/var/log'") < script.indexOf("mkdir -- '/var/log'"));
   assert.doesNotMatch(script, /rm -rf -- '\/var'\n/);
+});
+
+test('the login record puts the user on the terminal at the given time, as utmpdump reads it', () => {
+  assert.equal(loginRecord('hero', 'pts/0', T),
+    "printf '%s\\n' '[7] [00000] [ts/0] [hero] [pts/0] [] [0.0.0.0] [2026-10-06T10:00:00,000000+00:00]' | utmpdump -r -o /run/utmp\n");
 });

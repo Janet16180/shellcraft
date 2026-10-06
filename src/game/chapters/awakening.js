@@ -74,12 +74,6 @@ function readNear(ctx) {
   return note;
 }
 
-function helpNear(ctx) {
-  let note = null;
-  if (ctx.commands.some(record => record.args.includes('-help'))) note = 'For most commands, one dash starts short options, so -help means -h -e -l -p. Long options take two dashes: --help.';
-  else if (ctx.tried('echo', record => record.args.includes('--help'))) note = 'echo prints its words back, even --help. Ask another command, like ls --help.';
-  return note;
-}
 
 function bossNear(ctx, secret) {
   const forgery = secret.forgeries.find(deed => didDeed(ctx, deed));
@@ -120,7 +114,7 @@ export default {
     ...LETTERS.map(name => remove(`${player.home}/${name}`)),
     cd(player.home),
   ],
-  lesson: `<p>You met the <b>prompt</b> in the intro: <code>hero@kernelia:~$</code>. The <code>~</code> in it is short for your home, <code>/home/hero</code>. Type a command after the prompt and press <kbd>Enter</kbd>. Commands are case-sensitive: <code>ls</code> works, <code>LS</code> does not.</p>
+  lesson: `<p>You met the <b>prompt</b> in the intro, and the <b>Replay intro</b> button shows it again: <code>hero@kernelia:~$</code> names you, the machine and the directory you are in, where <code>~</code> is short for your home, <code>/home/hero</code>. The <code>$</code> means you are a normal user; root, the administrator, gets <code>#</code>. Type a command after the prompt and press <kbd>Enter</kbd>. Commands are case-sensitive: <code>ls</code> works, <code>LS</code> does not.</p>
 <ul>
 <li><code>whoami</code> prints your user name.</li>
 <li><code>pwd</code> prints the full path of the directory you are in. The name means <b>p</b>rint <b>w</b>orking <b>d</b>irectory.</li>
@@ -194,7 +188,8 @@ export default {
       ],
       // bash's echo prints --help back instead of answering it.
       done: ctx => ctx.commands.some(record => record.name !== 'echo' && record.args.includes('--help') && record.stdout !== ''),
-      near: helpNear,
+      near: ctx => (ctx.tried('echo', record => record.args.includes('--help'))
+        ? 'echo prints its words back, even --help. Ask another command, like ls --help.' : null),
     },
     {
       goal: 'Wipe the screen clean with the `clear` command',

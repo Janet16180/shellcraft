@@ -25,24 +25,8 @@ const usedTab = ctx => ctx.completions.some(tab => tab.completed !== tab.line);
 const walkedIntoForest = ctx => !isInside(ctx.before.cwd, forestOf(ctx)) && isInside(ctx.cwd, forestOf(ctx));
 const steppedOutOfDeep = ctx => ctx.before.cwd === deepOf(ctx) && ctx.cwd === caveOf(ctx);
 
-function pathNear(ctx) {
-  const failed = ctx.commands.find(record => record.name === 'cd' && record.status !== 0);
-  if (!failed) return null;
-
-  const forest = forestOf(ctx);
-  const arg = failed.args[0] ?? '';
-  const fromHere = arg.slice('forest/'.length);
-  const already = 'You are already in the forest (the prompt shows ~/forest).';
-  let note = null;
-  if (arg.startsWith('forest/') && failed.cwd === forest) note = fromHere ? `${already} From here the path is ${fromHere}.` : already;
-  else if (arg.startsWith('/forest')) note = `A path that starts with / starts at the root, not at your home. Your forest is ${forest}, or ~/forest.`;
-  return note;
-}
-
-function riverNear(ctx) {
-  const relative = ctx.cwd === riverOf(ctx) && ctx.ran('cd', record => record.args.length > 0 && record.args[0] !== '-' && !isAbsolute(record));
-  return relative ? 'You reached the river with a relative path. This task wants an absolute one, starting with /.' : pathNear(ctx);
-}
+const reachedRiverRelatively = ctx => ctx.cwd === riverOf(ctx)
+  && ctx.ran('cd', record => record.args.length > 0 && record.args[0] !== '-' && !isAbsolute(record));
 
 function setupBoss(random, { home, user }) {
   const target = `${home}/forest${pick(random, SPOTS)}/${BEACON}${token(random, 3)}`;
@@ -118,7 +102,6 @@ export default {
         'cd ~/forest/cave/deep',
       ],
       done: ctx => ctx.cwd === deepOf(ctx),
-      near: pathNear,
     },
     {
       goal: 'Read what glitters in there',
@@ -152,7 +135,7 @@ export default {
       ],
       done: ctx => ctx.cwd === riverOf(ctx)
         && ctx.ran('cd', record => isAbsolute(record) && ctx.hasPath(record, riverOf(ctx))),
-      near: riverNear,
+      near: ctx => (reachedRiverRelatively(ctx) ? 'You reached the river with a relative path. This task wants an absolute one, starting with /.' : null),
     },
     {
       goal: 'Jump back to where you were with `cd -`',

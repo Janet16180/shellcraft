@@ -17,3 +17,9 @@ test('only known commands have a page; asking for another raises', () => {
   assert.equal(hasManPage('toString'), false);
   assert.throws(() => manText('nope', false), /no manual page/);
 });
+
+test('who has a page with its real synopsis and the options the game simulates', () => {
+  const help = manText('who', true);
+  assert.match(help, /^Usage: who \[OPTION\]\.\.\. \[ FILE \| ARG1 ARG2 \]\nPrint information about users who are currently logged in\.\n/);
+  for (const option of ['-H', '-m', '-q', '-s']) assert.match(help, new RegExp(`^  ${option} `, 'm'));
+});

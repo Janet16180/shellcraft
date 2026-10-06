@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import chapter from '../../../src/game/chapters/forest.js';
 import { assertChapter } from '../../helpers/chapter.js';
 import { nodeAt } from '../../../src/game/checks.js';
-import { PLAYER, startChapter, type, play, startBoss, notFound, codeSnippets } from './harness.js';
+import { PLAYER, startChapter, type, play, startBoss, notFound, codeSnippets, nearTitle, assertNear } from './harness.js';
 
 const HOME = PLAYER.home;
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -97,15 +97,14 @@ const NEAR_NOTES = [
   ['Enter the forest', [], 'ls forest', /cd forest/],
   ['Enter the forest', [], 'cd forest', null],
   ['Enter the forest', ['cd forest'], 'ls ~/forest', null],
-  ['Go deeper into the cave, all the way to `forest/cave/deep`', ['cd forest'], 'cd forest/cave/deep', /already in the forest.*cave\/deep/],
-  ['Go deeper into the cave, all the way to `forest/cave/deep`', ['cd forest'], 'cd forest/', /^You are already in the forest \(the prompt shows ~\/forest\)\.$/],
-  ['Go deeper into the cave, all the way to `forest/cave/deep`', [], 'cd /forest/cave/deep', /\/home\/hero\/forest/],
+  ['Go deeper into the cave, all the way to `forest/cave/deep`', ['cd forest'], 'cd forest/cave/deep', { coach: /already in forest.*cave\/deep/ }],
+  ['Go deeper into the cave, all the way to `forest/cave/deep`', [], 'cd /forest/cave/deep', { coach: /\/home\/hero\/forest/ }],
   ['Go deeper into the cave, all the way to `forest/cave/deep`', ['cd forest'], 'cd cave/deep', null],
   ['Go deeper into the cave, all the way to `forest/cave/deep`', [], 'cd forest/caev/deep', null],
   ['From deep, step back out into the cave with `..`', ['cd forest/cave/deep'], 'cd ~/forest/cave', /\.\./],
   ['From deep, step back out into the cave with `..`', ['cd forest/cave/deep'], 'cd ..', null],
   ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd ../river', /relative/],
-  ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd /forest/river', /\/home\/hero\/forest/],
+  ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd /forest/river', { coach: /\/home\/hero\/forest/ }],
   ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd /home/hero/forest/river', null],
   ['Jump to the river with an absolute path', ['cd forest/river'], 'cd .', /relative/],
   ['Jump to the river with an absolute path', ['cd forest/river', 'cd ../cave'], 'cd -', null],
@@ -119,14 +118,12 @@ const NEAR_NOTES = [
 ];
 
 for (const [goal, prefix, line, note] of NEAR_NOTES) {
-  test(`"${goal}" gives ${note ? 'a near note' : 'no near note'} for ${JSON.stringify(line)}`, async () => {
+  test(`"${goal}" ${nearTitle(note)} for ${JSON.stringify(line)}`, async () => {
     assert.ok(goal in GOAL, `no task named ${goal}`);
     const backend = await startChapter(chapter);
     await play(chapter, backend, prefix);
     const { ctx } = await type(backend, line);
-    const got = chapter.tasks[GOAL[goal]].near(ctx);
-    if (note) assert.match(got, note);
-    else assert.equal(got, null);
+    assertNear(chapter.tasks[GOAL[goal]].near?.(ctx) ?? null, ctx, note);
   });
 }
 

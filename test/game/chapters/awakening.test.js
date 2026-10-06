@@ -4,7 +4,7 @@ import chapter, { LETTERS } from '../../../src/game/chapters/awakening.js';
 import { assertChapter } from '../../helpers/chapter.js';
 import { nodeAt } from '../../../src/game/checks.js';
 import { createRandom } from '../../../src/game/rng.js';
-import { PLAYER, startChapter, type, play, startBoss, notFound, codeSnippets } from './harness.js';
+import { PLAYER, startChapter, type, play, startBoss, notFound, codeSnippets, nearTitle, assertNear } from './harness.js';
 
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const GOAL = Object.fromEntries(chapter.tasks.map((task, i) => [task.goal, i]));
@@ -71,20 +71,18 @@ const NEAR_NOTES = [
   ['Read the letter left for you', [], 'ls readme.txt', /cat/],
   ['Read the letter left for you', [], 'cat .bashrc', /readme\.txt/],
   ['Read the letter left for you', [], 'cat readme.txt', null],
-  ['Ask a command for its quick help', [], 'ls -help', /^For most commands, one dash starts short options.*two dashes/],
+  ['Ask a command for its quick help', [], 'ls -help', { coach: /two dashes/ }],
   ['Ask a command for its quick help', [], 'echo --help', /echo/],
   ['Ask a command for its quick help', [], 'ls --help', null],
   ['Ask a command for its quick help', [], 'pwd', null],
 ];
 
 for (const [goal, prefix, line, note] of NEAR_NOTES) {
-  test(`"${goal}" gives ${note ? 'a near note' : 'no near note'} for ${line}`, async () => {
+  test(`"${goal}" ${nearTitle(note)} for ${line}`, async () => {
     const backend = await startChapter(chapter);
     await play(chapter, backend, prefix);
     const { ctx } = await type(backend, line);
-    const got = chapter.tasks[GOAL[goal]].near(ctx);
-    if (note) assert.match(got, note);
-    else assert.equal(got, null);
+    assertNear(chapter.tasks[GOAL[goal]].near?.(ctx) ?? null, ctx, note);
   });
 }
 
@@ -182,7 +180,7 @@ test('the exact boss hint is the line that beats the boss', async () => {
   }
 });
 
-const NOT_COMMANDS = new Set(['hero@kernelia:~$', '~', 'LS', 'readme.txt', '--help', '/home/hero']);
+const NOT_COMMANDS = new Set(['hero@kernelia:~$', '~', '$', '#', 'LS', 'readme.txt', '--help', '/home/hero']);
 
 test('every command the chapter shows runs in the simulator', async () => {
   const lines = [
@@ -196,9 +194,11 @@ test('every command the chapter shows runs in the simulator', async () => {
   for (const line of lines) assert.equal(notFound((await type(backend, line)).result), false, line);
 });
 
-test('the lesson points back to the intro for the prompt instead of explaining it again', () => {
-  assert.match(chapter.lesson, /intro/);
-  assert.doesNotMatch(chapter.lesson, /administrator|class="anat"/);
+test('the lesson points back to the intro for the prompt, and tells a player who skipped it how to replay it', () => {
+  assert.match(chapter.lesson, /Replay intro/);
+  assert.match(chapter.lesson, /<code>\$<\/code> means you are a normal user/);
+  assert.match(chapter.lesson, /root, the administrator, gets <code>#<\/code>/);
+  assert.doesNotMatch(chapter.lesson, /class="anat"/);
 });
 
 test('the lesson shows LS as a command that does not exist', async () => {

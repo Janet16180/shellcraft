@@ -12,10 +12,10 @@ Man pages from the Ubuntu 24.04 host.
 
 | Claim | Evidence |
 |---|---|
-| The prompt reads `hero@kernelia:~$` (the lesson now points back to the intro for it) | R3/R5: `hero@kernelia:~$`; `/etc/skel/.bashrc` line 62: `PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '` |
+| The prompt reads `hero@kernelia:~$` and names you, the machine and the directory (the lesson points back to the intro, and to its Replay intro button for players who skipped it: `index.html` `#introBtn`) | R3/R5: `hero@kernelia:~$`; `/etc/skel/.bashrc` line 62: `PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '` |
 | (removed from the lesson in round 2; the intro explains it) `hero` is the user name, `kernelia` the machine | `bash(1)` PROMPTING: `\u the username of the current user`, `\h the hostname up to the first '.'` |
 | `~` in the prompt is short for the home, `/home/hero` | `bash(1)`: `\w the value of the PWD shell variable ($PWD), with $HOME abbreviated with a tilde`; R3: `hero@kernelia:~/forest$` |
-| (removed from the lesson in round 2; the intro explains it) `$` means a normal user, root gets `#` | `bash(1)`: `\$ if the effective UID is 0, a #, otherwise a $`; R5: `root@kernelia:/#` |
+| `$` means you are a normal user; root, the administrator, gets `#` (back in the lesson for players who skip the intro) | `bash(1)`: `\$ if the effective UID is 0, a #, otherwise a $`; R5: `root@kernelia:/#` |
 | Commands are case-sensitive: `ls` works, `LS` does not | D: `LS` -> `bash: LS: command not found`, status 127; SIM test "the lesson shows LS as a command that does not exist" |
 | `whoami` prints your user name | `whoami(1)`: "print effective user name"; R2: `hero` |
 | `pwd` prints the full path of the directory you are in; print working directory | `pwd(1)`: "print name of current/working directory"; R2: `/home/hero` |
@@ -58,7 +58,8 @@ Man pages from the Ubuntu 24.04 host.
 | Look around: "That listed another directory. To look around your home, run ls in your home with nothing after it." | `ls(1)`: with no FILE, the current directory |
 | Read the letter: "ls only shows the name. cat prints what is inside: cat readme.txt" | `ls(1)` lists names; `cat(1)` prints contents; R2 |
 | Read the letter: "That was another file. The letter is readme.txt." | game text; `readme.txt` is the letter (world.md) |
-| Quick help: "For most commands, one dash starts short options, so -help means -h -e -l -p. Long options take two dashes: --help." (was "One dash starts short options", without "For most commands") | D: `ls -help` -> `ls: invalid option -- 'e'`: ls took `-h` as an option, then rejected `e`, so the cluster is read letter by letter; `ls(1)`: `--help display this help and exit`. Factcheck 2026-10-06: not every command: GNU `find -help` prints find's usage, status 0 (`find(1)`: "-help, --help"), and find's tests are one-dash words (`-name`), taught in a later chapter. `man -help` on man-db 2.12 prints man's help, status 0, because `-h` is man's short help option, which fits the letter-by-letter reading |
+| Quick help: `ls -help` is left to the generic coach (`src/game/coach.js`: "One dash starts short options... Long options take two dashes: --help."); a test checks the coach answers it |
+| Factcheck 2026-10-06 on the coach's `-help` note: "One dash starts short options" does not hold for every command, so it should read "For most commands, one dash starts short options, ..." (sent to engine for `coach.js`) | D: `ls -help` -> `ls: invalid option -- 'e'` (read letter by letter); but GNU `find -help` prints find's usage, status 0 (`find(1)`: "-help, --help"), and find's tests are one-dash words (`-name`), taught in a later chapter. `man -help` on man-db 2.12 prints man's help, status 0, because `-h` is man's short help option |
 | Quick help: "echo prints its words back, even --help." | D: `echo --help` prints `--help`, status 0 (`echo` is a shell builtin with no `--help`) |
 | Clear task goal says "with the `clear` command" | Ctrl+L is handled by the page's terminal, so the session cannot see it; the lesson keeps "Ctrl+L clears it too" (true, see above) |
 | Boss: a forged deed gets "Somewhere, the Shadow Daemon snickers. That letter was signed SIGNER. Compare the signatures with readme.txt." | game text; SIGNER is the forged letter's real signature (SIM test) |

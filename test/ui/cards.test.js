@@ -64,3 +64,9 @@ test('Escape has a safe button to press on the boss card and the adventure log, 
 test('the title card shows the pixel logo, named for screen readers', () => {
   assert.match(titleCardHTML(null), /<h2 class="title-logo" id="cardTitle"><svg class="logo"[^>]*aria-label="Shellcraft"/);
 });
+
+test('a rank-up earned with the chapter is announced in the adventure log, under the XP', () => {
+  const html = debriefHTML({ ...CLEARED, rankUp: 'Apprentice' });
+  assert.match(html, /\+110 XP<\/p>\s*<p class="rankup">Rank up! You are now <b>Apprentice<\/b>\.<\/p>/);
+  assert.doesNotMatch(debriefHTML({ ...CLEARED, rankUp: null }), /rankup/);
+});
