@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { layoutRoom, pickAt, fitLabel, findEntry, ART } from '../../src/map/layout.js';
+import { layoutRoom, pickAt, fitLabel, findEntry, ART, HERO_REST } from '../../src/map/layout.js';
 import { readRoom } from '../../src/map/room.js';
 import { observe, sampleTree, crowded } from './fixtures.js';
 
@@ -88,6 +88,27 @@ test('nothing is placed outside the picture or on top of another entry', () => {
       }));
     }
   }
+});
+
+test('no item, item label or marker reaches where the hero rests, however crowded the room', () => {
+  const clear = (a, b) => a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y;
+  const counts = Array.from({ length: 21 }, (_, i) => i);
+  const cases = [false, true].flatMap(narrow => counts.flatMap(dirs => counts.map(files => ({ narrow, dirs, files }))));
+  for (const { narrow, dirs, files } of cases) {
+    const layout = layoutRoom(roomWith(dirs, files), { narrow });
+    const areas = [...layout.items.map(item => item.hit), layout.moreItems?.area].filter(Boolean);
+    for (const area of areas) assert.ok(clear(area, HERO_REST), `${dirs} doors, ${files} items, narrow ${narrow}: ${JSON.stringify(area)}`);
+  }
+});
+
+test('the hero rests clear of the doors and their labels', () => {
+  const layout = layoutRoom(roomWith(20, 0), { narrow: true });
+  for (const door of layout.doors) assert.ok(door.hit.y + door.hit.h <= HERO_REST.y);
+});
+
+test('an item area holds a label even on the smallest screens', () => {
+  const item = layoutRoom(roomWith(0, 1)).items[0];
+  assert.ok(item.hit.y + item.hit.h - (item.y + item.h) >= 18);
 });
 
 test('every label slot is wide enough for a readable name', () => {

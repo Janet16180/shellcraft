@@ -8,9 +8,9 @@
  * Plex Mono.
  */
 
-import { pickAt } from './layout.js';
+import { pickAt, STAND } from './layout.js';
 import { picksOf } from './room.js';
-import { createStage, settle, fitCanvas, say, showBanner, shake, flash, burstAt, STAND } from './stage.js';
+import { createStage, settle, fitCanvas, say, showBanner, shake, flash, burstAt } from './stage.js';
 import { paintFrame } from './render.js';
 import { journey } from './journey.js';
 import { INK, TOON, DAEMON } from './palette.js';
