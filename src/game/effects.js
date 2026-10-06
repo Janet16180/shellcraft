@@ -11,6 +11,8 @@
 
 const NOT_FOUND = 127;
 const KILL_SIGNALS = new Set(['9', 'KILL']);
+// rm refuses an operand whose last component is . or .. before touching it.
+const DOT_OPERAND = /(^|\/)\.\.?\/*$/;
 
 const REASONS = {
   root: 'rm -r on / tries to erase the whole system. GNU rm refuses it by default (--preserve-root), but never try it on a real machine.',
@@ -81,7 +83,8 @@ export function lineEffects(ctx, blocked) {
 
 function rmDanger(ctx, record) {
   const recursive = ctx.flag(record, 'r') || ctx.flag(record, 'R') || record.args.includes('--recursive');
-  const paths = recursive ? ctx.paths(record) : [];
+  const named = { ...record, args: record.args.filter(a => !DOT_OPERAND.test(a)) };
+  const paths = recursive ? ctx.paths(named) : [];
   let reason = null;
   if (paths.includes('/')) reason = REASONS.root;
   else if (paths.includes(ctx.home)) reason = REASONS.home;

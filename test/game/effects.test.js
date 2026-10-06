@@ -89,14 +89,18 @@ test('rm -r of the root or of home is dangerous however it is written', () => {
     record('rm', ['-R', '//']),
     record('rm', ['--recursive', '~']),
     record('rm', ['-r', HOME]),
-    record('rm', ['-fr', '..'], { cwd: `${HOME}/forest` }),
-    record('rm', ['-r', '.']),
+    record('rm', ['-r', '~/']),
   ];
   for (const r of lines) assert.equal(dangers(context([r])).length, 1, r.args.join(' '));
 });
 
 test('rm -r of anything else, or rm without -r, is not dangerous', () => {
   const lines = [record('rm', ['-r', 'forest']), record('rm', ['/']), record('rm', ['-f', HOME]), record('ls', ['-r', '/'])];
+  for (const r of lines) assert.deepEqual(dangers(context([r])), [], `${r.name} ${r.args.join(' ')}`);
+});
+
+test('rm -r of . or .. is not dangerous because rm refuses those names', () => {
+  const lines = [record('rm', ['-r', '.']), record('rm', ['-fr', '..'], { cwd: `${HOME}/forest` }), record('rm', ['-r', `${HOME}/.`])];
   for (const r of lines) assert.deepEqual(dangers(context([r])), [], `${r.name} ${r.args.join(' ')}`);
 });
 
