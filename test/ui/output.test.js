@@ -91,3 +91,7 @@ test('a very narrow pane still reports 20 columns', () => {
 test('a glyph width that is not positive is a bug and raises', () => {
   assert.throws(() => columnsFor(600, 0), /glyph width/);
 });
+
+test('a coach note is shown like any other game note, marked and prefixed', () => {
+  assert.deepEqual(chunkLine({ stream: 'note', tone: 'coach', text: 'Commands are case-sensitive: try ls.' }), { cls: 'ln note tone-coach', html: '» Commands are case-sensitive: try ls.' });
+});

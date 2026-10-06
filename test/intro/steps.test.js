@@ -60,10 +60,29 @@ test('a split line is exactly its parts joined by spaces, each with a known role
   }
 });
 
-test('the room stays dark until ls looks around, and stays lit after', () => {
-  const firstLit = STEPS.findIndex(s => s.light);
-  assert.equal(STEPS[firstLit].type, 'ls');
-  assert.ok(STEPS.slice(firstLit).every(s => s.light));
+test('no step claims a dark room: game rooms are lit when you arrive', () => {
+  for (const step of STEPS) {
+    assert.ok(!('light' in step), step.id);
+    for (const html of captions(step)) assert.doesNotMatch(html, /\bdark\b|lights up/i, step.id);
+  }
+});
+
+test('the keys step shows Tab at work on cd fo', () => {
+  const keys = STEPS.find(s => s.keys);
+  assert.equal(keys.complete, 'cd fo');
+  assert.equal(keys.type, undefined);
+});
+
+test('the intro says its room is a small practice room', () => {
+  assert.match(STEPS[0].text.join(' '), /small practice room/);
+});
+
+test('the long listing step says the columns come later', () => {
+  assert.match(STEPS.find(s => s.parts).text.join(' '), /chapter 3/);
+});
+
+test('the hearts are explained before the player starts', () => {
+  assert.match(STEPS.at(-1).text.join(' '), /hearts/i);
 });
 
 test('the intro ends with the player typing a real command', () => {
@@ -123,9 +142,11 @@ test('ls -l forest prints one long line per entry with permissions, owner and si
   assert.match(lines[2], /^-rw-r--r-- +\d+ hero hero +\d+ .+ mushroom\.txt$/);
 });
 
-test('Tab after cd fo completes to cd forest/, as the keys step says', async () => {
+test('Tab after cd fo completes to cd forest/, as the keys step says and shows', async () => {
   const backend = await introShell();
-  assert.equal((await backend.complete('cd fo')).line, 'cd forest/');
+  const keys = STEPS.find(s => s.complete);
+  for (const step of STEPS.slice(0, STEPS.indexOf(keys)).filter(s => s.type)) await backend.run(step.type);
+  assert.equal((await backend.complete(keys.complete)).line, 'cd forest/');
 });
 
 test('the prompt pieces match the simulator user, host and home', async () => {

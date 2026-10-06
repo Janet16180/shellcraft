@@ -921,12 +921,6 @@ kbd {
   font-style: italic;
 }
 
-.ln.tone-daemon {
-  color: var(--magic);
-  font-style: normal;
-  font-weight: 600;
-}
-
 .ln.sys {
   color: var(--muted);
 }
