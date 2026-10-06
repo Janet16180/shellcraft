@@ -5,7 +5,8 @@
  */
 
 import { planTravel } from './travel.js';
-import { settle, showBanner, STAND } from './stage.js';
+import { settle, showBanner } from './stage.js';
+import { STAND } from './layout.js';
 import { INK, TOON } from './palette.js';
 
 const EXIT_STAND = { x: 160, y: 196 };

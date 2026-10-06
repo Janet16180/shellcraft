@@ -8,6 +8,12 @@
 /** Size of the picture in art pixels. */
 export const ART = { width: 320, height: 200 };
 
+/** Where the hero stands when idle: the point under their feet. */
+export const STAND = { x: 160, y: 178 };
+
+/** What the resting hero covers (sprite, bob and shadow, plus a margin). Nothing on the floor may reach into it. */
+export const HERO_REST = { x: STAND.x - 12, y: STAND.y - 28, w: 24, h: 32 };
+
 const MARGIN = 12;
 const USABLE = ART.width - 2 * MARGIN;
 const DOOR = { w: 22, h: 34, top: 18 };
@@ -18,6 +24,7 @@ const ITEM = 16;
 const SPARSE_ITEM_STEP = 96;
 const LABEL_ABOVE = 14;
 const ITEM_HIT = { above: 4, below: 20 };
+const ITEM_GAP = { oneDoorRow: 12, twoDoorRows: 6 };
 const EXIT = { x: 146, y: 186, w: 28, h: 14, label: 26 };
 const CAPACITY = { wide: { doors: 7, cols: 6 }, narrow: { doors: 5, cols: 4 } };
 
@@ -35,7 +42,8 @@ const CAPACITY = { wide: { doors: 7, cols: 6 }, narrow: { doors: 5, cols: 4 } };
  * @property {Placed[]} doors
  * @property {Placed[]} items
  * @property {{count: number, cx: number, y: number, slot: number}|null} moreDoors Marker for doors that did not fit.
- * @property {{count: number, cx: number, y: number, slot: number}|null} moreItems Marker for items that did not fit.
+ * @property {{count: number, cx: number, y: number, slot: number, area: object}|null} moreItems Marker for items
+ *   that did not fit; its area covers the sign and its label.
  * @property {{path: string, x: number, y: number, w: number, h: number, hit: object}|null} exit
  */
 
@@ -73,13 +81,17 @@ function placeDoor(door, spot) {
 
 function placeItem(item, spot, top) {
   const y = top + spot.row * ITEM_ROW;
-  const hit = box(spot.cx - Math.floor(spot.slot / 2), y - ITEM_HIT.above, spot.slot, ITEM + ITEM_HIT.above + ITEM_HIT.below);
+  const hit = itemArea(spot.cx, spot.slot, y);
   return { ...item, kind: 'item', x: spot.cx - ITEM / 2, y, w: ITEM, h: ITEM, cx: spot.cx, slot: spot.slot, hit };
+}
+
+function itemArea(cx, slot, y) {
+  return box(cx - Math.floor(slot / 2), y - ITEM_HIT.above, slot, ITEM + ITEM_HIT.above + ITEM_HIT.below);
 }
 
 function marker(fitted, spots, y) {
   const spot = spots[spots.length - 1];
-  return fitted.more ? { count: fitted.more, cx: spot.cx, y: y(spot), slot: spot.slot } : null;
+  return fitted.more ? { count: fitted.more, cx: spot.cx, y: y(spot), slot: spot.slot, area: itemArea(spot.cx, spot.slot, y(spot)) } : null;
 }
 
 /**
@@ -93,7 +105,7 @@ export function layoutRoom(room, { narrow = false } = {}) {
   const cap = narrow ? CAPACITY.narrow : CAPACITY.wide;
   const doorRows = room.doors.length > cap.doors && room.items.length <= cap.cols ? 2 : 1;
   const wall = WALL + DOOR_ROW * (doorRows - 1);
-  const itemTop = wall + 12;
+  const itemTop = wall + (doorRows === 2 ? ITEM_GAP.twoDoorRows : ITEM_GAP.oneDoorRow);
   const doors = fit(room.doors, cap.doors * doorRows);
   const items = fit(room.items, cap.cols * (3 - doorRows));
   const dSpots = doorSpots(doors.shown.length + (doors.more ? 1 : 0), cap.doors);

@@ -6,7 +6,7 @@
 
 import { biomeFor } from './biomes.js';
 import { readRoom } from './room.js';
-import { layoutRoom, ART } from './layout.js';
+import { layoutRoom, ART, STAND } from './layout.js';
 import { describeRoom } from './describe.js';
 import { createMotion } from './motion.js';
 import { makeCanvas } from './paint.js';
@@ -18,9 +18,6 @@ const SHAKE_MS = 360;
 
 /** How long a red flash lasts, in ms. */
 export const FLASH_MS = 320;
-
-/** Where the hero stands when idle, in art pixels (feet). */
-export const STAND = { x: 160, y: 178 };
 
 /**
  * @typedef {object} Stage
