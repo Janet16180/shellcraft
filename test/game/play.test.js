@@ -215,3 +215,13 @@ test('a typing mistake on the real simulator prints exactly one note, the coach\
     assert.equal(notes[0].tone, 'coach', line);
   }
 });
+
+test('every way of ending the player shell costs a heart on the real simulator, with the game\'s reason', async () => {
+  for (const line of ['kill -HUP $$', 'kill -s STOP $$', 'pkill -9 bash', 'killall -s KILL bash']) {
+    const { session } = await bootReal();
+    const turn = await session.submit(line);
+    assert.deepEqual(kinds(turn.events), ['heart-lost'], line);
+    assert.match(turn.events[0].reason, /^SIG[A-Z]+ to your own shell/, line);
+    assert.ok(turn.obs.procs.some(p => p.key === 'shell'), `${line}: the shell survives`);
+  }
+});
