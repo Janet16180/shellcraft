@@ -56,11 +56,12 @@ test('the lesson bridges Linux\'s "up" toward / with the map\'s stairs down into
   assert.match(text, /\bdungeon\b/);
 });
 
-test('goals, tips, hints and spell notes say deeper and back out, keeping up for the lesson and recap only', () => {
+test('everything but the lesson says deeper and back out, keeping up for the one sentence that explains it', () => {
   const words = [
     ...chapter.tasks.flatMap(task => [task.goal, task.tip, ...task.hints]),
     ...chapter.boss.hints.filter(hint => typeof hint === 'string'),
     ...chapter.spells.flatMap(spell => [spell.summary, ...spell.examples.map(([, note]) => note)]),
+    ...[...chapter.recap, ...chapter.field].map(([, meaning]) => meaning),
   ];
   for (const text of words) assert.doesNotMatch(text, /\b(up|down)\b/i, text);
 });

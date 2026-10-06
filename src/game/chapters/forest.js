@@ -191,7 +191,7 @@ export default {
   recap: [
     ['cd forest', 'enter a directory with a relative path'],
     ['cd forest/cave', 'go several rooms deep at once'],
-    ['cd ..', 'go up to the parent directory'],
+    ['cd ..', 'step back out to the parent directory'],
     ['cd /home/hero/forest', 'an absolute path works from anywhere'],
     ['cd ~/forest', '`~` is your home'],
     ['cd', 'go home'],
