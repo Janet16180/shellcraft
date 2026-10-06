@@ -6,7 +6,7 @@
 import { put, remove, cd, file } from '../../backend/spec.js';
 import { restore } from '../world.js';
 import { shuffle } from '../rng.js';
-import { nodeAt } from '../checks.js';
+import { nodeAt } from '../../backend/tree.js';
 
 /**
  * The letters the boss room puts in the player's home. Later chapters remove
