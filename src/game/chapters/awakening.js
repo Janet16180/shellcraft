@@ -74,12 +74,6 @@ function readNear(ctx) {
   return note;
 }
 
-function helpNear(ctx) {
-  let note = null;
-  if (ctx.commands.some(record => record.args.includes('-help'))) note = 'One dash starts short options, so -help means -h -e -l -p. Long options take two dashes: --help.';
-  else if (ctx.tried('echo', record => record.args.includes('--help'))) note = 'echo prints its words back, even --help. Ask another command, like ls --help.';
-  return note;
-}
 
 function bossNear(ctx, secret) {
   const forgery = secret.forgeries.find(deed => didDeed(ctx, deed));
@@ -194,7 +188,8 @@ export default {
       ],
       // bash's echo prints --help back instead of answering it.
       done: ctx => ctx.commands.some(record => record.name !== 'echo' && record.args.includes('--help') && record.stdout !== ''),
-      near: helpNear,
+      near: ctx => (ctx.tried('echo', record => record.args.includes('--help'))
+        ? 'echo prints its words back, even --help. Ask another command, like ls --help.' : null),
     },
     {
       goal: 'Wipe the screen clean with the `clear` command',

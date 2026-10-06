@@ -71,7 +71,7 @@ const NEAR_NOTES = [
   ['Read the letter left for you', [], 'ls readme.txt', /cat/],
   ['Read the letter left for you', [], 'cat .bashrc', /readme\.txt/],
   ['Read the letter left for you', [], 'cat readme.txt', null],
-  ['Ask a command for its quick help', [], 'ls -help', /two dashes/],
+  ['Ask a command for its quick help', [], 'ls -help', null],
   ['Ask a command for its quick help', [], 'echo --help', /echo/],
   ['Ask a command for its quick help', [], 'ls --help', null],
   ['Ask a command for its quick help', [], 'pwd', null],
