@@ -1,4 +1,4 @@
-import { chunkLine, clears, displayPath, esc, promptHTML } from './output.js';
+import { chunkLine, clears, columnsFor, displayPath, esc, promptHTML } from './output.js';
 import { createHistory } from './history.js';
 import { createQueue } from './queue.js';
 
@@ -100,6 +100,32 @@ function actionFor(t, event) {
   return action;
 }
 
+const PROBE = '0123456789';
+
+function measureColumns(t) {
+  const probe = document.createElement('span');
+  probe.textContent = PROBE;
+  probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre';
+  t.screen.append(probe);
+  const glyph = probe.getBoundingClientRect().width / PROBE.length;
+  probe.remove();
+  const style = getComputedStyle(t.screen);
+  const pane = t.screen.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  return columnsFor(pane, glyph);
+}
+
+// Like a real terminal, tell the shell its width when it changes; in the line queue so it never overlaps a run.
+function watchWidth(t) {
+  const update = () => {
+    const columns = measureColumns(t);
+    if (columns === t.columns) return;
+    t.columns = columns;
+    t.queue.add(() => t.onResize(columns));
+  };
+  new ResizeObserver(update).observe(t.screen);
+  document.fonts.ready.then(update);
+}
+
 function wire(t, root) {
   t.input.addEventListener('focus', () => { t.tabLeaves = false; });
   t.input.addEventListener('keydown', event => {
@@ -132,10 +158,11 @@ function wire(t, root) {
  * @param {(line: string) => Promise<void>} opts.onSubmit Runs a line the player entered. Lines typed meanwhile wait.
  * @param {(line: string) => Promise<{line: string, candidates: string[]}>} opts.onComplete Tab completion.
  * @param {() => void} [opts.onKey] Called on each printable key (the key click sound).
+ * @param {(columns: number) => unknown} [opts.onResize] Told the width in characters at the start and when it changes.
  * @returns {{print: Function, printLine: Function, setPrompt: Function, insert: Function, focus: Function, clear: Function}}
  *   The terminal's controls.
  */
-export function createTerminal({ root, onSubmit, onComplete, onKey = () => {} }) {
+export function createTerminal({ root, onSubmit, onComplete, onKey = () => {}, onResize = () => {} }) {
   const t = {
     out: root.querySelector('#out'),
     screen: root.querySelector('#screen'),
@@ -149,8 +176,11 @@ export function createTerminal({ root, onSubmit, onComplete, onKey = () => {} })
     onSubmit,
     onComplete,
     onKey,
+    onResize,
+    columns: 0,
   };
   wire(t, root);
+  watchWidth(t);
   return {
     print: chunks => print(t, chunks),
     printLine: (text, cls) => printLine(t, text, cls),

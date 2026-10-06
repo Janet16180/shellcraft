@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { esc, displayPath, promptHTML, chunkLine, clears, inlineCode } from '../../src/ui/output.js';
+import { esc, displayPath, promptHTML, chunkLine, clears, inlineCode, columnsFor } from '../../src/ui/output.js';
 
 const HERO = { user: 'hero', host: 'kernelia', home: '/home/hero' };
 
@@ -77,4 +77,17 @@ test('text without backticks is only escaped', () => {
 
 test('markup inside backticks is escaped too', () => {
   assert.equal(inlineCode('`a<b`'), '<code>a&lt;b</code>');
+});
+
+test('the terminal width in columns is how many whole glyphs fit in the pane', () => {
+  assert.equal(columnsFor(672, 8.7), 77);
+  assert.equal(columnsFor(306, 8.1), 37);
+});
+
+test('a very narrow pane still reports 20 columns', () => {
+  assert.equal(columnsFor(100, 8.7), 20);
+});
+
+test('a glyph width that is not positive is a bug and raises', () => {
+  assert.throws(() => columnsFor(600, 0), /glyph width/);
 });

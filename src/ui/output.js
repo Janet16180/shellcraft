@@ -80,3 +80,19 @@ export function chunkLine(chunk) {
   if (stream === 'note') body = `» ${body}`;
   return { cls: classes.join(' '), html: body };
 }
+
+const MIN_COLUMNS = 20;
+
+/**
+ * How many character columns a terminal pane shows, as a real terminal tells
+ * the shell when it is resized.
+ *
+ * @param {number} paneWidth Width available for text, in CSS pixels.
+ * @param {number} glyphWidth Width of one monospace character, in CSS pixels.
+ * @returns {number} Whole columns, at least 20.
+ * @throws {Error} If glyphWidth is not positive.
+ */
+export function columnsFor(paneWidth, glyphWidth) {
+  if (!(glyphWidth > 0)) throw new Error(`glyph width must be positive, got ${glyphWidth}`);
+  return Math.max(MIN_COLUMNS, Math.floor(paneWidth / glyphWidth));
+}

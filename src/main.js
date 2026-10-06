@@ -11,12 +11,19 @@ import { createMap } from './map/map.js';
 import { createStore } from './ui/store.js';
 import { startApp } from './ui/app.js';
 
+const backend = createSimBackend();
 const session = createSession({
-  backend: createSimBackend(),
+  backend,
   chapters,
   baseWorld,
   store: createStore(() => window.localStorage),
   random: Math.random,
 });
 
-startApp({ doc: document, session, createMap, createIntroBackend: createSimBackend });
+startApp({
+  doc: document,
+  session,
+  createMap,
+  createIntroBackend: createSimBackend,
+  resizeTerminal: columns => backend.resize(columns),
+});
