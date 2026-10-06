@@ -49,6 +49,13 @@ test('the Tab task\'s last hint is the key sequence, not a line to paste', () =>
   assert.equal(chapter.tasks[GOAL['Walk into the forest again, and let Tab finish the name']].hints[2], 'Type cd fo, press Tab, then press Enter.');
 });
 
+test('the lesson bridges Linux\'s "up" toward / with the map\'s stairs down into the dungeon', () => {
+  const text = chapter.lesson.replace(/<[^>]+>/g, '');
+  assert.match(text, /\bup\b/);
+  assert.match(text, /\bdown\b/);
+  assert.match(text, /\bdungeon\b/);
+});
+
 test('Tab completes cd fo to cd forest/, as the lesson says', async () => {
   const backend = await startChapter(chapter);
   assert.equal((await backend.complete('cd fo')).line, 'cd forest/');
