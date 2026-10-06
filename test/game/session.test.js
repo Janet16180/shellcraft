@@ -148,7 +148,7 @@ test('solving the boss clears the chapter, pays the boss and the bonus, and open
   assert.equal(turn.view.chapter.phase, 'done');
   assert.equal(turn.view.xp, 70);
   assert.deepEqual(turn.view.chapters.map(c => [c.status, c.current]), [['cleared', true], ['open', false], ['soon', false]]);
-  assert.deepEqual(saved(store), { version: 2, chapter: 'forest', cleared: ['awakening'], xp: 70, sound: false, introSeen: false });
+  assert.deepEqual(saved(store), { version: 2, chapter: 'forest', cleared: ['awakening'], xp: 70, sound: false, introSeen: false, progress: null });
 });
 
 test('a cleared chapter can be started again while it is the current one', async () => {
@@ -415,6 +415,65 @@ test('at zero hearts in the boss room the boss restarts and can still be solved'
   assert.deepEqual(kinds(last.events), ['boss', 'chapter']);
 });
 
+async function reload(store) {
+  const session = createSession({ backend: createFakeBackend(), chapters: fixtureChapters(), baseWorld: fixtureWorld, store, random: createRandom(2) });
+  const view = await session.boot();
+  return { session, view };
+}
+
+test('a reload keeps finished tasks done on a fresh world and never pays them twice', async () => {
+  const { session, store } = await booted();
+  await session.submit('pwd');
+  assert.deepEqual(saved(store).progress, { chapter: 'awakening', phase: 'quest', tasks: [true, false], hints: [0, 0], bossHints: 0 });
+
+  const again = await reload(store);
+  assert.deepEqual(again.view.chapter.tasks.map(t => [t.done, t.next]), [[true, false], [false, true]]);
+  assert.equal(again.view.xp, 10);
+  assert.deepEqual((await again.session.submit('pwd')).events, []);
+  assert.deepEqual(kinds((await again.session.submit('cat letter.txt')).events), ['task', 'boss-start']);
+});
+
+test('a reload keeps the hints already shown, and their cost', async () => {
+  const { session, store } = await booted();
+  session.hint();
+  session.hint();
+  assert.deepEqual(saved(store).progress.hints, [2, 0]);
+
+  const again = await reload(store);
+  assert.deepEqual(again.view.chapter.tasks[0].hints.map(h => h.level), [1, 2]);
+  assert.deepEqual(again.view.hint, { level: 3, cost: 5 });
+  assert.equal((await again.session.submit('pwd')).events[0].xp, 7);
+});
+
+test('a reload during the boss sets up a new boss room and keeps the boss hints', async () => {
+  const { session, store } = await booted();
+  await reachBoss(session);
+  session.hint();
+  session.hint();
+  assert.deepEqual(saved(store).progress, { chapter: 'awakening', phase: 'boss', tasks: [true, true], hints: [0, 0], bossHints: 2 });
+
+  const again = await reload(store);
+  assert.equal(again.view.chapter.phase, 'boss');
+  assert.equal(again.view.chapter.boss.hints.length, 2);
+  const [last] = await play(again.session, fixtureChapters()[0].boss.solve(again.session.observation()));
+  assert.deepEqual(last.events.map(e => [e.kind, e.xp]), [['boss', 27], ['chapter', 20]]);
+  assert.equal(saved(store).progress, null);
+});
+
+test('saved progress that does not fit the chapter is ignored', async () => {
+  const progress = fields => ({ chapter: 'awakening', phase: 'quest', tasks: [true, false], hints: [0, 0], bossHints: 0, ...fields });
+  const odds = [
+    progress({ chapter: 'forest' }),
+    progress({ tasks: [true], hints: [0] }),
+    progress({ phase: 'boss' }),
+    progress({ tasks: [true, true] }),
+  ];
+  for (const odd of odds) {
+    const { view } = await booted({ stored: v2({ chapter: 'awakening', progress: odd }) });
+    assert.deepEqual(view.chapter.tasks.map(t => t.done), [false, false], JSON.stringify(odd));
+  }
+});
+
 test('continuing to the next chapter applies only its setup to the current world', async () => {
   const { session, backend } = await booted();
   await clearAwakening(session);
@@ -483,7 +542,10 @@ test('reset erases progress but keeps sound and the intro flag', async () => {
   session.markIntroSeen();
   const view = await session.reset();
   assert.deepEqual([view.chapter.id, view.xp, view.chapter.replay], ['awakening', 0, false]);
-  assert.deepEqual(saved(store), { version: 2, chapter: 'awakening', cleared: [], xp: 0, sound: true, introSeen: true });
+  assert.deepEqual(saved(store), {
+    version: 2, chapter: 'awakening', cleared: [], xp: 0, sound: true, introSeen: true,
+    progress: { chapter: 'awakening', phase: 'quest', tasks: [false, false], hints: [0, 0], bossHints: 0 },
+  });
   assert.equal(exists(await backend.observe(), `${HOME}/sign.txt`), false);
 });
 

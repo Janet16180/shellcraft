@@ -10,6 +10,9 @@ export const MAX_HEARTS = 3;
 
 /** XP each hint level takes off the payout: the nudge is free. */
 const HINT_COSTS = [0, 3, 5];
+
+/** How many hints each task and boss has: one per cost. */
+export const HINT_LEVELS = HINT_COSTS.length;
 const MIN_PAYOUT = 2;
 const STARTABLE = new Set(['playing', 'open', 'cleared']);
 
@@ -31,8 +34,8 @@ const RANKS = [
  * @throws {Error} If hintsUsed is outside 0 to 3.
  */
 export function payout(base, hintsUsed, replay) {
-  if (!Number.isInteger(hintsUsed) || hintsUsed < 0 || hintsUsed > HINT_COSTS.length) {
-    throw new Error(`hints used must be 0 to ${HINT_COSTS.length}, got ${hintsUsed}`);
+  if (!Number.isInteger(hintsUsed) || hintsUsed < 0 || hintsUsed > HINT_LEVELS) {
+    throw new Error(`hints used must be 0 to ${HINT_LEVELS}, got ${hintsUsed}`);
   }
 
   const cost = HINT_COSTS.slice(0, hintsUsed).reduce((sum, c) => sum + c, 0);
@@ -49,7 +52,7 @@ export function payout(base, hintsUsed, replay) {
  */
 export function nextHint(base, hintsUsed, replay) {
   let hint = null;
-  if (hintsUsed < HINT_COSTS.length) {
+  if (hintsUsed < HINT_LEVELS) {
     const cost = payout(base, hintsUsed, replay) - payout(base, hintsUsed + 1, replay);
     hint = { level: hintsUsed + 1, cost };
   }

@@ -99,15 +99,39 @@ const current = s => s.chapters[s.index];
 const terminalText = text => text.replaceAll('`', '');
 const who = s => ({ home: s.obs.home, user: s.obs.user });
 const statuses = s => chapterStatuses(s.chapters, { current: current(s)?.id ?? null, cleared: s.save.cleared });
-const persist = s => s.store.setItem(SAVE_KEY, serializeSave(s.save));
+const persist = s => s.store.setItem(SAVE_KEY, serializeSave({ ...s.save, progress: progressOf(s) }));
+
+function progressOf(s) {
+  const { phase, tasksDone, hints, bossHints } = s;
+  return phase === 'done' ? null : { chapter: current(s).id, phase, tasks: [...tasksDone], hints: [...hints], bossHints };
+}
 
 async function boot(s) {
   const { save, status } = parseSave({ v2: s.store.getItem(SAVE_KEY), v1: s.store.getItem(V1_SAVE_KEY) });
+  const { progress, ...kept } = save;
   const known = new Set(s.chapters.map(c => c.id));
-  s.save = { ...save, cleared: save.cleared.filter(id => known.has(id)) };
+  s.save = { ...kept, cleared: kept.cleared.filter(id => known.has(id)) };
   s.boot = status;
   s.obs = await s.backend.observe();
-  return start(s, resumeChapter(s.chapters, { saved: save.chapter, cleared: s.save.cleared }), true);
+  await start(s, resumeChapter(s.chapters, { saved: save.chapter, cleared: s.save.cleared }), true);
+  await restoreProgress(s, progress);
+  return view(s);
+}
+
+// The world is rebuilt fresh on reload; finished tasks and shown hints carry
+// over, and a boss in progress gets a new room.
+async function restoreProgress(s, progress) {
+  const chapter = current(s);
+  const fits = progress?.chapter === chapter.id
+    && progress.tasks.length === chapter.tasks.length
+    && (progress.phase === 'boss') === progress.tasks.every(Boolean);
+  if (fits) {
+    s.tasksDone = [...progress.tasks];
+    s.hints = [...progress.hints];
+    s.bossHints = progress.bossHints;
+    if (progress.phase === 'boss') await openBossRoom(s);
+    persist(s);
+  }
 }
 
 async function startChapter(s, id, { fresh = true } = {}) {
@@ -277,7 +301,10 @@ function hint(s) {
   let shown = null;
   if (target) {
     const next = nextHint(target.base, target.used, s.replay);
-    if (next) target.use();
+    if (next) {
+      target.use();
+      persist(s);
+    }
     const level = next?.level ?? HINT_LEVELS;
     shown = { level, text: resolveHint(s, target.hints[level - 1]), cost: next?.cost ?? 0 };
   }
@@ -333,8 +360,8 @@ function updateSave(s, fields) {
 
 async function reset(s) {
   requireBooted(s);
-  const { sound, introSeen } = s.save;
-  s.save = { ...freshSave(), sound, introSeen };
+  const { chapter, cleared, xp } = freshSave();
+  s.save = { ...s.save, chapter, cleared, xp };
   return start(s, resumeChapter(s.chapters, { saved: null, cleared: [] }), true);
 }
 
