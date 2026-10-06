@@ -309,6 +309,22 @@ test('near notes are asked of unfinished tasks in order and only the first one s
   assert.deepEqual(coachNotes(await session.submit('ls')).map(c => c.text), ['one']);
 });
 
+test('a common mistake gets a coach note when no near note applies', async () => {
+  const { session } = await booted();
+  const turn = await session.submit('cdforest');
+  assert.deepEqual(coachNotes(turn), [{ stream: 'note', tone: 'coach', text: 'Put a space between the command and its argument: cd forest' }]);
+});
+
+test('a near note wins over the coach note for the same line', async () => {
+  const { session } = await booted();
+  assert.deepEqual(coachNotes(await session.submit('cat letter')).map(c => c.text), ['The letter is letter.txt.']);
+});
+
+test('a correct line gets no coach note', async () => {
+  const { session } = await booted();
+  assert.deepEqual(coachNotes(await session.submit('cd forest')), []);
+});
+
 test('in the boss room the boss near note gets the secret, and it is never asked during the quest', async () => {
   const chapters = fixtureChapters();
   chapters[0].boss.near = (_ctx, secret) => `not yet: ${secret.name}`;
