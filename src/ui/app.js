@@ -190,7 +190,7 @@ function applyTurn(ui, turn) {
     roomSettled(ui);
   });
   show(ui, turn.view);
-  for (const event of turn.events) onEvent(ui, event, turn.events);
+  for (const event of turn.events) onEvent(ui, event);
 }
 
 const EVENTS = {
@@ -211,9 +211,8 @@ const EVENTS = {
     noteHTML(ui, `Boss defeated. <b>+${xp} XP</b>`);
     ui.sound.play('ok');
   },
-  chapter(ui, event, events) {
-    const xp = events.filter(e => e.kind === 'boss' || e.kind === 'chapter').reduce((sum, e) => sum + e.xp, 0);
-    ui.log = { ...event, xp, rankUp: ui.rankUp };
+  chapter(ui, event) {
+    ui.log = { ...event, rankUp: ui.rankUp };
     afterMap(ui, () => openDebrief(ui));
   },
   'heart-lost'(ui, { reason }) {
@@ -226,10 +225,10 @@ const EVENTS = {
   },
 };
 
-function onEvent(ui, event, events) {
+function onEvent(ui, event) {
   const handler = EVENTS[event.kind];
   if (!handler) throw new Error(`unknown event: ${event.kind}`);
-  handler(ui, event, events);
+  handler(ui, event);
 }
 
 function afterMap(ui, step) {
@@ -248,11 +247,11 @@ function openBoss(ui) {
 
 function openDebrief(ui) {
   const { chapters, chapter } = ui.view;
-  const { recap, field, why = '', xp } = ui.log;
+  const { recap, field, why = '', total } = ui.log;
   const index = chapters.findIndex(c => c.id === chapter.id);
   ui.sound.play('level');
   confetti(ui.doc.getElementById('confetti'), { origins: [[0.25, 0.3], [0.75, 0.3]] });
-  const html = debriefHTML({ chapter, recap, why, field, xp, rankUp: ui.log.rankUp, next: chapters[index + 1] ?? null });
+  const html = debriefHTML({ chapter, recap, why, field, xp: total, rankUp: ui.log.rankUp, next: chapters[index + 1] ?? null });
   const card = showCard(ui, html, 'log');
   card.querySelector('#stayBtn').onclick = () => {
     hideCard(ui);
@@ -277,8 +276,7 @@ async function startChapter(ui, id, fresh) {
 
 function showTitle(ui) {
   const { view } = ui;
-  const started = view.xp > 0 || view.chapter.number > 1;
-  const card = showCard(ui, titleCardHTML(started ? view.chapter : null));
+  const card = showCard(ui, titleCardHTML(view.started ? view.chapter : null));
   card.querySelector('#goBtn').onclick = () => begin(ui);
   const fresh = card.querySelector('#newBtn');
   if (fresh) fresh.onclick = async () => {
