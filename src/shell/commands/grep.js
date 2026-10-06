@@ -9,7 +9,7 @@ import { resolve, errorText } from '../paths.js';
 import { compareNames } from '../collate.js';
 import { can } from '../perms.js';
 import { compilePosix } from '../regex.js';
-import { parseOptions } from '../options.js';
+import { parseOptions, mapLongOptions } from '../options.js';
 import { shellQuote } from '../quote.js';
 import { result, needInput } from '../result.js';
 import { esc, span } from '../html.js';
@@ -24,9 +24,8 @@ const USAGE = "Usage: grep [OPTION]... PATTERNS [FILE]...\nTry 'grep --help' for
 const STDIN = '(standard input)';
 
 function parseGrep(args) {
-  const unknown = args.find(a => a.startsWith('--') && a !== '--' && !(a in LONG) && !/^--colou?r/.test(a));
-  const mapped = args.filter(a => !/^--colou?r/.test(a)).map(a => (a in LONG ? `-${LONG[a]}` : a));
-  const o = unknown ? { err: `grep: unrecognized option '${unknown}'\n${USAGE}` } : parseOptions('grep', mapped, 'EFGiyvnclLhHrRsqwxozZ', 'em');
+  const long = mapLongOptions('grep', args, LONG);
+  const o = long.err ? { err: long.err } : parseOptions('grep', long.args, 'EFGiyvnclLhHrRsqwxozZ', 'em');
   const operands = o.rest ?? [];
   let error = o.err?.replace(/\nTry 'grep --help'.*$/, `\n${USAGE}`) ?? null;
   if (!error && !o.lists.e && !operands.length) error = USAGE;

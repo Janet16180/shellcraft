@@ -49,3 +49,21 @@ export function parseOptions(name, args, known, withValue = '') {
   }
   return acc;
 }
+
+/**
+ * Rewrite a command's long options into its short letters, before `--` only.
+ *
+ * @param {string} name The command, for the error message.
+ * @param {string[]} args The arguments.
+ * @param {Record<string, string>} table Long option to letter (`--all` to `a`).
+ * @param {RegExp} [ignored] Long options the command accepts and ignores (like --color).
+ * @returns {{args: string[], err: string|null}} The rewritten arguments, or the
+ *   message for the first unrecognized long option.
+ */
+export function mapLongOptions(name, args, table, ignored = /^--colou?r(=|$)/) {
+  const end = args.includes('--') ? args.indexOf('--') : args.length;
+  const options = args.slice(0, end).filter(a => !ignored.test(a));
+  const unknown = options.find(a => a.startsWith('--') && !(a in table));
+  const mapped = [...options.map(a => (a in table ? `-${table[a]}` : a)), ...args.slice(end)];
+  return { args: mapped, err: unknown ? `${name}: unrecognized option '${unknown}'\n${usage(name)}` : null };
+}

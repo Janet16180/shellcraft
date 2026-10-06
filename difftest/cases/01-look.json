@@ -23,6 +23,8 @@
       { "line": "help cd", "reason": "the simulator prints bash's usage and summary lines, not the full description" },
       { "line": "help pwd cd", "reason": "the simulator prints bash's usage and summary lines, not the full description" }
     ] },
+  { "name": "versions", "world": "home", "lines": ["ls --version", "cat --version", "whoami --version", "rm --version", "touch --version", "tail --version", "grep --version", "find --version", "tree --version", "ls -l --version", "ls --help --version | head -n 1", "echo --version", "ls -- --version"],
+    "intended": [{ "line": "ls --help --version | head -n 1", "reason": "the simulator prints a short usage summary instead of coreutils' long help text" }] },
   { "name": "help for commands", "world": "home",
     "lines": ["man ls", "ls --help", "man", "man nope"],
     "intended": [

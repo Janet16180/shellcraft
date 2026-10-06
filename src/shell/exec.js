@@ -14,6 +14,7 @@ import { resolve, errorText } from './paths.js';
 import { can } from './perms.js';
 import { result, withNote } from './result.js';
 import { manText, hasManPage } from './man.js';
+import { versionText } from './versions.js';
 import { varValue, setVar } from './vars.js';
 import { BUILTINS, BUILTIN_HELP, builtinHelp } from './builtins.js';
 
@@ -36,6 +37,12 @@ const MISTAKES = {
   'ls-a': 'Put a space before the option: ls -a',
   'ls-la': 'Put a space before the option: ls -la',
 };
+
+
+function firstOf(args, ...wanted) {
+  const end = args.includes('--') ? args.indexOf('--') : args.length;
+  return args.slice(0, end).find(a => wanted.includes(a));
+}
 
 const isAssignment = word => 'lit' in word.parts[0] && !word.parts[0].q && ASSIGNMENT.test(word.parts[0].lit);
 const withNewline = text => (text && !text.endsWith('\n') ? `${text}\n` : text);
@@ -109,6 +116,7 @@ function dispatch(sh, argv, streams, overlay) {
   let r;
   if (name.includes('/')) r = runFile(sh, name, args, ctx);
   else if (args[0] === '--help' && name in BUILTIN_HELP) r = withNote(result(builtinHelp(name), '', 2), helpNote(name));
+  else if (firstOf(args, '--version', '--help') === '--version' && versionText(name) && !BUILTINS.has(name)) r = result(versionText(name));
   else if (args.includes('--help') && hasManPage(name) && !BUILTINS.has(name) && !OWN_OPTIONS.has(name)) r = result(manText(name, true));
   else if (!sh.commands[name]) r = commandNotFound(sh, name);
   else {

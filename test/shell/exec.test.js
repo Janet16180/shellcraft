@@ -154,3 +154,11 @@ test('an arithmetic error stops the rest of the line with status 1', async () =>
   const r = await run(b, 'echo $((1/0)); echo after');
   assert.deepEqual([r.out, r.err, r.status], ['', 'bash: 1/0: division by 0 (error token is "0")\n', 1]);
 });
+
+test('--version prints the program version, as the real program does', async () => {
+  const b = await shell();
+  const r = await run(b, 'ls --version');
+  assert.deepEqual([r.out.split('\n')[0], r.status], ['ls (GNU coreutils) 9.4', 0]);
+  assert.equal((await run(b, 'cat --version')).out.split('\n')[0], 'cat (GNU coreutils) 9.4');
+  assert.equal((await run(b, 'echo --version')).out, '--version\n');
+});
