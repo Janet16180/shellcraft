@@ -45,7 +45,7 @@ function logicalResolve(sys, path) {
 }
 
 function cd(rawArgs, { sys }) {
-  const o = builtinOptions('cd', rawArgs, 'LPe@');
+  const o = builtinOptions('cd', rawArgs, 'LPe');
   if (o.error) return result('', o.error, 2);
   const args = o.rest;
   if (args.length > 1) return result('', 'bash: cd: too many arguments', 1);
