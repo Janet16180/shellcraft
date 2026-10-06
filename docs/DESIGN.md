@@ -51,7 +51,8 @@ with `src/backend/spec.js` (`put`, `remove`, `proc`, `stop`, `cd`, `dir`, `file`
 backend owns what a real system owns: the programs in `/usr/bin` (the simulator lists one
 executable per command it implements; the world spec must not define `/usr/bin`), PIDs, the
 clock. The simulator also guards the world: it refuses `rm -r ~`, `rm -rf /`, `kill -9` of the
-player's shell, and reports each refusal in `RunResult.blocked`.
+player's shell, and reports each refusal in `RunResult.blocked`. The Linux permission rule lives
+once in `src/backend/access.js`: the simulator enforces it and the map draws padlocks with it.
 
 ### 2.2 Session API (`src/game/session.js`, consumed by the UI)
 
