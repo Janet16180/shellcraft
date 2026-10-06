@@ -51,3 +51,13 @@ test('cd resolves .. in the path as typed, like bash, so it can leave a locked d
   assert.equal((await run(b, 'cd nope/..')).err, 'bash: cd: nope/..: No such file or directory\n');
   assert.equal((await run(b, 'cd ~/readme.txt/..')).err, 'bash: cd: /home/hero/readme.txt/..: Not a directory\n');
 });
+
+test('cd accepts -L, -P and --, and rejects other options like bash', async () => {
+  const b = await shell();
+  await run(b, 'cd -L /tmp');
+  assert.equal((await b.observe()).cwd, '/tmp');
+  await run(b, 'cd -- /home/hero');
+  assert.equal((await b.observe()).cwd, '/home/hero');
+  const bad = await run(b, 'cd -help');
+  assert.deepEqual([bad.err, bad.status], ['bash: cd: -h: invalid option\ncd: usage: cd [-L|[-P [-e]] [-@]] [dir]\n', 2]);
+});

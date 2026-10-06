@@ -26,7 +26,8 @@ function parseCluster(name, args, i, known, withValue, acc) {
 /**
  * Parse arguments into short flags, option values and operands. Bundled
  * flags (`-la`) are split; `--` ends options; `-` alone is an operand.
- * Long options (`--x`) are kept as flags under their full text.
+ * Long options (`--x`) are unrecognized; commands that take some map them
+ * to letters first.
  *
  * @param {string} name The command, for error messages.
  * @param {string[]} args The arguments.
@@ -43,7 +44,7 @@ export function parseOptions(name, args, known, withValue = '') {
     const x = args[i];
     if (ended || x === '-' || !x.startsWith('-')) acc.rest.push(x);
     else if (x === '--') ended = true;
-    else if (x.startsWith('--')) acc.flags.add(x);
+    else if (x.startsWith('--')) acc.err = `${name}: unrecognized option '${x}'\n${usage(name)}`;
     else i = parseCluster(name, args, i, known, withValue, acc);
   }
   return acc;
