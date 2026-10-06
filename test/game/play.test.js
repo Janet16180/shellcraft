@@ -178,3 +178,18 @@ for (const seed of [1, 2, 3]) {
     }
   });
 }
+
+test('the coach explains common mistakes on the real world and simulator', async () => {
+  const { session } = await bootReal();
+  const notes = [];
+  for (const line of ['cd Forest', 'cat readme', 'cat forest', 'cd /forest', 'ls -help']) {
+    notes.push((await session.submit(line)).result.output.filter(c => c.tone === 'coach').map(c => c.text));
+  }
+  assert.deepEqual(notes, [
+    ['Names are case-sensitive too: the door is forest.'],
+    ['The file is readme.txt: .txt is part of its name.'],
+    ['forest is a directory (a door). cat reads files. ls forest shows what is inside; cd forest walks in.'],
+    ['A path that starts with / starts at the root, not at your home. Your forest is /home/hero/forest, or ~/forest.'],
+    ['One dash starts short options, so -help means -h -e -l -p. Long options take two dashes: --help.'],
+  ]);
+});
