@@ -12,17 +12,12 @@ import { createStore } from '../../../src/ui/store.js';
 import { startApp } from '../../../src/ui/app.js';
 import { fixtureChapters, fixtureWorld } from '../../helpers/fixture-chapters.js';
 
-// Until the simulator reports the player's groups (port.js), add them here; the map needs them.
-function withGroups(backend) {
-  return { ...backend, observe: async () => ({ groups: ['hero'], ...await backend.observe() }) };
-}
-
 const session = createSession({
-  backend: withGroups(createSimBackend()),
+  backend: createSimBackend(),
   chapters: fixtureChapters(),
   baseWorld: fixtureWorld,
   store: createStore(() => window.localStorage),
   random: Math.random,
 });
 
-startApp({ doc: document, session, createMap, createIntroBackend: () => withGroups(createSimBackend()) });
+startApp({ doc: document, session, createMap, createIntroBackend: createSimBackend });
