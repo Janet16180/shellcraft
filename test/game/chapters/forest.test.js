@@ -56,6 +56,15 @@ test('the lesson bridges Linux\'s "up" toward / with the map\'s stairs down into
   assert.match(text, /\bdungeon\b/);
 });
 
+test('goals, tips, hints and spell notes say deeper and back out, keeping up for the lesson and recap only', () => {
+  const words = [
+    ...chapter.tasks.flatMap(task => [task.goal, task.tip, ...task.hints]),
+    ...chapter.boss.hints.filter(hint => typeof hint === 'string'),
+    ...chapter.spells.flatMap(spell => [spell.summary, ...spell.examples.map(([, note]) => note)]),
+  ];
+  for (const text of words) assert.doesNotMatch(text, /\b(up|down)\b/i, text);
+});
+
 test('Tab completes cd fo to cd forest/, as the lesson says', async () => {
   const backend = await startChapter(chapter);
   assert.equal((await backend.complete('cd fo')).line, 'cd forest/');
@@ -64,10 +73,10 @@ test('Tab completes cd fo to cd forest/, as the lesson says', async () => {
 const NEAR_MISSES = [
   ['Enter the forest', [], 'ls forest', 'cd forest'],
   ['Enter the forest', [], 'cd junk', 'cd forest/cave'],
-  ['Walk down to the deepest part of the cave: `forest/cave/deep`', ['cd forest'], 'cd cave', 'cd cave/deep'],
-  ['Read what glitters down there', ['cd forest/cave/deep'], 'ls', 'cat ancient_key.txt'],
-  ['From deep, climb back up into the cave with `..`', ['cd forest/cave/deep'], 'cd ~/forest/cave', 'cd ..'],
-  ['From deep, climb back up into the cave with `..`', ['cd forest/cave/deep'], 'cd ../..', 'cd ../'],
+  ['Go deeper into the cave, all the way to `forest/cave/deep`', ['cd forest'], 'cd cave', 'cd cave/deep'],
+  ['Read what glitters in there', ['cd forest/cave/deep'], 'ls', 'cat ancient_key.txt'],
+  ['From deep, step back out into the cave with `..`', ['cd forest/cave/deep'], 'cd ~/forest/cave', 'cd ..'],
+  ['From deep, step back out into the cave with `..`', ['cd forest/cave/deep'], 'cd ../..', 'cd ../'],
   ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd ../river', 'cd /home/hero/forest/river'],
   ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd /home/hero/forest/clearing', 'cd ~/forest/river'],
   ['Jump back to where you were with `cd -`', ['cd forest/cave', 'cd /home/hero/forest/river'], 'cd ..', 'cd -'],
@@ -84,16 +93,52 @@ for (const [goal, prefix, miss, hit] of NEAR_MISSES) {
   });
 }
 
+const NEAR_NOTES = [
+  ['Enter the forest', [], 'ls forest', /cd forest/],
+  ['Enter the forest', [], 'cd forest', null],
+  ['Enter the forest', ['cd forest'], 'ls ~/forest', null],
+  ['Go deeper into the cave, all the way to `forest/cave/deep`', ['cd forest'], 'cd forest/cave/deep', /already in the forest.*cave\/deep/],
+  ['Go deeper into the cave, all the way to `forest/cave/deep`', [], 'cd /forest/cave/deep', /\/home\/hero\/forest/],
+  ['Go deeper into the cave, all the way to `forest/cave/deep`', ['cd forest'], 'cd cave/deep', null],
+  ['Go deeper into the cave, all the way to `forest/cave/deep`', [], 'cd forest/caev/deep', null],
+  ['From deep, step back out into the cave with `..`', ['cd forest/cave/deep'], 'cd ~/forest/cave', /\.\./],
+  ['From deep, step back out into the cave with `..`', ['cd forest/cave/deep'], 'cd ..', null],
+  ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd ../river', /relative/],
+  ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd /forest/river', /\/home\/hero\/forest/],
+  ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd /home/hero/forest/river', null],
+  ['Jump to the river with an absolute path', ['cd forest/river'], 'cd .', /relative/],
+  ['Jump to the river with an absolute path', ['cd forest/river', 'cd ../cave'], 'cd -', null],
+  ['Go home with the shortest command there is', ['cd forest'], 'cd ~', /cd on its own/],
+  ['Go home with the shortest command there is', ['cd forest'], 'cd /home/hero', /cd on its own/],
+  ['Go home with the shortest command there is', ['cd forest'], 'cd', null],
+  ['Go home with the shortest command there is', [], 'cd ~', /cd on its own/],
+  ['Walk into the forest again, and let Tab finish the name', [], 'cd forest', /Tab/],
+  ['Walk into the forest again, and let Tab finish the name', [], 'cd fo\t', null],
+  ['Walk into the forest again, and let Tab finish the name', [], 'ls', null],
+];
+
+for (const [goal, prefix, line, note] of NEAR_NOTES) {
+  test(`"${goal}" gives ${note ? 'a near note' : 'no near note'} for ${JSON.stringify(line)}`, async () => {
+    assert.ok(goal in GOAL, `no task named ${goal}`);
+    const backend = await startChapter(chapter);
+    await play(chapter, backend, prefix);
+    const { ctx } = await type(backend, line);
+    const got = chapter.tasks[GOAL[goal]].near(ctx);
+    if (note) assert.match(got, note);
+    else assert.equal(got, null);
+  });
+}
+
 test('climbing into the cave with .. from the river, not from deep, does not count', async () => {
-  assert.equal(await passes('From deep, climb back up into the cave with `..`', ['cd forest/river'], 'cd ../cave'), false);
+  assert.equal(await passes('From deep, step back out into the cave with `..`', ['cd forest/river'], 'cd ../cave'), false);
 });
 
 test('using Tab while already in the forest does not count as walking in with Tab', async () => {
   assert.equal(await passes('Walk into the forest again, and let Tab finish the name', ['cd forest'], 'ls ca\t'), false);
 });
 
-test('cd - that stays in the same directory does not count as jumping back', async () => {
-  assert.equal(await passes('Jump back to where you were with `cd -`', ['cd forest', 'cd .'], 'cd -'), false);
+test('cd - counts even when the previous directory was this same room, because cd - did its job', async () => {
+  assert.equal(await passes('Jump back to where you were with `cd -`', ['cd forest', 'cd .'], 'cd -'), true);
 });
 
 test('the trapdoor drops the player in the dungeon and lights one beacon in the forest', async () => {
@@ -150,23 +195,56 @@ test('an absolute jump taken from inside the home does not beat the boss', async
   assert.equal(chapter.boss.done(ctx, secret), false);
 });
 
-test('an absolute jump to the wrong room, or two commands on one line, does not beat the boss', async () => {
+test('an absolute jump to the wrong room does not beat the boss', async () => {
   const { backend, secret } = await startBoss(chapter, 5);
   const wrong = secret.target.endsWith('/clearing') ? '/home/hero/forest/river' : '/home/hero/forest/clearing';
   assert.equal(chapter.boss.done((await type(backend, `cd ${wrong}`)).ctx, secret), false);
-  await type(backend, 'cd /tmp');
-  assert.equal(chapter.boss.done((await type(backend, `cd /etc; cd ${secret.target}`)).ctx, secret), false);
 });
 
-test('the exact boss hint is the line that beats the boss', async () => {
+test('on a line of several commands, the jump that lands on the beacon is the one judged', async () => {
+  const { backend, secret, obs } = await startBoss(chapter, 6);
+  assert.equal(chapter.boss.done((await type(backend, `cd /tmp; cd ${relative('/tmp', secret.target)}`)).ctx, secret), false);
+  await type(backend, `cd ${obs.cwd}`);
+  assert.equal(chapter.boss.done((await type(backend, `cd /etc; cd ${secret.target}`)).ctx, secret), true);
+});
+
+test('the beacon\'s flame does not claim how the player got there', async () => {
+  const { obs, secret } = await startBoss(chapter, 1);
+  assert.doesNotMatch(nodeAt(obs.tree, `${secret.target}/flame.txt`).content, /absolute|relative|path/);
+});
+
+test('a near note says the path was relative when a relative cd reaches the beacon', async () => {
+  const { backend, secret, obs } = await startBoss(chapter, 7);
+  const { ctx } = await type(backend, `cd ${relative(obs.cwd, secret.target)}`);
+  assert.match(chapter.boss.near(ctx, secret), /relative/);
+});
+
+test('a near note says the jump must start in the dungeon when it starts inside the home', async () => {
+  const { backend, secret } = await startBoss(chapter, 8);
+  await type(backend, 'cd ~/forest');
+  const { ctx } = await type(backend, `cd ${secret.target}`);
+  assert.match(chapter.boss.near(ctx, secret), /dungeon/);
+  assert.match(chapter.boss.near((await type(backend, `cd ${secret.target}`)).ctx, secret), /dungeon/);
+});
+
+test('the boss gives no near note for a winning jump or for looking around', async () => {
+  const { backend, secret } = await startBoss(chapter, 9);
+  assert.equal(chapter.boss.near((await type(backend, 'ls ~/forest')).ctx, secret), null);
+  assert.equal(chapter.boss.near((await type(backend, `cd ${secret.target}`)).ctx, secret), null);
+});
+
+test('the exact boss hint beats the boss from the dungeon, from home and from the beacon itself', async () => {
   for (const seed of SEEDS.slice(0, 4)) {
     const { backend, secret } = await startBoss(chapter, seed);
     const line = chapter.boss.hints[2](secret);
-    assert.ok(chapter.boss.done((await type(backend, line)).ctx, secret), `seed ${seed}: ${line}`);
+    assert.ok(chapter.boss.done((await type(backend, line)).ctx, secret), `seed ${seed}, dungeon: ${line}`);
+    assert.ok(chapter.boss.done((await type(backend, line)).ctx, secret), `seed ${seed}, beacon: ${line}`);
+    await type(backend, 'cd');
+    assert.ok(chapter.boss.done((await type(backend, line)).ctx, secret), `seed ${seed}, home: ${line}`);
   }
 });
 
-const NOT_COMMANDS = new Set(['/', '/home/hero', '..', '.', '~', 'cd forest/', '~/forest/river']);
+const NOT_COMMANDS = new Set(['/', '/home/hero', '..', '~', 'cd forest/', '~/forest/river']);
 
 test('every command the chapter shows runs in the simulator', async () => {
   const lines = [

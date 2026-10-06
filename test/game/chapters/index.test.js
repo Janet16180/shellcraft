@@ -31,11 +31,22 @@ function proseOf(chapter) {
   const hints = [...chapter.tasks.map(task => task.hints), chapter.boss.hints].flatMap(hints => hints.slice(0, 2));
   return [
     ...chapter.tasks.map(task => task.goal),
+    ...chapter.tasks.map(task => task.tip ?? ''),
     ...hints,
     ...chapter.spells.flatMap(spell => [spell.summary, ...spell.examples.map(([, note]) => note)]),
     ...[...chapter.recap, ...chapter.field].map(([, meaning]) => meaning),
   ];
 }
+
+test('every task has a tip: one sentence of at most 140 characters', () => {
+  for (const chapter of chapters.filter(c => !c.soon)) {
+    for (const task of chapter.tasks) {
+      assert.ok(typeof task.tip === 'string' && task.tip.length > 0 && task.tip.length <= 140, `${chapter.id}: ${task.goal}`);
+      assert.match(task.tip, /[.!?]$/, `${chapter.id}: a sentence ends the tip: ${task.tip}`);
+      assert.doesNotMatch(task.tip, /[.!?]\s+[A-Z`]/, `${chapter.id}: one sentence only: ${task.tip}`);
+    }
+  }
+});
 
 test('backticks that mark typed names in goals, hints, spells and the adventure log come in pairs', () => {
   for (const chapter of chapters.filter(c => !c.soon)) {

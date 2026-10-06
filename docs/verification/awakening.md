@@ -12,10 +12,10 @@ Man pages from the Ubuntu 24.04 host.
 
 | Claim | Evidence |
 |---|---|
-| The prompt reads `hero@kernelia:~$` | R3/R5: `hero@kernelia:~$`; `/etc/skel/.bashrc` line 62: `PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '` |
-| `hero` is the user name, `kernelia` the machine | `bash(1)` PROMPTING: `\u the username of the current user`, `\h the hostname up to the first '.'` |
-| After the colon comes the directory; `~` is short for the home, `/home/hero` | `bash(1)`: `\w the value of the PWD shell variable ($PWD), with $HOME abbreviated with a tilde`; R3: `hero@kernelia:~/forest$` |
-| `$` means a normal user, root gets `#` | `bash(1)`: `\$ if the effective UID is 0, a #, otherwise a $`; R5: `root@kernelia:/#` |
+| The prompt reads `hero@kernelia:~$` (the lesson now points back to the intro for it) | R3/R5: `hero@kernelia:~$`; `/etc/skel/.bashrc` line 62: `PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '` |
+| (removed from the lesson in round 2; the intro explains it) `hero` is the user name, `kernelia` the machine | `bash(1)` PROMPTING: `\u the username of the current user`, `\h the hostname up to the first '.'` |
+| `~` in the prompt is short for the home, `/home/hero` | `bash(1)`: `\w the value of the PWD shell variable ($PWD), with $HOME abbreviated with a tilde`; R3: `hero@kernelia:~/forest$` |
+| (removed from the lesson in round 2; the intro explains it) `$` means a normal user, root gets `#` | `bash(1)`: `\$ if the effective UID is 0, a #, otherwise a $`; R5: `root@kernelia:/#` |
 | Commands are case-sensitive: `ls` works, `LS` does not | D: `LS` -> `bash: LS: command not found`, status 127; SIM test "the lesson shows LS as a command that does not exist" |
 | `whoami` prints your user name | `whoami(1)`: "print effective user name"; R2: `hero` |
 | `pwd` prints the full path of the directory you are in; print working directory | `pwd(1)`: "print name of current/working directory"; R2: `/home/hero` |
@@ -41,6 +41,28 @@ Man pages from the Ubuntu 24.04 host.
 | Hint: the command is the plain English word clear | `clear(1)` |
 | Near-misses fail for the right reason on real bash: `Whoami`, `PWD`, `cls` are unknown commands; `ls -help` is an invalid option; `help ls` finds no help topic | D: `bash: Whoami: command not found`; `bash: cls: command not found`; `ls: invalid option -- 'e'` status 2; `help: no help topics match 'ls'` status 1 |
 | Checks: each task has a near-miss that does not pass and a line that does | SIM: 15 near-miss tests (e.g. `LS --help` fails, `cat .bashrc` reads the wrong file). Each check survived mutation testing: removing any one condition makes a test fail |
+
+## Tips (one sentence per task, shown with the goal)
+
+| Tip | Evidence |
+|---|---|
+| `whoami` prints your user name, the name before the @ in the prompt | `whoami(1)`; `bash(1)` `\u` before `@` in Ubuntu's PS1 |
+| `pwd`, `ls` on its own, `cat FILE`, `man COMMAND` | the lesson rows above |
+| Many commands print a short summary with `--help` (two dashes) | the `--help` lesson row above |
+| `clear` wipes the screen; Ctrl+L does too | the clear lesson row above |
+
+## Near notes (shown when a line got close the wrong way)
+
+| Note | Evidence |
+|---|---|
+| Look around: "That listed another directory. To look around your home, run ls in your home with nothing after it." | `ls(1)`: with no FILE, the current directory |
+| Read the letter: "ls only shows the name. cat prints what is inside: cat readme.txt" | `ls(1)` lists names; `cat(1)` prints contents; R2 |
+| Read the letter: "That was another file. The letter is readme.txt." | game text; `readme.txt` is the letter (world.md) |
+| Quick help: "One dash starts short options, so -help means -h -e -l -p. Long options take two dashes: --help." | D: `ls -help` -> `ls: invalid option -- 'e'`: ls took `-h` as an option, then rejected `e`, so the cluster is read letter by letter; `ls(1)`: `--help display this help and exit` |
+| Quick help: "echo prints its words back, even --help." | D: `echo --help` prints `--help`, status 0 (`echo` is a shell builtin with no `--help`) |
+| Clear task goal says "with the `clear` command" | Ctrl+L is handled by the page's terminal, so the session cannot see it; the lesson keeps "Ctrl+L clears it too" (true, see above) |
+| Boss: a forged deed gets "Somewhere, the Shadow Daemon snickers. That letter was signed SIGNER. Compare the signatures with readme.txt." | game text; SIGNER is the forged letter's real signature (SIM test) |
+| Boss: the right command asked the other way gets "Right spell, wrong way. Read the real letter again: it asks for the manual page / the quick help." | game text (SIM test over 10 seeds) |
 
 ## Boss: The Forged Letters
 

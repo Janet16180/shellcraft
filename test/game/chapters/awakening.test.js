@@ -10,6 +10,7 @@ const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const GOAL = Object.fromEntries(chapter.tasks.map((task, i) => [task.goal, i]));
 
 async function passes(goal, prefix, line) {
+  assert.ok(goal in GOAL, `no task named ${goal}`);
   const backend = await startChapter(chapter);
   await play(chapter, backend, prefix);
   const { ctx } = await type(backend, line);
@@ -54,7 +55,7 @@ const NEAR_MISSES = [
   ['Ask a command for its quick help', [], 'LS --help', 'whoami --help'],
   ['Ask a command for its quick help', [], 'clear --help', 'pwd --help'],
   ['Ask a command for its quick help', [], 'echo --help', 'ls --help'],
-  ['Wipe the screen clean', [], 'cls', 'clear'],
+  ['Wipe the screen clean with the `clear` command', [], 'cls', 'clear'],
 ];
 
 for (const [goal, prefix, miss, hit] of NEAR_MISSES) {
@@ -63,6 +64,33 @@ for (const [goal, prefix, miss, hit] of NEAR_MISSES) {
     assert.equal(await passes(goal, prefix, hit), true);
   });
 }
+
+const NEAR_NOTES = [
+  ['Look around your home', [], 'ls forest', /nothing after it/],
+  ['Look around your home', [], 'ls', null],
+  ['Read the letter left for you', [], 'ls readme.txt', /cat/],
+  ['Read the letter left for you', [], 'cat .bashrc', /readme\.txt/],
+  ['Read the letter left for you', [], 'cat readme.txt', null],
+  ['Ask a command for its quick help', [], 'ls -help', /two dashes/],
+  ['Ask a command for its quick help', [], 'echo --help', /echo/],
+  ['Ask a command for its quick help', [], 'ls --help', null],
+  ['Ask a command for its quick help', [], 'pwd', null],
+];
+
+for (const [goal, prefix, line, note] of NEAR_NOTES) {
+  test(`"${goal}" gives ${note ? 'a near note' : 'no near note'} for ${line}`, async () => {
+    const backend = await startChapter(chapter);
+    await play(chapter, backend, prefix);
+    const { ctx } = await type(backend, line);
+    const got = chapter.tasks[GOAL[goal]].near(ctx);
+    if (note) assert.match(got, note);
+    else assert.equal(got, null);
+  });
+}
+
+test('the clear task asks for the clear command, since the page handles Ctrl+L itself', () => {
+  assert.match(chapter.tasks.at(-1).goal, /`clear` command/);
+});
 
 test('the boss room puts four letters in the home, and exactly one is signed by the Guardian of Root', async () => {
   for (const seed of SEEDS) {
@@ -117,6 +145,27 @@ test('doing what a forged letter asks does not beat the boss', async () => {
   }
 });
 
+test('doing a forged letter\'s deed earns a near note that names the forger', async () => {
+  for (const seed of SEEDS.slice(0, 5)) {
+    const { backend, secret, obs } = await startBoss(chapter, seed);
+    for (const line of forgedLines(obs)) {
+      const note = chapter.boss.near((await type(backend, line)).ctx, secret);
+      assert.match(note, /The Guardian of (Boot|Loot|Soot|Rot)/, `seed ${seed}: ${line}`);
+      assert.match(note, /readme\.txt/);
+    }
+  }
+});
+
+test('the right command asked the wrong way earns a near note, and the real deed or looking around earns none', async () => {
+  for (const seed of SEEDS) {
+    const { backend, secret, obs } = await startBoss(chapter, seed);
+    const wrong = secret.how === 'man' ? `${secret.command} --help` : `man ${secret.command}`;
+    assert.match(chapter.boss.near((await type(backend, wrong)).ctx, secret), /letter/, `seed ${seed}: ${wrong}`);
+    assert.equal(chapter.boss.near((await type(backend, 'ls')).ctx, secret), null);
+    assert.equal(chapter.boss.near((await type(backend, chapter.boss.solve(obs)[0])).ctx, secret), null);
+  }
+});
+
 test('the right command asked the wrong way does not beat the boss', async () => {
   for (const seed of SEEDS) {
     const { backend, secret } = await startBoss(chapter, seed);
@@ -133,7 +182,7 @@ test('the exact boss hint is the line that beats the boss', async () => {
   }
 });
 
-const NOT_COMMANDS = new Set(['LS', 'readme.txt', '--help', '/home/hero']);
+const NOT_COMMANDS = new Set(['hero@kernelia:~$', '~', 'LS', 'readme.txt', '--help', '/home/hero']);
 
 test('every command the chapter shows runs in the simulator', async () => {
   const lines = [
@@ -145,6 +194,11 @@ test('every command the chapter shows runs in the simulator', async () => {
   ];
   const backend = await startChapter(chapter);
   for (const line of lines) assert.equal(notFound((await type(backend, line)).result), false, line);
+});
+
+test('the lesson points back to the intro for the prompt instead of explaining it again', () => {
+  assert.match(chapter.lesson, /intro/);
+  assert.doesNotMatch(chapter.lesson, /administrator|class="anat"/);
 });
 
 test('the lesson shows LS as a command that does not exist', async () => {

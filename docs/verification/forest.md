@@ -10,7 +10,7 @@ the simulator (`test/game/chapters/forest.test.js`). Man pages from the Ubuntu 2
 |---|---|
 | Linux keeps everything in one tree; it starts at `/`, the root directory | `hier(7)`: "/ This is the root directory. This is where the whole tree starts." |
 | `/home/hero` is a branch of it | R2 `pwd`: `/home/hero` |
-| A directory's parent is the directory that holds it; `..` is the parent, `.` the directory itself | `path_resolution(7)` ". and ..": "refer to the directory itself and to its parent directory" |
+| A directory's parent is the directory that holds it; `..` is the parent (round 2 dropped the unused `.` from the lesson) | `path_resolution(7)` ". and ..": "refer to the directory itself and to its parent directory" |
 | `cd` means change directory | `help cd`: "Change the shell working directory." |
 | A relative path starts from where you are; an absolute path starts at `/` and works from anywhere | `path_resolution(7)` Step 1: a pathname starting with `/` starts at the root directory, otherwise at the current working directory |
 | `cd forest/cave` goes several rooms deep at once | R2: `cd cave/deep` from the forest printed `/home/hero/forest/cave/deep` |
@@ -24,7 +24,7 @@ the simulator (`test/game/chapters/forest.test.js`). Man pages from the Ubuntu 2
 | Tab: `cd fo` then Tab writes `cd forest/` | R3: the line became `cd forest/`; `bash(1)` readline `mark-directories (On)`: "completed directory names have a slash appended"; SIM test |
 | When several names match, press Tab again to list them | R5: `cd ga` + Tab rang the bell, a second Tab listed `game/ gate/`; `bash(1)` `show-all-if-ambiguous (Off)` |
 
-Vertical words in chapters 1 and 2 were checked against this bridge: Linux's "up" (`cd ..`, recap, spells) means toward `/`. The map's "down" is the stairway from home into the dungeon, and the chapter 2 boss's trapdoor fall follows it. The cave's "down to the deepest part" and "climb back up into the cave" describe the cave itself, and agree with both.
+Vertical words in chapters 1 and 2 were checked against this bridge. "Up" appears only where the lesson explains Linux's word (the bridge) and in the recap's `cd ..` line. Goals, tips, hints and spell notes say "deeper" and "back out" (round 2, teaching review finding 4; a test keeps "up" and "down" out of them). The map's "down" is the stairway from home into the dungeon, and the chapter 2 boss's trapdoor fall follows it.
 
 ## Tasks and hints
 
@@ -38,8 +38,32 @@ Vertical words in chapters 1 and 2 were checked against this bridge: Linux's "up
 | Hint: cd with nothing after it takes you home | `bash(1)` cd |
 | Hints: Tab finishes a name from its first letters when only one name matches; type cd fo, press Tab, then Enter | R3 (unique match completed), R5 (two matches: bell, then a list) |
 | `cd ~/forest/river` counts as an absolute path | bash expands `~` before cd runs (Tilde Expansion), so cd receives `/home/hero/forest/river`; the CommandRecord shows the same |
+| `cd -` counts whenever it succeeds, even when the previous directory was the same room (it still did its job: teaching review 2a dead end) | `bash(1)` cd: `-` is converted to $OLDPWD; SIM test with `cd .` then `cd -` |
 | "Shortest command" home is `cd` alone; `cd ~` and `cd /home/hero` do not pass that task | by design; the lesson says `cd ~` also goes home, the goal asks for the shortest |
 | Checks: each task has a near-miss that does not pass and a line that does | SIM: 16 near-miss tests (e.g. `cd ../river` is relative; `cd ../cave` from the river is not from deep; `cd forest` typed in full uses no Tab; Tab while already in the forest is not walking in). Each check also survived mutation testing: removing any one condition makes a test fail |
+
+## Tips (one sentence per task, shown with the goal)
+
+| Tip | Evidence |
+|---|---|
+| `cd` with a directory name walks you into it; a path with slashes goes several rooms deeper | R2 (`cd forest`, `cd cave/deep`) |
+| `ls` shows the names, `cat` prints a file | R2 |
+| `..` is the parent, so `cd ..` from deep steps back out into the cave | `path_resolution(7)`; R2 |
+| An absolute path starts at the root with `/` | `path_resolution(7)` Step 1 |
+| `cd -` jumps back to the previous directory and prints its path; `cd` alone goes home | `bash(1)` cd |
+| Type the first letters, then Tab finishes the name | R3 |
+
+## Near notes (shown when a line got close the wrong way)
+
+| Note | Evidence |
+|---|---|
+| Enter the forest: "That looked into the forest from outside. To walk in, use cd forest." | `ls(1)` lists without moving; R2 |
+| Deep: "You are already in the forest (the prompt shows ~/forest). From here the path is cave/deep." | R3: the prompt in the forest is `hero@kernelia:~/forest$`; `path_resolution(7)`: a relative path starts at the current directory |
+| Deep and river: "A path that starts with / starts at the root, not at your home. Your forest is /home/hero/forest, or ~/forest." | `path_resolution(7)` Step 1; Tilde Expansion |
+| `..`: "You reached the cave, but without .. this time. Go back into deep and type cd .. to step back out." | game text; `..` is the parent (`path_resolution(7)`) |
+| River: "You reached the river with a relative path. This task wants an absolute one, starting with /." | `path_resolution(7)` Step 1 |
+| Home: "That works, but there is a shorter way home: cd on its own." | `bash(1)` cd: with no dir, HOME is the default |
+| Tab: "You typed the whole name. Try cd fo and press Tab." | R3 |
 
 ## Boss: The Trapdoor
 
@@ -52,6 +76,10 @@ Vertical words in chapters 1 and 2 were checked against this bridge: Linux's "up
 | One `cd` with an absolute or `~` path reaches the beacon from the dungeon | R2: `cd ~/forest/river/beacon_k7m` from `/var/log`, status 0 |
 | A relative path also reaches it (`cd ../home/hero/...` from `/tmp`) but does not count | R2: status 0; the briefing asks for an absolute path, SIM near-miss tests |
 | The beacon's place and name change with the seed | SIM: at least 3 different rooms over 12 seeds; names use the safe token alphabet |
+| flame.txt: "A warm flame burns here: the Guardian's beacon." (was "You found your way back with one absolute path", false when the player arrived another way) | game text, makes no claim about how the player arrived |
+| Near note: a relative cd that reaches the beacon is named as relative; the fix is to step out with `cd /tmp` and jump again with a path starting with `/` or `~` | `path_resolution(7)` Step 1; R2: hero can enter `/tmp`; tilde expansion makes `~/...` absolute |
+| Near note: a jump that starts inside the home does not count; step out with `cd /tmp` first | the boss rule (the jump starts in the dungeon); `/tmp` is outside `/home/hero` |
+| Hint 3 `cd /tmp; cd /home/hero/forest/.../beacon_XXX` works from anywhere | `bash(1)` Lists: "Commands separated by a ; are executed sequentially"; the check judges the line's last `cd` (where it started, its path, where it landed); SIM test runs the hint from the dungeon, from home and from the beacon |
 
 ## Adventure log, spells, recap, field
 
