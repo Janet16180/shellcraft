@@ -3,7 +3,9 @@
  * into the backend and the rule modules; the rules themselves live in
  * checks.js, effects.js, progress.js and save.js.
  *
- * Callers await each call before making the next one.
+ * Callers await each call before making the next one: a call that changes
+ * state while another is still running raises (view and observation may be
+ * read at any time).
  *
  * @typedef {import('../backend/port.js').RunResult} RunResult
  * @typedef {import('../backend/port.js').Observation} Observation
@@ -39,7 +41,8 @@ const HINT_LEVELS = 3;
  * @param {{getItem: (key: string) => string|null, setItem: (key: string, text: string) => void}} deps.store
  *   Where the save lives, such as window.localStorage. Errors it throws propagate.
  * @param {() => number} deps.random Random numbers in [0, 1) for chapter setups.
- * @returns {object} The session API (DESIGN.md section 2.2).
+ * @returns {object} The session API (DESIGN.md section 2.2). Its methods raise
+ *   when called before boot(), or while another state-changing call is running.
  * @throws {Error} If the chapter list is empty or repeats an id.
  */
 export function createSession({ backend, chapters, baseWorld, store, random }) {
@@ -49,28 +52,46 @@ export function createSession({ backend, chapters, baseWorld, store, random }) {
 
   const s = {
     backend, chapters, baseWorld, store, random,
-    save: null, boot: null, obs: null, index: null, completions: [],
+    save: null, boot: null, obs: null, index: null, completions: [], busy: false,
     phase: 'quest', tasksDone: [], hints: [], bossHints: 0, secret: undefined, hearts: MAX_HEARTS, replay: false,
   };
+  const idle = work => (...args) => {
+    requireIdle(s);
+    return work(...args);
+  };
   return {
-    boot: () => boot(s),
-    startChapter: (id, options) => startChapter(s, id, options),
-    submit: line => submit(s, line),
-    hint: () => hint(s),
+    boot: () => exclusive(s, () => boot(s)),
+    startChapter: (id, options) => exclusive(s, () => startChapter(s, id, options)),
+    submit: line => exclusive(s, () => submit(s, line)),
+    complete: line => exclusive(s, () => complete(s, line)),
+    reset: () => exclusive(s, () => reset(s)),
+    hint: idle(() => hint(s)),
+    setSound: idle(on => setSound(s, on)),
+    markIntroSeen: idle(() => updateSave(s, { introSeen: true })),
     view: () => view(s),
     observation: () => {
       requireBooted(s);
       return s.obs;
     },
-    complete: line => complete(s, line),
-    setSound: on => setSound(s, on),
-    markIntroSeen: () => updateSave(s, { introSeen: true }),
-    reset: () => reset(s),
   };
 }
 
 function requireBooted(s) {
   if (s.index === null) throw new Error('call boot() before using the session');
+}
+
+function requireIdle(s) {
+  if (s.busy) throw new Error('another session call is running; await it before making the next one');
+}
+
+async function exclusive(s, work) {
+  requireIdle(s);
+  s.busy = true;
+  try {
+    return await work();
+  } finally {
+    s.busy = false;
+  }
 }
 
 const current = s => s.chapters[s.index];

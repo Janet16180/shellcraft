@@ -510,6 +510,46 @@ test('tab completion is answered by the backend', async () => {
   assert.deepEqual(await session.complete('cd fo'), { line: 'cd fo', candidates: [] });
 });
 
+function gatedBackend() {
+  const backend = createFakeBackend();
+  const waiting = [];
+  const gate = { open: () => waiting.splice(0).forEach(resolve => resolve()) };
+  const run = async line => {
+    await new Promise(resolve => waiting.push(resolve));
+    return backend.run(line);
+  };
+  return { backend: { ...backend, run }, gate };
+}
+
+test('a call that changes state while a line is still running raises, and the line still finishes cleanly', { timeout: 5000 }, async () => {
+  const { backend, gate } = gatedBackend();
+  const { session } = await booted({ backend });
+  const pending = session.submit('pwd');
+  const overlap = /another session call is running/;
+  await assert.rejects(session.submit('ls'), overlap);
+  await assert.rejects(session.reset(), overlap);
+  await assert.rejects(session.startChapter('awakening'), overlap);
+  await assert.rejects(session.boot(), overlap);
+  await assert.rejects(session.complete('pw'), overlap);
+  assert.throws(() => session.hint(), overlap);
+  assert.throws(() => session.setSound(true), overlap);
+  assert.throws(() => session.markIntroSeen(), overlap);
+  assert.equal(session.view().xp, 0);
+  assert.equal(session.observation().cwd, HOME);
+
+  gate.open();
+  const turn = await pending;
+  assert.deepEqual(kinds(turn.events), ['task']);
+  assert.deepEqual([turn.view.xp, turn.view.chapter.phase, turn.view.sound], [10, 'quest', false]);
+  assert.equal((await session.reset()).xp, 0);
+});
+
+test('a call that raised leaves the session free for the next one', async () => {
+  const { session } = await booted();
+  await assert.rejects(session.startChapter('nowhere'), /unknown chapter/);
+  assert.deepEqual(kinds((await session.submit('pwd')).events), ['task']);
+});
+
 test('using the session before boot raises', async () => {
   const { session } = makeSession();
   await assert.rejects(session.submit('ls'), /boot/);
