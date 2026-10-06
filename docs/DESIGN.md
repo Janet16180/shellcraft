@@ -57,13 +57,14 @@ once in `src/backend/access.js`: the simulator enforces it and the map draws pad
 ### 2.2 Session API (`src/game/session.js`, consumed by the UI)
 
 ```js
-const session = createSession({ backend, chapters, store, random });
+const session = createSession({ backend, chapters, baseWorld, store, random });  // baseWorld from world.js, injected by main.js
 await session.boot();                 // -> View   load the save (validated), start the current chapter
 await session.startChapter(id, { fresh });   // -> View
 await session.submit(line);           // -> Turn
 session.hint();                       // -> { level: 1..3, text, cost } | null   next hint for the current task or boss
 session.view();                       // -> View
 await session.complete(line);         // -> { line, candidates }   (backend.complete)
+session.observation();                // the latest Observation (sync), for map.show()
 session.setSound(on); session.markIntroSeen(); await session.reset();
 ```
 
@@ -74,7 +75,7 @@ save exists, and is never deleted). `startChapter` raises for an unknown, `soon`
 
 `Turn = { result: RunResult, obs: Observation, effects: Effect[], events: GameEvent[], view: View }`.
 Effects and events carry a `kind` field. Events: `task {index, goal, xp}`, `boss-start`, `boss {xp}`,
-`chapter {id, recap, field, xp, next}`, `heart-lost {reason, left}`, `hearts-restored {phase}`.
+`chapter {id, recap, why, field, xp, next}`, `heart-lost {reason, left}`, `hearts-restored {phase}`.
 A line costs at most one heart. At zero hearts the quest phase re-applies the chapter setup on
 the current world (finished tasks stay finished); the boss phase reruns `boss.setup` (a new
 random boss, hints kept).
