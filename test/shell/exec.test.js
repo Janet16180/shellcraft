@@ -182,3 +182,15 @@ test('a bash builtin the game does not simulate is not reported as missing', asy
 test('a short --help says that the real one lists more options', async () => {
   assert.equal((await run(await shell(), 'ls --help')).note, 'Real ls --help prints a longer list of options.');
 });
+
+test('a command substitution writes its errors to the terminal and sets $? for assignments', async () => {
+  const b = await shell();
+  const shown = await run(b, 'echo $(ls nope)');
+  assert.deepEqual([shown.out, shown.err], ['\n', "ls: cannot access 'nope': No such file or directory\n"]);
+  const assigned = await run(b, 'x=$(ls nope); echo $?');
+  assert.deepEqual([assigned.out, assigned.err], ['2\n', "ls: cannot access 'nope': No such file or directory\n"]);
+  assert.equal((await run(b, 'x=$(false); echo $?')).out, '1\n');
+  assert.equal((await run(b, 'x=$(true); echo $?')).out, '0\n');
+  assert.equal((await run(b, '$(false); echo $?')).out, '1\n');
+  assert.equal((await run(b, 'echo $(false); echo $?')).out, '\n0\n');
+});

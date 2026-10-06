@@ -38,16 +38,24 @@ const UNSIMULATED = new Set(['w', 'nl', 'cut', 'tr', 'du', 'df', 'ln', 'stat', '
 const isAssignment = word => 'lit' in word.parts[0] && !word.parts[0].q && ASSIGNMENT.test(word.parts[0].lit);
 const withNewline = text => (text && !text.endsWith('\n') ? `${text}\n` : text);
 
-function expansionEnv(sh) {
+// Expansion happens before the command's redirections, so a command
+// substitution writes its errors where the shell writes its own.
+function expansionEnv(sh, sink) {
   const { sys } = sh;
   const errors = [];
-  return {
-    sys, errors,
+  const env = {
+    sys, errors, substitutionStatus: null,
     fail: message => errors.push(message),
     lookupVar: name => varValue(sys, name),
     homeOf: user => (user === sys.user ? sys.home : SYSTEM_HOMES[user] ?? null),
-    substitute: line => capture(sh, line).out,
+    substitute: line => {
+      const r = capture(sh, line);
+      if (r.err) sink.write('err', r.err);
+      env.substitutionStatus = r.status;
+      return r.out;
+    },
   };
+  return env;
 }
 
 function capture(sh, line, errPrefix = null) {
@@ -137,8 +145,8 @@ function route(sh, sink, target, text, html) {
   else writeTo(sh.sys, target, text);
 }
 
-function prepare(sh, cmd, stdin, last) {
-  const env = expansionEnv(sh);
+function prepare(sh, cmd, stdin, last, sink) {
+  const env = expansionEnv(sh, sink);
   let k = 0;
   while (k < cmd.words.length && isAssignment(cmd.words[k])) k++;
   const values = cmd.words.slice(0, k).map(w => [w.parts[0].lit.split('=')[0], expandAssignment(w, env)]);
@@ -148,17 +156,20 @@ function prepare(sh, cmd, stdin, last) {
   const base = { stdin, out: last ? { kind: 'terminal', stream: 'out' } : { kind: 'pipe', buffer: '' }, err: { kind: 'terminal', stream: 'err' } };
   const opened = bad ? { error: bad.expanded.error, streams: base, records: [] }
     : openRedirects(sh.sys, targets.map(t => ({ op: t.op, fd: t.fd, target: t.expanded.value })), base);
-  return { argv, values, opened, base, abort: env.errors.length > 0 };
+  return { argv, values, opened, base, abort: env.errors.length > 0, substitutionStatus: env.substitutionStatus };
 }
 
 function runCommand(sh, cmd, stdin, place, sink) {
   const { sys } = sh;
   const cwd = sys.cwd;
-  const { argv, values, opened, base, abort } = prepare(sh, cmd, stdin, place.last);
+  const { argv, values, opened, base, abort, substitutionStatus } = prepare(sh, cmd, stdin, place.last, sink);
   const { streams } = opened;
   let r = result();
   if (opened.error) r = result('', opened.error, 1);
-  else if (!argv.length) values.forEach(([name, value]) => setVar(sys, name, value));
+  else if (!argv.length) {
+    values.forEach(([name, value]) => setVar(sys, name, value));
+    r = result('', '', substitutionStatus ?? 0);
+  }
   else r = dispatch(sh, argv, streams, Object.fromEntries(values));
   route(sh, sink, opened.error ? base.err : streams.err, withNewline(r.err), null);
   if (r.note) sink.note(r.note);
