@@ -1,0 +1,2493 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Shellcraft</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;600&family=Pixelify+Sans:wght@500;700&family=Silkscreen&display=swap">
+<style>
+:root{
+  color-scheme: dark;
+  --night:#14112a; --panel:#1e1a3a; --panel2:#282350; --line:#3a3470;
+  --ink:#efe6d2; --dim:#a39fc4; --amber:#ffb347; --rose:#ff5f7e;
+  --blue:#6fa8ff; --green:#8ee06a; --magenta:#e37bff; --term:#0d0b1c;
+  --display:"Pixelify Sans","Silkscreen",ui-monospace,monospace;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --prose:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+html,body{height:100%}
+body{background:var(--night);color:var(--ink);font-family:var(--prose);font-size:15px;padding-inline:16px;padding-block:12px;box-sizing:border-box;
+  background-image:radial-gradient(circle at 20% 0%,#231d4a 0,transparent 55%),radial-gradient(circle at 90% 100%,#1d1840 0,transparent 50%)}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,.chip:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+code,kbd{font-family:var(--mono);font-size:.92em}
+code{background:#2e2860;border-radius:3px;padding:1px 5px;color:#ffe2b0}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--panel2)}
+
+.app{max-width:1400px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.hud{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:10px 14px;background:var(--panel);border:2px solid var(--line);border-radius:6px}
+.brand{font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:.06em;color:var(--amber);text-shadow:3px 3px 0 #6b2f5a}
+.chap{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+.chap .eyebrow{font-family:var(--display);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.chap .name{font-family:var(--display);font-size:18px}
+.xp{display:flex;align-items:center;gap:10px;flex:1;min-width:200px}
+.xpbar{flex:1;height:14px;background:#0f0c22;border:2px solid var(--line);position:relative;overflow:hidden}
+.xpbar i{position:absolute;inset:0 auto 0 0;width:0;background:repeating-linear-gradient(90deg,var(--green) 0 6px,#6cc24e 6px 8px);transition:width .6s steps(12)}
+.xptext{font-family:var(--display);font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.hearts{display:flex;gap:4px;color:var(--rose)}
+.hearts svg.lost{color:#4a3a5c}
+.hud .btn{background:var(--panel2);border:2px solid var(--line);border-radius:4px;padding:5px 10px;font-family:var(--display);font-size:13px}
+.hud .btn:hover{border-color:var(--amber)}
+.shake{animation:shake .35s}
+@keyframes shake{20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);grid-template-areas:"map term" "panel term";gap:12px}
+.mapwrap{grid-area:map;display:flex;flex-direction:column;gap:6px}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:2px;font-family:var(--mono);font-size:13px;color:var(--dim);min-height:22px}
+.crumbs button{background:none;border:0;padding:1px 3px;color:var(--blue);font-family:var(--mono);border-radius:3px}
+.crumbs button:hover{background:var(--panel2)}
+.crumbs .area{margin-left:auto;font-family:var(--display);color:var(--amber);letter-spacing:.05em}
+.stage{position:relative;border:3px solid #0a0818;box-shadow:0 0 0 2px var(--line),0 10px 30px rgba(0,0,0,.45);background:#000;line-height:0}
+#map{width:100%;height:auto;aspect-ratio:16/10;image-rendering:pixelated;display:block;max-width:100%}
+.toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:#1b1535ee;border:2px solid var(--amber);color:var(--amber);font-family:var(--display);font-size:14px;line-height:1.3;padding:6px 12px;pointer-events:none;opacity:0;transition:opacity .25s;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+.toast.on{opacity:1}
+
+.panelwrap{grid-area:panel;display:flex;flex-direction:column;background:var(--panel);border:2px solid var(--line);border-radius:6px;min-height:0}
+.tabs{display:flex;border-bottom:2px solid var(--line)}
+.tabs button{flex:1;background:none;border:0;padding:9px 6px;font-family:var(--display);font-size:14px;color:var(--dim);letter-spacing:.05em}
+.tabs button[aria-selected="true"]{color:var(--ink);background:var(--panel2);box-shadow:inset 0 -3px 0 var(--amber)}
+.panel{padding:14px 16px;overflow:auto;max-height:380px;line-height:1.55}
+.panel h2{font-family:var(--display);font-size:20px;margin:0 0 8px;text-wrap:balance;color:var(--amber)}
+.panel p{margin:0 0 10px;max-width:68ch}
+.panel ul{margin:0 0 10px;padding-left:20px}
+.panel li{margin-bottom:4px}
+pre.anat{font-family:var(--mono);font-size:13px;background:var(--term);border:1px solid var(--line);padding:8px 10px;overflow-x:auto;line-height:1.4;margin:0 0 10px;color:var(--ink)}
+.warn{color:#ffb0bd}
+.tasks{list-style:none;padding:0;margin:12px 0 8px;display:flex;flex-direction:column;gap:6px}
+.tasks li{display:flex;gap:10px;align-items:flex-start;padding:7px 10px;background:#18142f;border:1px solid var(--line);border-radius:4px;margin:0}
+.tasks li .box{flex:none;width:16px;height:16px;border:2px solid var(--dim);margin-top:3px}
+.tasks li.done{opacity:.7}
+.tasks li.done .box{background:var(--green);border-color:var(--green);box-shadow:inset 0 0 0 2px #18142f}
+.tasks li.done .txt{text-decoration:line-through;text-decoration-color:#6d6a8f}
+.tasks li.next{border-color:var(--amber)}
+.hintbtn{background:var(--panel2);border:2px solid var(--line);border-radius:4px;padding:5px 10px;font-family:var(--display);font-size:13px}
+.hintbtn:hover{border-color:var(--amber)}
+.hintout{font-family:var(--mono);font-size:13px;color:var(--amber);margin-top:8px}
+
+.spells{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.spell{background:#18142f;border:1px solid var(--line);border-radius:4px;padding:10px}
+.spell h3{margin:0 0 4px;font-family:var(--mono);font-size:16px;color:var(--green)}
+.spell p{margin:0 0 6px;font-size:14px}
+.spell .ex{display:flex;flex-direction:column;gap:4px}
+.chip{display:block;text-align:left;background:var(--term);border:1px solid var(--line);border-radius:3px;padding:3px 7px;font-family:var(--mono);font-size:12.5px;color:#ffe2b0;width:100%}
+.chip:hover{border-color:var(--amber)}
+.chip small{display:block;color:var(--dim);font-family:var(--prose);font-size:12px}
+.spell.locked{opacity:.4}
+.levels{list-style:none;padding:0;margin:0 0 12px;display:flex;flex-direction:column;gap:6px}
+.levels button{width:100%;display:flex;gap:12px;align-items:center;background:#18142f;border:1px solid var(--line);border-radius:4px;padding:8px 10px;text-align:left}
+.levels button:hover:not(:disabled){border-color:var(--amber)}
+.levels button:disabled{opacity:.4;cursor:not-allowed}
+.levels .num{font-family:var(--display);color:var(--amber);width:28px;font-variant-numeric:tabular-nums}
+.levels .st{margin-left:auto;font-size:12px;color:var(--dim)}
+.levels .cur{border-color:var(--amber)}
+
+.term{grid-area:term;display:flex;flex-direction:column;background:var(--term);border:3px solid #0a0818;box-shadow:0 0 0 2px var(--line),0 10px 30px rgba(0,0,0,.45);border-radius:6px;min-height:560px;overflow:hidden;position:relative}
+.termbar{display:flex;align-items:center;gap:6px;padding:7px 10px;background:#1a1733;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12.5px;color:var(--dim)}
+.termbar i{width:11px;height:11px;border-radius:50%;display:inline-block}
+.termbar span{margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.screen{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:10px 12px;font-family:var(--mono);font-size:14px;line-height:1.45;cursor:text;position:relative}
+.screen::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 3px)}
+.ln{white-space:pre-wrap;word-break:break-word;color:#e6e1f5}
+.ln.err{color:#ff8fa3}
+.ln.note{color:var(--amber);font-style:italic}
+.ln.daemon{color:#c79bff;font-weight:600}
+.ln.sys{color:var(--dim)}
+.ln.chapter{color:var(--amber);font-family:var(--display);font-size:15px;margin:6px 0}
+.pu{color:var(--green);font-weight:600}.pp{color:var(--blue);font-weight:600}
+.c-dir{color:var(--blue);font-weight:600}.c-exe{color:var(--green);font-weight:600}
+.g-file{color:var(--magenta)}.g-num{color:var(--green)}.g-sep{color:#6fd3e0}.g-match{color:#ff5f5f;font-weight:700}
+.inputline{display:flex;align-items:baseline;white-space:pre}
+#cmd{flex:1;min-width:0;background:transparent;border:0;outline:none;color:#fff;font:inherit;caret-color:var(--amber);padding:0}
+.keys{display:none;flex-wrap:wrap;gap:6px;padding:8px;border-top:1px solid var(--line);background:#1a1733}
+.keys button{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:6px 10px;font-family:var(--mono);font-size:13px}
+@media (pointer:coarse){.keys{display:flex}}
+
+.overlay{position:fixed;inset:0;background:rgba(8,6,20,.82);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.card{background:var(--panel);border:3px solid var(--line);box-shadow:0 0 0 3px #0a0818,0 20px 60px rgba(0,0,0,.6);border-radius:6px;padding:24px;max-width:560px;width:100%;max-height:90vh;overflow:auto;line-height:1.5}
+.card .eyebrow{font-family:var(--display);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.card h2{font-family:var(--display);font-size:30px;margin:4px 0 8px;color:var(--amber);text-wrap:balance}
+.card h3{font-family:var(--display);font-size:16px;margin:16px 0 6px}
+.card dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0}
+.card dt{font-family:var(--mono);color:var(--green);font-size:14px}
+.card dd{margin:0;font-size:14px}
+.card .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+.big{background:var(--amber);color:#2a1300;border:0;border-radius:4px;padding:10px 18px;font-family:var(--display);font-weight:700;font-size:17px;box-shadow:0 4px 0 #b3661d}
+.big:active{transform:translateY(2px);box-shadow:0 2px 0 #b3661d}
+.ghost{background:transparent;border:2px solid var(--line);border-radius:4px;padding:8px 14px;font-family:var(--display);font-size:15px}
+.title-logo{font-family:var(--display);font-weight:700;font-size:clamp(44px,11vw,76px);line-height:1;color:var(--amber);text-shadow:4px 4px 0 #6b2f5a,8px 8px 0 #2a1a4a;letter-spacing:.04em;margin:6px 0 10px}
+.blink{animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.xpgain{font-family:var(--display);color:var(--green);font-size:20px;margin:0}
+
+@media (max-width:900px){
+  .grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"map" "term" "panel"}
+  .term{min-height:0;height:68vh}
+  .panel{max-height:none}
+  .brand{font-size:22px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="app" id="app">
+  <header class="hud" id="hud">
+    <div class="brand">SHELLCRAFT</div>
+    <div class="chap"><span class="eyebrow" id="chapNum">Chapter 1</span><span class="name" id="chapName">The Awakening</span></div>
+    <div class="xp"><div class="xpbar"><i id="xpFill"></i></div><span class="xptext" id="xpText">0 XP · Novice</span></div>
+    <div class="hearts" id="hearts" aria-label="Hearts"></div>
+    <button class="btn" id="soundBtn" type="button">Sound: off</button>
+  </header>
+  <main class="grid">
+    <section class="mapwrap">
+      <div class="crumbs" id="crumbs"></div>
+      <div class="stage"><canvas id="map" width="640" height="400" aria-label="Map of the current directory"></canvas><div class="toast" id="toast"></div></div>
+    </section>
+    <section class="panelwrap">
+      <nav class="tabs" role="tablist">
+        <button type="button" role="tab" aria-selected="true" data-tab="quest" id="tabbtn-quest">Quest</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="spells" id="tabbtn-spells">Spellbook</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="levels" id="tabbtn-levels">Chapters</button>
+      </nav>
+      <div class="panel" id="tab-quest">
+        <h2 id="questTitle"></h2>
+        <div id="brief"></div>
+        <ul class="tasks" id="tasks"></ul>
+        <button class="hintbtn" id="hintBtn" type="button">Show hint</button>
+        <div class="hintout" id="hintOut"></div>
+      </div>
+      <div class="panel" id="tab-spells" hidden><div class="spells" id="spells"></div></div>
+      <div class="panel" id="tab-levels" hidden><ul class="levels" id="levels"></ul><button class="hintbtn" id="resetBtn" type="button">Reset progress</button></div>
+    </section>
+    <section class="term" id="term">
+      <div class="termbar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span id="termTitle">hero@kernelia: ~</span></div>
+      <div class="screen" id="screen"><div id="out"></div><div class="inputline"><span id="prompt"></span><input id="cmd" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Terminal input"></div></div>
+      <div class="keys" id="keys">
+        <button type="button" data-k="Tab">Tab</button><button type="button" data-k="Up">&uarr;</button><button type="button" data-k="Down">&darr;</button>
+        <button type="button" data-k="|">|</button><button type="button" data-k="~">~</button><button type="button" data-k="/">/</button><button type="button" data-k="-">-</button><button type="button" data-k=">">&gt;</button><button type="button" data-k="Enter">Enter</button>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="overlay" id="overlay" hidden><div class="card" id="card"></div></div>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const HOME = '/home/hero';
+const GATE = HOME + '/gate/open_gate.sh';
+const SCROLL = HOME + '/library/scroll_of_ages.txt';
+const KEY = HOME + '/forest/cave/deep/ancient_key.txt';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const cmpName = (x, y) => x.replace(/^\./, '').toLowerCase().localeCompare(y.replace(/^\./, '').toLowerCase());
+
+const state = {
+  fs: null, cwd: HOME, oldpwd: null, revealed: new Set(), history: [], vars: {},
+  aliases: { ll: 'ls -alF', la: 'ls -A' }, procs: [], nextPid: 5012, lastStatus: 0,
+  chapter: 0, maxChapter: 0, xp: 0, hearts: 3, done: [], gateOpen: false, sound: false,
+};
+let lineLog = [], lineEvents = new Set(), lineDanger = [], depth = 0, pipeId = 0;
+const ev = name => lineEvents.add(name);
+const danger = msg => lineDanger.push(msg);
+
+/* ---------- filesystem ---------- */
+const dir = (children = {}, mode = 0o755) => ({ type: 'dir', children, mode, mtime: Date.now() });
+const file = (content = '', mode = 0o644) => ({ type: 'file', content, mode, mtime: Date.now() });
+
+function normalize(path, cwd = state.cwd) {
+  const parts = (path.startsWith('/') ? path : cwd + '/' + path).split('/');
+  const out = [];
+  for (const p of parts) {
+    if (!p || p === '.') continue;
+    if (p === '..') out.pop(); else out.push(p);
+  }
+  return '/' + out.join('/');
+}
+function getNode(abs) {
+  let n = state.fs;
+  if (abs === '/') return n;
+  for (const p of abs.split('/').slice(1)) {
+    if (!n || n.type !== 'dir') return null;
+    n = n.children[p];
+  }
+  return n || null;
+}
+const parentOf = abs => { const i = abs.lastIndexOf('/'); return i <= 0 ? '/' : abs.slice(0, i); };
+const baseName = abs => abs.slice(abs.lastIndexOf('/') + 1);
+const joinPath = (p, n) => p === '/' ? '/' + n : p + '/' + n;
+const joinDisp = (d, n) => d === '' ? n : d.endsWith('/') ? d + n : d + '/' + n;
+const writable = p => p === HOME || p.startsWith(HOME + '/') || p === '/tmp' || p.startsWith('/tmp/');
+const isExe = n => n.type === 'file' && (n.mode & 0o111) !== 0;
+const bytes = s => new TextEncoder().encode(s).length;
+function putNode(path, node) { getNode(parentOf(path)).children[baseName(path)] = node; }
+function dropNode(path) { const par = getNode(parentOf(path)); if (par && par.type === 'dir') delete par.children[baseName(path)]; }
+function clone(n) {
+  if (n.type === 'file') return { ...n, mtime: Date.now() };
+  const c = {};
+  for (const k in n.children) c[k] = clone(n.children[k]);
+  return { ...n, children: c, mtime: Date.now() };
+}
+function splitLines(s) {
+  if (!s) return [];
+  return (s.endsWith('\n') ? s.slice(0, -1) : s).split('\n');
+}
+
+/* ---------- world content ---------- */
+const TXT = {
+  readme: `Dear apprentice,
+
+You have awakened in Kernelia, a world built entirely from files
+and directories. Here, commands are spells.
+
+A Shadow Daemon has taken over this machine and is eating all
+of its CPU. To stop it you must master the shell, chapter by chapter.
+
+Every directory is a room. Every file is something you can read.
+Type 'hint' if you get stuck, or 'man <command>' to study a spell.
+
+    -- The Guardian of Root
+`,
+  secret: `THE SECRET MAP  (only those who use ls -a can find this)
+
+  ~/forest   a cave hides an ancient key
+  ~/junk     clean it up, but save the boots
+  ~/library  the Scroll of Ages hides a word of power
+  ~/tower    four gems, and one of them is hidden
+  ~/market   a messy inventory needs sorting
+  ~/gate     sealed until its spell is allowed to execute
+
+The Shadow Daemon lurks in the process table.
+`,
+  bashrc: `# ~/.bashrc: executed by bash(1) for non-login shells.
+alias ll='ls -alF'
+alias la='ls -A'
+export EDITOR=nano
+`,
+  key: `    ,o.
+   8   8=========
+    'o'    ||  ||
+The Ancient Key. It hums with power.
+Engraved on its side: "Copy me with cp and I will be in two places at once."
+`,
+  scroll: [
+    'THE SCROLL OF AGES', '==================',
+    'In the beginning there was only the kernel,', 'and the kernel was silent.',
+    'Then came the shell, and with it, the first command.',
+    'The first mage typed "ls" and saw the world.',
+    'The second mage typed "cd" and walked through it.',
+    'The third mage typed "rm -rf /" and was never seen again.',
+    '(Learn from the third mage.)',
+    'In the Age of Pipes, commands learned to talk to each other.',
+    'Output flowed like rivers from one spell into the next.',
+    'A dragon slept beneath the Tower of Echoes.',
+    'Its name was written in every log file, yet no one could read it.',
+    'The scribes wrote everything in plain text,',
+    'for plain text is eternal and every tool can read it.',
+    'They say the Dragon of /dev/null devours all output sent its way.',
+    'Nothing that enters /dev/null ever returns.',
+    'The elders kept their secrets in files that began with a dot.',
+    'Only those who asked with -a could see them.',
+    'Permissions guarded every door: read, write, and execute.',
+    'The number 7 meant all three. The number 4 meant only reading.',
+    'A wise mage never ran a script they had not read first.',
+    'The daemons came later.',
+    'Most were friendly: cron kept the time, sshd kept the gates.',
+    'But one daemon grew greedy, and devoured the CPU.',
+    'The mages called it the Shadow Daemon.',
+    'It ignored polite requests to stop.',
+    'Only the ninth signal could end it.',
+    'The last known dragon sighting was recorded in the syslog.',
+    'The Library keeps many more scrolls than this one.',
+    'But reading them all from the top would take forever.',
+    'That is why the mages invented head and tail.',
+    'And why they invented grep, to find one line among thousands.',
+    'If you have read this far line by line, you are very patient.',
+    'A faster mage would have used tail.',
+    'Remember: tail -f follows a file as it grows, perfect for logs.',
+    'And less lets you scroll a file one page at a time (q quits).',
+    'THE WORD OF POWER IS WRITTEN BELOW.',
+    'Speak it with echo, and with nothing else.',
+    'Word of power: TUX',
+  ].join('\n') + '\n',
+  inventory: 'potion\nsword\napple\npotion\nshield\napple\npotion\nmap\nsword\ntorch\napple\ntorch\nrope\npotion\n',
+  gate: `#!/bin/bash
+# The ancient spell of the Sealed Gate.
+echo "The runes on the gate begin to glow..."
+echo "*** The Sealed Gate grinds open! ***"
+`,
+};
+
+const AREAS = {
+  forest: () => dir({
+    clearing: dir({ 'mushroom.txt': file('A glowing mushroom whispers:\n"Lost? Type pwd. Want to go back up? cd .."\n') }),
+    river: dir({ 'fish.txt': file('A fish leaps out of the water and says:\n"Absolute paths start with a slash, like /home/hero/forest/river."\n') }),
+    cave: dir({
+      'bat.txt': file('A bat squeaks. Deeper still, something glitters...\n(try ls, then cd deep)\n'),
+      deep: dir({ 'ancient_key.txt': file(TXT.key) }),
+    }),
+  }),
+  junk: () => dir({
+    'rotten_apple.txt': file('It smells terrible. Flies everywhere.\n'),
+    'old_boots.txt': file('Worn but sturdy leather boots. Keep these!\n'),
+    empty_crate: dir({}),
+    cobwebs: dir({
+      'spider.txt': file('A very offended spider.\n'),
+      'web1.txt': file('Sticky.\n'),
+      'web2.txt': file('Stickier.\n'),
+    }),
+  }),
+  library: () => dir({
+    'scroll_of_ages.txt': file(TXT.scroll),
+    'librarian.txt': file('The librarian whispers: "Nobody reads a whole scroll. Use head and tail."\n'),
+  }),
+  tower: () => dir({
+    floor1: dir({
+      'note.txt': file('Someone scratched into the wall:\n"the password is not on this floor"\n'),
+      'ruby.gem': file('A blood-red ruby. Worth 300 gold.\n'),
+    }),
+    floor2: dir({
+      'diary.txt': file('Day 12: the stairs keep moving.\nDay 13: I hid my things upstairs.\nDay 14: the password to the vault is penguin42\nDay 15: I forgot where I put the vault.\n'),
+      'sapphire.gem': file('A deep blue sapphire. Worth 450 gold.\n'),
+    }),
+    floor3: dir({
+      'bones.txt': file('Old bones. Probably a mage who never learned find.\n'),
+      'emerald.gem': file('A green emerald. Worth 500 gold.\n'),
+      '.opal.gem': file('A shimmering opal, hidden from plain ls.\nfind sees hidden files. That is how you found me.\nWorth 1000 gold.\n'),
+    }),
+  }),
+  market: () => dir({
+    'inventory.txt': file(TXT.inventory),
+    'merchant.txt': file('The merchant sighs: "My inventory is a mess. Duplicates everywhere."\n'),
+  }),
+  gate: () => dir({
+    'open_gate.sh': file(TXT.gate, 0o644),
+    'inscription.txt': file('Only a spell that is allowed to EXECUTE may open this gate.\nCheck the permissions with ls -l.\n'),
+  }),
+};
+
+function buildWorld() {
+  return dir({
+    bin: dir({}),
+    etc: dir({
+      hostname: file('kernelia\n'),
+      passwd: file('root:x:0:0:root:/root:/bin/bash\nhero:x:1000:1000:Hero,,,:/home/hero:/bin/bash\n'),
+      motd: file('Welcome to Kernelia GNU/Linux\n'),
+    }),
+    home: dir({
+      hero: dir({
+        'readme.txt': file(TXT.readme),
+        '.secret_map': file(TXT.secret),
+        '.bashrc': file(TXT.bashrc),
+        forest: AREAS.forest(), junk: AREAS.junk(), library: AREAS.library(),
+        tower: AREAS.tower(), market: AREAS.market(), gate: AREAS.gate(),
+      }),
+    }),
+    dev: dir({ null: file('', 0o666) }),
+    root: dir({}, 0o700),
+    tmp: dir({}, 0o777),
+    usr: dir({ bin: dir({}) }),
+    var: dir({ log: dir({ syslog: file('Sep 25 09:00:01 kernelia cron[412]: started\nSep 25 09:13:37 kernelia kernel: dragon sighted near /dev/null\nSep 25 09:42:00 kernelia shadow_daemon: consuming 99.7% CPU\n') }) }),
+  });
+}
+function restoreArea(name) { putNode(HOME + '/' + name, AREAS[name]()); }
+
+const baseProcs = () => [
+  { pid: 1, user: 'root', cmd: '/sbin/init', tty: '?', cpu: 0.0, mem: 0.1, stat: 'Ss', time: '0:02' },
+  { pid: 2, user: 'root', cmd: '[kthreadd]', tty: '?', cpu: 0.0, mem: 0.0, stat: 'S', time: '0:00' },
+  { pid: 412, user: 'root', cmd: '/usr/sbin/cron -f', tty: '?', cpu: 0.0, mem: 0.0, stat: 'Ss', time: '0:00' },
+  { pid: 521, user: 'root', cmd: '/usr/sbin/sshd -D', tty: '?', cpu: 0.0, mem: 0.1, stat: 'Ss', time: '0:00' },
+  { pid: 733, user: 'hero', cmd: '-bash', tty: 'pts/0', cpu: 0.0, mem: 0.1, stat: 'Ss', time: '0:00' },
+  { pid: 1337, user: 'hero', cmd: 'sleep 9999', tty: 'pts/0', cpu: 0.0, mem: 0.0, stat: 'S', time: '0:00' },
+];
+const DAEMON = { pid: 4242, user: 'hero', cmd: './shadow_daemon --devour-cpu', tty: '?', cpu: 99.7, mem: 12.4, stat: 'R', time: '83:12' };
+
+/* ---------- shell: variables, tokenizer, parser ---------- */
+function varValue(name) {
+  name = name.replace(/^\{|\}$/g, '');
+  const base = { HOME, USER: 'hero', PWD: state.cwd, OLDPWD: state.oldpwd || '', SHELL: '/bin/bash',
+    PATH: '/usr/local/bin:/usr/bin:/bin', HOSTNAME: 'kernelia', LANG: 'en_US.UTF-8' };
+  if (name === '$') return '733';
+  if (name === '?') return String(state.lastStatus);
+  if (name in state.vars) return state.vars[name];
+  return base[name] ?? '';
+}
+const VAR_RE = /^\$(\$|\?|\{[A-Za-z_][A-Za-z0-9_]*\}|[A-Za-z_][A-Za-z0-9_]*)/;
+
+function tokenize(line) {
+  const toks = [];
+  let cur = null, i = 0;
+  const push = () => { if (cur) { toks.push(cur); cur = null; } };
+  const quoteErr = q => new Error(`bash: unexpected EOF while looking for matching \`${q}'`);
+  while (i < line.length) {
+    const c = line[i];
+    if (c === ' ' || c === '\t') { push(); i++; continue; }
+    if (c === '#' && !cur) break;
+    if (c === '|') { push(); toks.push({ op: line[i + 1] === '|' ? '||' : '|' }); i += line[i + 1] === '|' ? 2 : 1; continue; }
+    if (c === '&' && line[i + 1] === '&') { push(); toks.push({ op: '&&' }); i += 2; continue; }
+    if (c === ';') { push(); toks.push({ op: ';' }); i++; continue; }
+    if (c === '>') { push(); toks.push({ op: line[i + 1] === '>' ? '>>' : '>' }); i += line[i + 1] === '>' ? 2 : 1; continue; }
+    if (c === '<') { push(); toks.push({ op: '<' }); i++; continue; }
+    if (!cur) cur = { v: '', quoted: false, glob: false };
+    if (c === "'") {
+      const j = line.indexOf("'", i + 1);
+      if (j < 0) throw quoteErr("'");
+      cur.v += line.slice(i + 1, j); cur.quoted = true; i = j + 1; continue;
+    }
+    if (c === '"') {
+      let j = i + 1, s = '';
+      while (j < line.length && line[j] !== '"') {
+        if (line[j] === '\\' && '"\\$'.includes(line[j + 1])) { s += line[j + 1]; j += 2; continue; }
+        const m = line[j] === '$' ? VAR_RE.exec(line.slice(j)) : null;
+        if (m) { s += varValue(m[1]); j += m[0].length; continue; }
+        s += line[j]; j++;
+      }
+      if (j >= line.length) throw quoteErr('"');
+      cur.v += s; cur.quoted = true; i = j + 1; continue;
+    }
+    if (c === '\\' && i + 1 < line.length) { cur.v += line[i + 1]; cur.quoted = true; i += 2; continue; }
+    if (c === '$') {
+      const m = VAR_RE.exec(line.slice(i));
+      if (m) { cur.v += varValue(m[1]); i += m[0].length; continue; }
+    }
+    if (c === '~' && cur.v === '' && !cur.quoted && (i + 1 >= line.length || ' /;|'.includes(line[i + 1]))) { cur.v += HOME; i++; continue; }
+    if (c === '*' || c === '?') cur.glob = true;
+    cur.v += c; i++;
+  }
+  push();
+  return toks;
+}
+
+function parse(toks) {
+  const seq = [];
+  let pipeline = [], stage = { args: [], redir: [] };
+  const syntax = t => new Error(`bash: syntax error near unexpected token \`${t}'`);
+  for (let k = 0; k < toks.length; k++) {
+    const t = toks[k];
+    if (t.op === '|') {
+      if (!stage.args.length) throw syntax('|');
+      pipeline.push(stage); stage = { args: [], redir: [] }; continue;
+    }
+    if (t.op === '>' || t.op === '>>' || t.op === '<') {
+      const nx = toks[k + 1];
+      if (!nx || nx.op) throw syntax(nx ? nx.op : 'newline');
+      stage.redir.push({ op: t.op, target: nx.v }); k++; continue;
+    }
+    if (t.op) {
+      if (!stage.args.length && !stage.redir.length) throw syntax(t.op);
+      pipeline.push(stage); seq.push({ pipeline, next: t.op });
+      pipeline = []; stage = { args: [], redir: [] }; continue;
+    }
+    stage.args.push(t);
+  }
+  if (stage.args.length || stage.redir.length) pipeline.push(stage);
+  else if (pipeline.length) throw syntax('newline');
+  if (pipeline.length) seq.push({ pipeline, next: null });
+  return seq;
+}
+
+function globRe(p, ci = false) {
+  let s = '^';
+  for (const ch of p) {
+    if (ch === '*') s += '.*';
+    else if (ch === '?') s += '.';
+    else s += ch.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+  }
+  return new RegExp(s + '$', ci ? 'i' : '');
+}
+
+function expandGlob(tok) {
+  if (!tok.glob) return [tok.v];
+  const isAbs = tok.v.startsWith('/');
+  let cur = [{ path: isAbs ? '/' : state.cwd, disp: isAbs ? '/' : '' }];
+  for (const seg of tok.v.split('/').filter(Boolean)) {
+    const next = [];
+    for (const c of cur) {
+      if (!/[*?]/.test(seg)) { next.push({ path: normalize(seg, c.path), disp: joinDisp(c.disp, seg) }); continue; }
+      const n = getNode(c.path);
+      if (!n || n.type !== 'dir') continue;
+      const re = globRe(seg);
+      for (const name of Object.keys(n.children).sort(cmpName)) {
+        if (name[0] === '.' && seg[0] !== '.') continue;
+        if (re.test(name)) next.push({ path: joinPath(c.path, name), disp: joinDisp(c.disp, name) });
+      }
+    }
+    cur = next;
+  }
+  const hits = cur.filter(c => getNode(c.path)).map(c => c.disp);
+  return hits.length ? hits : [tok.v];
+}
+
+/* ---------- execution ---------- */
+const R = (out = '', err = '', status = 0, html = null) => ({ out, err, status, html });
+
+function writeRedirect(target, content, append) {
+  const p = normalize(target), n = getNode(p);
+  if (p === '/dev/null') return '';
+  if (n && n.type === 'dir') return `bash: ${target}: Is a directory`;
+  const par = getNode(parentOf(p));
+  if (!par || par.type !== 'dir') return `bash: ${target}: No such file or directory`;
+  if (!writable(p)) return `bash: ${target}: Permission denied`;
+  if (n) { n.content = append ? n.content + content : content; n.mtime = Date.now(); }
+  else par.children[baseName(p)] = file(content);
+  return '';
+}
+
+function runPipeline(stages, sink) {
+  const pid = ++pipeId;
+  let stdin = null, status = 0;
+  stages.forEach((st, i) => {
+    let argv = st.args.flatMap(expandGlob);
+    if (argv.length && state.aliases[argv[0]] && !st.args[0].quoted) {
+      argv = [...tokenize(state.aliases[argv[0]]).map(t => t.v), ...argv.slice(1)];
+    }
+    let input = i > 0 ? stdin : null;
+    const outR = [...st.redir].reverse().find(r => r.op !== '<');
+    const inR = [...st.redir].reverse().find(r => r.op === '<');
+    if (inR) {
+      const n = getNode(normalize(inR.target));
+      if (!n || n.type !== 'file') { sink.err(`bash: ${inR.target}: No such file or directory`); status = 1; stdin = ''; return; }
+      input = n.content;
+    }
+    const cwdBefore = state.cwd;
+    const r = argv.length ? exec(argv, input, { piped: i < stages.length - 1 || !!outR }) : R();
+    if (r.err) sink.err(r.err);
+    if (r.note) sink.note(r.note, r.noteCls);
+    if (r.clear) sink.clear();
+    let out = r.out || '';
+    status = r.status || 0;
+    if (outR) {
+      const e = writeRedirect(outR.target, out, outR.op === '>>');
+      if (e) { sink.err(e); status = 1; }
+      out = '';
+    } else if (i === stages.length - 1 && out) sink.out(out, r.html);
+    if (depth === 0) {
+      lineLog.push({
+        name: argv[0], args: argv.slice(1), cwd: cwdBefore, status, out: r.out || '', pid, plen: stages.length,
+        redir: st.redir.filter(x => x.op !== '<').map(x => ({ op: x.op, target: normalize(x.target, cwdBefore) })),
+      });
+    }
+    stdin = out;
+  });
+  return status;
+}
+
+function executeLine(line, sink) {
+  let seq;
+  try { seq = parse(tokenize(line)); }
+  catch (e) { sink.err(e.message); state.lastStatus = 2; return 2; }
+  let status = 0, prev = null;
+  for (const item of seq) {
+    const skip = (prev === '&&' && status !== 0) || (prev === '||' && status === 0);
+    if (!skip) status = runPipeline(item.pipeline, sink);
+    prev = item.next;
+  }
+  state.lastStatus = status;
+  return status;
+}
+
+function runScriptText(text) {
+  if (depth > 4) return R('', 'bash: maximum script nesting reached', 1);
+  depth++;
+  let out = '', status = 0;
+  const sink = { out: t => { out += t; }, err: topSink.err, note: topSink.note, clear: () => {} };
+  for (const raw of text.split('\n')) {
+    const t = raw.trim();
+    if (!t || t.startsWith('#')) continue;
+    status = executeLine(t, sink);
+  }
+  depth--;
+  return R(out, '', status);
+}
+
+function runFile(name, stdin) {
+  const p = normalize(name), n = getNode(p);
+  if (!n) return R('', `bash: ${name}: No such file or directory`, 127);
+  if (n.type === 'dir') return R('', `bash: ${name}: Is a directory`, 126);
+  if (!(n.mode & 0o100)) {
+    if (p === GATE) ev('gateDenied');
+    return R('', `bash: ${name}: Permission denied`, 126);
+  }
+  return runScript(p, n);
+}
+function runScript(p, n) {
+  const r = runScriptText(n.content);
+  if (p === GATE && r.status === 0) { ev('gateOpened'); state.gateOpen = true; }
+  return r;
+}
+
+const WIN = {
+  cls: 'cls is the Windows command. On Linux, use clear.',
+  del: 'del is the Windows command. On Linux, use rm.',
+  copy: 'copy is the Windows command. On Linux, use cp.',
+  move: 'move is the Windows command. On Linux, use mv.',
+  ren: 'ren is the Windows command. On Linux, rename with mv.',
+  ipconfig: 'ipconfig is the Windows command. On Linux, try ip addr (not simulated here).',
+  'cd..': 'Put a space between cd and the dots: cd ..',
+  'ls-l': 'Put a space before the option: ls -l',
+  'ls-a': 'Put a space before the option: ls -a',
+  'ls-la': 'Put a space before the option: ls -la',
+};
+
+function exec(argv, stdin, opts) {
+  const [name, ...args] = argv;
+  if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(name) && !args.length) {
+    const i = name.indexOf('=');
+    state.vars[name.slice(0, i)] = name.slice(i + 1);
+    return R();
+  }
+  if (name.includes('/')) return runFile(name, stdin);
+  if (args.includes('--help') && MAN[name] && name !== 'echo') return R(manText(name, true));
+  const fn = CMD[name];
+  if (!fn) {
+    const r = R('', `bash: ${name}: command not found`, 127);
+    r.note = WIN[name] || (CMD[name.toLowerCase()] ? `Commands are case-sensitive. Try ${name.toLowerCase()}` : null);
+    return r;
+  }
+  return fn(args, stdin, opts);
+}
+/* ---------- commands: navigation and files ---------- */
+function pf(name, args, known, withVal = '') {
+  const flags = new Set(), vals = {}, rest = [];
+  let end = false;
+  for (let i = 0; i < args.length; i++) {
+    const x = args[i];
+    if (end || x === '-' || !x.startsWith('-')) { rest.push(x); continue; }
+    if (x === '--') { end = true; continue; }
+    if (x.startsWith('--')) { flags.add(x); continue; }
+    for (let j = 1; j < x.length; j++) {
+      const ch = x[j];
+      if (withVal.includes(ch)) {
+        const v = x.slice(j + 1) || args[++i];
+        if (v === undefined) return { err: `${name}: option requires an argument -- '${ch}'\nTry '${name} --help' for more information.` };
+        vals[ch] = v; break;
+      }
+      if (!known.includes(ch)) return { err: `${name}: invalid option -- '${ch}'\nTry '${name} --help' for more information.` };
+      flags.add(ch);
+    }
+  }
+  return { flags, vals, rest };
+}
+const needInput = name => {
+  const r = R('', '', 1);
+  r.note = `${name} is waiting for keyboard input. In a real terminal, ${name} with no file reads what you type until you press Ctrl+D. Here, give it a file name or pipe something into it.`;
+  return r;
+};
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtDate(ms) {
+  const d = new Date(ms);
+  return `${MONTHS[d.getMonth()]} ${String(d.getDate()).padStart(2)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+function modeStr(n) {
+  let s = n.type === 'dir' ? 'd' : '-';
+  for (let i = 0; i < 9; i++) s += (n.mode & (1 << (8 - i))) ? 'rwxrwxrwx'[i] : '-';
+  return s;
+}
+const ownerOf = p => writable(p) ? 'hero' : 'root';
+
+function nameHTML(name, n, F) {
+  const suf = F ? (n.type === 'dir' ? '/' : isExe(n) ? '*' : '') : '';
+  const cls = n.type === 'dir' ? 'c-dir' : isExe(n) ? 'c-exe' : '';
+  return (cls ? `<span class="${cls}">${esc(name)}</span>` : esc(name)) + suf;
+}
+
+const CMD = {};
+
+CMD.pwd = () => R(state.cwd + '\n');
+CMD.whoami = () => R('hero\n');
+CMD.id = () => R('uid=1000(hero) gid=1000(hero) groups=1000(hero)\n');
+CMD.groups = () => R('hero\n');
+CMD.hostname = () => R('kernelia\n');
+CMD.true = () => R();
+CMD.false = () => R('', '', 1);
+CMD.uname = a => {
+  if (a.includes('-a')) return R('Linux kernelia 6.8.0-kernelia #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux\n');
+  if (a.includes('-r')) return R('6.8.0-kernelia\n');
+  return R('Linux\n');
+};
+CMD.date = () => {
+  const d = new Date();
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const p = x => String(x).padStart(2, '0');
+  return R(`${days[d.getDay()]} ${MONTHS[d.getMonth()]} ${String(d.getDate()).padStart(2)} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} ${d.getFullYear()}\n`);
+};
+CMD.clear = () => ({ ...R(), clear: true });
+
+CMD.echo = a => {
+  let n = false, e = false, i = 0;
+  while (i < a.length && /^-[neE]+$/.test(a[i])) {
+    if (a[i].includes('n')) n = true;
+    if (a[i].includes('e')) e = true;
+    i++;
+  }
+  let s = a.slice(i).join(' ');
+  if (e) s = s.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+  return R(s + (n ? '' : '\n'));
+};
+
+CMD.cd = a => {
+  if (a.length > 1) return R('', 'bash: cd: too many arguments', 1);
+  let t = a[0], print = false;
+  if (t === undefined) t = HOME;
+  else if (t === '-') {
+    if (!state.oldpwd) return R('', 'bash: cd: OLDPWD not set', 1);
+    t = state.oldpwd; print = true;
+  }
+  const p = normalize(t), n = getNode(p);
+  if (!n) return R('', `bash: cd: ${a[0]}: No such file or directory`, 1);
+  if (n.type !== 'dir') return R('', `bash: cd: ${a[0]}: Not a directory`, 1);
+  if (p === '/root') return R('', `bash: cd: ${a[0]}: Permission denied`, 1);
+  state.oldpwd = state.cwd;
+  state.cwd = p;
+  return R(print ? p + '\n' : '');
+};
+
+CMD.ls = (a, stdin, opts) => {
+  const o = pf('ls', a, 'alAh1rFd');
+  if (o.err) return R('', o.err, 2);
+  const f = o.flags, all = f.has('a'), almost = f.has('A'), long = f.has('l'), F = f.has('F');
+  const oneCol = f.has('1') || opts.piped;
+  const targets = o.rest.length ? o.rest : ['.'];
+  const fileEnts = [], dirEnts = [], errs = [];
+  for (const t of targets) {
+    const p = normalize(t), n = getNode(p);
+    if (!n) { errs.push(`ls: cannot access '${t}': No such file or directory`); continue; }
+    if (n.type === 'dir' && !f.has('d')) {
+      if (p === '/root') { errs.push(`ls: cannot open directory '${t}': Permission denied`); continue; }
+      dirEnts.push({ t, p, n });
+    } else fileEnts.push({ name: t, node: n, path: p });
+  }
+  const human = sz => sz < 1024 ? String(sz) : (sz / 1024).toFixed(1) + 'K';
+  const fmt = ents => {
+    if (f.has('r')) ents.reverse();
+    if (!long) {
+      const sep = oneCol ? '\n' : '  ';
+      return {
+        text: ents.map(e => e.name + (F ? (e.node.type === 'dir' ? '/' : isExe(e.node) ? '*' : '') : '')).join(sep),
+        html: ents.map(e => nameHTML(e.name, e.node, F)).join(sep),
+      };
+    }
+    const size = e => e.node.type === 'dir' ? 4096 : bytes(e.node.content);
+    const sizes = ents.map(e => f.has('h') ? human(size(e)) : String(size(e)));
+    const w = Math.max(1, ...sizes.map(s => s.length));
+    const rows = ents.map((e, i) => {
+      const links = e.node.type === 'dir' ? 2 + Object.values(e.node.children).filter(c => c.type === 'dir').length : 1;
+      const own = ownerOf(e.path);
+      const pre = `${modeStr(e.node)} ${String(links).padStart(2)} ${own} ${own} ${sizes[i].padStart(w)} ${fmtDate(e.node.mtime)} `;
+      return { text: pre + e.name + (F ? (e.node.type === 'dir' ? '/' : isExe(e.node) ? '*' : '') : ''), html: esc(pre) + nameHTML(e.name, e.node, F) };
+    });
+    return { text: rows.map(r => r.text).join('\n'), html: rows.map(r => r.html).join('\n') };
+  };
+  const sections = [];
+  if (fileEnts.length) sections.push(fmt(fileEnts));
+  for (const d of dirEnts) {
+    const names = Object.keys(d.n.children).filter(nm => all || almost || nm[0] !== '.').sort(cmpName);
+    const ents = names.map(nm => ({ name: nm, node: d.n.children[nm], path: joinPath(d.p, nm) }));
+    if (all) ents.unshift({ name: '.', node: d.n, path: d.p }, { name: '..', node: getNode(parentOf(d.p)), path: parentOf(d.p) });
+    if (all || almost) { state.revealed.add(d.p); ev('reveal:' + d.p); }
+    const body = fmt(ents);
+    const head = targets.length > 1 ? d.t + ':\n' : '';
+    const total = long ? `total ${ents.length * 4}${f.has('h') ? 'K' : ''}\n` : '';
+    sections.push({
+      text: head + total + body.text,
+      html: esc(head + total) + body.html,
+    });
+  }
+  const nonEmpty = sections.filter(s => s.text);
+  const text = nonEmpty.map(s => s.text).join('\n\n');
+  const html = nonEmpty.map(s => s.html).join('\n\n');
+  return R(text ? text + '\n' : '', errs.join('\n'), errs.length ? 2 : 0, html);
+};
+
+function readSources(name, files, stdin) {
+  const out = [], errs = [];
+  for (const f of files) {
+    if (f === '-') { out.push({ label: '(standard input)', content: stdin ?? '' }); continue; }
+    const n = getNode(normalize(f));
+    if (!n) { errs.push(`${name}: ${f}: No such file or directory`); continue; }
+    if (n.type === 'dir') { errs.push(`${name}: ${f}: Is a directory`); continue; }
+    out.push({ label: f, content: n.content });
+  }
+  return { out, errs };
+}
+
+CMD.cat = (a, stdin) => {
+  const o = pf('cat', a, 'n');
+  if (o.err) return R('', o.err, 1);
+  let files = o.rest;
+  if (!files.length) { if (stdin == null) return needInput('cat'); files = ['-']; }
+  const { out, errs } = readSources('cat', files, stdin);
+  let text = out.map(s => s.content).join('');
+  if (o.flags.has('n')) {
+    const lines = splitLines(text);
+    text = lines.map((l, i) => String(i + 1).padStart(6) + '\t' + l).join('\n') + (lines.length ? '\n' : '');
+  }
+  return R(text, errs.join('\n'), errs.length ? 1 : 0);
+};
+const pagerNote = name => `A real ${name} opens the file in a scrollable viewer: arrow keys or Space to move, / to search, q to quit. Here it simply prints the file.`;
+CMD.less = (a, stdin) => { const r = CMD.cat(a.filter(x => !x.startsWith('-')), stdin); r.note = pagerNote('less'); return r; };
+CMD.more = (a, stdin) => { const r = CMD.cat(a.filter(x => !x.startsWith('-')), stdin); r.note = pagerNote('more'); return r; };
+
+CMD.touch = a => {
+  const o = pf('touch', a, '');
+  if (o.err) return R('', o.err, 1);
+  if (!o.rest.length) return R('', "touch: missing file operand\nTry 'touch --help' for more information.", 1);
+  const errs = [];
+  for (const f of o.rest) {
+    const p = normalize(f), n = getNode(p);
+    if (n) { n.mtime = Date.now(); continue; }
+    const par = getNode(parentOf(p));
+    if (!par || par.type !== 'dir') { errs.push(`touch: cannot touch '${f}': No such file or directory`); continue; }
+    if (!writable(p)) { errs.push(`touch: cannot touch '${f}': Permission denied`); continue; }
+    par.children[baseName(p)] = file('');
+  }
+  return R('', errs.join('\n'), errs.length ? 1 : 0);
+};
+
+CMD.mkdir = a => {
+  const o = pf('mkdir', a, 'pv');
+  if (o.err) return R('', o.err, 1);
+  if (!o.rest.length) return R('', "mkdir: missing operand\nTry 'mkdir --help' for more information.", 1);
+  const errs = []; let out = '';
+  for (const f of o.rest) {
+    const p = normalize(f);
+    const existing = getNode(p);
+    if (existing) { if (!o.flags.has('p') || existing.type !== 'dir') errs.push(`mkdir: cannot create directory '${f}': File exists`); continue; }
+    if (!writable(p)) { errs.push(`mkdir: cannot create directory '${f}': Permission denied`); continue; }
+    if (o.flags.has('p')) {
+      let cur = '/', bad = false;
+      for (const seg of p.split('/').filter(Boolean)) {
+        const next = joinPath(cur, seg), n = getNode(next);
+        if (n && n.type !== 'dir') { bad = true; break; }
+        if (!n) { getNode(cur).children[seg] = dir(); if (o.flags.has('v')) out += `mkdir: created directory '${f.startsWith('/') || !next.startsWith(state.cwd + '/') ? next : next.slice(state.cwd.length + 1)}'\n`; }
+        cur = next;
+      }
+      if (bad) errs.push(`mkdir: cannot create directory '${f}': Not a directory`);
+      continue;
+    }
+    const par = getNode(parentOf(p));
+    if (!par) { errs.push(`mkdir: cannot create directory '${f}': No such file or directory`); continue; }
+    if (par.type !== 'dir') { errs.push(`mkdir: cannot create directory '${f}': Not a directory`); continue; }
+    par.children[baseName(p)] = dir();
+    if (o.flags.has('v')) out += `mkdir: created directory '${f}'\n`;
+  }
+  return R(out, errs.join('\n'), errs.length ? 1 : 0);
+};
+
+function leaveIfGone() {
+  let p = state.cwd;
+  while (!getNode(p)) p = parentOf(p);
+  state.cwd = p;
+}
+
+CMD.rmdir = a => {
+  const o = pf('rmdir', a, 'v');
+  if (o.err) return R('', o.err, 1);
+  if (!o.rest.length) return R('', "rmdir: missing operand\nTry 'rmdir --help' for more information.", 1);
+  const errs = [];
+  for (const f of o.rest) {
+    const p = normalize(f), n = getNode(p);
+    if (/(^|\/)\.$/.test(f)) { errs.push(`rmdir: failed to remove '${f}': Invalid argument`); continue; }
+    if (!n) { errs.push(`rmdir: failed to remove '${f}': No such file or directory`); continue; }
+    if (n.type !== 'dir') { errs.push(`rmdir: failed to remove '${f}': Not a directory`); continue; }
+    if (Object.keys(n.children).length) { errs.push(`rmdir: failed to remove '${f}': Directory not empty`); continue; }
+    if (!writable(parentOf(p))) { errs.push(`rmdir: failed to remove '${f}': Permission denied`); continue; }
+    dropNode(p);
+  }
+  leaveIfGone();
+  return R('', errs.join('\n'), errs.length ? 1 : 0);
+};
+
+CMD.rm = a => {
+  const o = pf('rm', a, 'rRfiv');
+  if (o.err) return R('', o.err, 1);
+  const rec = o.flags.has('r') || o.flags.has('R'), force = o.flags.has('f');
+  if (!o.rest.length) return force ? R() : R('', "rm: missing operand\nTry 'rm --help' for more information.", 1);
+  const errs = []; let out = '', note = null;
+  for (const f of o.rest) {
+    const last = f.replace(/\/+$/, '').split('/').pop();
+    if (last === '.' || last === '..') { errs.push(`rm: refusing to remove '.' or '..' directory: skipping '${f}'`); continue; }
+    const p = normalize(f);
+    if (p === '/') {
+      if (rec) {
+        errs.push("rm: it is dangerous to operate recursively on '/'\nrm: use --no-preserve-root to override this failsafe");
+        danger('You tried to erase the whole system. GNU rm refuses by default (--preserve-root). Never try this on a real machine.');
+      } else errs.push("rm: cannot remove '/': Is a directory");
+      continue;
+    }
+    const n = getNode(p);
+    if (!n) { if (!force) errs.push(`rm: cannot remove '${f}': No such file or directory`); continue; }
+    if (n.type === 'dir' && !rec) { errs.push(`rm: cannot remove '${f}': Is a directory`); continue; }
+    if (p === HOME) {
+      danger('That would erase your entire home directory, and a real rm would do it without asking. The Guardian blocked it this time.');
+      continue;
+    }
+    if (!writable(parentOf(p)) || !writable(p)) { errs.push(`rm: cannot remove '${f}': Permission denied`); continue; }
+    dropNode(p);
+    if (o.flags.has('v')) out += n.type === 'dir' ? `removed directory '${f}'\n` : `removed '${f}'\n`;
+  }
+  if (o.flags.has('i')) note = 'In a real terminal, -i asks "rm: remove regular file ...?" and waits for y or n. The game answers yes for you.';
+  leaveIfGone();
+  const r = R(out, errs.join('\n'), errs.length ? 1 : 0);
+  r.note = note;
+  return r;
+};
+
+function copyOrMove(name, a, move) {
+  const o = pf(name, a, move ? 'ivnf' : 'rRivnf');
+  if (o.err) return R('', o.err, 1);
+  const rest = [...o.rest];
+  if (rest.length < 2) {
+    return R('', (rest.length ? `${name}: missing destination file operand after '${rest[0]}'` : `${name}: missing file operand`) + `\nTry '${name} --help' for more information.`, 1);
+  }
+  const dest = rest.pop(), destAbs = normalize(dest), destNode = getNode(destAbs);
+  if (rest.length > 1 && (!destNode || destNode.type !== 'dir')) return R('', `${name}: target '${dest}' is not a directory`, 1);
+  const rec = o.flags.has('r') || o.flags.has('R');
+  const errs = []; let out = '';
+  for (const src of rest) {
+    const srcAbs = normalize(src), n = getNode(srcAbs);
+    if (!n) { errs.push(move ? `mv: cannot stat '${src}': No such file or directory` : `cp: cannot stat '${src}': No such file or directory`); continue; }
+    if (!move && n.type === 'dir' && !rec) { errs.push(`cp: -r not specified; omitting directory '${src}'`); continue; }
+    const target = destNode && destNode.type === 'dir' ? joinPath(destAbs, baseName(srcAbs)) : destAbs;
+    if (target === srcAbs) { errs.push(`${name}: '${src}' and '${dest}' are the same file`); continue; }
+    if (n.type === 'dir' && target.startsWith(srcAbs + '/')) {
+      errs.push(move ? `mv: cannot move '${src}' to a subdirectory of itself, '${dest}'` : `cp: cannot copy a directory, '${src}', into itself, '${dest}'`);
+      continue;
+    }
+    const par = getNode(parentOf(target));
+    if (!par || par.type !== 'dir') {
+      errs.push(move ? `mv: cannot move '${src}' to '${dest}': No such file or directory` : `cp: cannot create regular file '${dest}': No such file or directory`);
+      continue;
+    }
+    if (!writable(target) || (move && !writable(srcAbs))) {
+      errs.push(move ? `mv: cannot move '${src}' to '${dest}': Permission denied` : `cp: cannot create regular file '${dest}': Permission denied`);
+      continue;
+    }
+    if (srcAbs === HOME) { errs.push(`${name}: cannot move your home directory in this game`); continue; }
+    const existing = getNode(target);
+    if (existing && existing.type === 'dir' && n.type !== 'dir') { errs.push(`${name}: cannot overwrite directory '${target}' with non-directory`); continue; }
+    if (existing && o.flags.has('n')) continue;
+    par.children[baseName(target)] = move ? n : clone(n);
+    if (move) dropNodeIfSame(srcAbs, n);
+    if (o.flags.has('v')) out += move ? `renamed '${src}' -> '${dest}'\n` : `'${src}' -> '${dest}'\n`;
+  }
+  if (move) leaveIfGone();
+  return R(out, errs.join('\n'), errs.length ? 1 : 0);
+}
+function dropNodeIfSame(path, node) {
+  const par = getNode(parentOf(path));
+  if (par && par.children[baseName(path)] === node) delete par.children[baseName(path)];
+}
+CMD.cp = a => copyOrMove('cp', a, false);
+CMD.mv = a => {
+  const before = state.cwd, r = copyOrMove('mv', a, true);
+  if (!getNode(before)) leaveIfGone();
+  return r;
+};
+
+CMD.chmod = a => {
+  const recursive = a.includes('-R');
+  const args = a.filter(x => x !== '-R');
+  if (!args.length) return R('', "chmod: missing operand\nTry 'chmod --help' for more information.", 1);
+  if (args.length < 2) return R('', `chmod: missing operand after '${args[0]}'\nTry 'chmod --help' for more information.`, 1);
+  const [mode, ...files] = args;
+  let apply;
+  if (/^[0-7]{3,4}$/.test(mode)) {
+    const m = parseInt(mode.slice(-3), 8);
+    apply = () => m;
+  } else {
+    const clauses = mode.split(',').map(c => /^([ugoa]*)([+\-=])([rwx]*)$/.exec(c));
+    if (clauses.some(c => !c)) return R('', `chmod: invalid mode: '${mode}'\nTry 'chmod --help' for more information.`, 1);
+    apply = old => {
+      let m = old;
+      for (const [, whoRaw, op, perms] of clauses) {
+        const who = !whoRaw || whoRaw.includes('a') ? 'ugo' : whoRaw;
+        let bits = 0;
+        for (const w of who) {
+          const shift = { u: 6, g: 3, o: 0 }[w];
+          for (const p of perms) bits |= { r: 4, w: 2, x: 1 }[p] << shift;
+        }
+        if (op === '+') m |= bits;
+        else if (op === '-') m &= ~bits;
+        else {
+          let mask = 0;
+          for (const w of who) mask |= 7 << { u: 6, g: 3, o: 0 }[w];
+          m = (m & ~mask) | bits;
+        }
+      }
+      return m;
+    };
+  }
+  const errs = [];
+  const visit = n => { n.mode = apply(n.mode); if (recursive && n.type === 'dir') Object.values(n.children).forEach(visit); };
+  for (const f of files) {
+    const p = normalize(f), n = getNode(p);
+    if (!n) { errs.push(`chmod: cannot access '${f}': No such file or directory`); continue; }
+    if (!writable(p)) { errs.push(`chmod: changing permissions of '${f}': Operation not permitted`); continue; }
+    visit(n);
+  }
+  return R('', errs.join('\n'), errs.length ? 1 : 0);
+};
+
+CMD.tree = a => {
+  const o = pf('tree', a, 'ad', 'L');
+  if (o.err) return R('', o.err, 1);
+  const root = o.rest[0] || '.';
+  const n = getNode(normalize(root));
+  if (!n || n.type !== 'dir') return R(`${root}  [error opening dir]\n\n0 directories, 0 files\n`, '', 2);
+  const maxL = o.vals.L ? parseInt(o.vals.L, 10) : Infinity;
+  let dirs = 0, files = 0;
+  const text = [root], html = [`<span class="c-dir">${esc(root)}</span>`];
+  const walk = (node, prefix, level) => {
+    if (level > maxL) return;
+    const names = Object.keys(node.children)
+      .filter(k => (o.flags.has('a') || k[0] !== '.') && (!o.flags.has('d') || node.children[k].type === 'dir'))
+      .sort(cmpName);
+    names.forEach((k, i) => {
+      const c = node.children[k], last = i === names.length - 1;
+      const conn = prefix + (last ? '└── ' : '├── ');
+      text.push(conn + k); html.push(esc(conn) + nameHTML(k, c, false));
+      if (c.type === 'dir') { dirs++; walk(c, prefix + (last ? '    ' : '│   '), level + 1); } else files++;
+    });
+  };
+  walk(n, '', 1);
+  const summary = `\n${dirs} director${dirs === 1 ? 'y' : 'ies'}` + (o.flags.has('d') ? '' : `, ${files} file${files === 1 ? '' : 's'}`);
+  const r = R(text.join('\n') + '\n' + summary + '\n', '', 0, html.join('\n') + '\n' + summary);
+  r.note = 'tree is not always installed by default. On Ubuntu: sudo apt install tree';
+  return r;
+};
+/* ---------- commands: text processing ---------- */
+function headTail(which, a, stdin) {
+  a = a.flatMap(x => /^-\d+$/.test(x) ? ['-n', x.slice(1)] : [x]);
+  const o = pf(which, a, 'qv', 'n');
+  if (o.err) return R('', o.err, 1);
+  let raw = o.vals.n ?? '10', fromStart = false;
+  if (which === 'tail' && raw.startsWith('+')) { fromStart = true; raw = raw.slice(1); }
+  if (!/^\d+$/.test(raw)) return R('', `${which}: invalid number of lines: '${o.vals.n}'`, 1);
+  const N = parseInt(raw, 10);
+  let files = o.rest;
+  if (!files.length) { if (stdin == null) return needInput(which); files = ['-']; }
+  const errs = [];
+  let out = '';
+  files.forEach((f, idx) => {
+    let content;
+    if (f === '-') content = stdin ?? '';
+    else {
+      const n = getNode(normalize(f));
+      if (!n) { errs.push(`${which}: cannot open '${f}' for reading: No such file or directory`); return; }
+      if (n.type === 'dir') { errs.push(`${which}: error reading '${f}': Is a directory`); return; }
+      content = n.content;
+    }
+    const lines = splitLines(content);
+    let sel;
+    if (which === 'head') sel = lines.slice(0, N);
+    else if (fromStart) sel = lines.slice(Math.max(0, N - 1));
+    else sel = N === 0 ? [] : lines.slice(-N);
+    if (files.length > 1) out += (idx ? '\n' : '') + `==> ${f} <==\n`;
+    out += sel.map(l => l + '\n').join('');
+  });
+  return R(out, errs.join('\n'), errs.length ? 1 : 0);
+}
+CMD.head = (a, s) => headTail('head', a, s);
+CMD.tail = (a, s) => {
+  const r = headTail('tail', a.filter(x => x !== '-f'), s);
+  if (a.includes('-f')) r.note = 'tail -f would keep running and print new lines as the file grows (Ctrl+C stops it). The game prints once.';
+  return r;
+};
+
+CMD.wc = (a, stdin) => {
+  const o = pf('wc', a, 'lwcm');
+  if (o.err) return R('', o.err, 1);
+  let fields = ['l', 'w', 'c'].filter(k => o.flags.has(k) || (k === 'c' && o.flags.has('m')));
+  if (!fields.length) fields = ['l', 'w', 'c'];
+  let files = o.rest, fromStdin = false;
+  if (!files.length) { if (stdin == null) return needInput('wc'); files = ['-']; fromStdin = true; }
+  const { out, errs } = readSources('wc', files, stdin);
+  const rows = out.map(s => ({
+    label: fromStdin ? '' : s.label,
+    l: (s.content.match(/\n/g) || []).length,
+    w: s.content.split(/\s+/).filter(Boolean).length,
+    c: bytes(s.content),
+  }));
+  if (rows.length > 1) rows.push({ label: 'total', ...['l', 'w', 'c'].reduce((acc, k) => ({ ...acc, [k]: rows.reduce((t, r) => t + r[k], 0) }), {}) });
+  let width = Math.max(1, ...rows.flatMap(r => fields.map(k => String(r[k]).length)));
+  if (fields.length === 1 && rows.length === 1) width = 0;
+  if (fromStdin && fields.length > 1) width = 7;
+  const text = rows.map(r => fields.map(k => String(r[k]).padStart(width)).join(' ') + (r.label ? ' ' + r.label : '')).join('\n');
+  return R(text ? text + '\n' : '', errs.join('\n'), errs.length ? 1 : 0);
+};
+
+CMD.grep = (a, stdin) => {
+  const o = pf('grep', a, 'invcrRlwEHh');
+  if (o.err) return R('', o.err.replace("Try 'grep --help'", "Usage: grep [OPTION]... PATTERNS [FILE]...\nTry 'grep --help'"), 2);
+  if (!o.rest.length) return R('', "Usage: grep [OPTION]... PATTERNS [FILE]...\nTry 'grep --help' for more information.", 2);
+  const f = o.flags;
+  const pat = o.rest[0];
+  let files = o.rest.slice(1);
+  const rec = f.has('r') || f.has('R');
+  let src = pat;
+  try { new RegExp(src); } catch (e) { src = pat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  if (f.has('w')) src = `\\b(?:${src})\\b`;
+  const test = new RegExp(src, f.has('i') ? 'i' : '');
+  const hl = new RegExp(src, f.has('i') ? 'gi' : 'g');
+  const sources = [], errs = [];
+  let defaulted = false;
+  if (!files.length) {
+    if (rec) { files = ['.']; defaulted = true; }
+    else if (stdin == null) return needInput('grep');
+    else sources.push({ label: '(standard input)', content: stdin });
+  }
+  const walk = (node, label) => {
+    for (const k of Object.keys(node.children).sort(cmpName)) {
+      const c = node.children[k], l = label ? joinDisp(label, k) : k;
+      if (c.type === 'dir') walk(c, l); else sources.push({ label: l, content: c.content });
+    }
+  };
+  for (const fl of files) {
+    const n = getNode(normalize(fl));
+    if (!n) { errs.push(`grep: ${fl}: No such file or directory`); continue; }
+    if (n.type === 'dir') {
+      if (rec) walk(n, defaulted ? '' : fl);
+      else errs.push(`grep: ${fl}: Is a directory`);
+      continue;
+    }
+    sources.push({ label: fl, content: n.content });
+  }
+  let showName = sources.length > 1 || rec;
+  if (f.has('h')) showName = false;
+  if (f.has('H')) showName = true;
+  const text = [], html = [];
+  let any = false;
+  for (const s of sources) {
+    const lines = splitLines(s.content);
+    let count = 0;
+    lines.forEach((line, i) => {
+      if (test.test(line) === f.has('v')) return;
+      count++; any = true;
+      if (f.has('c') || f.has('l')) return;
+      let t = '', h = '';
+      if (showName) { t += s.label + ':'; h += `<span class="g-file">${esc(s.label)}</span><span class="g-sep">:</span>`; }
+      if (f.has('n')) { t += (i + 1) + ':'; h += `<span class="g-num">${i + 1}</span><span class="g-sep">:</span>`; }
+      t += line;
+      h += f.has('v') ? esc(line) : esc(line).replace(new RegExp(hl.source, hl.flags), m => `<span class="g-match">${m}</span>`);
+      text.push(t); html.push(h);
+    });
+    if (f.has('c')) {
+      const t = (showName ? s.label + ':' : '') + count;
+      text.push(t); html.push(esc(t));
+    } else if (f.has('l') && count) {
+      text.push(s.label); html.push(`<span class="g-file">${esc(s.label)}</span>`);
+    }
+  }
+  return R(text.length ? text.join('\n') + '\n' : '', errs.join('\n'), errs.length ? 2 : any ? 0 : 1, html.join('\n'));
+};
+
+CMD.find = a => {
+  let i = 0;
+  const paths = [];
+  while (i < a.length && !a[i].startsWith('-')) paths.push(a[i++]);
+  if (!paths.length) paths.push('.');
+  const tests = [];
+  let maxDepth = Infinity;
+  while (i < a.length) {
+    const t = a[i++];
+    if (t === '-name' || t === '-iname') {
+      const v = a[i++];
+      if (v === undefined) return R('', `find: missing argument to \`${t}'`, 1);
+      const re = globRe(v, t === '-iname');
+      tests.push(e => re.test(e.name));
+    } else if (t === '-type') {
+      const v = a[i++];
+      if (v === undefined) return R('', "find: missing argument to `-type'", 1);
+      if (v !== 'f' && v !== 'd') return R('', `find: Unknown argument to -type: ${v}`, 1);
+      tests.push(e => e.node.type === (v === 'd' ? 'dir' : 'file'));
+    } else if (t === '-maxdepth') {
+      const v = a[i++];
+      if (!/^\d+$/.test(v || '')) return R('', "find: Expected a positive decimal integer argument to -maxdepth, but got '" + (v || '') + "'", 1);
+      maxDepth = parseInt(v, 10);
+    } else return R('', `find: unknown predicate \`${t}'`, 1);
+  }
+  const out = [], errs = [];
+  for (const p of paths) {
+    const abs = normalize(p), n = getNode(abs);
+    if (!n) { errs.push(`find: '${p}': No such file or directory`); continue; }
+    const visit = (disp, node, name, d) => {
+      if (tests.every(t => t({ name, node }))) out.push(disp);
+      if (node.type !== 'dir' || d >= maxDepth) return;
+      for (const k of Object.keys(node.children).sort(cmpName)) visit(joinDisp(disp, k), node.children[k], k, d + 1);
+    };
+    visit(p, n, p === '.' ? '.' : baseName(abs) || '/', 0);
+  }
+  return R(out.length ? out.join('\n') + '\n' : '', errs.join('\n'), errs.length ? 1 : 0);
+};
+
+function linesFrom(name, files, stdin) {
+  if (!files.length) {
+    if (stdin == null) return { none: true };
+    return { lines: splitLines(stdin), errs: [] };
+  }
+  const { out, errs } = readSources(name, files, stdin);
+  return { lines: out.flatMap(s => splitLines(s.content)), errs };
+}
+
+CMD.sort = (a, stdin) => {
+  const o = pf('sort', a, 'rnuf');
+  if (o.err) return R('', o.err, 2);
+  const src = linesFrom('sort', o.rest, stdin);
+  if (src.none) return needInput('sort');
+  let lines = [...src.lines];
+  const f = o.flags;
+  const cmp = f.has('n')
+    ? (x, y) => (parseFloat(x) || 0) - (parseFloat(y) || 0) || x.localeCompare(y)
+    : (x, y) => f.has('f') ? x.toLowerCase().localeCompare(y.toLowerCase()) : x.localeCompare(y);
+  lines.sort(cmp);
+  if (f.has('r')) lines.reverse();
+  if (f.has('u')) lines = lines.filter((l, i) => i === 0 || cmp(l, lines[i - 1]) !== 0);
+  return R(lines.length ? lines.join('\n') + '\n' : '', src.errs.join('\n').replace(/^sort: (.*): No such file or directory$/gm, 'sort: cannot read: $1: No such file or directory'), src.errs.length ? 2 : 0);
+};
+
+CMD.uniq = (a, stdin) => {
+  const o = pf('uniq', a, 'cdui');
+  if (o.err) return R('', o.err, 1);
+  const src = linesFrom('uniq', o.rest.slice(0, 1), stdin);
+  if (src.none) return needInput('uniq');
+  const same = (x, y) => o.flags.has('i') ? x.toLowerCase() === y.toLowerCase() : x === y;
+  const groups = [];
+  for (const l of src.lines) {
+    const g = groups[groups.length - 1];
+    if (g && same(g.line, l)) g.n++; else groups.push({ line: l, n: 1 });
+  }
+  let sel = groups;
+  if (o.flags.has('d')) sel = sel.filter(g => g.n > 1);
+  if (o.flags.has('u')) sel = sel.filter(g => g.n === 1);
+  const text = sel.map(g => (o.flags.has('c') ? String(g.n).padStart(7) + ' ' : '') + g.line).join('\n');
+  return R(text ? text + '\n' : '', src.errs.join('\n'), src.errs.length ? 1 : 0);
+};
+
+/* ---------- commands: processes ---------- */
+const SIGNALS = { HUP: 1, INT: 2, QUIT: 3, KILL: 9, USR1: 10, USR2: 12, TERM: 15, CONT: 18, STOP: 19 };
+function parseSig(s) {
+  if (s === undefined) return null;
+  if (/^\d+$/.test(s)) { const n = parseInt(s, 10); return n >= 1 && n <= 64 ? n : null; }
+  const k = s.toUpperCase().replace(/^SIG/, '');
+  return SIGNALS[k] ?? null;
+}
+function clockTime(t) {
+  const [m, s] = t.split(':').map(Number);
+  return [Math.floor(m / 60), m % 60, s].map(x => String(x).padStart(2, '0')).join(':');
+}
+function shortCmd(cmd) {
+  const first = cmd.split(' ')[0].replace(/^-/, '');
+  return first.startsWith('[') ? cmd : baseName(first);
+}
+
+function deliver(proc, sig, errs, how) {
+  const tag = how === 'kill' ? `bash: kill: (${proc.pid})` : `${how}: killing pid ${proc.pid} failed`;
+  if (proc.user === 'root') { errs.push(how === 'kill' ? `${tag} - Operation not permitted` : `${tag}: Operation not permitted`); return null; }
+  if (proc.pid === 733) {
+    if (sig === 9) {
+      danger('You sent SIGKILL to your own shell. In a real terminal the window would close instantly. The Guardian revived it.');
+      return null;
+    }
+    return 'Interactive bash ignores SIGTERM, so nothing happened. That is why your shell survived.';
+  }
+  if (proc.pid === DAEMON.pid) {
+    if (sig === 9) {
+      state.procs = state.procs.filter(p => p !== proc);
+      ev('daemonKilled');
+      daemonFx('kill');
+      return { daemon: '[shadow_daemon] NOOOOO... *the kernel removes the process instantly* (SIGKILL cannot be caught)' };
+    }
+    if (sig === 19) { proc.stat = 'T'; return 'The daemon is frozen by SIGSTOP but still exists. It could be resumed with SIGCONT. Finish it properly.'; }
+    ev('termTried');
+    daemonFx('laugh');
+    return { daemon: `[shadow_daemon] caught signal ${sig}... ignoring it. You cannot stop me politely!` };
+  }
+  if ([1, 2, 9, 15].includes(sig)) state.procs = state.procs.filter(p => p !== proc);
+  return null;
+}
+function attachNotes(r, notes) {
+  const d = notes.find(n => n && n.daemon);
+  const plain = notes.find(n => typeof n === 'string');
+  if (d) { r.note = d.daemon; r.noteCls = 'daemon'; }
+  else if (plain) r.note = plain;
+  return r;
+}
+
+CMD.ps = a => {
+  let all = false, full = false, user = false;
+  for (const x of a) {
+    if (x.startsWith('-')) { if (/[eA]/.test(x)) all = true; if (x.includes('f')) full = true; }
+    else { if (x.includes('x')) all = true; if (x.includes('u')) user = true; }
+  }
+  if (all) ev('psAll');
+  const self = { pid: state.nextPid++, user: 'hero', cmd: ['ps', ...a].join(' '), tty: 'pts/0', cpu: 0, mem: 0, stat: 'R+', time: '0:00' };
+  const list = [...state.procs.filter(p => all || p.tty === 'pts/0'), self].sort((x, y) => x.pid - y.pid);
+  let rows;
+  if (user) {
+    rows = ['USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND'];
+    for (const p of list) {
+      const vsz = Math.round(8000 + p.mem * 160000), rss = Math.round(1200 + p.mem * 40000);
+      rows.push(`${p.user.padEnd(8)} ${String(p.pid).padStart(7)} ${p.cpu.toFixed(1).padStart(4)} ${p.mem.toFixed(1).padStart(4)} ${String(vsz).padStart(6)} ${String(rss).padStart(5)} ${p.tty.padEnd(8)} ${p.stat.padEnd(4)} 09:00 ${p.time.padStart(6)} ${p.cmd}`);
+    }
+  } else if (full) {
+    rows = ['UID          PID    PPID  C STIME TTY          TIME CMD'];
+    for (const p of list) {
+      const ppid = p.pid === 1 ? 0 : p.pid === 2 ? 0 : p.tty === 'pts/0' && p.pid !== 733 ? 733 : 1;
+      rows.push(`${p.user.padEnd(8)} ${String(p.pid).padStart(7)} ${String(ppid).padStart(7)} ${p.cpu > 50 ? '99' : ' 0'} 09:00 ${p.tty.padEnd(8)} ${clockTime(p.time)} ${p.cmd}`);
+    }
+  } else {
+    rows = ['    PID TTY          TIME CMD'];
+    for (const p of list) rows.push(`${String(p.pid).padStart(7)} ${p.tty.padEnd(8)} ${clockTime(p.time)} ${shortCmd(p.cmd)}`);
+  }
+  return R(rows.join('\n') + '\n');
+};
+
+CMD.kill = a => {
+  if (!a.length) return R('', 'kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]', 2);
+  if (a[0] === '-l' || a[0] === '-L') {
+    return R(' 1) SIGHUP\t 2) SIGINT\t 3) SIGQUIT\t 4) SIGILL\t 5) SIGTRAP\n 6) SIGABRT\t 7) SIGBUS\t 8) SIGFPE\t 9) SIGKILL\t10) SIGUSR1\n11) SIGSEGV\t12) SIGUSR2\t13) SIGPIPE\t14) SIGALRM\t15) SIGTERM\n16) SIGSTKFLT\t17) SIGCHLD\t18) SIGCONT\t19) SIGSTOP\t20) SIGTSTP\n');
+  }
+  let sig = 15, i = 0;
+  if (a[0] === '-s' || a[0] === '-n') { sig = parseSig(a[1]); i = 2; if (sig == null) return R('', `bash: kill: ${a[1]}: invalid signal specification`, 1); }
+  else if (a[0].startsWith('-')) { sig = parseSig(a[0].slice(1)); i = 1; if (sig == null) return R('', `bash: kill: ${a[0].slice(1)}: invalid signal specification`, 1); }
+  const pids = a.slice(i);
+  if (!pids.length) return R('', 'kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]', 2);
+  const errs = [], notes = [];
+  for (const x of pids) {
+    if (!/^\d+$/.test(x)) { errs.push(`bash: kill: ${x}: arguments must be process or job IDs`); continue; }
+    const proc = state.procs.find(p => p.pid === parseInt(x, 10));
+    if (!proc) { errs.push(`bash: kill: (${x}) - No such process`); continue; }
+    notes.push(deliver(proc, sig, errs, 'kill'));
+  }
+  return attachNotes(R('', errs.join('\n'), errs.length ? 1 : 0), notes);
+};
+
+function killByName(name, a, exact) {
+  let sig = 15;
+  const rest = [];
+  for (const x of a) {
+    if (/^-/.test(x)) { sig = parseSig(x.slice(1).replace(/^-?signal=?/, '')) ?? sig; continue; }
+    rest.push(x);
+  }
+  if (!rest.length) return R('', exact ? 'Usage: killall [OPTION]... [--] NAME...' : "pkill: no matching criteria specified\nTry `pkill --help' for more information.", exact ? 1 : 2);
+  const errs = [], notes = [];
+  let matched = 0;
+  for (const pat of rest) {
+    let re;
+    try { re = new RegExp(pat); } catch (e) { re = new RegExp(pat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')); }
+    const hits = state.procs.filter(p => exact ? shortCmd(p.cmd) === pat : re.test(shortCmd(p.cmd)));
+    matched += hits.length;
+    if (!hits.length && exact) errs.push(`${pat}: no process found`);
+    for (const p of hits) notes.push(deliver(p, sig, errs, name));
+  }
+  return attachNotes(R('', errs.join('\n'), matched ? 0 : 1), notes);
+}
+CMD.pkill = a => killByName('pkill', a, false);
+CMD.killall = a => killByName('killall', a, true);
+CMD.pgrep = a => {
+  const pat = a.filter(x => !x.startsWith('-'))[0];
+  if (!pat) return R('', 'pgrep: no matching criteria specified', 2);
+  const hits = state.procs.filter(p => shortCmd(p.cmd).includes(pat));
+  return R(hits.map(p => p.pid).join('\n') + (hits.length ? '\n' : ''), '', hits.length ? 0 : 1);
+};
+
+CMD.top = () => {
+  const d = new Date(), p = x => String(x).padStart(2, '0');
+  const list = [...state.procs].sort((x, y) => y.cpu - x.cpu);
+  const busy = list.some(x => x.pid === DAEMON.pid);
+  const rows = [
+    `top - ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} up 3 days,  2:14,  1 user,  load average: ${busy ? '1.02, 0.98, 0.91' : '0.02, 0.10, 0.31'}`,
+    `Tasks: ${String(list.length).padStart(3)} total,   ${busy ? 1 : 0} running, ${String(list.length - (busy ? 1 : 0)).padStart(3)} sleeping,   0 stopped,   0 zombie`,
+    `%Cpu(s): ${busy ? '99.7' : ' 0.3'} us,  0.2 sy,  0.0 ni, ${busy ? ' 0.1' : '99.5'} id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st`,
+    '',
+    '    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND',
+    ...list.map(x => `${String(x.pid).padStart(7)} ${x.user.padEnd(8)}  20   0 ${String(Math.round(8000 + x.mem * 160000)).padStart(7)} ${String(Math.round(1200 + x.mem * 40000)).padStart(6)}   2048 ${x.stat[0]} ${x.cpu.toFixed(1).padStart(5)} ${x.mem.toFixed(1).padStart(5)} ${x.time.padStart(9)} ${shortCmd(x.cmd)}`),
+  ];
+  const r = R(rows.join('\n') + '\n');
+  r.note = 'Real top refreshes every few seconds until you press q. The game shows one snapshot.';
+  return r;
+};
+CMD.htop = () => { const r = CMD.top(); r.note = 'htop is a friendlier top, often installed separately (sudo apt install htop). Here is a top snapshot instead.'; return r; };
+/* ---------- commands: shell and help ---------- */
+const MAN = {
+  ls: ['list directory contents', 'ls [OPTION]... [FILE]...', 'List information about the FILEs (the current directory by default).',
+    [['-a', 'do not ignore entries starting with .'], ['-A', 'like -a, but without . and ..'], ['-l', 'use a long listing format'], ['-h', 'with -l, print sizes like 4.0K'], ['-r', 'reverse order while sorting'], ['-1', 'list one file per line'], ['-F', 'append indicator (/ for directories, * for executables)'], ['-d', 'list directories themselves, not their contents']]],
+  cd: ['change the shell working directory (bash builtin)', 'cd [DIR]', 'Change the current directory to DIR. With no DIR, go to $HOME. "cd -" goes to the previous directory.', []],
+  pwd: ['print name of current/working directory', 'pwd', 'Print the full path of the current working directory.', []],
+  cat: ['concatenate files and print on the standard output', 'cat [OPTION]... [FILE]...', 'Concatenate FILE(s) to standard output. With no FILE, read standard input.', [['-n', 'number all output lines']]],
+  echo: ['display a line of text', 'echo [OPTION]... [STRING]...', 'Echo the STRING(s) to standard output.', [['-n', 'do not output the trailing newline'], ['-e', 'enable interpretation of backslash escapes like \\n']]],
+  mkdir: ['make directories', 'mkdir [OPTION]... DIRECTORY...', 'Create the DIRECTORY(ies), if they do not already exist.', [['-p', 'no error if existing, make parent directories as needed'], ['-v', 'print a message for each created directory']]],
+  touch: ['change file timestamps', 'touch [OPTION]... FILE...', 'Update the modification time of each FILE. A FILE that does not exist is created empty.', []],
+  rm: ['remove files or directories', 'rm [OPTION]... [FILE]...', 'Remove each FILE. By default, it does not remove directories. There is no undo.', [['-f', 'ignore nonexistent files, never prompt'], ['-i', 'prompt before every removal'], ['-r, -R', 'remove directories and their contents recursively'], ['-v', 'explain what is being done']]],
+  rmdir: ['remove empty directories', 'rmdir [OPTION]... DIRECTORY...', 'Remove the DIRECTORY(ies), if they are empty.', []],
+  cp: ['copy files and directories', 'cp [OPTION]... SOURCE... DEST', 'Copy SOURCE to DEST, or multiple SOURCE(s) into directory DEST.', [['-r, -R', 'copy directories recursively'], ['-i', 'prompt before overwrite'], ['-n', 'do not overwrite an existing file'], ['-v', 'explain what is being done']]],
+  mv: ['move (rename) files', 'mv [OPTION]... SOURCE... DEST', 'Rename SOURCE to DEST, or move SOURCE(s) to DIRECTORY.', [['-i', 'prompt before overwrite'], ['-n', 'do not overwrite an existing file'], ['-v', 'explain what is being done']]],
+  head: ['output the first part of files', 'head [OPTION]... [FILE]...', 'Print the first 10 lines of each FILE to standard output.', [['-n NUM', 'print the first NUM lines instead of the first 10']]],
+  tail: ['output the last part of files', 'tail [OPTION]... [FILE]...', 'Print the last 10 lines of each FILE to standard output.', [['-n NUM', 'output the last NUM lines'], ['-n +NUM', 'output starting with line NUM'], ['-f', 'output appended data as the file grows']]],
+  wc: ['print newline, word, and byte counts for each file', 'wc [OPTION]... [FILE]...', 'Print newline, word, and byte counts for each FILE, and a total line if more than one FILE is given.', [['-l', 'print the newline counts'], ['-w', 'print the word counts'], ['-c', 'print the byte counts']]],
+  grep: ['print lines that match patterns', 'grep [OPTION]... PATTERNS [FILE]...', 'Search for PATTERNS in each FILE and print each line that matches.', [['-i', 'ignore case distinctions'], ['-v', 'select non-matching lines'], ['-n', 'print line number with output lines'], ['-c', 'print only a count of matching lines per FILE'], ['-r', 'search directories recursively'], ['-l', 'print only names of FILEs with matches'], ['-w', 'match only whole words']]],
+  find: ['search for files in a directory hierarchy', 'find [PATH...] [EXPRESSION]', 'Walk the directory tree rooted at each PATH and print the names that match the expression.', [['-name PATTERN', 'base name matches the shell pattern (quote it!)'], ['-iname PATTERN', 'like -name, but case insensitive'], ['-type f|d', 'regular file or directory'], ['-maxdepth N', 'descend at most N levels']]],
+  sort: ['sort lines of text files', 'sort [OPTION]... [FILE]...', 'Write the sorted lines of all FILE(s) to standard output.', [['-r', 'reverse the result'], ['-n', 'compare according to numerical value'], ['-u', 'output only the first of equal lines'], ['-f', 'ignore case']]],
+  uniq: ['report or omit repeated lines', 'uniq [OPTION]... [INPUT [OUTPUT]]', 'Filter ADJACENT matching lines from INPUT. Sort the input first to catch all duplicates.', [['-c', 'prefix lines by the number of occurrences'], ['-d', 'only print duplicate lines'], ['-u', 'only print unique lines'], ['-i', 'ignore case']]],
+  chmod: ['change file mode bits', 'chmod [OPTION]... MODE FILE...', 'Change the permissions of each FILE. MODE is octal (755) or symbolic ([ugoa][+-=][rwx], e.g. u+x).', [['-R', 'change files and directories recursively']]],
+  ps: ['report a snapshot of the current processes', 'ps [OPTIONS]', 'Show processes. With no options, only those of the current terminal.', [['aux', 'every process, with user, CPU and memory (BSD style)'], ['-e', 'every process (standard style)'], ['-ef', 'every process, full format']]],
+  kill: ['send a signal to a process', 'kill [-SIGNAL] PID...', 'Send a signal (SIGTERM by default) to the given process IDs.', [['-9, -KILL', 'SIGKILL: cannot be caught or ignored'], ['-15, -TERM', 'SIGTERM: polite request to terminate (default)'], ['-l', 'list signal names']]],
+  pkill: ['look up or signal processes based on name', 'pkill [-SIGNAL] PATTERN', 'Signal every process whose name matches PATTERN.', []],
+  top: ['display Linux processes', 'top', 'A live, updating view of processes sorted by CPU usage. Press q to quit.', []],
+  man: ['an interface to the system reference manuals', 'man PAGE', 'Show the manual page for a command. Scroll with arrows, search with /, quit with q.', []],
+  whoami: ['print effective user name', 'whoami', 'Print the user name associated with the current effective user ID.', []],
+  clear: ['clear the terminal screen', 'clear', 'Clear the screen. Ctrl+L does the same.', []],
+  history: ['display the command history list (bash builtin)', 'history', 'Show previously entered commands. !N reruns command N in real bash.', []],
+  tree: ['list contents of directories in a tree-like format', 'tree [OPTION]... [DIRECTORY]', 'Recursively list directories as an indented tree.', [['-a', 'include hidden files'], ['-d', 'list directories only'], ['-L LEVEL', 'descend only LEVEL directories deep']]],
+  less: ['opposite of more (a file pager)', 'less FILE', 'View a file one screen at a time. Space: next page, b: back, /word: search, q: quit.', []],
+  which: ['locate a command', 'which COMMAND...', 'Print the full path of the program that would run for each COMMAND.', []],
+  date: ['print or set the system date and time', 'date', 'Display the current date and time.', []],
+  uname: ['print system information', 'uname [OPTION]...', 'Print certain system information. With no option, same as -s.', [['-a', 'print all information'], ['-r', 'print the kernel release']]],
+};
+function manText(name, short) {
+  const [desc, syn, body, opts] = MAN[name];
+  if (short) {
+    return `Usage: ${syn}\n${body}\n` + opts.map(([f, t]) => `  ${f.padEnd(14)} ${t}`).join('\n') + (opts.length ? '\n' : '');
+  }
+  let s = `${name.toUpperCase()}(1)                User Commands\n\nNAME\n       ${name} - ${desc}\n\nSYNOPSIS\n       ${syn}\n\nDESCRIPTION\n       ${body}\n`;
+  if (opts.length) s += '\nOPTIONS\n' + opts.map(([f, t]) => `       ${f}\n              ${t}`).join('\n') + '\n';
+  return s;
+}
+CMD.man = a => {
+  if (!a.length) return R('', "What manual page do you want?\nFor example, try 'man man'.", 1);
+  if (!MAN[a[0]]) return R('', `No manual entry for ${a[0]}`, 16);
+  const r = R(manText(a[0], false));
+  r.note = 'A real man page opens in a pager: arrow keys to scroll, / to search, q to quit.';
+  return r;
+};
+
+CMD.history = () => R(state.history.map((h, i) => String(i + 1).padStart(5) + '  ' + h).join('\n') + '\n');
+const GAME_CMDS = new Set(['hint', 'quest', 'help']);
+const BUILTINS = new Set(['cd', 'history', 'alias', 'export', 'exit', 'logout', 'type', 'echo', 'pwd', 'kill', 'true', 'false']);
+const NO_BINARY = new Set(['cd', 'history', 'alias', 'export', 'exit', 'logout', 'type']);
+CMD.which = a => {
+  const hits = a.filter(x => CMD[x] && !GAME_CMDS.has(x) && !NO_BINARY.has(x));
+  return R(hits.map(x => `/usr/bin/${x}`).join('\n') + (hits.length ? '\n' : ''), '', hits.length === a.length && a.length ? 0 : 1);
+};
+CMD.type = a => {
+  const out = [], errs = [];
+  for (const x of a) {
+    if (state.aliases[x]) out.push(`${x} is aliased to \`${state.aliases[x]}'`);
+    else if (BUILTINS.has(x)) out.push(`${x} is a shell builtin`);
+    else if (CMD[x] && !GAME_CMDS.has(x)) out.push(`${x} is /usr/bin/${x}`);
+    else errs.push(`bash: type: ${x}: not found`);
+  }
+  return R(out.join('\n') + (out.length ? '\n' : ''), errs.join('\n'), errs.length ? 1 : 0);
+};
+CMD.alias = a => {
+  if (!a.length) return R(Object.entries(state.aliases).map(([k, v]) => `alias ${k}='${v}'`).join('\n') + '\n');
+  for (const x of a) {
+    const i = x.indexOf('=');
+    if (i > 0) state.aliases[x.slice(0, i)] = x.slice(i + 1);
+    else if (!state.aliases[x]) return R('', `bash: alias: ${x}: not found`, 1);
+    else return R(`alias ${x}='${state.aliases[x]}'\n`);
+  }
+  return R();
+};
+CMD.export = a => {
+  for (const x of a) { const i = x.indexOf('='); if (i > 0) state.vars[x.slice(0, i)] = x.slice(i + 1); }
+  return R();
+};
+CMD.env = () => R(`HOME=${HOME}\nUSER=hero\nSHELL=/bin/bash\nPWD=${state.cwd}\nPATH=/usr/local/bin:/usr/bin:/bin\nLANG=en_US.UTF-8\n` + Object.entries(state.vars).map(([k, v]) => `${k}=${v}`).join('\n') + (Object.keys(state.vars).length ? '\n' : ''));
+CMD.printenv = a => a.length ? R(a.map(varValue).join('\n') + '\n') : CMD.env();
+CMD.sudo = a => {
+  if (!a.length) return R('', 'usage: sudo -h | -K | -k | -V\nusage: sudo [-u user] command', 1);
+  const r = R('', '[sudo] password for hero: \nhero is not in the sudoers file.  This incident will be reported.', 1);
+  r.note = 'You never need root in this game. On your own machine, sudo runs one command as the administrator, so read the command twice before pressing Enter.';
+  return r;
+};
+const editorNote = (name, quit) => { const r = R('', '', 1); r.note = `${name} is an interactive editor and is not simulated here. ${quit} In this game, write files with echo "text" > file or echo "text" >> file.`; return r; };
+CMD.nano = () => editorNote('nano', 'In real nano, Ctrl+O saves and Ctrl+X exits.');
+CMD.vim = () => editorNote('vim', 'Real vim tip: press Esc, type :wq and Enter to save and quit, or :q! to quit without saving.');
+CMD.vi = CMD.vim;
+CMD.exit = () => { const r = R(); r.note = 'In a real terminal, exit closes the shell (Ctrl+D does the same). Kernelia keeps you here until the daemon is gone.'; return r; };
+CMD.logout = CMD.exit;
+CMD.bash = (a, stdin) => {
+  if (!a.length) { const r = R(); r.note = 'Nested shells are not simulated. In real Linux, bash starts a new shell inside this one (exit leaves it).'; return r; }
+  const p = normalize(a[0]), n = getNode(p);
+  if (!n) return R('', `bash: ${a[0]}: No such file or directory`, 127);
+  if (n.type === 'dir') return R('', `bash: ${a[0]}: Is a directory`, 126);
+  return runScript(p, n);
+};
+CMD.sh = CMD.bash;
+
+CMD.help = () => {
+  const r = R([
+    'Commands you can use in Kernelia:',
+    '  Look around   pwd  ls  cd  tree  whoami  hostname  date',
+    '  Read files    cat  less  head  tail  wc',
+    '  Change files  touch  mkdir  cp  mv  rm  rmdir  chmod  echo',
+    '  Search        grep  find  sort  uniq',
+    '  Processes     ps  top  kill  pkill  killall',
+    '  Shell         history  clear  man  which  type  alias  export',
+    '  Operators     |  >  >>  <  &&  ||  ;',
+    '',
+    'Game helpers (not real Linux): hint, quest',
+    'Keys: Tab completes names, Up/Down browse history, Ctrl+L clears, Ctrl+C cancels the line.',
+  ].join('\n') + '\n');
+  r.note = 'In real bash, help lists the shell builtins. Use man <command> to learn any real command.';
+  return r;
+};
+CMD.hint = () => {
+  const ch = CHAPTERS[state.chapter], done = state.done[state.chapter] || [];
+  const i = ch.tasks.findIndex((t, k) => !done[k]);
+  const r = R();
+  r.note = i < 0 ? 'All quests in this chapter are done.' : `Hint for "${ch.tasks[i].t}": ${ch.tasks[i].h}`;
+  return r;
+};
+CMD.quest = () => {
+  const ch = CHAPTERS[state.chapter], done = state.done[state.chapter] || [];
+  return R(`Chapter ${state.chapter + 1}: ${ch.name}\n` + ch.tasks.map((t, i) => `  [${done[i] ? 'x' : ' '}] ${t.t}`).join('\n') + '\n');
+};
+/* ---------- chapters ---------- */
+const F = HOME + '/forest', CAMP = HOME + '/camp', J = HOME + '/junk', G = HOME + '/gate', MK = HOME + '/market';
+function makeCtx() {
+  const c = {
+    stages: lineLog, events: lineEvents, cwd: state.cwd,
+    node: getNode,
+    ran: (name, pred = () => true) => lineLog.some(s => s.name === name && s.status === 0 && pred(s)),
+    flag: (s, ch) => s.args.some(x => /^-[a-zA-Z0-9]+$/.test(x) && x.includes(ch)),
+    hasPath: (s, p) => s.args.some(x => !x.startsWith('-') && normalize(x, s.cwd) === p),
+    readFile: p => ['cat', 'less', 'more'].some(n => c.ran(n, s => c.hasPath(s, p))),
+    nArg: s => {
+      for (let i = 0; i < s.args.length; i++) {
+        const x = s.args[i];
+        if (x === '-n') return parseInt(s.args[i + 1], 10);
+        if (/^-n\d+$/.test(x)) return parseInt(x.slice(2), 10);
+        if (/^-\d+$/.test(x)) return parseInt(x.slice(1), 10);
+      }
+      return 10;
+    },
+    inPipe: s => s.plen > 1,
+  };
+  return c;
+}
+
+const CHAPTERS = [
+  {
+    name: 'The Awakening',
+    brief: `<p>You wake up inside a terminal. The line waiting for you is the <b>prompt</b>:</p>
+<pre class="anat"><span class="pu">hero@kernelia</span>:<span class="pp">~</span>$</pre>
+<p><b>hero</b> is your user, <b>kernelia</b> is the machine, <b>~</b> is the directory you are in (your home, <code>/home/hero</code>), and <b>$</b> means you are a normal user. Root, the administrator, gets a <b>#</b> instead.</p>
+<p>Type a command in the terminal and press <kbd>Enter</kbd>. Commands are case-sensitive: <code>ls</code> works, <code>LS</code> does not. Stuck? Type <code>hint</code>.</p>`,
+    tasks: [
+      { t: 'Ask the terminal who you are', h: 'whoami', ok: c => c.ran('whoami') },
+      { t: 'Find out where you are standing', h: 'pwd', ok: c => c.ran('pwd') },
+      { t: 'Look around your home', h: 'ls', ok: c => c.ran('ls', s => s.cwd === HOME) },
+      { t: 'Read the letter left for you', h: 'cat readme.txt', ok: c => c.readFile(HOME + '/readme.txt') },
+    ],
+    recap: [['whoami', 'prints your user name'], ['pwd', 'prints the full path of where you are'], ['ls', 'lists the contents of a directory'], ['cat file', 'prints a file to the screen']],
+  },
+  {
+    name: 'The Whispering Forest',
+    setup: () => restoreArea('forest'),
+    brief: `<p>Linux keeps everything in one tree that starts at <code>/</code>, the <b>root</b>. On the map, each room is a directory, doors lead to subdirectories, and the stairs lead to the parent.</p>
+<ul><li><b>Relative path</b>: starts from where you are. <code>cd forest</code></li>
+<li><b>Absolute path</b>: starts at the root with <code>/</code>. <code>cd /home/hero/forest</code></li>
+<li><code>..</code> is the parent directory, <code>.</code> is the current one, <code>~</code> is your home.</li>
+<li><code>cd</code> with nothing after it takes you home. <code>cd -</code> jumps back to where you were.</li></ul>
+<p>Press <kbd>Tab</kbd> to autocomplete names: type <code>cd fo</code> and press Tab. Real admins rarely type full names.</p>`,
+    tasks: [
+      { t: 'Enter the forest', h: 'cd forest', ok: c => c.cwd === F },
+      { t: 'Reach the deepest part of the cave: forest/cave/deep', h: 'cd cave, then cd deep. Or all at once: cd ~/forest/cave/deep', ok: c => c.cwd === F + '/cave/deep' },
+      { t: 'Read what glitters down there', h: 'ls, then cat ancient_key.txt', ok: c => c.readFile(KEY) },
+      { t: 'Climb up to the parent directory using ..', h: 'cd ..', ok: c => c.ran('cd', s => /^\.\.(\/|$)/.test(s.args[0] || '')) },
+      { t: 'Teleport to the river with an absolute path (it starts with /)', h: 'cd /home/hero/forest/river', ok: c => c.ran('cd', s => (s.args[0] || '').startsWith('/')) && c.cwd === F + '/river' },
+      { t: 'Go straight home with the shortest command possible', h: 'cd   (just cd, nothing else. cd ~ works too)', ok: c => c.ran('cd', s => !s.args.length || s.args[0] === HOME) && c.cwd === HOME },
+    ],
+    recap: [['cd dir', 'enter a directory'], ['cd ..', 'go up to the parent'], ['cd /abs/path', 'absolute path from the root'], ['cd  or  cd ~', 'go home'], ['cd -', 'go back to the previous directory'], ['Tab', 'autocomplete names']],
+  },
+  {
+    name: 'Things Unseen',
+    setup: () => { if (!getNode(HOME + '/.secret_map')) putNode(HOME + '/.secret_map', file(TXT.secret)); },
+    brief: `<p>Files whose names start with a dot are <b>hidden</b>. They usually hold settings, like <code>.bashrc</code>. Plain <code>ls</code> skips them; <code>ls -a</code> shows everything, including <code>.</code> and <code>..</code>.</p>
+<p>The letters after a dash are <b>options</b> (also called flags). <code>ls -l</code> prints the long format:</p>
+<pre class="anat">-rw-r--r-- 1 hero hero 412 Sep 25 10:00 readme.txt
+│          │ │    │    │   │            └ name
+│          │ │    │    │   └ last modified
+│          │ │    │    └ size in bytes
+│          │ │    └ group
+│          │ └ owner
+│          └ number of links
+└ type (d = directory, - = file) and permissions</pre>
+<p>Short options can be combined: <code>ls -la</code> means the same as <code>ls -l -a</code>.</p>`,
+    tasks: [
+      { t: 'Reveal the hidden files in your home directory', h: 'cd ~   then   ls -a', ok: c => c.events.has('reveal:' + HOME) },
+      { t: 'Read the secret map', h: 'cat .secret_map', ok: c => c.readFile(HOME + '/.secret_map') },
+      { t: 'List files in the long format', h: 'ls -l', ok: c => c.ran('ls', s => c.flag(s, 'l')) },
+      { t: 'Combine long format and hidden files in one flag', h: 'ls -la', ok: c => c.ran('ls', s => s.args.some(x => /^-[a-zA-Z1]+$/.test(x) && x.includes('l') && /[aA]/.test(x))) },
+    ],
+    recap: [['ls -a', 'show hidden files (names starting with .)'], ['ls -l', 'long format: permissions, owner, size, date'], ['ls -la', 'both at once'], ['. and ..', 'current and parent directory']],
+  },
+  {
+    name: 'Build a Camp',
+    setup: () => { dropNode(CAMP); restoreArea('forest'); },
+    brief: `<p>Time to build a camp. These spells create and move things:</p>
+<ul><li><code>mkdir name</code> makes a directory.</li>
+<li><code>touch file</code> creates an empty file (or updates its timestamp if it exists).</li>
+<li><code>echo "text" &gt; file</code> writes text into a file. The <code>&gt;</code> <b>redirects</b> output from the screen into the file, replacing what was there.</li>
+<li><code>cp source dest</code> copies. The original stays where it was.</li>
+<li><code>mv source dest</code> moves. Renaming is just moving to a new name, so <code>mv</code> does both jobs.</li></ul>
+<p>Paths work everywhere, so you can create <code>camp/tent.txt</code> without entering <code>camp</code> first.</p>`,
+    tasks: [
+      { t: 'Create a directory called camp in your home', h: 'cd ~   then   mkdir camp', ok: c => c.node(CAMP)?.type === 'dir' },
+      { t: 'Pitch a tent: create an empty file camp/tent.txt', h: 'touch camp/tent.txt', ok: c => c.node(CAMP + '/tent.txt')?.type === 'file' },
+      { t: 'Light a fire: write the word fire into camp/campfire.txt', h: 'echo "fire" > camp/campfire.txt', ok: c => c.stages.some(s => s.redir.some(r => r.target === CAMP + '/campfire.txt')) && /fire/i.test(c.node(CAMP + '/campfire.txt')?.content || '') },
+      { t: 'Copy the ancient key into your camp (keep the original!)', h: 'cp forest/cave/deep/ancient_key.txt camp/', ok: c => c.ran('cp') && c.node(CAMP + '/ancient_key.txt') && c.node(KEY) },
+      { t: 'Rename tent.txt to shelter.txt', h: 'mv camp/tent.txt camp/shelter.txt', ok: c => c.ran('mv') && c.node(CAMP + '/shelter.txt') && !c.node(CAMP + '/tent.txt') },
+    ],
+    recap: [['mkdir dir', 'make a directory (-p for nested ones)'], ['touch file', 'create an empty file'], ['echo "x" > file', 'write into a file, replacing it'], ['cp a b', 'copy'], ['mv a b', 'move or rename']],
+  },
+  {
+    name: 'The Cursed Junkyard',
+    setup: () => restoreArea('junk'),
+    brief: `<p><code>rm</code> deletes files <b>permanently</b>. The terminal has no recycle bin and no undo.</p>
+<ul><li><code>rm file</code> removes a file.</li>
+<li><code>rmdir dir</code> removes a directory, but only if it is empty.</li>
+<li><code>rm -r dir</code> removes a directory and everything inside it (<b>r</b>ecursive).</li>
+<li><code>rm -i file</code> asks before each removal. <code>-f</code> never asks and stays quiet about files that do not exist.</li></ul>
+<p>Wildcards are expanded by the shell before the command runs: <code>rm junk/*</code> would delete <em>every file</em> in junk. Preview with <code>ls junk/*</code> first.</p>
+<p class="warn">Never run <code>rm -rf /</code>, and never paste an rm command you do not understand.</p>`,
+    tasks: [
+      { t: 'Throw away the rotten apple', h: 'rm junk/rotten_apple.txt', ok: c => !c.node(J + '/rotten_apple.txt') },
+      { t: 'Remove the empty crate (it is an empty directory)', h: 'rmdir junk/empty_crate', ok: c => !c.node(J + '/empty_crate') },
+      { t: 'Destroy the cobwebs directory and everything inside it', h: 'rm -r junk/cobwebs', ok: c => !c.node(J + '/cobwebs') },
+      { t: 'Finish cleaning with old_boots.txt still safe', h: 'Delete things one at a time. Do not use rm junk/*', ok: c => !c.node(J + '/rotten_apple.txt') && !c.node(J + '/empty_crate') && !c.node(J + '/cobwebs') && c.node(J + '/old_boots.txt') },
+    ],
+    recap: [['rm file', 'delete a file forever'], ['rmdir dir', 'delete an empty directory'], ['rm -r dir', 'delete a directory and its contents'], ['rm -i', 'ask before deleting']],
+  },
+  {
+    name: 'The Great Library',
+    setup: () => restoreArea('library'),
+    brief: `<p>The Great Library holds long scrolls. Printing a 10,000-line log with <code>cat</code> would flood your screen, so mages read only the part they need.</p>
+<ul><li><code>head file</code>: the first 10 lines. <code>head -n 5 file</code>: the first 5.</li>
+<li><code>tail file</code>: the last 10 lines. <code>tail -n 3 file</code>: the last 3. On real servers, <code>tail -f</code> keeps printing new lines as a log grows.</li>
+<li><code>wc file</code>: counts lines, words and bytes. <code>wc -l</code> counts only lines.</li>
+<li><code>less file</code>: a scrollable viewer on a real system (<kbd>q</kbd> quits).</li></ul>`,
+    tasks: [
+      { t: 'Read the first 10 lines of the Scroll of Ages', h: 'head library/scroll_of_ages.txt', ok: c => c.ran('head', s => c.hasPath(s, SCROLL)) },
+      { t: 'Now read only the first 5 lines', h: 'head -n 5 library/scroll_of_ages.txt', ok: c => c.ran('head', s => c.hasPath(s, SCROLL) && c.nArg(s) === 5) },
+      { t: 'Count how many lines the scroll has', h: 'wc -l library/scroll_of_ages.txt', ok: c => c.ran('wc', s => c.flag(s, 'l')) },
+      { t: 'Read the last 3 lines, where the word of power hides', h: 'tail -n 3 library/scroll_of_ages.txt', ok: c => c.ran('tail', s => c.hasPath(s, SCROLL) && c.nArg(s) === 3) },
+      { t: 'Speak the word of power out loud with echo', h: 'echo followed by the word from the last line', ok: c => c.ran('echo', s => /\btux\b/i.test(s.args.join(' '))) },
+    ],
+    recap: [['head -n N file', 'first N lines'], ['tail -n N file', 'last N lines'], ['tail -f log', 'follow a growing file'], ['wc -l file', 'count lines'], ['less file', 'scroll through a file']],
+  },
+  {
+    name: 'The Tower of Echoes',
+    setup: () => { restoreArea('library'); restoreArea('tower'); },
+    brief: `<p>Two of the most useful spells in Linux:</p>
+<ul><li><code>grep pattern file</code> prints every line containing the pattern. <code>-i</code> ignores case, <code>-n</code> shows line numbers, <code>-r</code> searches every file under a directory, <code>-v</code> shows lines that do <em>not</em> match.</li>
+<li><code>find where -name "pattern"</code> walks through directories looking for names. <code>find . -name "*.gem"</code> finds every .gem under the current directory. <code>-type f</code> keeps only files, <code>-type d</code> only directories.</li></ul>
+<p>Quote patterns that contain wildcards. Without quotes, the shell may expand <code>*.gem</code> itself before <code>find</code> sees it. And unlike <code>ls</code>, <code>find</code> also lists hidden files.</p>`,
+    tasks: [
+      { t: 'Find every line that mentions a dragon in the Scroll of Ages', h: 'grep dragon library/scroll_of_ages.txt', ok: c => c.ran('grep', s => s.args.some(x => /dragon/i.test(x)) && c.hasPath(s, SCROLL)) },
+      { t: 'Search again ignoring upper/lower case. Did you miss one?', h: 'grep -i dragon library/scroll_of_ages.txt', ok: c => c.ran('grep', s => c.flag(s, 'i')) },
+      { t: 'Search the entire tower for the word password', h: 'grep -r password tower', ok: c => c.ran('grep', s => (c.flag(s, 'r') || c.flag(s, 'R')) && s.args.some(x => /password/i.test(x))) },
+      { t: 'Locate every .gem file in the tower', h: 'find tower -name "*.gem"', ok: c => c.ran('find', s => s.args.includes('-name') || s.args.includes('-iname')) && c.stages.some(s => s.name === 'find' && s.out.includes('.gem')) },
+      { t: 'One gem is hidden from ls. Read it', h: 'find printed its path: cat tower/floor3/.opal.gem', ok: c => c.readFile(HOME + '/tower/floor3/.opal.gem') },
+    ],
+    recap: [['grep word file', 'lines containing word'], ['grep -i / -n / -v', 'ignore case / line numbers / invert'], ['grep -r word dir', 'search a whole tree'], ['find dir -name "*.x"', 'find files by name'], ['find dir -type d', 'only directories']],
+  },
+  {
+    name: 'The Market of Pipes',
+    setup: () => restoreArea('market'),
+    brief: `<p>The Unix philosophy: small tools that each do one thing well, connected together.</p>
+<ul><li><code>a | b</code>: the <b>pipe</b> sends the output of <code>a</code> into the input of <code>b</code>.</li>
+<li><code>a &gt; file</code> writes the output into a file (overwrite). <code>a &gt;&gt; file</code> appends to the end.</li>
+<li><code>sort</code> orders lines. <code>-r</code> reverses, <code>-n</code> compares numbers.</li>
+<li><code>uniq</code> removes <em>adjacent</em> duplicate lines, so you almost always <code>sort</code> first. <code>uniq -c</code> counts them.</li></ul>
+<p>Real-world example: <code>sort names.txt | uniq -c | sort -rn</code> ranks the most common names.</p>`,
+    tasks: [
+      { t: 'Pipe the inventory into sort', h: 'cat market/inventory.txt | sort', ok: c => c.ran('sort', s => c.inPipe(s)) },
+      { t: 'Count how many of each item there are', h: 'sort market/inventory.txt | uniq -c', ok: c => c.ran('uniq', s => c.inPipe(s) && c.flag(s, 'c')) },
+      { t: 'Count the lines of the inventory using a pipe and wc', h: 'cat market/inventory.txt | wc -l', ok: c => c.ran('wc', s => c.inPipe(s)) },
+      { t: 'Save a sorted list without duplicates to market/clean.txt', h: 'sort market/inventory.txt | uniq > market/clean.txt', ok: c => c.stages.some(s => s.redir.some(r => r.op === '>' && r.target === MK + '/clean.txt')) && splitLines(c.node(MK + '/clean.txt')?.content || '').slice(0, 7).join(',') === 'apple,map,potion,rope,shield,sword,torch' },
+      { t: 'Append "dragon scale" to the end of clean.txt', h: 'echo "dragon scale" >> market/clean.txt', ok: c => c.stages.some(s => s.redir.some(r => r.op === '>>' && r.target === MK + '/clean.txt')) && (c.node(MK + '/clean.txt')?.content || '').includes('dragon scale') },
+    ],
+    recap: [['a | b', 'send output of a into b'], ['> file', 'write output to a file (overwrite)'], ['>> file', 'append output to a file'], ['sort', 'order lines'], ['uniq -c', 'count adjacent duplicates']],
+  },
+  {
+    name: 'The Sealed Gate',
+    setup: () => { restoreArea('gate'); state.gateOpen = false; },
+    brief: `<p>Every file has permissions for three groups: the <b>u</b>ser who owns it, the <b>g</b>roup, and <b>o</b>thers. Each can <b>r</b>ead, <b>w</b>rite and e<b>x</b>ecute.</p>
+<pre class="anat">- rwx r-x r-x
+│  │   │   └ others
+│  │   └ group
+│  └ user (the owner)
+└ file type</pre>
+<p>As numbers, r=4, w=2, x=1, added up per group: <code>755</code> is rwxr-xr-x and <code>644</code> is rw-r--r--.</p>
+<ul><li><code>chmod +x file</code> adds execute permission. <code>chmod 755 file</code> sets all of it exactly.</li>
+<li><code>./script.sh</code> runs a program in the current directory. The <code>./</code> is needed because the current directory is not in your <code>PATH</code>, the list of places the shell searches for commands.</li>
+<li><code>bash script.sh</code> runs a script even without execute permission, because bash only needs to read it.</li></ul>`,
+    tasks: [
+      { t: 'Inspect the permissions of the files in the gate room', h: 'ls -l gate', ok: c => c.ran('ls', s => c.flag(s, 'l') && (s.cwd === G || s.args.some(x => !x.startsWith('-') && normalize(x, s.cwd).startsWith(G)))) },
+      { t: 'Try to run the gate spell', h: './gate/open_gate.sh   (or cd gate, then ./open_gate.sh)', ok: c => c.events.has('gateDenied') || c.events.has('gateOpened') },
+      { t: 'Give the spell execute permission', h: 'chmod +x gate/open_gate.sh', ok: c => c.ran('chmod') && (c.node(GATE)?.mode & 0o100) },
+      { t: 'Run the spell and open the gate', h: './gate/open_gate.sh', ok: c => c.events.has('gateOpened') },
+    ],
+    recap: [['rwx', 'read, write, execute'], ['chmod +x file', 'make executable'], ['chmod 755 / 644', 'set permissions with numbers'], ['./script.sh', 'run a program from this directory']],
+  },
+  {
+    name: 'The Shadow Daemon',
+    setup: () => { if (!state.procs.some(p => p.pid === DAEMON.pid)) state.procs.push({ ...DAEMON }); },
+    brief: `<p>Every running program is a <b>process</b> with an ID number, its <b>PID</b>. Background services are called <b>daemons</b>.</p>
+<ul><li><code>ps</code> shows the processes started from this terminal. <code>ps aux</code> shows every process on the system, with its user, CPU and memory.</li>
+<li><code>kill PID</code> sends <b>SIGTERM</b> (signal 15), a polite request to stop. A program can catch it to clean up, or ignore it.</li>
+<li><code>kill -9 PID</code> sends <b>SIGKILL</b>. The kernel ends the process at once; it cannot be caught or ignored. Use it as a last resort, since the program gets no chance to save its work.</li>
+<li><code>top</code> shows a live view of processes sorted by CPU.</li></ul>
+<p>You can only signal your own processes. Signalling another user's requires root.</p>`,
+    tasks: [
+      { t: 'List the processes running in your terminal', h: 'ps', ok: c => c.ran('ps', s => !s.args.length) },
+      { t: 'The daemon is not there. List every process on the system', h: 'ps aux', ok: c => c.events.has('psAll') },
+      { t: 'Filter the process list down to the shadow daemon', h: 'ps aux | grep shadow', ok: c => { const ids = c.stages.filter(s => s.name === 'ps').map(s => s.pid); return c.stages.some(s => s.name === 'grep' && ids.includes(s.pid)); } },
+      { t: 'Ask the daemon politely to stop (SIGTERM)', h: 'kill PID   (the PID is the second column of ps aux)', ok: c => c.events.has('termTried') || c.events.has('daemonKilled') },
+      { t: 'Send the signal that cannot be ignored', h: 'kill -9 PID', ok: c => c.events.has('daemonKilled') },
+    ],
+    recap: [['ps', 'processes in this terminal'], ['ps aux', 'every process on the system'], ['kill PID', 'SIGTERM: please stop'], ['kill -9 PID', 'SIGKILL: stop now'], ['top', 'live process monitor']],
+  },
+];
+
+const SPELLS = [
+  [1, 'whoami', 'Print the name of the current user.', [['whoami', 'prints: hero']]],
+  [1, 'pwd', 'Print working directory: the full path of where you are.', [['pwd', '/home/hero']]],
+  [1, 'ls', 'List what is inside a directory.', [['ls', 'the current directory'], ['ls forest', 'another directory']]],
+  [1, 'cat', 'Print a file (short for concatenate).', [['cat readme.txt', 'read a file'], ['cat -n readme.txt', 'with line numbers']]],
+  [1, 'clear', 'Clear the screen. Ctrl+L does the same.', [['clear', '']]],
+  [1, 'man', 'Read the manual for any command.', [['man ls', 'full manual page'], ['ls --help', 'quick summary']]],
+  [2, 'cd', 'Change directory.', [['cd forest', 'relative path'], ['cd ..', 'up to the parent'], ['cd /home/hero', 'absolute path'], ['cd', 'go home'], ['cd -', 'previous directory']]],
+  [2, 'Tab', 'Autocomplete names. Type the first letters, press Tab.', [['cd fo', 'then press Tab']]],
+  [3, 'ls -a', 'Show hidden files, whose names start with a dot.', [['ls -a', ''], ['ls -la', 'long format plus hidden']]],
+  [3, 'ls -l', 'Long format: permissions, owner, size, date.', [['ls -l', ''], ['ls -lh', 'human-readable sizes']]],
+  [4, 'mkdir', 'Make a directory.', [['mkdir camp', ''], ['mkdir -p a/b/c', 'create parents too']]],
+  [4, 'touch', 'Create an empty file or update its timestamp.', [['touch notes.txt', '']]],
+  [4, 'echo', 'Print text. With > it writes the text into a file.', [['echo hello', 'prints hello'], ['echo "fire" > camp/campfire.txt', 'write a file']]],
+  [4, 'cp', 'Copy files. -r copies directories.', [['cp a.txt b.txt', 'copy to a new name'], ['cp a.txt camp/', 'copy into a directory'], ['cp -r dir1 dir2', 'copy a directory']]],
+  [4, 'mv', 'Move or rename.', [['mv old.txt new.txt', 'rename'], ['mv file.txt camp/', 'move into a directory']]],
+  [5, 'rm', 'Remove files permanently. No trash bin.', [['rm file.txt', ''], ['rm -r dir', 'directory and contents'], ['rm -i file.txt', 'ask first']]],
+  [5, 'rmdir', 'Remove an empty directory.', [['rmdir empty_dir', '']]],
+  [6, 'head', 'First lines of a file (10 by default).', [['head file.txt', ''], ['head -n 5 file.txt', 'first 5']]],
+  [6, 'tail', 'Last lines of a file (10 by default).', [['tail -n 3 file.txt', 'last 3'], ['tail -f app.log', 'follow a growing log']]],
+  [6, 'wc', 'Count lines, words and bytes.', [['wc file.txt', 'all three'], ['wc -l file.txt', 'lines only']]],
+  [7, 'grep', 'Print lines that match a pattern.', [['grep dragon file.txt', ''], ['grep -i dragon file.txt', 'ignore case'], ['grep -n word file.txt', 'line numbers'], ['grep -r password tower', 'search a whole tree']]],
+  [7, 'find', 'Find files by name or type.', [['find . -name "*.gem"', 'every .gem below here'], ['find tower -type d', 'only directories']]],
+  [8, '|', 'Pipe: output of one command becomes input of the next.', [['cat file.txt | sort', ''], ['ls | wc -l', 'count entries']]],
+  [8, '> and >>', 'Redirect output to a file. > overwrites, >> appends.', [['sort list.txt > sorted.txt', ''], ['echo more >> sorted.txt', '']]],
+  [8, 'sort', 'Sort lines. -n numeric, -r reverse.', [['sort file.txt', ''], ['sort -rn scores.txt', 'biggest numbers first']]],
+  [8, 'uniq', 'Collapse adjacent duplicate lines. Sort first.', [['sort f.txt | uniq', 'unique lines'], ['sort f.txt | uniq -c', 'count each']]],
+  [9, 'chmod', 'Change permissions.', [['chmod +x script.sh', 'make executable'], ['chmod 755 script.sh', 'rwxr-xr-x'], ['chmod 644 notes.txt', 'rw-r--r--']]],
+  [9, './', 'Run a program from the current directory.', [['./script.sh', ''], ['bash script.sh', 'no execute bit needed']]],
+  [10, 'ps', 'Show running processes.', [['ps', 'this terminal only'], ['ps aux', 'everything']]],
+  [10, 'kill', 'Send a signal to a process.', [['kill 1234', 'SIGTERM: please stop'], ['kill -9 1234', 'SIGKILL: cannot be ignored']]],
+  [10, 'top', 'Live view of processes by CPU.', [['top', 'q quits on a real system']]],
+];
+/* ---------- map rendering ---------- */
+const cv = $('#map'), g = cv.getContext('2d');
+const art = document.createElement('canvas');
+art.width = 320; art.height = 200;
+const ax = art.getContext('2d');
+g.imageSmoothingEnabled = false;
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const BIOMES = {
+  home:    { w1: '#4a2f25', w2: '#5e3d30', f1: '#8a6446', f2: '#7f5b3f', door: '#2e1a10', trim: '#c9a26b', name: 'Your Cottage' },
+  forest:  { w1: '#173a24', w2: '#224d31', f1: '#4f8a3c', f2: '#478035', door: '#2b1d12', trim: '#9bd36a', name: 'Whispering Forest' },
+  camp:    { w1: '#173a24', w2: '#224d31', f1: '#6b8a3c', f2: '#638035', door: '#2b1d12', trim: '#ffb347', name: 'Your Camp' },
+  cave:    { w1: '#22232f', w2: '#2d2f3f', f1: '#474a5d', f2: '#404355', door: '#0c0c14', trim: '#8a8fb5', name: 'Dark Cave' },
+  junk:    { w1: '#3e2a20', w2: '#50372a', f1: '#7a5a3a', f2: '#715236', door: '#22150e', trim: '#d08a4a', name: 'Cursed Junkyard' },
+  library: { w1: '#2f1c35', w2: '#3d2545', f1: '#6b4a3a', f2: '#624335', door: '#1c0e22', trim: '#e0b85a', name: 'Great Library' },
+  tower:   { w1: '#221a42', w2: '#2e2356', f1: '#4b3f7a', f2: '#44396f', door: '#120c26', trim: '#b59cff', name: 'Tower of Echoes' },
+  market:  { w1: '#5a3019', w2: '#6c3b20', f1: '#b08850', f2: '#a67f4a', door: '#331b0d', trim: '#ffd36b', name: 'Market of Pipes' },
+  gate:    { w1: '#33373e', w2: '#40454d', f1: '#62676f', f2: '#5b6068', door: '#1a1c21', trim: '#c7ccd6', name: 'Sealed Gate' },
+  system:  { w1: '#161c2a', w2: '#1d2537', f1: '#2a354c', f2: '#263047', door: '#0b0f1a', trim: '#6fa8ff', name: 'System Depths' },
+};
+function biomeFor(p) {
+  if (p !== HOME && !p.startsWith(HOME + '/')) return 'system';
+  const rel = p.slice(HOME.length + 1);
+  if (!rel) return 'home';
+  if (rel === 'forest/cave' || rel.startsWith('forest/cave/')) return 'cave';
+  const top = rel.split('/')[0];
+  return BIOMES[top] ? top : 'home';
+}
+
+const PAL = {
+  h: '#7b5cff', y: '#ffd36b', s: '#f2c9a0', e: '#1b1633', r: '#4a3aa8', b: '#2a2140',
+  w: '#f3e3bd', d: '#c9a26b', k: '#8a6a44', o: '#ff7a3d', g: '#9be15d', l: '#e8ffd0', G: '#8d93a8', c: '#cfd8ff',
+};
+const SPR = {
+  player: ['...hhhh...', '..hhyhhh..', '.hhhhhhhh.', 'hhhhhhhhhh', '..ssssss..', '..sesses..', '..ssssss..', '.rrrrrrrr.', 'srrrrrrrrs', '.rrryyrrr.', '.rrrrrrrr.'],
+  legs: [['..bb..bb..'], ['.bb....bb.']],
+  scroll: ['........', '.dwwwwd.', '.wkkkkw.', '.wwwwww.', '.wkkkww.', '.wwwwww.', '.dwwwwd.', '........'],
+  gem: ['..cccc..', '.clccdc.', 'clcccccd', 'cccccccd', '.cccccd.', '..cccd..', '...cd...', '........'],
+  key: ['........', '.yyy....', 'y...y...', 'y...yyyy', 'y...y.yy', '.yyy....', '........', '........'],
+  potion: ['...kk...', '...cc...', '..c..c..', '.cggggc.', '.cgllgc.', '.cggggc.', '..cccc..', '........'],
+  fire: [['...o....', '..oyo...', '..oyyo..', '.oyyyo..', '.oyyyyo.', '..kkkk..', '.k.kk.k.', '........'],
+         ['....o...', '...oyo..', '..oyyo..', '..oyyyo.', '.oyyyyo.', '..kkkk..', '.k.kk.k.', '........']],
+  ghost: ['....kkkk....', '..kkkkkkkk..', '.kkkkkkkkkk.', '.kkrrkkrrkk.', 'kkkrrkkrrkkk', 'kkkkkkkkkkkk', 'kkkkwwwwkkkk', 'kkkwkkkkwkkk', 'kkkkkkkkkkkk', 'kkkkkkkkkkkk', 'kk.kkk.kkk.k', 'k...k...k...'],
+};
+const GEMS = { ruby: ['#ff4d6d', '#ffb3c1', '#a3122f'], sapphire: ['#4d7cff', '#bcd0ff', '#1f3a99'], emerald: ['#3ddc84', '#c6ffe0', '#137a43'], opal: ['#f5e6ff', '#ffffff', '#b68fd6'] };
+
+function spr(rows, pal, x, y, s = 1, alpha = 1) {
+  ax.globalAlpha = alpha;
+  for (let r = 0; r < rows.length; r++) {
+    for (let c = 0; c < rows[r].length; c++) {
+      const ch = rows[r][c];
+      if (ch === '.') continue;
+      ax.fillStyle = pal[ch];
+      ax.fillRect(x + c * s, y + r * s, s, s);
+    }
+  }
+  ax.globalAlpha = 1;
+}
+
+let roomPath = HOME;
+const pl = { x: 160, y: 178, walking: false };
+let fade = 0, banner = null, travelToken = 0;
+const particles = [], bubbles = [], tweens = [];
+const daemonView = { alive: false, flash: 0 };
+
+function layoutRoom(p) {
+  const node = getNode(p);
+  const L = { doors: [], items: [], exit: null, moreDoors: 0, moreItems: 0 };
+  if (!node || node.type !== 'dir') return L;
+  const showHidden = state.revealed.has(p);
+  const names = Object.keys(node.children).filter(n => showHidden || n[0] !== '.').sort(cmpName);
+  const dirs = names.filter(n => node.children[n].type === 'dir');
+  const files = names.filter(n => node.children[n].type === 'file');
+  const maxD = 7, shown = dirs.length > maxD ? dirs.slice(0, maxD - 1) : dirs;
+  const slots = shown.length + (dirs.length > shown.length ? 1 : 0);
+  const step = slots ? (320 - 24) / slots : 0;
+  shown.forEach((n, i) => {
+    const cx = 12 + step * (i + 0.5);
+    L.doors.push({ name: n, cx, x: Math.round(cx - 11), y: 18, w: 22, h: 34, path: joinPath(p, n), hidden: n[0] === '.' });
+  });
+  if (dirs.length > shown.length) L.moreDoors = { n: dirs.length - shown.length, cx: 12 + step * (slots - 0.5) };
+  const maxI = 12, fs = files.length > maxI ? files.slice(0, maxI - 1) : files;
+  fs.forEach((n, i) => {
+    const col = i % 6, row = Math.floor(i / 6);
+    const f = node.children[n];
+    L.items.push({ name: n, x: 24 + col * 46, y: 64 + row * 44, node: f, hidden: n[0] === '.' });
+  });
+  if (files.length > fs.length) L.moreItems = files.length - fs.length;
+  if (p !== '/') L.exit = { x: 146, y: 186, w: 28, h: 14 };
+  return L;
+}
+
+function tree(x, y) {
+  ax.fillStyle = '#5a3a1e'; ax.fillRect(x + 6, y + 18, 4, 8);
+  const shades = ['#2f6b2a', '#3b8034', '#2a5e25'];
+  for (let i = 0; i < 3; i++) {
+    ax.fillStyle = shades[i];
+    const w = 16 - i * 4, top = y + 12 - i * 6;
+    for (let r = 0; r < 8; r++) ax.fillRect(x + 8 - Math.round(w * r / 16), top + r, Math.max(2, Math.round(w * r / 8)), 1);
+  }
+}
+
+function decor(kind, t) {
+  if (kind === 'forest' || kind === 'camp') [[4, 60], [298, 60], [8, 140], [296, 150]].forEach(([x, y]) => tree(x - 4, y));
+  if (kind === 'cave') {
+    ax.fillStyle = '#15161f';
+    for (let x = 4; x < 320; x += 18) { const h = 5 + ((x * 7) % 9); ax.fillRect(x, 0, 4, h); ax.fillRect(x + 1, h, 2, 3); }
+    ax.fillStyle = `rgba(140,200,255,${0.5 + 0.4 * Math.sin(t / 500)})`;
+    [[14, 170], [300, 120], [30, 110]].forEach(([x, y]) => { ax.fillRect(x, y, 3, 7); ax.fillRect(x + 4, y + 3, 2, 4); });
+  }
+  if (kind === 'library') {
+    const books = ['#b33a3a', '#3a6bb3', '#3ab37a', '#d9a13a', '#8a3ab3'];
+    for (const x of [2, 302]) {
+      ax.fillStyle = '#3a2216'; ax.fillRect(x, 58, 16, 118);
+      for (let y = 62; y < 170; y += 12) {
+        for (let i = 0; i < 4; i++) { ax.fillStyle = books[(y + i * 3 + x) % 5]; ax.fillRect(x + 2 + i * 3, y, 2, 9); }
+        ax.fillStyle = '#24140c'; ax.fillRect(x, y + 9, 16, 2);
+      }
+    }
+  }
+  if (kind === 'tower') {
+    for (let i = 0; i < 26; i++) {
+      const x = (i * 97) % 316, y = 3 + (i * 37) % 44;
+      ax.fillStyle = `rgba(255,255,255,${0.35 + 0.35 * Math.sin(t / 300 + i)})`;
+      ax.fillRect(x, y, 1, 1);
+    }
+  }
+  if (kind === 'market') {
+    for (let x = 0; x < 320; x += 16) { ax.fillStyle = (x / 16) % 2 ? '#e0524f' : '#fff1d0'; ax.fillRect(x, 0, 16, 7); ax.fillRect(x + 2, 7, 12, 2); }
+    for (const [x, y] of [[4, 150], [296, 140], [290, 70]]) { ax.fillStyle = '#7a4a22'; ax.fillRect(x, y, 18, 14); ax.fillStyle = '#5a3514'; ax.fillRect(x, y + 6, 18, 2); ax.fillRect(x + 8, y, 2, 14); }
+  }
+  if (kind === 'junk') {
+    const junk = ['#5c4a3a', '#8a7a6a', '#4a5a4a', '#6a4a2a'];
+    for (let i = 0; i < 22; i++) { ax.fillStyle = junk[i % 4]; ax.fillRect((i * 53) % 312 + 2, 60 + (i * 29) % 130, 3 + i % 4, 2 + i % 3); }
+  }
+  if (kind === 'home') {
+    ax.fillStyle = '#7a2533'; ax.fillRect(100, 150, 120, 46);
+    ax.fillStyle = '#c9a26b'; ax.fillRect(104, 154, 112, 2); ax.fillRect(104, 190, 112, 2);
+    for (let x = 108; x < 212; x += 8) { ax.fillStyle = '#a8394b'; ax.fillRect(x, 170, 4, 4); }
+  }
+  if (kind === 'system') {
+    ax.fillStyle = 'rgba(111,168,255,.18)';
+    for (let i = 0; i < 9; i++) { const y = 60 + i * 15; ax.fillRect(0, y, 40 + (i * 37) % 80, 1); ax.fillRect(320 - 30 - (i * 23) % 70, y + 6, 60, 1); }
+  }
+}
+
+function drawGate(t) {
+  const x = 110, w = 100;
+  ax.fillStyle = '#2a2d33'; ax.fillRect(x - 6, 2, w + 12, 50);
+  ax.fillStyle = state.gateOpen ? `rgba(255,220,140,${0.7 + 0.2 * Math.sin(t / 200)})` : '#0d0e12';
+  ax.fillRect(x, 8, w, 44);
+  const lift = state.gateOpen ? 38 : 0;
+  ax.fillStyle = '#8b8f99';
+  for (let bx = x + 4; bx < x + w; bx += 10) ax.fillRect(bx, 8, 3, 44 - lift);
+  for (let by = 14; by < 52 - lift; by += 10) ax.fillRect(x, by, w, 2);
+  ax.fillStyle = state.gateOpen ? '#ffd36b' : '#6b707a';
+  for (let i = 0; i < 5; i++) ax.fillRect(x + 12 + i * 18, 4, 6, 2);
+}
+
+function itemSprite(it, t, i) {
+  const bob = Math.round(Math.sin(t / 450 + i) * 1.2);
+  const x = it.x, y = it.y + bob, n = it.name.toLowerCase(), alpha = it.hidden ? 0.6 : 1;
+  if (n.endsWith('.gem')) {
+    const key = Object.keys(GEMS).find(k => n.includes(k)) || 'opal';
+    const [c, l, d] = GEMS[key];
+    spr(SPR.gem, { c, l, d }, x, y, 2, alpha);
+  } else if (n.includes('key')) spr(SPR.key, PAL, x, y, 2, alpha);
+  else if (n.includes('campfire')) spr(SPR.fire[Math.floor(t / 180) % 2], PAL, x, y, 2, alpha);
+  else if (n.endsWith('.sh') || isExe(it.node)) spr(SPR.potion, { ...PAL, g: isExe(it.node) ? '#9be15d' : '#8d93a8', l: isExe(it.node) ? '#e8ffd0' : '#c4c8d4' }, x, y, 2, alpha);
+  else spr(SPR.scroll, PAL, x, y, 2, alpha);
+  if (isExe(it.node)) { ax.fillStyle = `rgba(155,225,93,${0.25 + 0.2 * Math.sin(t / 250)})`; ax.fillRect(x - 2, y + 15, 20, 2); }
+  if (it.hidden && Math.sin(t / 200 + i * 2) > 0.6) { ax.fillStyle = '#ffffff'; ax.fillRect(x + 14, y - 2, 1, 3); ax.fillRect(x + 13, y - 1, 3, 1); }
+}
+
+function drawDoor(d, B) {
+  ax.globalAlpha = d.hidden ? 0.6 : 1;
+  ax.fillStyle = B.trim; ax.fillRect(d.x - 2, d.y - 2, d.w + 4, d.h + 2);
+  ax.fillStyle = B.door; ax.fillRect(d.x, d.y, d.w, d.h);
+  ax.fillStyle = 'rgba(0,0,0,.35)';
+  for (let px = d.x + 5; px < d.x + d.w; px += 6) ax.fillRect(px, d.y + 2, 1, d.h - 2);
+  ax.fillStyle = '#ffd36b'; ax.fillRect(d.x + d.w - 5, d.y + 18, 2, 2);
+  ax.globalAlpha = 1;
+}
+
+function drawRoom(t) {
+  const kind = biomeFor(roomPath), B = BIOMES[kind];
+  for (let y = 52; y < 200; y += 16) for (let x = 0; x < 320; x += 16) { ax.fillStyle = ((x + y) / 16) % 2 ? B.f1 : B.f2; ax.fillRect(x, y, 16, 16); }
+  ax.fillStyle = B.w1; ax.fillRect(0, 0, 320, 52);
+  ax.fillStyle = B.w2;
+  for (let y = 0; y < 50; y += 8) { const off = (y / 8) % 2 ? 8 : 0; for (let x = -off; x < 320; x += 16) ax.fillRect(x + 1, y + 1, 14, 6); }
+  ax.fillStyle = B.trim; ax.fillRect(0, 51, 320, 2);
+  ax.fillStyle = 'rgba(0,0,0,.25)'; ax.fillRect(0, 53, 320, 4);
+  decor(kind, t);
+  if (roomPath === G) drawGate(t);
+  const L = layoutRoom(roomPath);
+  L.doors.forEach(d => drawDoor(d, B));
+  if (L.moreDoors) { ax.fillStyle = B.trim; ax.fillRect(L.moreDoors.cx - 10, 26, 20, 14); }
+  L.items.forEach((it, i) => itemSprite(it, t, i));
+  if (L.exit) {
+    const e = L.exit;
+    ax.fillStyle = '#0a0818'; ax.fillRect(e.x, e.y, e.w, e.h);
+    ax.fillStyle = B.trim;
+    for (let i = 0; i < 4; i++) ax.fillRect(e.x + 2 + i * 2, e.y + 2 + i * 3, e.w - 4 - i * 4, 2);
+  }
+  return L;
+}
+
+function drawPlayer(t) {
+  const x = Math.round(pl.x - 10), y = Math.round(pl.y - 24) + (pl.walking ? 0 : Math.round(Math.sin(t / 300)));
+  ax.fillStyle = 'rgba(0,0,0,.3)'; ax.fillRect(x + 2, y + 23, 16, 3);
+  spr(SPR.player, PAL, x, y, 2);
+  spr(SPR.legs[pl.walking ? Math.floor(t / 120) % 2 : 0], PAL, x, y + 22, 2);
+}
+
+function drawDaemon(t) {
+  if (!daemonView.alive) return;
+  const x = 262 + Math.round(Math.sin(t / 700) * 10), y = 70 + Math.round(Math.cos(t / 500) * 6);
+  const flash = daemonView.flash > t;
+  spr(SPR.ghost, { k: flash ? '#ff3355' : '#3b1d5c', r: flash ? '#ffffff' : '#ff3355', w: '#e8d7ff' }, x, y, 2, 0.9);
+  ax.fillStyle = 'rgba(155,90,255,.25)'; ax.fillRect(x + 4, y + 26, 16, 2);
+  daemonView.x = x; daemonView.y = y;
+}
+
+function burst(x, y, colors, n = 24, speed = 1.6) {
+  if (reduced) return;
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = (0.4 + Math.random()) * speed;
+    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.6, life: 40 + Math.random() * 30, c: colors[i % colors.length] });
+  }
+}
+function drawParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy; p.vy += 0.04; p.life--;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    ax.globalAlpha = Math.min(1, p.life / 20);
+    ax.fillStyle = p.c; ax.fillRect(Math.round(p.x), Math.round(p.y), 2, 2);
+  }
+  ax.globalAlpha = 1;
+}
+function bubble(text, who, ms = 2600) { bubbles.push({ text, who, until: performance.now() + ms }); }
+
+function label(text, x, y, color, size = 12) {
+  g.font = `${size}px Silkscreen, ui-monospace, monospace`;
+  g.textAlign = 'center';
+  g.fillStyle = 'rgba(10,8,24,.85)';
+  const w = g.measureText(text).width;
+  g.fillRect(x - w / 2 - 3, y - size + 1, w + 6, size + 3);
+  g.fillStyle = color; g.fillText(text, x, y);
+}
+const trunc = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
+
+function drawOverlay(L, t) {
+  const S = 2;
+  const dw = L.doors.length > 5 ? 8 : 11;
+  L.doors.forEach(d => label(trunc(d.name, dw) + '/', d.cx * S, 14 * S, '#8fbaff', 11));
+  if (L.moreDoors) label(`+${L.moreDoors.n}`, L.moreDoors.cx * S, 36 * S, '#1a1330', 12);
+  L.items.forEach(it => label(trunc(it.name, 12), (it.x + 8) * S, (it.y + 28) * S, isExe(it.node) ? '#9be15d' : it.hidden ? '#c8c2e6' : '#efe6d2', 10));
+  if (L.moreItems) label(`+${L.moreItems} more files`, 160 * S, 152 * S, '#efe6d2', 10);
+  if (L.exit) label('..', (L.exit.x + L.exit.w + 10) * S, 196 * S, '#8fbaff', 11);
+  if (roomPath === '/') label('/  (the root of everything)', 160 * S, 196 * S, '#8fbaff', 11);
+  const now = performance.now();
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    const b = bubbles[i];
+    if (now > b.until) { bubbles.splice(i, 1); continue; }
+    const bx = b.who === 'daemon' ? (daemonView.x || 262) * S + 12 : pl.x * S, by = b.who === 'daemon' ? (daemonView.y || 70) * S - 12 : (pl.y - 30) * S;
+    g.font = '12px Silkscreen, ui-monospace, monospace';
+    const w = Math.min(560, g.measureText(b.text).width + 16);
+    const left = Math.max(6, Math.min(634 - w, bx - w / 2));
+    g.fillStyle = b.who === 'daemon' ? '#2a0f3d' : '#fff8e6';
+    g.fillRect(left, by - 22, w, 22);
+    g.strokeStyle = b.who === 'daemon' ? '#c79bff' : '#1b1633'; g.lineWidth = 2; g.strokeRect(left, by - 22, w, 22);
+    g.fillStyle = b.who === 'daemon' ? '#f0dcff' : '#1b1633'; g.textAlign = 'center';
+    g.fillText(b.text, left + w / 2, by - 7, w - 10);
+  }
+  if (banner) {
+    const p = (now - banner.t0) / banner.dur;
+    if (p >= 1) banner = null;
+    else {
+      const a = p < 0.15 ? p / 0.15 : p > 0.8 ? (1 - p) / 0.2 : 1;
+      g.globalAlpha = a;
+      g.fillStyle = 'rgba(10,8,24,.88)'; g.fillRect(0, 150, 640, 90);
+      g.fillStyle = '#ffb347'; g.fillRect(0, 150, 640, 3); g.fillRect(0, 237, 640, 3);
+      g.textAlign = 'center';
+      g.font = '14px Silkscreen, ui-monospace, monospace'; g.fillStyle = '#a39fc4'; g.fillText(banner.sub, 320, 182);
+      g.font = '28px "Pixelify Sans", Silkscreen, monospace'; g.fillStyle = '#ffb347'; g.fillText(banner.text, 320, 218);
+      g.globalAlpha = 1;
+    }
+  }
+  if (fade > 0) { g.fillStyle = `rgba(10,8,24,${fade})`; g.fillRect(0, 0, 640, 400); }
+}
+
+function tween(dur, fn) {
+  return new Promise(res => {
+    if (reduced) { fn(1); res(); return; }
+    tweens.push({ t0: performance.now(), dur, fn, res });
+  });
+}
+function runTweens(now) {
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const tw = tweens[i], p = Math.min(1, (now - tw.t0) / tw.dur);
+    tw.fn(p);
+    if (p >= 1) { tweens.splice(i, 1); tw.res(); }
+  }
+}
+async function walkTo(x, y, dur) {
+  const sx = pl.x, sy = pl.y;
+  pl.walking = true;
+  await tween(dur, p => { pl.x = sx + (x - sx) * p; pl.y = sy + (y - sy) * p; });
+  pl.walking = false;
+}
+
+async function travel(from, to) {
+  const token = ++travelToken;
+  const L = layoutRoom(from);
+  const door = L.doors.find(d => d.path === to);
+  if (parentOf(to) === from && door) await walkTo(door.cx, 56, 380);
+  else if (to === parentOf(from) && L.exit) await walkTo(160, 194, 320);
+  else burst(pl.x, pl.y - 12, ['#b59cff', '#ffffff', '#ffd36b'], 30);
+  if (token !== travelToken) return;
+  await tween(180, p => { fade = p; });
+  if (token !== travelToken) return;
+  roomPath = to;
+  const L2 = layoutRoom(to);
+  const back = L2.doors.find(d => d.path === from);
+  if (to === parentOf(from) && back) { pl.x = back.cx; pl.y = 56; }
+  else if (parentOf(to) === from) { pl.x = 160; pl.y = 198; }
+  else { pl.x = 160; pl.y = 178; burst(160, 166, ['#b59cff', '#ffffff', '#ffd36b'], 30); }
+  sfx.step();
+  await tween(180, p => { fade = 1 - p; });
+  if (token !== travelToken) return;
+  await walkTo(160, 178, 300);
+}
+
+function daemonFx(kind) {
+  const t = performance.now();
+  if (kind === 'laugh') { daemonView.flash = t + 600; bubble('SIGTERM? I ignore that!', 'daemon'); sfx.err(); }
+  if (kind === 'kill') {
+    burst((daemonView.x || 262) + 12, (daemonView.y || 70) + 12, ['#3b1d5c', '#ff3355', '#e8d7ff', '#ffd36b'], 70, 2.4);
+    daemonView.alive = false;
+    shakeScreen();
+  }
+}
+
+function frame(now) {
+  runTweens(now);
+  ax.clearRect(0, 0, 320, 200);
+  const L = drawRoom(now);
+  drawDaemon(now);
+  drawPlayer(now);
+  drawParticles();
+  g.clearRect(0, 0, 640, 400);
+  g.drawImage(art, 0, 0, 640, 400);
+  drawOverlay(L, now);
+  requestAnimationFrame(frame);
+}
+/* ---------- sound ---------- */
+let audio = null;
+function beep(freq, dur = 0.08, type = 'square', vol = 0.04, when = 0) {
+  if (!state.sound) return;
+  audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+  const o = audio.createOscillator(), gn = audio.createGain(), t = audio.currentTime + when;
+  o.type = type; o.frequency.value = freq;
+  gn.gain.setValueAtTime(vol, t);
+  gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(gn).connect(audio.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+const sfx = {
+  key: () => beep(1400, 0.012, 'square', 0.006),
+  ok: () => { beep(660, 0.08); beep(990, 0.12, 'square', 0.04, 0.08); },
+  err: () => beep(140, 0.15, 'sawtooth', 0.035),
+  level: () => [523, 659, 784, 1047, 1319].forEach((f, i) => beep(f, 0.16, 'square', 0.045, i * 0.11)),
+  hurt: () => { beep(220, 0.1, 'sawtooth', 0.05); beep(110, 0.25, 'sawtooth', 0.05, 0.1); },
+  step: () => beep(90, 0.05, 'triangle', 0.05),
+};
+
+/* ---------- terminal output ---------- */
+const out = $('#out'), screen = $('#screen'), cmdInput = $('#cmd');
+function printHTML(html, cls = '') {
+  const d = document.createElement('div');
+  d.className = 'ln ' + cls;
+  d.innerHTML = html;
+  out.appendChild(d);
+  while (out.childElementCount > 600) out.firstChild.remove();
+  screen.scrollTop = screen.scrollHeight;
+}
+const printText = (t, cls) => printHTML(esc(t), cls);
+const displayPath = p => p === HOME ? '~' : p.startsWith(HOME + '/') ? '~' + p.slice(HOME.length) : p;
+const promptHTML = () => `<span class="pu">hero@kernelia</span>:<span class="pp">${esc(displayPath(state.cwd))}</span>$ `;
+const strip = s => s.endsWith('\n') ? s.slice(0, -1) : s;
+const topSink = {
+  out: (text, html) => { const t = strip(text); if (t === '' && !html) return; printHTML(html != null ? html.replace(/\n$/, '') : esc(t)); },
+  err: t => { printText(t, 'err'); sfx.err(); },
+  note: (t, cls) => printText((cls === 'daemon' ? '' : '» ') + t, cls || 'note'),
+  clear: () => { out.innerHTML = ''; },
+};
+
+/* ---------- HUD and panels ---------- */
+const RANKS = [[0, 'Novice'], [100, 'Apprentice'], [250, 'Adept'], [450, 'Shell Mage'], [700, 'Root Wizard']];
+const HEART = '<svg viewBox="0 0 7 6" width="21" height="18" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M1 0h2v1h1V0h2v1h1v2H6v1H5v1H4v1H3V5H2V4H1V3H0V1h1z"/></svg>';
+function rankOf(xp) { let r = RANKS[0]; for (const k of RANKS) if (xp >= k[0]) r = k; return r; }
+function renderHUD() {
+  const ch = CHAPTERS[state.chapter];
+  $('#chapNum').textContent = `Chapter ${state.chapter + 1} of ${CHAPTERS.length}`;
+  $('#chapName').textContent = ch.name;
+  const [base, title] = rankOf(state.xp);
+  const next = RANKS.find(r => r[0] > state.xp);
+  $('#xpFill').style.width = next ? `${((state.xp - base) / (next[0] - base)) * 100}%` : '100%';
+  $('#xpText').textContent = `${state.xp} XP · ${title}`;
+  $('#hearts').innerHTML = [0, 1, 2].map(i => i < state.hearts ? HEART : HEART.replace('<svg', '<svg class="lost"')).join('');
+  $('#soundBtn').textContent = `Sound: ${state.sound ? 'on' : 'off'}`;
+  $('#prompt').innerHTML = promptHTML();
+  $('#termTitle').textContent = `hero@kernelia: ${displayPath(state.cwd)}`;
+  renderCrumbs();
+}
+function renderCrumbs() {
+  const el = $('#crumbs');
+  const segs = state.cwd.split('/').filter(Boolean);
+  let html = `<button type="button" data-cd="/">/</button>`, acc = '';
+  segs.forEach((s, i) => { acc += '/' + s; html += `<button type="button" data-cd="${esc(acc)}">${esc(s)}</button>${i < segs.length - 1 ? '/' : ''}`; });
+  html += `<span class="area">${esc(BIOMES[biomeFor(state.cwd)].name)}</span>`;
+  el.innerHTML = html;
+}
+function renderQuest() {
+  const ch = CHAPTERS[state.chapter], done = state.done[state.chapter] || [];
+  $('#questTitle').textContent = `Chapter ${state.chapter + 1}: ${ch.name}`;
+  $('#brief').innerHTML = ch.brief;
+  const next = ch.tasks.findIndex((t, i) => !done[i]);
+  $('#tasks').innerHTML = ch.tasks.map((t, i) => `<li class="${done[i] ? 'done' : i === next ? 'next' : ''}"><span class="box"></span><span class="txt">${esc(t.t)}</span></li>`).join('');
+  $('#hintOut').textContent = '';
+}
+function renderSpells() {
+  const reached = state.maxChapter + 1;
+  $('#spells').innerHTML = SPELLS.map(([ch, name, sum, ex]) => {
+    const locked = ch > reached;
+    return `<div class="spell${locked ? ' locked' : ''}"><h3>${esc(name)}</h3><p>${locked ? `Unlocks in chapter ${ch}` : esc(sum)}</p>${locked ? '' : `<div class="ex">${ex.map(([c, m]) => `<button type="button" class="chip" data-ins="${esc(c)}">${esc(c)}${m ? `<small>${esc(m)}</small>` : ''}</button>`).join('')}</div>`}</div>`;
+  }).join('');
+}
+function renderLevels() {
+  $('#levels').innerHTML = CHAPTERS.map((c, i) => {
+    const doneAll = i < state.maxChapter || (state.done[i] && state.done[i].every(Boolean));
+    const st = i === state.chapter ? 'playing' : doneAll ? 'cleared' : i <= state.maxChapter ? 'open' : 'locked';
+    return `<li><button type="button" data-ch="${i}" class="${i === state.chapter ? 'cur' : ''}" ${i > state.maxChapter ? 'disabled' : ''}><span class="num">${String(i + 1).padStart(2, '0')}</span><span>${esc(c.name)}</span><span class="st">${st}</span></button></li>`;
+  }).join('');
+}
+function renderAll() { renderHUD(); renderQuest(); renderSpells(); renderLevels(); }
+
+let toastTimer = null;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('on'), 2200);
+}
+function shakeScreen() {
+  const el = $('#app');
+  el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+}
+
+/* ---------- progress ---------- */
+const SAVE_KEY = 'shellcraft-save-v1';
+function save() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ chapter: state.chapter, maxChapter: state.maxChapter, xp: state.xp, sound: state.sound })); }
+  catch (e) { /* storage unavailable: progress lives for this session only */ }
+}
+function load() {
+  try { return JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); }
+  catch (e) { return null; }
+}
+function gainXP(n) { state.xp += n; renderHUD(); }
+function loseHeart(msg) {
+  state.hearts--;
+  printText('[Guardian] ' + msg, 'note');
+  sfx.hurt(); shakeScreen();
+  bubble('Ouch!', 'player');
+  if (state.hearts <= 0) {
+    state.hearts = 3;
+    printText('[Guardian] You ran out of hearts. The Guardian of Root restores them. Be careful out there.', 'note');
+  }
+  renderHUD();
+}
+
+function startChapter(i, fresh) {
+  state.chapter = i;
+  if (fresh) {
+    state.fs = buildWorld();
+    state.procs = baseProcs();
+    state.revealed = new Set();
+    state.cwd = HOME; state.oldpwd = null; state.gateOpen = false;
+    roomPath = HOME; pl.x = 160; pl.y = 178;
+  }
+  CHAPTERS[i].setup?.();
+  if (!getNode(state.cwd)) { state.cwd = HOME; roomPath = HOME; }
+  state.done[i] = CHAPTERS[i].tasks.map(() => false);
+  daemonView.alive = state.procs.some(p => p.pid === DAEMON.pid);
+  banner = { text: CHAPTERS[i].name.toUpperCase(), sub: `CHAPTER ${i + 1}`, t0: performance.now(), dur: 2800 };
+  printText(`── Chapter ${i + 1}: ${CHAPTERS[i].name} ──`, 'chapter');
+  printText('Read the Quest panel, then type commands here. Type hint if you get stuck.', 'sys');
+  renderAll(); save();
+  showTab('quest');
+}
+
+function checkTasks() {
+  const ch = CHAPTERS[state.chapter], done = state.done[state.chapter];
+  const ctx = makeCtx();
+  let newly = 0;
+  ch.tasks.forEach((t, i) => {
+    if (done[i] || !t.ok(ctx)) return;
+    done[i] = true; newly++;
+    gainXP(10);
+    toast(`Quest complete: ${t.t}  +10 XP`);
+    burst(pl.x, pl.y - 20, ['#ffd36b', '#9be15d', '#ffffff'], 26);
+  });
+  if (!newly) return;
+  sfx.ok();
+  renderQuest();
+  if (done.every(Boolean)) setTimeout(chapterComplete, 900);
+}
+
+function chapterComplete() {
+  const i = state.chapter, ch = CHAPTERS[i];
+  gainXP(50);
+  state.maxChapter = Math.max(state.maxChapter, Math.min(i + 1, CHAPTERS.length - 1));
+  save(); renderSpells(); renderLevels();
+  sfx.level();
+  burst(160, 100, ['#ffd36b', '#ff5f7e', '#6fa8ff', '#9be15d', '#ffffff'], 90, 2.6);
+  const last = i === CHAPTERS.length - 1;
+  const recap = `<h3>Spells mastered</h3><dl>${ch.recap.map(([c, m]) => `<dt>${esc(c)}</dt><dd>${esc(m)}</dd>`).join('')}</dl>`;
+  if (!last) {
+    openCard(`<div class="eyebrow">Chapter ${i + 1} cleared</div><h2>${esc(ch.name)}</h2><p class="xpgain">+50 XP bonus</p>${recap}
+      <div class="actions"><button class="big" type="button" id="nextBtn">Continue to chapter ${i + 2}</button><button class="ghost" type="button" id="stayBtn">Keep exploring here</button></div>`);
+    $('#nextBtn').onclick = () => { closeCard(); startChapter(i + 1, false); };
+    $('#stayBtn').onclick = closeCard;
+    $('#nextBtn').focus();
+    return;
+  }
+  const [, title] = rankOf(state.xp);
+  openCard(`<div class="eyebrow">The Shadow Daemon is gone</div><h2>You saved Kernelia</h2>
+    <p>CPU usage is back to normal. Final rank: <b>${esc(title)}</b> with <b>${state.xp} XP</b>.</p>${recap}
+    <h3>Take it to a real terminal</h3>
+    <p>Open a real Linux terminal (Ubuntu, WSL, or macOS Terminal) and try:</p>
+    <dl><dt>ls -la ~</dt><dd>see your real hidden config files</dd><dt>ps aux --sort=-%cpu | head -n 6</dt><dd>the header plus the five busiest processes</dd><dt>grep -rn "TODO" .</dt><dd>find every TODO in a project</dd><dt>du -sh *</dt><dd>how much space each item uses</dd><dt>history | tail -n 20</dt><dd>your last 20 commands</dd></dl>
+    <div class="actions"><button class="big" type="button" id="stayBtn">Keep playing</button></div>`);
+  $('#stayBtn').onclick = closeCard;
+}
+
+function openCard(html) { $('#card').innerHTML = html; $('#overlay').hidden = false; }
+function closeCard() { $('#overlay').hidden = true; cmdInput.focus(); }
+
+/* ---------- running a line ---------- */
+let histIdx = 0;
+function submit(line) {
+  printHTML(promptHTML() + esc(line), 'cmdline');
+  if (line.trim()) state.history.push(line);
+  histIdx = state.history.length;
+  lineLog = []; lineEvents = new Set(); lineDanger = [];
+  const before = state.cwd;
+  const status = line.trim() ? executeLine(line, topSink) : 0;
+  if (status === 127) bubble('?', 'player', 1400);
+  lineDanger.forEach(loseHeart);
+  if (state.chapter === 4 && !getNode(J + '/old_boots.txt')) {
+    if (!getNode(J)) putNode(J, dir({}));
+    putNode(J + '/old_boots.txt', file('Worn but sturdy leather boots. Keep these!\n'));
+    loseHeart('You threw away the boots! Wildcards like * match everything. The Guardian put them back.');
+  }
+  if (lineEvents.has('gateOpened')) { burst(160, 40, ['#ffd36b', '#ffffff'], 50, 2); shakeScreen(); }
+  if (state.cwd !== before) travel(before, state.cwd);
+  checkTasks();
+  renderHUD();
+  screen.scrollTop = screen.scrollHeight;
+}
+
+function commonPrefix(list) {
+  let p = list[0];
+  for (const s of list) while (!s.startsWith(p)) p = p.slice(0, -1);
+  return p;
+}
+function complete() {
+  const v = cmdInput.value;
+  const word = /(\S*)$/.exec(v)[1];
+  const before = v.slice(0, v.length - word.length);
+  const isCmd = !before.trim() || /[|;&]\s*$/.test(before);
+  let cands = [];
+  if (isCmd && !word.includes('/')) {
+    cands = Object.keys(CMD).filter(k => k.startsWith(word)).sort().map(k => ({ text: k + ' ', show: k }));
+  } else {
+    const slash = word.lastIndexOf('/');
+    const dirPart = slash >= 0 ? word.slice(0, slash + 1) : '', base = word.slice(slash + 1);
+    const lookup = dirPart.startsWith('~') ? HOME + dirPart.slice(1) : dirPart;
+    const n = getNode(normalize(lookup || '.'));
+    if (n && n.type === 'dir') {
+      cands = Object.keys(n.children).filter(k => k.startsWith(base) && (base.startsWith('.') || k[0] !== '.')).sort(cmpName)
+        .map(k => { const c = n.children[k]; return { text: dirPart + k + (c.type === 'dir' ? '/' : ' '), show: k + (c.type === 'dir' ? '/' : '') }; });
+    }
+  }
+  if (!cands.length) return;
+  if (cands.length === 1) { cmdInput.value = before + cands[0].text; return; }
+  const common = commonPrefix(cands.map(c => c.text));
+  if (common.length > word.length) { cmdInput.value = before + common; return; }
+  printHTML(promptHTML() + esc(v));
+  printText(cands.map(c => c.show).join('  '));
+}
+function moveCaretEnd() { const n = cmdInput.value.length; requestAnimationFrame(() => cmdInput.setSelectionRange(n, n)); }
+function historyStep(dir) {
+  if (dir < 0 && histIdx > 0) histIdx--;
+  else if (dir > 0 && histIdx < state.history.length) histIdx++;
+  cmdInput.value = state.history[histIdx] ?? '';
+  moveCaretEnd();
+}
+
+cmdInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); const v = cmdInput.value; cmdInput.value = ''; submit(v); return; }
+  if (e.key === 'ArrowUp') { e.preventDefault(); historyStep(-1); return; }
+  if (e.key === 'ArrowDown') { e.preventDefault(); historyStep(1); return; }
+  if (e.key === 'Tab') { e.preventDefault(); complete(); return; }
+  if (e.ctrlKey && e.key.toLowerCase() === 'c' && cmdInput.selectionStart === cmdInput.selectionEnd) {
+    e.preventDefault(); printHTML(promptHTML() + esc(cmdInput.value) + '^C'); cmdInput.value = ''; return;
+  }
+  if (e.ctrlKey && e.key.toLowerCase() === 'l') { e.preventDefault(); out.innerHTML = ''; return; }
+  if (e.key.length === 1) sfx.key();
+});
+screen.addEventListener('click', () => { if (!getSelection().toString()) cmdInput.focus(); });
+$('#keys').addEventListener('click', e => {
+  const k = e.target.closest('button')?.dataset.k;
+  if (!k) return;
+  if (k === 'Tab') complete();
+  else if (k === 'Up') historyStep(-1);
+  else if (k === 'Down') historyStep(1);
+  else if (k === 'Enter') { const v = cmdInput.value; cmdInput.value = ''; submit(v); }
+  else cmdInput.value += k === '|' || k === '>' ? ` ${k} ` : k;
+  cmdInput.focus();
+});
+function insertCommand(text) { cmdInput.value = text; cmdInput.focus(); moveCaretEnd(); }
+$('#crumbs').addEventListener('click', e => { const p = e.target.closest('button')?.dataset.cd; if (p) insertCommand(`cd ${p}`); });
+$('#spells').addEventListener('click', e => { const c = e.target.closest('.chip')?.dataset.ins; if (c) insertCommand(c); });
+$('#levels').addEventListener('click', e => {
+  const b = e.target.closest('button[data-ch]');
+  if (!b || b.disabled) return;
+  startChapter(parseInt(b.dataset.ch, 10), true);
+  out.innerHTML = '';
+  printText(`Jumped to chapter ${state.chapter + 1}. The world was reset.`, 'sys');
+});
+let resetArmed = false;
+$('#resetBtn').addEventListener('click', e => {
+  if (!resetArmed) { resetArmed = true; e.target.textContent = 'Click again to erase all progress'; return; }
+  resetArmed = false; e.target.textContent = 'Reset progress';
+  state.xp = 0; state.maxChapter = 0; state.hearts = 3; state.done = [];
+  out.innerHTML = '';
+  startChapter(0, true);
+});
+function showTab(name) {
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  ['quest', 'spells', 'levels'].forEach(t => { $('#tab-' + t).hidden = t !== name; });
+}
+document.querySelector('.tabs').addEventListener('click', e => { const t = e.target.closest('button')?.dataset.tab; if (t) showTab(t); });
+$('#hintBtn').addEventListener('click', () => {
+  const ch = CHAPTERS[state.chapter], done = state.done[state.chapter] || [];
+  const i = ch.tasks.findIndex((t, k) => !done[k]);
+  $('#hintOut').textContent = i < 0 ? 'Chapter complete.' : 'Try: ' + ch.tasks[i].h;
+});
+$('#soundBtn').addEventListener('click', () => { state.sound = !state.sound; renderHUD(); save(); sfx.ok(); });
+
+/* ---------- boot ---------- */
+function titleScreen() {
+  const saved = load();
+  if (saved) { state.xp = saved.xp || 0; state.maxChapter = saved.maxChapter || 0; state.sound = !!saved.sound; }
+  const cont = saved && (saved.chapter > 0 || saved.xp > 0);
+  openCard(`<div class="eyebrow">A terminal adventure</div>
+    <div class="title-logo">SHELLCRAFT</div>
+    <p>A Shadow Daemon has taken over the machine. Explore a world made of files and directories, cast real Linux commands, and learn the terminal along the way.</p>
+    <p>The commands you learn work the same way on a real Linux system, and the output looks the same.</p>
+    <div class="actions">
+      <button class="big" type="button" id="goBtn">${cont ? `Continue: chapter ${saved.chapter + 1}` : 'Start adventure'}</button>
+      ${cont ? '<button class="ghost" type="button" id="newBtn">New game</button>' : ''}
+    </div>
+    <p class="sys" style="margin-top:14px;color:var(--dim)">Press <kbd>Enter</kbd> to begin<span class="blink">_</span></p>`);
+  const go = ch => {
+    closeCard();
+    out.innerHTML = '';
+    printText('Welcome to Kernelia GNU/Linux 6.8.0 (simulated)', 'sys');
+    printText('Commands behave like bash on Ubuntu. Type help to see what is available.', 'sys');
+    startChapter(ch, true);
+    cmdInput.focus();
+  };
+  $('#goBtn').onclick = () => go(cont ? saved.chapter : 0);
+  $('#goBtn').focus();
+  if (cont) $('#newBtn').onclick = () => { state.xp = 0; state.maxChapter = 0; go(0); };
+}
+
+state.fs = buildWorld();
+state.procs = baseProcs();
+renderAll();
+requestAnimationFrame(frame);
+if (document.fonts && document.fonts.load) document.fonts.load('12px Silkscreen');
+titleScreen();
+</script>
+
+</body></html>
