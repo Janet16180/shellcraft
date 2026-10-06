@@ -39,29 +39,72 @@ function bracket(pattern, start) {
   return i < pattern.length ? { source: `[${negate ? '^' : ''}${body}]`, end: i + 1 } : null;
 }
 
-function translate(pattern) {
-  let source = '';
+const STAR = 'star';
+
+function oneChar(source, flags) {
+  const re = new RegExp(`^${source}$`, flags);
+  return ch => re.test(ch);
+}
+
+// A pattern becomes a list of tokens: STAR, or a test for one character.
+function tokenize(pattern, flags) {
+  const tokens = [];
   let i = 0;
   while (i < pattern.length) {
-    const c = pattern[i];
-    const br = c === '[' ? bracket(pattern, i) : null;
-    if (c === '\\' && i + 1 < pattern.length) { source += escapeRe(pattern[i + 1]); i += 2; }
-    else if (c === '*') { source += '.*'; i++; }
-    else if (c === '?') { source += '.'; i++; }
-    else if (br) { source += br.source; i = br.end; }
-    else { source += escapeRe(c); i++; }
+    const ch = String.fromCodePoint(pattern.codePointAt(i));
+    const br = ch === '[' ? bracket(pattern, i) : null;
+    let size = ch.length;
+    if (ch === '\\' && i + 1 < pattern.length) {
+      const escaped = String.fromCodePoint(pattern.codePointAt(i + 1));
+      tokens.push(oneChar(escapeRe(escaped), flags));
+      size += escaped.length;
+    } else if (ch === '*') tokens.push(STAR);
+    else if (ch === '?') tokens.push(oneChar('.', flags));
+    else if (br) {
+      tokens.push(oneChar(br.source, flags));
+      size = br.end - i;
+    } else tokens.push(oneChar(escapeRe(ch), flags));
+    i += size;
   }
-  return source;
+  return tokens;
+}
+
+// Classic wildcard matching: on a mismatch, let the last star take one more
+// character and retry. Time is proportional to tokens times characters.
+function matchTokens(tokens, name) {
+  const chars = [...name];
+  let t = 0;
+  let c = 0;
+  let star = -1;
+  let starAt = 0;
+  let failed = false;
+  while (c < chars.length && !failed) {
+    if (tokens[t] === STAR) {
+      star = t++;
+      starAt = c;
+    } else if (t < tokens.length && tokens[t](chars[c])) {
+      t++;
+      c++;
+    } else if (star >= 0) {
+      t = star + 1;
+      c = ++starAt;
+    } else failed = true;
+  }
+  while (!failed && tokens[t] === STAR) t++;
+  return !failed && t === tokens.length;
 }
 
 /**
- * Compile a pattern into a regular expression for whole names.
+ * Compile a pattern for whole names.
  *
  * @param {string} pattern A pattern with `*`, `?`, `[...]` and backslash escapes.
  * @param {{ignoreCase?: boolean}} [opts] Match regardless of case (find -iname).
- * @returns {RegExp} The compiled pattern.
+ * @returns {{test: (name: string) => boolean}} The matcher.
  */
-export const compileGlob = (pattern, { ignoreCase = false } = {}) => new RegExp(`^${translate(pattern)}$`, `su${ignoreCase ? 'i' : ''}`);
+export function compileGlob(pattern, { ignoreCase = false } = {}) {
+  const tokens = tokenize(pattern, `su${ignoreCase ? 'i' : ''}`);
+  return { test: name => matchTokens(tokens, name) };
+}
 
 /**
  * @param {string} pattern A pattern.
