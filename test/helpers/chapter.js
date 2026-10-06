@@ -86,6 +86,7 @@ export function assertChapter(chapter) {
   assertLines(chapter.solve, `${where} solve`);
   assertBoss(chapter.boss, where);
   assertPairs(chapter.recap, `${where} recap`);
+  assert.ok(isText(chapter.why), `${where}: why must be non-empty text`);
   assertPairs(chapter.field, `${where} field`);
   assertSpells(chapter.spells, where);
   assert.ok(chapter.effects === undefined || isFunction(chapter.effects), `${where}: effects must be a function when present`);
