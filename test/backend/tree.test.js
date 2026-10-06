@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nodeAt, childOf, isInside, compareNames } from '../../src/backend/tree.js';
+import { nodeAt, childOf, isInside, compareNames, parentOf, joinPath, baseName } from '../../src/backend/tree.js';
 import { dir, file } from '../../src/backend/spec.js';
 
 const tree = dir({ home: dir({ hero: dir({ 'a.txt': file('hi\n') }) }) });
@@ -61,4 +61,32 @@ test('childOf finds an entry really named like an inherited property', () => {
   const odd = dir({ constructor: file('real\n') });
   assert.equal(childOf(odd, 'constructor').content, 'real\n');
   assert.equal(nodeAt(dir({ etc: odd }), '/etc/constructor').content, 'real\n');
+});
+
+test('the parent of a path drops its last name, and / is its own parent', () => {
+  assert.equal(parentOf('/home/hero/forest'), '/home/hero');
+  assert.equal(parentOf('/etc'), '/');
+  assert.equal(parentOf('/'), '/');
+});
+
+test('joining a name onto a directory gives one slash between them', () => {
+  assert.equal(joinPath('/', 'etc'), '/etc');
+  assert.equal(joinPath('/home/hero', 'forest'), '/home/hero/forest');
+});
+
+test('the base name is the last name of a path, and empty for /', () => {
+  assert.equal(baseName('/home/hero/readme.txt'), 'readme.txt');
+  assert.equal(baseName('/etc'), 'etc');
+  assert.equal(baseName('/'), '');
+});
+
+test('parentOf and baseName raise for a relative path, which is a caller bug', () => {
+  assert.throws(() => parentOf('home/hero'), /absolute/);
+  assert.throws(() => baseName('readme.txt'), /absolute/);
+});
+
+test('a path is its parent joined with its base name', () => {
+  for (const path of ['/etc', '/home/hero', '/home/hero/forest/cave/deep', '/tmp/ ', '/x/~.txt']) {
+    assert.equal(joinPath(parentOf(path), baseName(path)), path);
+  }
 });

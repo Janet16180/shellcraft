@@ -1,7 +1,8 @@
 /**
  * Questions about the observed tree that every layer asks: what is at a path,
- * whether a path lies inside a directory, and the order names sort in. One
- * home for them, so the shell, the rules, the map and the page agree.
+ * path arithmetic (parent, base name, join), whether a path lies inside a
+ * directory, and the order names sort in. One home for them, so the shell,
+ * the rules, the map and the page agree.
  */
 
 /**
@@ -27,11 +28,50 @@ export function childOf(node, name) {
  * @throws {Error} If path is not absolute.
  */
 export function nodeAt(tree, path) {
-  if (!path.startsWith('/')) throw new Error(`path must be absolute, got ${path}`);
+  requireAbsolute(path);
 
   let node = tree;
   for (const name of path.split('/').filter(Boolean)) node = childOf(node, name);
   return node;
+}
+
+function requireAbsolute(path) {
+  if (!path.startsWith('/')) throw new Error(`path must be absolute, got ${path}`);
+}
+
+/**
+ * The parent directory of a path; the root is its own parent.
+ *
+ * @param {string} path Absolute path without a trailing slash (or '/').
+ * @returns {string} The parent's absolute path.
+ * @throws {Error} If path is not absolute.
+ */
+export function parentOf(path) {
+  requireAbsolute(path);
+  return path.slice(0, path.lastIndexOf('/')) || '/';
+}
+
+/**
+ * The last name of a path.
+ *
+ * @param {string} path Absolute path without a trailing slash (or '/').
+ * @returns {string} The name after the last slash; '' for '/'.
+ * @throws {Error} If path is not absolute.
+ */
+export function baseName(path) {
+  requireAbsolute(path);
+  return path.slice(path.lastIndexOf('/') + 1);
+}
+
+/**
+ * Join a name onto a directory path with exactly one slash between them.
+ *
+ * @param {string} dir A directory path, '/' included.
+ * @param {string} name An entry name.
+ * @returns {string} The entry's path.
+ */
+export function joinPath(dir, name) {
+  return dir === '/' ? `/${name}` : `${dir}/${name}`;
 }
 
 /**
