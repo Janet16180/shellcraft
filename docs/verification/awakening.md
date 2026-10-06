@@ -66,6 +66,8 @@ Man pages from the Ubuntu 24.04 host.
 ## Simulator notes (not facts the game teaches)
 
 - The simulator prints man pages at once with a note that a real one opens in a pager.
-- `clear --help` and `pwd --help` succeed in the simulator; real ones fail (reported to `shell`).
+- In the simulator (after shell's 823aed8), `clear --help` prints a usage and `pwd --help` prints the
+  directory, both with status 0; real `clear --help` fails with status 1 and real `pwd --help` prints
+  help with status 2 (reported to `shell`). `man cd` shows a page; real Ubuntu has no entry.
   The quick-help task accepts any command that answers `--help` with status 0, so on real bash
   `ls --help`, `cat --help` or `whoami --help` complete it.

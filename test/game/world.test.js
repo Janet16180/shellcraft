@@ -110,6 +110,8 @@ test('another player gets their own name and home in every owned node', () => {
   assert.match(nodeIn(baseWorld(player), '/home/ada/forest/river/fish.txt').content, /\/home\/ada\/forest\/river/);
 });
 
+const names = listing => listing.split(/\s+/).filter(Boolean);
+
 async function simulator() {
   const backend = createSimBackend({ now: () => Date.UTC(2026, 9, 6, 12) });
   await backend.load(baseWorld(PLAYER));
@@ -123,13 +125,13 @@ async function simulator() {
 
 test('on the simulator, the top of the tree holds the dungeon rooms beside the backend\'s own', async () => {
   const { run } = await simulator();
-  assert.equal((await run('ls /')).out, 'dev  etc  home  root  tmp  usr  var\n');
+  assert.deepEqual(names((await run('ls /')).out), ['dev', 'etc', 'home', 'root', 'tmp', 'usr', 'var']);
 });
 
 test('on the simulator, the player starts at home and sees the cottage and the areas', async () => {
   const { backend, run } = await simulator();
   assert.equal((await backend.observe()).cwd, '/home/hero');
-  assert.equal((await run('ls')).out, 'forest  gate  junk  library  market  readme.txt  tower\n');
+  assert.deepEqual(names((await run('ls')).out), ['forest', 'gate', 'junk', 'library', 'market', 'readme.txt', 'tower']);
 });
 
 test('on the simulator, the player may enter and read the open rooms of the dungeon', async () => {
