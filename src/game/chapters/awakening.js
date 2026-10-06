@@ -114,7 +114,7 @@ export default {
     ...LETTERS.map(name => remove(`${player.home}/${name}`)),
     cd(player.home),
   ],
-  lesson: `<p>You met the <b>prompt</b> in the intro: <code>hero@kernelia:~$</code>. The <code>~</code> in it is short for your home, <code>/home/hero</code>. Type a command after the prompt and press <kbd>Enter</kbd>. Commands are case-sensitive: <code>ls</code> works, <code>LS</code> does not.</p>
+  lesson: `<p>You met the <b>prompt</b> in the intro, and the <b>Replay intro</b> button shows it again: <code>hero@kernelia:~$</code> names you, the machine and the directory you are in, where <code>~</code> is short for your home, <code>/home/hero</code>. Type a command after the prompt and press <kbd>Enter</kbd>. Commands are case-sensitive: <code>ls</code> works, <code>LS</code> does not.</p>
 <ul>
 <li><code>whoami</code> prints your user name.</li>
 <li><code>pwd</code> prints the full path of the directory you are in. The name means <b>p</b>rint <b>w</b>orking <b>d</b>irectory.</li>
