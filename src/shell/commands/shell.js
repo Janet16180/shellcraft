@@ -4,7 +4,7 @@
  */
 
 import { lookup, normalize, joinPath } from '../fs.js';
-import { BUILTINS, BUILTIN_HELP, builtinHelp } from '../builtins.js';
+import { BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from '../builtins.js';
 import { can } from '../perms.js';
 import { manText, hasManPage, manEntries } from '../man.js';
 import { compilePosix } from '../regex.js';
@@ -85,7 +85,7 @@ function type(args, { sys }) {
   for (const x of args) {
     const path = findInPath(sys, x);
     if (sys.aliases[x]) out.push(`${x} is aliased to \`${sys.aliases[x]}'`);
-    else if (BUILTINS.has(x)) out.push(`${x} is a shell builtin`);
+    else if (BASH_BUILTINS.has(x)) out.push(`${x} is a shell builtin`);
     else if (path && sys.hashed.has(x)) out.push(`${x} is hashed (${path})`);
     else if (path) out.push(`${x} is ${path}`);
     else errs.push(`bash: type: ${x}: not found`);

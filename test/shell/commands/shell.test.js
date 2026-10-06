@@ -154,3 +154,7 @@ test('the man pages give the real synopses', async () => {
   assert.match((await run(b, 'man man')).out, /^ {7}man \[man options\] \[\[section\] page \.\.\.\] \.\.\.$/m);
   assert.match((await run(b, 'man ls')).note, /^A real man page is longer and opens in a pager/);
 });
+
+test('type knows the bash builtins the game does not simulate', async () => {
+  assert.equal((await run(await shell(), 'type printf read')).out, 'printf is a shell builtin\nread is a shell builtin\n');
+});
