@@ -76,7 +76,7 @@ function readNear(ctx) {
 
 function helpNear(ctx) {
   let note = null;
-  if (ctx.commands.some(record => record.args.includes('-help'))) note = 'One dash starts short options, so -help means -h -e -l -p. Long options take two dashes: --help.';
+  if (ctx.commands.some(record => record.args.includes('-help'))) note = 'For most commands, one dash starts short options, so -help means -h -e -l -p. Long options take two dashes: --help.';
   else if (ctx.tried('echo', record => record.args.includes('--help'))) note = 'echo prints its words back, even --help. Ask another command, like ls --help.';
   return note;
 }
