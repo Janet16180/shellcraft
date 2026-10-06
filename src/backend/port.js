@@ -80,6 +80,7 @@
  *
  * @typedef {object} Observation
  * @property {string} user
+ * @property {string[]} groups The groups the user belongs to (for access.js).
  * @property {string} host
  * @property {string} home Absolute path of the player's home.
  * @property {string} cwd Absolute working directory.

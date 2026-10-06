@@ -94,7 +94,7 @@ map.say(text, who);             // speech bubble
 map.destroy();
 ```
 
-Pure exports, tested: `biomeFor(path, home)` -> `{ realm: 'overworld'|'dungeon', biome }`,
+Pure exports, tested: `biomeFor(path, home)` -> `{ realm: 'overworld'|'dungeon', biome, name }`,
 `layoutRoom(...)`, `describeRoom(obs)` (the text alternative for screen readers).
 
 ## 3. The world
@@ -198,7 +198,7 @@ The game teaches what real Linux does, so the simulator is tested against real b
 | engine | `src/game/` except `chapters/` and `world.js`; `test/game/` except chapter tests; `test/helpers/` | session, checks, progress, effects, rng, save + v1 migration |
 | author | `src/game/chapters/`, `src/game/world.js`, `test/game/chapters/`, `test/game/world.test.js`, `docs/verification/` | world spec (ported v1 areas + dungeon), chapters 1 and 2 with boss rooms |
 | art | `src/map/`, `test/map/` | overworld + dungeon renderer, transitions, effects, labels, describeRoom |
-| ui | `index.html`, `styles/`, `src/ui/`, `src/intro/`, `src/main.js`, `test/ui/`, `test/intro/` | page, terminal, panels, sound, intro, wiring, screenshots |
+| ui | `index.html`, `styles/`, `src/ui/`, `src/intro/`, `src/main.js`, `scripts/serve.js`, `test/ui/`, `test/intro/` | page, terminal, panels, sound, intro, wiring, screenshots |
 
 - Each teammate works in its own git worktree `.scratch/wt/<name>` on branch `slice/<name>`.
   The lead merges into `main` and tells the others to merge `main` in.
