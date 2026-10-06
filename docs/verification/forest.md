@@ -38,6 +38,7 @@ Vertical words in chapters 1 and 2 were checked against this bridge: Linux's "up
 | Hint: cd with nothing after it takes you home | `bash(1)` cd |
 | Hints: Tab finishes a name from its first letters when only one name matches; type cd fo, press Tab, then Enter | R3 (unique match completed), R5 (two matches: bell, then a list) |
 | `cd ~/forest/river` counts as an absolute path | bash expands `~` before cd runs (Tilde Expansion), so cd receives `/home/hero/forest/river`; the CommandRecord shows the same |
+| `cd -` counts whenever it succeeds, even when the previous directory was the same room (it still did its job: teaching review 2a dead end) | `bash(1)` cd: `-` is converted to $OLDPWD; SIM test with `cd .` then `cd -` |
 | "Shortest command" home is `cd` alone; `cd ~` and `cd /home/hero` do not pass that task | by design; the lesson says `cd ~` also goes home, the goal asks for the shortest |
 | Checks: each task has a near-miss that does not pass and a line that does | SIM: 16 near-miss tests (e.g. `cd ../river` is relative; `cd ../cave` from the river is not from deep; `cd forest` typed in full uses no Tab; Tab while already in the forest is not walking in). Each check also survived mutation testing: removing any one condition makes a test fail |
 
@@ -52,6 +53,10 @@ Vertical words in chapters 1 and 2 were checked against this bridge: Linux's "up
 | One `cd` with an absolute or `~` path reaches the beacon from the dungeon | R2: `cd ~/forest/river/beacon_k7m` from `/var/log`, status 0 |
 | A relative path also reaches it (`cd ../home/hero/...` from `/tmp`) but does not count | R2: status 0; the briefing asks for an absolute path, SIM near-miss tests |
 | The beacon's place and name change with the seed | SIM: at least 3 different rooms over 12 seeds; names use the safe token alphabet |
+| flame.txt: "A warm flame burns here: the Guardian's beacon." (was "You found your way back with one absolute path", false when the player arrived another way) | game text, makes no claim about how the player arrived |
+| Near note: a relative cd that reaches the beacon is named as relative; the fix is to step out with `cd /tmp` and jump again with a path starting with `/` or `~` | `path_resolution(7)` Step 1; R2: hero can enter `/tmp`; tilde expansion makes `~/...` absolute |
+| Near note: a jump that starts inside the home does not count; step out with `cd /tmp` first | the boss rule (the jump starts in the dungeon); `/tmp` is outside `/home/hero` |
+| Hint 3 `cd /tmp; cd /home/hero/forest/.../beacon_XXX` works from anywhere | `bash(1)` Lists: "Commands separated by a ; are executed sequentially"; the check judges the line's last `cd` (where it started, its path, where it landed); SIM test runs the hint from the dungeon, from home and from the beacon |
 
 ## Adventure log, spells, recap, field
 

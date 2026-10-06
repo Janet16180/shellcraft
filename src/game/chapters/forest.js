@@ -19,10 +19,12 @@ const caveOf = ctx => `${ctx.home}/forest/cave`;
 const riverOf = ctx => `${ctx.home}/forest/river`;
 
 const climbsWithDots = record => /^\.\.(\/|$)/.test(record.args[0] ?? '');
+const isAbsolute = record => (record.args[0] ?? '').startsWith('/');
+const lastCd = ctx => ctx.commands.findLast(record => record.name === 'cd');
 
 function setupBoss(random, { home, user }) {
   const target = `${home}/forest${pick(random, SPOTS)}/${BEACON}${token(random, 3)}`;
-  const flame = file('A warm flame. You found your way back with one absolute path.\n', { owner: user });
+  const flame = file('A warm flame burns here: the Guardian\'s beacon.\n', { owner: user });
   const patch = [
     ...restore('forest', { home, user }),
     put(target, dir({ 'flame.txt': flame }, { owner: user })),
@@ -31,14 +33,19 @@ function setupBoss(random, { home, user }) {
   return { patch, secret: { target } };
 }
 
+// The line's last cd decides where the player stands, so it is the jump that is judged.
 function jumpedFromDungeon(ctx, target) {
-  const [record] = ctx.commands;
-  return ctx.commands.length === 1
-    && record.name === 'cd'
-    && record.status === 0
-    && (record.args[0] ?? '').startsWith('/')
-    && !isInside(ctx.before.cwd, ctx.home)
-    && ctx.cwd === target;
+  const jump = lastCd(ctx);
+  return ctx.cwd === target && jump?.status === 0 && isAbsolute(jump) && !isInside(jump.cwd, ctx.home);
+}
+
+function bossNear(ctx, target) {
+  const jump = lastCd(ctx);
+  if (ctx.cwd !== target || !jump || jumpedFromDungeon(ctx, target)) return null;
+
+  let note = 'You reached the beacon with a relative path. The Guardian wants an absolute one, starting with / or ~. Step out with cd /tmp, then jump again.';
+  if (isInside(jump.cwd, ctx.home)) note = 'You reached the beacon, but from inside your home. The jump only counts from the dungeon: step out with cd /tmp, then jump with one absolute cd.';
+  return note;
 }
 
 function solveBoss(obs) {
@@ -121,7 +128,7 @@ export default {
         'A dash after `cd` means: go back to the previous directory.',
         'cd -',
       ],
-      done: ctx => ctx.ran('cd', record => record.args[0] === '-') && ctx.cwd !== ctx.before.cwd,
+      done: ctx => ctx.ran('cd', record => record.args[0] === '-'),
     },
     {
       goal: 'Go home with the shortest command there is',
@@ -151,10 +158,11 @@ export default {
     setup: setupBoss,
     hints: [
       '`ls` can look into another directory from where you stand, if you give it a path.',
-      'Search with `ls ~/forest`, then `ls ~/forest/NAME` for each room. Jump with `cd` and a path that starts with `/` or `~`.',
-      secret => `cd ${secret.target}`,
+      'Search with `ls ~/forest`, then `ls ~/forest/NAME` for each room. Jump with `cd` and a path that starts with `/` or `~`. If you are inside your home, step out first with `cd /tmp`.',
+      secret => `cd /tmp; cd ${secret.target}`,
     ],
     done: (ctx, secret) => jumpedFromDungeon(ctx, secret.target),
+    near: (ctx, secret) => bossNear(ctx, secret.target),
     solve: solveBoss,
   },
   recap: [

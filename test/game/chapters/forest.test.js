@@ -92,8 +92,8 @@ test('using Tab while already in the forest does not count as walking in with Ta
   assert.equal(await passes('Walk into the forest again, and let Tab finish the name', ['cd forest'], 'ls ca\t'), false);
 });
 
-test('cd - that stays in the same directory does not count as jumping back', async () => {
-  assert.equal(await passes('Jump back to where you were with `cd -`', ['cd forest', 'cd .'], 'cd -'), false);
+test('cd - counts even when the previous directory was this same room, because cd - did its job', async () => {
+  assert.equal(await passes('Jump back to where you were with `cd -`', ['cd forest', 'cd .'], 'cd -'), true);
 });
 
 test('the trapdoor drops the player in the dungeon and lights one beacon in the forest', async () => {
@@ -150,19 +150,52 @@ test('an absolute jump taken from inside the home does not beat the boss', async
   assert.equal(chapter.boss.done(ctx, secret), false);
 });
 
-test('an absolute jump to the wrong room, or two commands on one line, does not beat the boss', async () => {
+test('an absolute jump to the wrong room does not beat the boss', async () => {
   const { backend, secret } = await startBoss(chapter, 5);
   const wrong = secret.target.endsWith('/clearing') ? '/home/hero/forest/river' : '/home/hero/forest/clearing';
   assert.equal(chapter.boss.done((await type(backend, `cd ${wrong}`)).ctx, secret), false);
-  await type(backend, 'cd /tmp');
-  assert.equal(chapter.boss.done((await type(backend, `cd /etc; cd ${secret.target}`)).ctx, secret), false);
 });
 
-test('the exact boss hint is the line that beats the boss', async () => {
+test('on a line of several commands, the jump that lands on the beacon is the one judged', async () => {
+  const { backend, secret, obs } = await startBoss(chapter, 6);
+  assert.equal(chapter.boss.done((await type(backend, `cd /tmp; cd ${relative('/tmp', secret.target)}`)).ctx, secret), false);
+  await type(backend, `cd ${obs.cwd}`);
+  assert.equal(chapter.boss.done((await type(backend, `cd /etc; cd ${secret.target}`)).ctx, secret), true);
+});
+
+test('the beacon\'s flame does not claim how the player got there', async () => {
+  const { obs, secret } = await startBoss(chapter, 1);
+  assert.doesNotMatch(nodeAt(obs.tree, `${secret.target}/flame.txt`).content, /absolute|relative|path/);
+});
+
+test('a near note says the path was relative when a relative cd reaches the beacon', async () => {
+  const { backend, secret, obs } = await startBoss(chapter, 7);
+  const { ctx } = await type(backend, `cd ${relative(obs.cwd, secret.target)}`);
+  assert.match(chapter.boss.near(ctx, secret), /relative/);
+});
+
+test('a near note says the jump must start in the dungeon when it starts inside the home', async () => {
+  const { backend, secret } = await startBoss(chapter, 8);
+  await type(backend, 'cd ~/forest');
+  const { ctx } = await type(backend, `cd ${secret.target}`);
+  assert.match(chapter.boss.near(ctx, secret), /dungeon/);
+  assert.match(chapter.boss.near((await type(backend, `cd ${secret.target}`)).ctx, secret), /dungeon/);
+});
+
+test('the boss gives no near note for a winning jump or for looking around', async () => {
+  const { backend, secret } = await startBoss(chapter, 9);
+  assert.equal(chapter.boss.near((await type(backend, 'ls ~/forest')).ctx, secret), null);
+  assert.equal(chapter.boss.near((await type(backend, `cd ${secret.target}`)).ctx, secret), null);
+});
+
+test('the exact boss hint beats the boss from the dungeon, from home and from the beacon itself', async () => {
   for (const seed of SEEDS.slice(0, 4)) {
     const { backend, secret } = await startBoss(chapter, seed);
     const line = chapter.boss.hints[2](secret);
-    assert.ok(chapter.boss.done((await type(backend, line)).ctx, secret), `seed ${seed}: ${line}`);
+    assert.ok(chapter.boss.done((await type(backend, line)).ctx, secret), `seed ${seed}, dungeon: ${line}`);
+    assert.ok(chapter.boss.done((await type(backend, line)).ctx, secret), `seed ${seed}, beacon: ${line}`);
+    await type(backend, 'cd');
+    assert.ok(chapter.boss.done((await type(backend, line)).ctx, secret), `seed ${seed}, home: ${line}`);
   }
 });
 
