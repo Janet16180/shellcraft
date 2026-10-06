@@ -8,19 +8,23 @@ the simulator (`test/game/chapters/forest.test.js`). Man pages from the Ubuntu 2
 
 | Claim | Evidence |
 |---|---|
-| Linux keeps everything in one tree; the top is `/`, the root directory | `hier(7)`: "/ This is the root directory. This is where the whole tree starts." |
+| Linux keeps everything in one tree; it starts at `/`, the root directory | `hier(7)`: "/ This is the root directory. This is where the whole tree starts." |
 | `/home/hero` is a branch of it | R2 `pwd`: `/home/hero` |
 | A directory's parent is the directory that holds it; `..` is the parent, `.` the directory itself | `path_resolution(7)` ". and ..": "refer to the directory itself and to its parent directory" |
 | `cd` means change directory | `help cd`: "Change the shell working directory." |
 | A relative path starts from where you are; an absolute path starts at `/` and works from anywhere | `path_resolution(7)` Step 1: a pathname starting with `/` starts at the root directory, otherwise at the current working directory |
 | `cd forest/cave` goes several rooms deep at once | R2: `cd cave/deep` from the forest printed `/home/hero/forest/cave/deep` |
 | `cd ..` goes one level up the tree, toward `/` | R2: from deep, `cd ..` -> `/home/hero/forest/cave`; `bash(1)` cd: ".. is processed by removing the immediately previous pathname component" |
+| People say up because diagrams draw `/` at the top | `tree -d -L 1 /` on Ubuntu 24.04 (Docker, `apt-get install tree`) prints `/` on the first line and its children below it; `hier(7)`: `/` is "where the whole tree starts" |
+| Kernelia draws the root underground: from home, the way toward `/` leads down the stairs into the dungeon | the game's map, not a Linux fact: DESIGN.md section 3 ("going from home to `/` is a stairway descent") and `src/map/stairs.js` (leaving home goes down the stairway, returning climbs back). The test `the lesson bridges Linux's "up" ...` keeps this sentence in the lesson |
 | `~` stands for your home, so `cd ~/forest` works from anywhere | `bash(1)` Tilde Expansion: "the tilde is replaced with the value of the shell parameter HOME"; R2 `cd ~/forest/cave` from home |
 | `cd` alone takes you home | `bash(1)` cd: "if dir is not supplied, the value of the HOME shell variable is the default"; R2 |
 | `cd -` jumps back to the previous directory and prints its path | `bash(1)` cd: "An argument of - is converted to $OLDPWD ... if - is the first argument, and the directory change is successful, the absolute pathname of the new working directory is written to the standard output"; R2 printed `/home/hero/forest/cave` |
 | Paths work with other commands: `ls ~/forest` from anywhere | R2: from `/etc` and `/var/log`, `ls ~/forest` listed `cave clearing river` |
 | Tab: `cd fo` then Tab writes `cd forest/` | R3: the line became `cd forest/`; `bash(1)` readline `mark-directories (On)`: "completed directory names have a slash appended"; SIM test |
 | When several names match, press Tab again to list them | R5: `cd ga` + Tab rang the bell, a second Tab listed `game/ gate/`; `bash(1)` `show-all-if-ambiguous (Off)` |
+
+Vertical words in chapters 1 and 2 were checked against this bridge: Linux's "up" (`cd ..`, recap, spells) means toward `/`. The map's "down" is the stairway from home into the dungeon, and the chapter 2 boss's trapdoor fall follows it. The cave's "down to the deepest part" and "climb back up into the cave" describe the cave itself, and agree with both.
 
 ## Tasks and hints
 
@@ -29,7 +33,7 @@ the simulator (`test/game/chapters/forest.test.js`). Man pages from the Ubuntu 2
 | Hints: cd followed by a directory name moves you into it; a path with slashes goes deeper | R2 |
 | Hint: ls shows the file name, then cat prints it | R2: `ls` in deep, `cat ancient_key.txt` |
 | Hint: `..` means the parent of the directory you are in | `path_resolution(7)` |
-| Hint: an absolute path works from anywhere because it starts at the top of the tree | `path_resolution(7)` Step 1 |
+| Hint: an absolute path works from anywhere because it starts at the root of the tree, `/` | `path_resolution(7)` Step 1 |
 | Hint: the shell remembers the previous directory; a dash after cd goes back | `bash(1)` cd: OLDPWD |
 | Hint: cd with nothing after it takes you home | `bash(1)` cd |
 | Hints: Tab finishes a name from its first letters when only one name matches; type cd fo, press Tab, then Enter | R3 (unique match completed), R5 (two matches: bell, then a list) |
@@ -53,10 +57,10 @@ the simulator (`test/game/chapters/forest.test.js`). Man pages from the Ubuntu 2
 
 | Claim | Evidence |
 |---|---|
-| why: every disk, USB stick and network share appears under `/` once mounted; no drive letters | `mount(8)`: "All files accessible in a Unix system are arranged in one big tree, the file hierarchy, rooted at /. ... The mount command serves to attach the filesystem found on some device to the big file tree." |
+| why: every disk, USB stick and network share appears somewhere in the tree that starts at `/`, once mounted; no drive letters | `mount(8)`: "All files accessible in a Unix system are arranged in one big tree, the file hierarchy, rooted at /. ... The mount command serves to attach the filesystem found on some device to the big file tree." |
 | why: an absolute path means the same place wherever you stand; configuration files and scripts often use them | `path_resolution(7)`; e.g. `/etc/crontab` runs `cd / && run-parts --report /etc/cron.hourly` (R1) |
 | why: bash replaces `~` with your home's path before the command runs | `bash(1)` Tilde Expansion |
-| field: `ls /` shows bin, etc, home, usr, var and more | D: `ls /` in `ubuntu:24.04` lists `bin boot dev etc home lib lib64 media mnt opt proc root run sbin srv sys tmp usr var` |
+| field: `ls /` shows the root of a real tree: bin, etc, home, usr, var and more | D: `ls /` in `ubuntu:24.04` lists `bin boot dev etc home lib lib64 media mnt opt proc root run sbin srv sys tmp usr var` |
 | field: `/etc` is where system settings live | `hier(7)`: "/etc Contains configuration files which are local to the machine" |
 | field: `pushd DIR` is like cd but remembers where you were; `popd` takes you back | `bash(1)` pushd: "Adds a directory to the top of the directory stack ... making the new top of the stack the current working directory"; popd: "removes the top directory from the stack, and changes to the new top directory" |
 | spells and recap (cd forms, Tab) | as in the lesson rows above |
