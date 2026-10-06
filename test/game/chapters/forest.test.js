@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import chapter from '../../../src/game/chapters/forest.js';
 import { assertChapter } from '../../helpers/chapter.js';
-import { nodeAt } from '../../../src/game/checks.js';
+import { nodeAt } from '../../../src/backend/tree.js';
 import { PLAYER, startChapter, type, play, startBoss, notFound, codeSnippets, nearTitle, assertNear } from './harness.js';
 
 const HOME = PLAYER.home;
