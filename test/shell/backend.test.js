@@ -284,6 +284,9 @@ const HOSTILE = [
   "echo './y.sh' > y.sh; chmod +x y.sh; ./y.sh",
   "alias a='b'; alias b='a'; a",
   `x=${'$x'.repeat(5000)}; echo \${#x}`,
+  `find / -maxdepth 0 ${'! '.repeat(20000)}-false`,
+  `find / -maxdepth 0 ${'\\( '.repeat(20000)}-true ${'\\) '.repeat(20000)}`,
+  `find / -maxdepth 0 ${'-true -o '.repeat(20000)}-true`,
   `touch ${'a'.repeat(200)}; ls ${'*'.repeat(40)}zz; ls ${'*a'.repeat(30)}b; find . -name '${'*a'.repeat(30)}b'`,
 ];
 

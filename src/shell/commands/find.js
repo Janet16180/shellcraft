@@ -13,7 +13,7 @@ import { compareNames } from '../../backend/tree.js';
 import { can } from '../perms.js';
 import { compileGlob } from '../glob.js';
 import { localeQuote } from '../quote.js';
-import { result } from '../result.js';
+import { result, withNote } from '../result.js';
 import { nameTable } from '../table.js';
 import { versionText } from '../versions.js';
 
@@ -126,57 +126,77 @@ function primary(t, tokens, i, ctx) {
   return { ...p, used };
 }
 
+const MAX_GROUPS = 256;
+const endsAnd = t => t === undefined || t === '-o' || t === '-or' || t === ')';
+const done = st => st.error !== null || st.info !== null || st.tooDeep;
+
+function fail(st, message) {
+  if (!st.tooDeep) st.error ??= message;
+  return () => false;
+}
+
+function group(st) {
+  st.groups++;
+  if (st.groups > MAX_GROUPS) st.tooDeep = true;
+  const inner = st.tooDeep ? () => false : or(st);
+  st.groups--;
+  const closed = st.tokens[st.i] === ')';
+  if (closed) st.i++;
+  return closed || done(st) ? inner : fail(st, "find: invalid expression; I was expecting to find a ')' somewhere but did not see one.");
+}
+
 // Like GNU find, -help and -version act as soon as the parser reaches them.
+function operand(st) {
+  const t = st.tokens[st.i++];
+  let test;
+  if (t === '(') test = group(st);
+  else if (INFO.has(t)) {
+    st.info = INFO.get(t);
+    test = () => false;
+  } else {
+    const p = primary(t, st.tokens, st.i, st.ctx);
+    st.i += p.used;
+    st.prints ||= Boolean(p.prints);
+    test = p.error ? fail(st, p.error) : p.test;
+  }
+  return test;
+}
+
+function unary(st) {
+  let negated = false;
+  while (st.tokens[st.i] === '!' || st.tokens[st.i] === '-not') {
+    negated = !negated;
+    st.i++;
+  }
+  const test = operand(st);
+  return negated ? e => !test(e) : test;
+}
+
+// Chains of -a and -o are kept as flat lists, so a long chain evaluates
+// without one call nested inside another for each operator.
+function and(st) {
+  const tests = [unary(st)];
+  while (!endsAnd(st.tokens[st.i]) && !done(st)) {
+    if (st.tokens[st.i] === '-a' || st.tokens[st.i] === '-and') st.i++;
+    tests.push(unary(st));
+  }
+  return tests.length === 1 ? tests[0] : e => tests.every(test => test(e));
+}
+
+function or(st) {
+  const tests = [and(st)];
+  while ((st.tokens[st.i] === '-o' || st.tokens[st.i] === '-or') && !done(st)) {
+    st.i++;
+    tests.push(and(st));
+  }
+  return tests.length === 1 ? tests[0] : e => tests.some(test => test(e));
+}
+
 function parseExpression(tokens, ctx) {
-  let i = 0;
-  let error = null;
-  let info = null;
-  let prints = false;
-  const done = () => error !== null || info !== null;
-  const fail = message => {
-    error ??= message;
-    return () => false;
-  };
-  const group = () => {
-    const inner = or();
-    return tokens[i++] === ')' ? inner : fail("find: invalid expression; I was expecting to find a ')' somewhere but did not see one.");
-  };
-  const unary = () => {
-    const t = tokens[i++];
-    if (t === '!' || t === '-not') { const inner = unary(); return e => !inner(e); }
-    if (t === '(') return group();
-    if (INFO.has(t)) {
-      info = INFO.get(t);
-      return () => false;
-    }
-    const p = primary(t, tokens, i, ctx);
-    i += p.used;
-    prints ||= Boolean(p.prints);
-    return p.error ? fail(p.error) : p.test;
-  };
-  const and = () => {
-    let left = unary();
-    while (i < tokens.length && tokens[i] !== '-o' && tokens[i] !== '-or' && tokens[i] !== ')' && !done()) {
-      if (tokens[i] === '-a' || tokens[i] === '-and') i++;
-      const l = left;
-      const r = unary();
-      left = e => l(e) && r(e);
-    }
-    return left;
-  };
-  const or = () => {
-    let left = and();
-    while ((tokens[i] === '-o' || tokens[i] === '-or') && !done()) {
-      i++;
-      const l = left;
-      const r = and();
-      left = e => l(e) || r(e);
-    }
-    return left;
-  };
-  const test = tokens.length ? or() : () => true;
-  if (!done() && i < tokens.length) error = `find: unknown predicate \`${tokens[i]}'`;
-  return { test, prints, error, info };
+  const st = { tokens, ctx, i: 0, error: null, info: null, tooDeep: false, prints: false, groups: 0 };
+  const test = tokens.length ? or(st) : () => true;
+  if (!done(st) && st.i < tokens.length) st.error = `find: unknown predicate \`${tokens[st.i]}'`;
+  return { test, prints: st.prints, error: st.error, info: st.info, tooDeep: st.tooDeep };
 }
 
 function visit(sys, entry, depth, ctx) {
@@ -196,6 +216,7 @@ function find(args, { sys }) {
   const users = new Set([...SYSTEM_USERS, sys.user]);
   const ctx = { out: [], errs: [], maxDepth: Infinity, minDepth: 0, users };
   const parsed = parseExpression(args.slice(k), ctx);
+  if (parsed.tooDeep) return withNote(result('', '', 1), `Real find accepts deeper nesting, but the game stops at ${MAX_GROUPS} levels of parentheses.`);
   if (parsed.error) return result('', parsed.error, 1);
   if (parsed.info) return result(parsed.info === 'help' ? `${FIND_HELP}\n` : versionText('find'));
   Object.assign(ctx, { test: parsed.test, prints: parsed.prints });

@@ -49,3 +49,18 @@ test('find -help and -version act wherever they appear, as GNU find does', async
   for (const line of ['find -version', 'find . -version', 'find --version']) assert.match((await run(b, line)).out, /^find \(GNU findutils\) 4\.9\.0\n/, line);
   assert.equal((await run(b, 'find -bogus -help')).err, "find: unknown predicate `-bogus'\n");
 });
+
+test('long chains of operators and negations work without deep recursion', async () => {
+  const b = await shell();
+  assert.deepEqual(await run(b, `find / -maxdepth 0 ${'! '.repeat(20000)}-false`).then(r => [r.out, r.status]), ['', 0]);
+  assert.equal((await run(b, `find / -maxdepth 0 ${'! '.repeat(20001)}-false`)).out, '/\n');
+  assert.equal((await run(b, `find / -maxdepth 0 ${'-true '.repeat(20000)}`)).out, '/\n');
+  assert.equal((await run(b, `find / -maxdepth 0 -false ${'-o -false '.repeat(20000)}-o -true`)).out, '/\n');
+  assert.equal((await run(b, `find / -maxdepth 0 ${'\\( '.repeat(256)}-true ${'\\) '.repeat(256)}`)).out, '/\n');
+});
+
+test('parentheses nested past 256 levels stop with a note instead of crashing', async () => {
+  const r = await run(await shell(), `find / -maxdepth 0 ${'\\( '.repeat(20000)}-true ${'\\) '.repeat(20000)}`);
+  assert.deepEqual([r.out, r.err, r.status], ['', '', 1]);
+  assert.equal(r.note, 'Real find accepts deeper nesting, but the game stops at 256 levels of parentheses.');
+});
