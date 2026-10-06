@@ -56,7 +56,7 @@ rm refuses it by itself, so the simulator prints rm's own refusal.) Whether a li
 a game rule (`src/game/effects.js`), decided from the records alone; `blocked` only drives the
 guardian effect, so hearts behave the same on any backend. The Linux permission rule lives
 once in `src/backend/access.js`: the simulator enforces it and the map draws padlocks with it.
-Likewise `src/backend/tree.js` (`nodeAt`, `isInside`, `compareNames` in C.UTF-8 order) and
+The player's identity (user, host, home) is `src/backend/player.js`. Likewise `src/backend/tree.js` (`nodeAt`, `isInside`, `compareNames` in C.UTF-8 order) and
 `src/backend/signals.js` (signal names and numbers, and which signals end an interactive bash)
 are the one home of that knowledge for every layer.
 
@@ -116,6 +116,9 @@ const map = createMap(canvas, { reducedMotion, onPick });  // onPick({ kind: 'do
 map.show(obs);                  // draw the room at obs.cwd now
 await map.play(effects, obs);   // animate, then settle on obs
 map.say(text, who);             // speech bubble
+map.banner(title, sub);         // a chapter or realm banner
+map.picks();                    // every door, item and the exit in the room on show, for keyboard play
+map.focus(name | null);         // ring one entry (the intro uses it)
 map.destroy();
 ```
 
