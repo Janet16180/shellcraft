@@ -16,6 +16,7 @@ export function initialVars({ user, home, host }) {
   const vars = {};
   for (const [name, value] of Object.entries(exported)) vars[name] = { value, exported: true };
   vars.HOSTNAME = { value: host, exported: false };
+  vars.HISTCONTROL = { value: 'ignoreboth', exported: false };
   return vars;
 }
 

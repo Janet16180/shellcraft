@@ -43,6 +43,7 @@ function type(args, { sys }) {
     const path = findInPath(sys, x);
     if (sys.aliases[x]) out.push(`${x} is aliased to \`${sys.aliases[x]}'`);
     else if (BUILTINS.has(x)) out.push(`${x} is a shell builtin`);
+    else if (path && sys.hashed.has(x)) out.push(`${x} is hashed (${path})`);
     else if (path) out.push(`${x} is ${path}`);
     else errs.push(`bash: type: ${x}: not found`);
   }
@@ -74,6 +75,22 @@ function exportVars(args, { sys }) {
 function env(_args, { sys, env: overlay }) {
   const all = { ...exportedVars(sys), ...overlay };
   return result(Object.entries(all).map(([k, v]) => `${k}=${v}\n`).join(''));
+}
+
+function printenv(args, ctx) {
+  const all = { ...exportedVars(ctx.sys), ...ctx.env };
+  const found = args.filter(a => a in all);
+  return args.length ? result(found.map(a => `${all[a]}\n`).join(''), '', found.length === args.length ? 0 : 1) : env(args, ctx);
+}
+
+function unalias(args, { sys }) {
+  const errs = [];
+  if (args[0] === '-a') sys.aliases = {};
+  for (const name of args.filter(a => a !== '-a')) {
+    if (name in sys.aliases) delete sys.aliases[name];
+    else errs.push(`bash: unalias: ${name}: not found`);
+  }
+  return result('', errs.join('\n'), errs.length ? 1 : 0);
 }
 
 function sudo(args, { sys }) {
@@ -115,9 +132,10 @@ export default {
   which,
   type,
   alias,
+  unalias,
   export: exportVars,
   env,
-  printenv: (args, ctx) => (args.length ? result(args.map(a => `${ctx.env[a] ?? exportedVars(ctx.sys)[a] ?? ''}\n`).join('')) : env(args, ctx)),
+  printenv,
   sudo,
   nano: editor('nano', 'In real nano, Ctrl+O saves and Ctrl+X exits.'),
   vim: editor('vim', 'Real vim tip: press Esc, type :wq and Enter to save and quit, or :q! to quit without saving.'),

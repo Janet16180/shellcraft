@@ -13,7 +13,7 @@
  * the message bash prints instead of raising.
  */
 
-const OPERATORS = ['&>>', '&>', '||', '|', '&&', '&', ';', '(', ')'];
+const OPERATORS = ['&>>', '&>', '||', '|', '&&', '&', ';;', ';', '(', ')'];
 const REDIRECTS = ['>>', '>&', '>|', '<<<', '<<', '<&', '<>', '>', '<'];
 const METACHARS = ' \t|&;()<>';
 const NAME = /^[A-Za-z_][A-Za-z0-9_]*/;

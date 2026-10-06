@@ -2,7 +2,6 @@
  * Moving around and looking: cd and tree (ls has its own module).
  */
 
-import { lookup, normalize } from '../fs.js';
 import { compareNames } from '../collate.js';
 import { can } from '../perms.js';
 import { parseOptions } from '../options.js';
@@ -32,6 +31,18 @@ export function nameHTML(name, node, classify) {
   return (cls ? span(cls, name) : esc(name)) + (classify ? indicator(node) : '');
 }
 
+function logicalResolve(sys, path) {
+  const stack = path.startsWith('/') ? [] : sys.cwd.split('/').filter(Boolean);
+  let failed = null;
+  for (const part of path.split('/').filter(p => p && p !== '.')) {
+    const here = resolve(sys, `/${stack.join('/')}`);
+    if (part === '..' && !failed && (here.error || here.node.type !== 'dir')) failed = here.error ? here : { ...here, error: 'ENOTDIR' };
+    if (part === '..') stack.pop();
+    else stack.push(part);
+  }
+  return failed ?? resolve(sys, `/${stack.join('/')}`);
+}
+
 function cd(args, { sys }) {
   if (args.length > 1) return result('', 'bash: cd: too many arguments', 1);
   const back = args[0] === '-';
@@ -40,7 +51,7 @@ function cd(args, { sys }) {
   if (back && !varValue(sys, 'OLDPWD')) return result('', 'bash: cd: OLDPWD not set', 1);
   let target = args[0] ?? home;
   if (back) target = varValue(sys, 'OLDPWD');
-  const r = target === '' ? resolve(sys, '.') : resolve(sys, target);
+  const r = logicalResolve(sys, target === '' ? '.' : target);
   let res = result(back ? `${r.abs}\n` : '');
   if (r.error) res = result('', `bash: cd: ${target}: ${errorText(r.error)}`, 1);
   else if (r.node.type !== 'dir') res = result('', `bash: cd: ${target}: Not a directory`, 1);
@@ -67,7 +78,7 @@ function treeWalk(node, prefix, level, opts, acc) {
     acc.html.push(esc(branch) + nameHTML(k, child, false));
     if (child.type === 'dir') {
       acc.dirs++;
-      treeWalk(child, prefix + (last ? '    ' : '│   '), level + 1, opts, acc);
+      treeWalk(child, prefix + (last ? '    ' : '│\u00a0\u00a0 '), level + 1, opts, acc);
     } else acc.files++;
   });
 }
@@ -76,15 +87,18 @@ function tree(args, { sys }) {
   const o = parseOptions('tree', args, 'ad', 'L');
   if (o.err) return result('', o.err, 1);
   const top = o.rest[0] || '.';
-  const node = lookup(sys.root, normalize(top, sys.cwd));
-  if (!node || node.type !== 'dir') return result(`${top}  [error opening dir]\n\n0 directories, 0 files\n`, '', 2);
+  const r = resolve(sys, top);
+  const opened = !r.error && r.node.type === 'dir' && can(sys, r.node, 'r') && can(sys, r.node, 'x');
   const opts = { all: o.flags.has('a'), dirsOnly: o.flags.has('d'), maxLevel: o.vals.L ? parseInt(o.vals.L, 10) : Infinity };
-  const acc = { text: [top], html: [span('c-dir', top)], dirs: 0, files: 0 };
-  treeWalk(node, '', 1, opts, acc);
+  const acc = { text: [], html: [], dirs: opened ? 1 : 0, files: !opened && !r.error ? 1 : 0 };
+  if (opened) treeWalk(r.node, '', 1, opts, acc);
   const { dirs, files } = acc;
+  const head = opened ? top : `${top}  [error opening dir]`;
   const summary = `\n${dirs} director${dirs === 1 ? 'y' : 'ies'}${opts.dirsOnly ? '' : `, ${files} file${files === 1 ? '' : 's'}`}\n`;
-  const r = result(`${acc.text.join('\n')}\n${summary}`, '', 0, `${acc.html.join('\n')}\n${summary}`);
-  return withNote(r, 'tree is not always installed by default. On Ubuntu: sudo apt install tree');
+  const text = [head, ...acc.text].join('\n');
+  const html = [opened ? span('c-dir', top) : esc(head), ...acc.html].join('\n');
+  const res = result(`${text}\n${summary}`, '', r.error ? 2 : 0, `${html}\n${summary}`);
+  return withNote(res, 'tree is not always installed by default. On Ubuntu: sudo apt install tree');
 }
 
 export default { cd, tree };

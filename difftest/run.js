@@ -22,7 +22,7 @@ const TIMEOUT_MS = 60_000;
 const ENV = [
   'HOME=/home/hero', 'USER=hero', 'LOGNAME=hero', 'SHELL=/bin/bash',
   'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
-  'LANG=C.UTF-8', 'LC_ALL=C.UTF-8', 'TZ=UTC', 'TERM=xterm-256color', 'PS1=', 'PS2=', 'HISTCONTROL=ignorespace',
+  'LANG=C.UTF-8', 'LC_ALL=C.UTF-8', 'TZ=UTC', 'TERM=xterm-256color', 'PS1=', 'PS2=', 'HISTCONTROL=ignoreboth',
 ];
 const RUN_SH = `bash /case/setup.sh
 cd /home/hero 2>/dev/null || cd /

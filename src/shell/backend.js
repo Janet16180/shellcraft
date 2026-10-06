@@ -7,6 +7,7 @@ import { snapshot } from './fs.js';
 import { executeLine } from './exec.js';
 import { applyPatch } from './patch.js';
 import { complete } from './complete.js';
+import { varValue } from './vars.js';
 import { COMMANDS, BINARIES } from './commands/index.js';
 
 const CLEAR_MARK = '\u001b[2J';
@@ -25,10 +26,17 @@ function collector() {
   return run;
 }
 
+function remembered(sys, line) {
+  const control = varValue(sys, 'HISTCONTROL').split(':');
+  const ignoreSpace = control.includes('ignorespace') || control.includes('ignoreboth');
+  const ignoreDups = control.includes('ignoredups') || control.includes('ignoreboth');
+  return !(ignoreSpace && /^\s/.test(line)) && !(ignoreDups && sys.history.at(-1) === line);
+}
+
 function runLine(sys, line) {
   const run = collector();
   const typed = line.trim() !== '';
-  if (typed) sys.history.push(line);
+  if (typed && remembered(sys, line)) sys.history.push(line);
   const status = typed ? executeLine({ sys, commands: COMMANDS, run }, line, run.sink) : sys.lastStatus;
   return { output: run.chunks, status, commands: run.records, blocked: run.blocked };
 }

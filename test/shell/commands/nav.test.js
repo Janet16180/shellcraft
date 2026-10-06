@@ -40,5 +40,5 @@ test('nameHTML colours directories and executables and escapes names', () => {
 
 test('tree draws the hierarchy and counts directories and files', async () => {
   const r = await run(await shell(), 'tree forest');
-  assert.equal(r.out, 'forest\n├── cave\n│   └── bat.txt\n└── mushroom.txt\n\n1 directory, 2 files\n');
+  assert.equal(r.out, 'forest\n├── cave\n│\u00a0\u00a0 └── bat.txt\n└── mushroom.txt\n\n2 directories, 2 files\n');
 });

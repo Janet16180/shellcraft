@@ -37,7 +37,7 @@ export function parse(tokens) {
       if (target?.type === 'word') cmd.redirs.push({ op: t.op, fd: t.fd, target });
       else error = syntaxError(describe(target));
       k++;
-    } else if (isEmpty(cmd) || t.op === '(' || t.op === ')') error = syntaxError(t.op);
+    } else if (isEmpty(cmd) || t.op === '(' || t.op === ')' || t.op === ';;') error = syntaxError(t.op);
     else if (t.op === '|') {
       pipeline.push(cmd);
       cmd = newCommand();

@@ -18,6 +18,7 @@ import { varValue, setVar } from './vars.js';
 import { BUILTINS } from './builtins.js';
 
 const MAX_DEPTH = 8;
+const SYSTEM_HOMES = { root: '/root', daemon: '/usr/sbin', bin: '/bin', sys: '/dev', nobody: '/nonexistent' };
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const CONTINUATION = 'In a real terminal, bash would wait for the rest of the command on a new line (a > prompt). Here the line ends where you pressed Enter.';
 const BACKGROUND = 'Background jobs are not simulated yet: the command ran in the foreground.';
@@ -42,7 +43,7 @@ function expansionEnv(sh) {
   return {
     sys,
     lookupVar: name => varValue(sys, name),
-    homeOf: user => ({ [sys.user]: sys.home, root: '/root' })[user] ?? null,
+    homeOf: user => ({ ...SYSTEM_HOMES, [sys.user]: sys.home })[user] ?? null,
     substitute: line => capture(sh, line).out,
   };
 }
