@@ -47,6 +47,7 @@ function awakening() {
       solve: obs => [signText(obs, `${obs.home}/sign.txt`)],
     },
     recap: [['pwd', 'print where you are']],
+    why: '<p>The prompt tells you where you are.</p>',
     field: [['pwd', 'try it on a real machine']],
     spells: [{ name: 'pwd', summary: 'Print the working directory.', examples: [['pwd', 'where am I']] }],
   };
@@ -77,6 +78,7 @@ function forest() {
       solve: obs => [`cd ${obs.home}/forest/${signText(obs, `${obs.home}/forest/sign.txt`)}`],
     },
     recap: [['cd dir', 'enter a directory']],
+    why: '<p>Every path starts somewhere.</p>',
     field: [['cd -', 'jump back']],
     spells: [{ name: 'cd', summary: 'Change directory.', examples: [['cd forest', 'relative path']] }],
   };

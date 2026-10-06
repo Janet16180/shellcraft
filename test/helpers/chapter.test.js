@@ -62,8 +62,9 @@ test('missing check functions are rejected', () => {
   assert.throws(() => assertChapter(noSolve), /boss: solve/);
 });
 
-test('empty lesson text, solve lines or recap are rejected', () => {
+test('empty lesson text, why, solve lines or recap are rejected', () => {
   assert.throws(() => assertChapter({ ...playable(), lesson: '  ' }), /lesson/);
+  assert.throws(() => assertChapter({ ...playable(), why: '' }), /why/);
   assert.throws(() => assertChapter({ ...playable(), solve: [] }), /solve/);
   assert.throws(() => assertChapter({ ...playable(), recap: [['ls']] }), /recap/);
 });

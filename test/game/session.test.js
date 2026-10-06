@@ -144,7 +144,7 @@ test('solving the boss clears the chapter, pays the boss and the bonus, and open
   const [chapters] = fixtureChapters();
   assert.deepEqual(turn.events, [
     { kind: 'boss', xp: 30 },
-    { kind: 'chapter', id: 'awakening', recap: chapters.recap, field: chapters.field, xp: 20, next: 'forest' },
+    { kind: 'chapter', id: 'awakening', recap: chapters.recap, why: chapters.why, field: chapters.field, xp: 20, next: 'forest' },
   ]);
   assert.equal(turn.view.chapter.phase, 'done');
   assert.equal(turn.view.xp, 70);
