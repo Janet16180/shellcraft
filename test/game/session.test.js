@@ -205,6 +205,7 @@ test('asking after the third hint repeats it at no cost', async () => {
   session.hint();
   session.hint();
   assert.deepEqual(session.hint(), { level: 3, text: 'pwd', cost: 0 });
+  assert.equal((await session.submit('pwd')).events[0].xp, 2);
 });
 
 test('the hint is about the first unfinished task', async () => {
@@ -619,6 +620,10 @@ test('using the session before boot raises', async () => {
   assert.throws(() => session.view(), /boot/);
   assert.throws(() => session.observation(), /boot/);
   assert.throws(() => session.hint(), /boot/);
+});
+
+test('an empty chapter list raises', () => {
+  assert.throws(() => makeSession({ chapters: [] }), /empty/);
 });
 
 test('a chapter list with repeated ids raises', () => {
