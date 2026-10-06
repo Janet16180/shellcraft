@@ -1,0 +1,162 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { validatePatch } from '../../src/backend/spec.js';
+import { baseWorld, restore, HOME_NAMES } from '../../src/game/world.js';
+import { createSimBackend } from '../../src/shell/backend.js';
+
+const PLAYER = { home: '/home/hero', user: 'hero' };
+
+function nodeIn(patch, path) {
+  const top = patch.find(op => op.op === 'put' && (path === op.path || path.startsWith(`${op.path}/`)));
+  if (!top) return undefined;
+  const rest = path.slice(top.path.length).split('/').filter(Boolean);
+  return rest.reduce((node, name) => node?.children?.[name], top.node);
+}
+
+function walk(node, path, visit) {
+  visit(node, path);
+  for (const [name, child] of Object.entries(node.children ?? {})) walk(child, `${path}/${name}`, visit);
+}
+
+test('the base world is a well-formed patch that ends with the player at home', () => {
+  const patch = baseWorld(PLAYER);
+  assert.equal(validatePatch(patch), patch);
+  assert.deepEqual(patch.at(-1), { op: 'cd', path: '/home/hero' });
+});
+
+test('the base world leaves /usr and /dev to the backend', () => {
+  const paths = baseWorld(PLAYER).filter(op => op.op === 'put').map(op => op.path);
+  assert.deepEqual(paths.sort(), ['/etc', '/home', '/root', '/tmp', '/var']);
+});
+
+test('the home starts with the cottage files and every overworld area', () => {
+  const home = nodeIn(baseWorld(PLAYER), '/home/hero');
+  assert.deepEqual(Object.keys(home.children).sort(), [...HOME_NAMES].sort());
+  for (const name of ['readme.txt', '.secret_map', '.bashrc', 'forest', 'junk', 'library', 'tower', 'market', 'gate']) {
+    assert.ok(HOME_NAMES.includes(name), name);
+  }
+  assert.equal(nodeIn(baseWorld(PLAYER), '/home/hero/forest/cave/deep/ancient_key.txt').type, 'file');
+});
+
+test('everything in the home belongs to the player, and the home itself is private to them', () => {
+  const home = nodeIn(baseWorld(PLAYER), '/home/hero');
+  assert.equal(home.mode, 0o750);
+  walk(home, '/home/hero', (node, path) => {
+    assert.equal(node.owner, 'hero', path);
+    assert.equal(node.group, 'hero', path);
+  });
+});
+
+test('nothing outside the home belongs to the player', () => {
+  for (const op of baseWorld(PLAYER).filter(o => o.op === 'put')) {
+    walk(op.node, op.path, (node, path) => {
+      if (path === '/home/hero' || path.startsWith('/home/hero/')) return;
+      assert.notEqual(node.owner, 'hero', path);
+    });
+  }
+});
+
+test('the dungeon has the owners and modes of Ubuntu 24.04', () => {
+  const patch = baseWorld(PLAYER);
+  const expect = {
+    '/home': ['root', 'root', 0o755],
+    '/root': ['root', 'root', 0o700],
+    '/tmp': ['root', 'root', 0o1777],
+    '/etc/passwd': ['root', 'root', 0o644],
+    '/var/log': ['root', 'syslog', 0o775],
+    '/var/log/syslog': ['syslog', 'adm', 0o640],
+    '/var/log/auth.log': ['syslog', 'adm', 0o640],
+    '/var/log/dpkg.log': ['root', 'root', 0o644],
+  };
+  for (const [path, [owner, group, mode]] of Object.entries(expect)) {
+    const node = nodeIn(patch, path);
+    assert.deepEqual([node.owner, node.group, node.mode], [owner, group, mode], path);
+  }
+});
+
+test('the system files name the player, their home and the host', () => {
+  const patch = baseWorld(PLAYER);
+  assert.match(nodeIn(patch, '/etc/passwd').content, /^hero:x:1000:1000:Hero,,,:\/home\/hero:\/bin\/bash$/m);
+  assert.match(nodeIn(patch, '/etc/group').content, /^hero:x:1000:$/m);
+  assert.doesNotMatch(nodeIn(patch, '/etc/group').content, /[:,]hero(,|$)/m, 'hero is in no other group, as the simulator says');
+  assert.equal(nodeIn(patch, '/etc/hostname').content, 'kernelia\n');
+  assert.match(nodeIn(patch, '/home/hero/readme.txt').content, /-- The Guardian of Root\n$/);
+});
+
+test('every line of the syslog has the rsyslog timestamp, the host and a tag', () => {
+  const lines = nodeIn(baseWorld(PLAYER), '/var/log/syslog').content.trimEnd().split('\n');
+  for (const line of lines) assert.match(line, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}\+00:00 kernelia [\w-]+(\[\d+\])?: /, line);
+});
+
+test('a home that is not /home/USER is a bug and raises', () => {
+  assert.throws(() => baseWorld({ home: '/root', user: 'hero' }), /home/);
+  assert.throws(() => restore('forest', { home: '/home/other', user: 'hero' }), /home/);
+});
+
+test('restoring an area puts it back exactly as the base world has it', () => {
+  const [op] = restore('forest', PLAYER);
+  assert.deepEqual(op, { op: 'put', path: '/home/hero/forest', node: nodeIn(baseWorld(PLAYER), '/home/hero/forest') });
+  assert.equal(validatePatch(restore('readme.txt', PLAYER)).length, 1);
+});
+
+test('restoring a name the home never had raises', () => {
+  assert.throws(() => restore('camp', PLAYER), /unknown/);
+});
+
+test('another player gets their own name and home in every owned node', () => {
+  const player = { home: '/home/ada', user: 'ada' };
+  const home = nodeIn(baseWorld(player), '/home/ada');
+  walk(home, '/home/ada', (node, path) => assert.equal(node.owner, 'ada', path));
+  assert.match(nodeIn(baseWorld(player), '/home/ada/forest/river/fish.txt').content, /\/home\/ada\/forest\/river/);
+});
+
+async function simulator() {
+  const backend = createSimBackend({ now: () => Date.UTC(2026, 9, 6, 12) });
+  await backend.load(baseWorld(PLAYER));
+  const run = async line => {
+    const result = await backend.run(line);
+    const text = stream => result.output.filter(c => c.stream === stream).map(c => c.text).join('');
+    return { status: result.status, out: text('out'), err: text('err') };
+  };
+  return { backend, run };
+}
+
+test('on the simulator, the top of the tree holds the dungeon rooms beside the backend\'s own', async () => {
+  const { run } = await simulator();
+  assert.equal((await run('ls /')).out, 'dev  etc  home  root  tmp  usr  var\n');
+});
+
+test('on the simulator, the player starts at home and sees the cottage and the areas', async () => {
+  const { backend, run } = await simulator();
+  assert.equal((await backend.observe()).cwd, '/home/hero');
+  assert.equal((await run('ls')).out, 'forest  gate  junk  library  market  readme.txt  tower\n');
+});
+
+test('on the simulator, the player may enter and read the open rooms of the dungeon', async () => {
+  const { run } = await simulator();
+  for (const path of ['/etc', '/var/log', '/var/log/apt', '/tmp', '/home']) assert.equal((await run(`cd ${path}`)).status, 0, path);
+  assert.equal((await run('cat /etc/hostname')).out, 'kernelia\n');
+  assert.equal((await run('cat /var/log/dpkg.log')).status, 0);
+});
+
+test('on the simulator, root\'s home and the system logs are locked to the player', async () => {
+  const { run } = await simulator();
+  assert.match((await run('cd /root')).err, /Permission denied/);
+  assert.match((await run('cat /var/log/syslog')).err, /Permission denied/);
+  assert.match((await run('cat /var/log/auth.log')).err, /Permission denied/);
+  assert.match((await run('touch /etc/motd')).err, /Permission denied/);
+});
+
+test('on the simulator, the name, host and groups agree with /etc/passwd, /etc/hostname and /etc/group', async () => {
+  const { run } = await simulator();
+  assert.equal((await run('whoami')).out, 'hero\n');
+  assert.equal((await run('hostname')).out, (await run('cat /etc/hostname')).out);
+  assert.equal((await run('id')).out, 'uid=1000(hero) gid=1000(hero) groups=1000(hero)\n');
+});
+
+test('on the simulator, restoring an area brings back what the player deleted', async () => {
+  const { backend, run } = await simulator();
+  await run('rm -r forest');
+  await backend.load(restore('forest', PLAYER));
+  assert.match((await run('cat forest/cave/deep/ancient_key.txt')).out, /The Ancient Key/);
+});
