@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { layoutRoom, pickAt, fitLabel, ART } from '../../src/map/layout.js';
+import { layoutRoom, pickAt, fitLabel, findEntry, ART } from '../../src/map/layout.js';
 import { readRoom } from '../../src/map/room.js';
 import { observe, sampleTree, crowded } from './fixtures.js';
 
@@ -133,4 +133,12 @@ test('a door label keeps its slash when the name is cut', () => {
 
 test('a label with no room for one character and the ellipsis is a bug', () => {
   assert.throws(() => fitLabel('forest', 1), /room/);
+});
+
+test('an entry on show is found by its name, and .. names the exit', () => {
+  const layout = layoutRoom(readRoom(observe('/home/hero/forest'), none));
+  assert.equal(findEntry(layout, 'river').path, '/home/hero/forest/river');
+  assert.equal(findEntry(layout, '..'), layout.exit);
+  assert.equal(findEntry(layout, 'desert'), null);
+  assert.equal(findEntry(layoutRoom(readRoom(observe('/'), none)), '..'), null);
 });

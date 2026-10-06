@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readRoom, itemKind } from '../../src/map/room.js';
+import { readRoom, itemKind, picksOf } from '../../src/map/room.js';
 import { file, dir } from '../../src/backend/spec.js';
 import { observe, sampleTree } from './fixtures.js';
 
@@ -91,4 +91,18 @@ test('item kinds follow the name, the permissions and the place', () => {
   assert.equal(itemKind(item('syslog'), 'scriptorium'), 'book');
   assert.equal(itemKind({ ...item('null'), path: '/dev/null' }, 'pit'), 'void');
   assert.equal(itemKind(item('readme.txt'), 'cottage'), 'scroll');
+});
+
+test('the picks of a room are its doors, then its items, then the exit, with their locks', () => {
+  const picks = picksOf(readRoom(observe('/etc'), none));
+  assert.deepEqual(picks.map(p => `${p.kind}:${p.name}`), ['door:apt', 'item:hostname', 'item:motd', 'item:passwd', 'item:shadow', 'exit:..']);
+  assert.deepEqual(picks.at(-1), { kind: 'exit', name: '..', path: '/', locked: false });
+  assert.equal(picks.find(p => p.name === 'shadow').locked, true);
+  assert.equal(picks[0].path, '/etc/apt');
+});
+
+test('the root offers no exit pick and a revealed room offers its hidden files', () => {
+  assert.equal(picksOf(readRoom(observe('/'), none)).some(p => p.kind === 'exit'), false);
+  const home = picksOf(readRoom(observe('/home/hero'), new Set(['/home/hero'])));
+  assert.ok(home.some(p => p.name === '.secret_map'));
 });
