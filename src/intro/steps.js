@@ -42,14 +42,14 @@ export const WORLD = [
   cd(HOME),
 ];
 
-/** The pieces of the prompt, in order, with the role each one plays. */
+/** The pieces of the prompt, in order, with the role each one plays and its label. */
 export const PROMPT_PIECES = [
-  { text: 'hero', role: 'user' },
-  { text: '@', role: null },
-  { text: 'kernelia', role: 'host' },
-  { text: ':', role: null },
-  { text: '~', role: 'cwd' },
-  { text: '$', role: 'sigil' },
+  { text: 'hero', role: 'user', label: 'user' },
+  { text: '@', role: null, label: '' },
+  { text: 'kernelia', role: 'host', label: 'machine' },
+  { text: ':', role: null, label: '' },
+  { text: '~', role: 'cwd', label: 'directory' },
+  { text: '$', role: 'sigil', label: 'regular user' },
 ];
 
 export const STEPS = [

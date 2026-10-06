@@ -1,0 +1,80 @@
+/* Shellcraft's one set of design tokens. The game keeps a single dark look by
+   choice, so colour-scheme is dark and every colour is set here. Layout: a HUD
+   bar, then the map and the quest log on the left and a tall terminal on the
+   right; one column below 900px. */
+
+:root {
+  color-scheme: dark;
+
+  /* The dungeon's 16 colours (Ring Zero's Pixel Dungeon palette, DESIGN.md section 7). */
+  --c-ink: #0b0a12;
+  --c-night: #1c1930;
+  --c-stone: #353050;
+  --c-slate: #615b80;
+  --c-mist: #a3a0bf;
+  --c-bone: #f4f0e4;
+  --c-bark: #5e2e22;
+  --c-rust: #a24f34;
+  --c-ember: #f08a2a;
+  --c-gold: #ffd348;
+  --c-moss: #3e7a3c;
+  --c-leaf: #8fd14f;
+  --c-sea: #2c5aa8;
+  --c-plum: #6d2f9c;
+  --c-lilac: #c792ff;
+  --c-blood: #e2434f;
+
+  /* Roles. */
+  --bg: var(--c-ink);
+  --panel: var(--c-night);
+  --panel-2: #252140;
+  --line: var(--c-stone);
+  --frame: var(--c-mist);
+  --text: var(--c-bone);
+  --muted: var(--c-mist);
+  --accent: var(--c-gold);
+  --accent-deep: var(--c-ember);
+  --good: var(--c-leaf);
+  --danger: var(--c-blood);
+  --magic: var(--c-lilac);
+
+  /* Terminal text: lighter than the palette's blue and green so they read on black. */
+  --term-bg: #08070e;
+  --term-text: #e6e1f5;
+  --term-user: #8ee06a;
+  --term-path: #6fa8ff;
+  --term-err: #ff8fa3;
+  --term-dir: #6fa8ff;
+  --term-exe: #8ee06a;
+  --term-file: #e37bff;
+  --term-sep: #6fd3e0;
+  --term-match: #ff6b6b;
+
+  /* Type: a pixel face for titles only, a legible face for prose, a clear
+     monospace for the terminal and every name the player might type. */
+  --font-title: "Pixelify Sans", ui-monospace, monospace;
+  --font-prose: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --size-small: 13px;
+  --size-body: 16px;
+  --size-term: 14.5px;
+  --size-h3: 17px;
+  --size-h2: 22px;
+  --size-h1: 34px;
+
+  --gutter: 16px;
+  --gap: 20px;
+
+  /* A 4px ink outline with notched corners, for buttons. */
+  --notch: 0 -4px 0 0 var(--c-ink), 0 4px 0 0 var(--c-ink), -4px 0 0 0 var(--c-ink), 4px 0 0 0 var(--c-ink);
+  /* A window: a light 4px frame with notched corners, an ink outline round it, a hard drop shadow. */
+  --window:
+    0 -4px 0 0 var(--frame), 0 4px 0 0 var(--frame), -4px 0 0 0 var(--frame), 4px 0 0 0 var(--frame),
+    0 -8px 0 0 var(--c-ink), 0 8px 0 0 var(--c-ink), -8px 0 0 0 var(--c-ink), 8px 0 0 0 var(--c-ink),
+    -4px -4px 0 0 var(--c-ink), 4px -4px 0 0 var(--c-ink), -4px 4px 0 0 var(--c-ink), 4px 4px 0 0 var(--c-ink),
+    inset 0 0 0 4px var(--c-ink),
+    10px 10px 0 0 rgba(0, 0, 0, 0.45);
+
+  --brick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' shape-rendering='crispEdges'%3E%3Cpath fill='%23353050' d='M0 0h7v1h-7zM8 0h7v1h-7zM0 4h3v1h-3zM4 4h7v1h-7zM12 4h4v1h-4zM8 8h7v1h-7zM0 12h3v1h-3zM4 12h7v1h-7z'/%3E%3Cpath fill='%230b0a12' d='M7 0h1v3h-1zM15 0h1v3h-1zM0 3h16v1h-16zM3 4h1v3h-1zM11 4h1v3h-1zM0 7h16v1h-16zM7 8h1v3h-1zM15 8h1v3h-1zM0 11h16v1h-16zM3 12h1v3h-1zM11 12h1v3h-1zM0 15h16v1h-16z'/%3E%3Cpath fill='%231c1930' d='M0 1h7v2h-7zM8 1h7v2h-7zM0 5h3v2h-3zM4 5h7v2h-7zM12 5h4v2h-4zM0 8h7v3h-7zM8 9h7v2h-7zM12 12h4v3h-4zM0 13h3v2h-3zM4 13h7v2h-7z'/%3E%3C/svg%3E");
+  --torch: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='20' shape-rendering='crispEdges'%3E%3Cpath fill='%23ffd348' d='M4 0h1v1h-1zM3 1h2v1h-2zM3 2h1v1h-1zM5 2h1v1h-1zM2 3h1v1h-1zM4 3h2v1h-2zM2 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM1 5h1v1h-1zM3 5h3v1h-3zM2 6h4v1h-4zM3 7h2v1h-2zM11 1h1v1h-1zM11 2h2v1h-2zM10 3h2v1h-2zM13 3h1v1h-1zM10 4h1v1h-1zM12 4h2v1h-2zM9 5h1v1h-1zM11 5h2v1h-2zM14 5h1v1h-1zM10 6h4v1h-4zM11 7h2v1h-2zM19 0h1v1h-1zM19 1h1v1h-1zM18 2h3v1h-3zM18 3h1v1h-1zM20 3h1v1h-1zM17 4h1v1h-1zM19 4h1v1h-1zM21 4h1v1h-1zM18 5h3v1h-3zM22 5h1v1h-1zM18 6h4v1h-4zM19 7h2v1h-2z'/%3E%3Cpath fill='%23f08a2a' d='M4 2h1v1h-1zM3 3h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM2 5h1v1h-1zM6 5h1v1h-1zM1 6h1v1h-1zM6 6h1v1h-1zM1 7h2v1h-2zM5 7h2v1h-2zM2 8h4v1h-4zM12 3h1v1h-1zM11 4h1v1h-1zM10 5h1v1h-1zM13 5h1v1h-1zM9 6h1v1h-1zM14 6h1v1h-1zM9 7h2v1h-2zM13 7h2v1h-2zM10 8h4v1h-4zM19 3h1v1h-1zM18 4h1v1h-1zM20 4h1v1h-1zM17 5h1v1h-1zM21 5h1v1h-1zM17 6h1v1h-1zM22 6h1v1h-1zM17 7h2v1h-2zM21 7h2v1h-2zM18 8h4v1h-4z'/%3E%3Cpath fill='%230b0a12' d='M1 9h6v1h-6zM9 9h6v1h-6zM17 9h6v1h-6z'/%3E%3Cpath fill='%23615b80' d='M2 10h4v2h-4zM10 10h4v2h-4zM18 10h4v2h-4z'/%3E%3Cpath fill='%23a24f34' d='M3 12h1v7h-1zM11 12h1v7h-1zM19 12h1v7h-1z'/%3E%3Cpath fill='%235e2e22' d='M4 12h1v7h-1zM12 12h1v7h-1zM20 12h1v7h-1z'/%3E%3C/svg%3E");
+}
