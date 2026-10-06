@@ -4,7 +4,7 @@
  * target (`forest/readme.txt`).
  */
 
-import { baseName, joinDisp, joinPath, newDir, newFile, addChild, removeChild } from '../fs.js';
+import { baseName, joinDisp, joinPath, newDir, newFile, addChild, removeChild, depthOf, heightOf, MAX_TREE_DEPTH } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
 import { compareNames, isInside } from '../../backend/tree.js';
 import { can, canChangeEntries, canUnlink } from '../perms.js';
@@ -60,6 +60,14 @@ function targetProblem(op, src, target) {
   return kind;
 }
 
+function tooDeep(op, src, target) {
+  const deep = src.node.type === 'dir' && depthOf(target.abs) + heightOf(src.node) - 1 > MAX_TREE_DEPTH;
+  let kind = null;
+  if (deep && op.name === 'mv') kind = `cannot move ${q(src.shown)} to ${q(target.shown)}: ${errorText('ENAMETOOLONG')}`;
+  else if (deep) kind = `cannot create directory ${q(target.shown)}: ${errorText('ENAMETOOLONG')}`;
+  return kind;
+}
+
 function moveDenied(sys, src, target) {
   let kind = null;
   if (!canChangeEntries(sys, target.parent) || !canUnlink(sys, src.parent, src.node)) kind = `cannot move ${q(src.shown)} to ${q(target.shown)}: Permission denied`;
@@ -74,7 +82,7 @@ function copyDenied(sys, src, target) {
 }
 
 function problem(sys, op, src, target) {
-  const early = sourceProblem(op, src, target) ?? (src.error ? null : targetProblem(op, src, target));
+  const early = sourceProblem(op, src, target) ?? (src.error ? null : targetProblem(op, src, target) ?? tooDeep(op, src, target));
   return early ?? (op.name === 'mv' ? moveDenied(sys, src, target) : copyDenied(sys, src, target));
 }
 

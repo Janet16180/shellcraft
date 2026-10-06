@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { resolve, errorText } from '../../src/shell/paths.js';
-import { newDir, newFile } from '../../src/shell/fs.js';
+import { newDir, newFile, MAX_TREE_DEPTH } from '../../src/shell/fs.js';
 
 const m = (owner, mode) => ({ owner, group: owner, mode, mtime: 0 });
 const sys = () => ({
@@ -60,4 +60,17 @@ test('a path of 4096 bytes or a name over 255 bytes is too long, as on Linux', (
   assert.equal(resolve(s, 'é'.repeat(128)).error, 'ENAMETOOLONG');
   assert.equal(resolve(s, `nope/${'b'.repeat(256)}`).error, 'ENOENT');
   assert.equal(errorText('ENAMETOOLONG'), 'File name too long');
+});
+
+test('no path reaches deeper than the tree is allowed to grow', () => {
+  const s = sys();
+  let node = s.root;
+  for (let i = 0; i < MAX_TREE_DEPTH; i++) {
+    node.children.d = newDir({}, m('hero', 0o755));
+    node = node.children.d;
+  }
+  const deepest = `/${Array(MAX_TREE_DEPTH).fill('d').join('/')}`;
+  assert.equal(resolve(s, deepest).error, null);
+  assert.equal(resolve(s, `${deepest}/new`).error, 'ENAMETOOLONG');
+  assert.equal(resolve(s, `${deepest}/../new`).error, 'ENOENT');
 });

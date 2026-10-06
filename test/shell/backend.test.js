@@ -307,3 +307,26 @@ test('hostile nesting gets the messages bash would print', async () => {
   assert.match((await run(b, `echo ${'$(echo '.repeat(100)}hi${')'.repeat(100)}`)).err, /^bash: command substitution: maximum nesting level exceeded\n$/);
   assert.equal((await run(b, "echo 'bash x.sh' > x.sh; bash x.sh")).err.split('\n')[0], 'x.sh: line 1: x.sh: maximum nesting level exceeded');
 });
+
+test('a tree as deep as path limits allow still observes, copies, searches and removes', async () => {
+  const b = await shell();
+  const step = 'd/'.repeat(300);
+  const deep = await run(b, `mkdir -p ${step}`);
+  assert.match(deep.err, /^mkdir: cannot create directory ‘(d\/)+’: File name too long\n$/);
+  await b.observe();
+  for (const line of ['cp -r d e', 'find . -name zz', 'grep -r zz .', 'tree -d d', 'rm -r d e']) {
+    assert.equal(typeof (await b.run(line)).status, 'number', line);
+  }
+  await b.observe();
+});
+
+test('cp and mv refuse to grow the tree past its depth limit', async () => {
+  const b = await shell();
+  const path = Array(200).fill('d').join('/');
+  await run(b, `mkdir -p ${path} ${Array(100).fill('e').join('/')}`);
+  const copied = await run(b, `cp -r e ${path}/copy`);
+  assert.equal(copied.err, `cp: cannot create directory '${path}/copy': File name too long\n`);
+  const moved = await run(b, `mv e ${path}/x`);
+  assert.equal(moved.err, `mv: cannot move 'e' to '${path}/x': File name too long\n`);
+  assert.equal((await run(b, `cp -r e ${Array(100).fill('d').join('/')}/copy`)).status, 0);
+});
