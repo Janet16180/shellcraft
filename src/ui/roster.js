@@ -14,7 +14,7 @@ export const ROSTER = [
   { kind: 'hero', name: 'You', what: 'Where you stand is your working directory, the path <code>pwd</code> prints.' },
   { kind: 'door', name: 'Door', what: 'A directory. <code>cd NAME</code> walks through it.' },
   { kind: 'item', name: 'Item', what: 'A file. <code>cat NAME</code> prints what is in it.' },
-  { kind: 'exit', name: 'Way back', what: 'The parent directory, <code>..</code> (<code>cd ..</code> goes up one level).' },
+  { kind: 'exit', name: 'Way out', what: 'The parent directory, <code>..</code>: the room this one sits in. <code>cd ..</code> takes you there.' },
   { kind: 'stairs-down', name: 'Stairs down', what: 'The way back from your home: its parent, <code>/home</code>, is outside your home, so the stairs lead down into the dungeon.' },
   { kind: 'dungeon-door', name: 'Dungeon door', what: 'A directory outside your home. Most of them belong to root, the administrator.' },
   { kind: 'home-door', name: 'Door home', what: 'In <code>/home</code>, the door to your home directory, <code>/home/hero</code>.' },

@@ -126,7 +126,7 @@ export const STEPS = [
   },
   {
     id: 'cd-up',
-    title: 'Go back up with <code>cd ..</code>',
+    title: 'Take the way out with <code>cd ..</code>',
     type: 'cd ..',
     ring: '..',
     text: [
