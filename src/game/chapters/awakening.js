@@ -62,16 +62,46 @@ function deedIn(text) {
 const listsHome = (ctx, record) => ctx.hasPath(record, ctx.home)
   || (record.cwd === ctx.home && record.args.every(arg => arg.startsWith('-')));
 
+const didDeed = (ctx, { command, how }) => (how === 'man'
+  ? ctx.ran('man', record => record.args.includes(command))
+  : ctx.ran(command, record => record.args.includes('--help')));
+
+function readNear(ctx) {
+  const letter = `${ctx.home}/readme.txt`;
+  let note = null;
+  if (ctx.ran('ls', record => ctx.hasPath(record, letter))) note = 'ls only shows the name. cat prints what is inside: cat readme.txt';
+  else if (ctx.ran('cat', record => !ctx.hasPath(record, letter))) note = 'That was another file. The letter is readme.txt.';
+  return note;
+}
+
+function helpNear(ctx) {
+  let note = null;
+  if (ctx.commands.some(record => record.args.includes('-help'))) note = 'One dash starts short options, so -help means -h -e -l -p. Long options take two dashes: --help.';
+  else if (ctx.tried('echo', record => record.args.includes('--help'))) note = 'echo prints its words back, even --help. Ask another command, like ls --help.';
+  return note;
+}
+
+function bossNear(ctx, secret) {
+  const forgery = secret.forgeries.find(deed => didDeed(ctx, deed));
+  const otherWay = secret.how === 'man'
+    ? ctx.tried(secret.command, record => record.args.includes('--help'))
+    : ctx.tried('man', record => record.args.includes(secret.command));
+  let note = null;
+  if (forgery) note = `Somewhere, the Shadow Daemon snickers. That letter was signed ${forgery.signer}. Compare the signatures with readme.txt.`;
+  else if (otherWay) note = `Right spell, wrong way. Read the real letter again: it asks for ${secret.how === 'man' ? 'the manual page' : 'the quick help'}.`;
+  return note;
+}
+
 function setupBoss(random, { home, user }) {
   const deeds = shuffle(random, Object.keys(RIDDLES)).slice(0, LETTERS.length).map(command => ({
     command,
     how: HAS_HELP.includes(command) && random() < 0.5 ? 'help' : 'man',
   }));
   const real = Math.floor(random() * LETTERS.length);
-  const forgers = shuffle(random, FORGERS);
-  const patch = LETTERS.map((name, i) => put(`${home}/${name}`,
-    file(letterText(deeds[i], i === real ? GUARDIAN : forgers[i]), { owner: user })));
-  return { patch, secret: deeds[real] };
+  const signers = shuffle(random, FORGERS).map((forger, i) => (i === real ? GUARDIAN : forger));
+  const patch = LETTERS.map((name, i) => put(`${home}/${name}`, file(letterText(deeds[i], signers[i]), { owner: user })));
+  const forgeries = deeds.map((deed, i) => ({ ...deed, signer: signers[i] })).filter((_, i) => i !== real);
+  return { patch, secret: { ...deeds[real], forgeries } };
 }
 
 function solveBoss(obs) {
@@ -131,6 +161,7 @@ export default {
         'ls',
       ],
       done: ctx => ctx.ran('ls', record => listsHome(ctx, record)),
+      near: ctx => (ctx.ran('ls', record => !listsHome(ctx, record)) ? 'That listed another directory. To look around your home, run ls in your home with nothing after it.' : null),
     },
     {
       goal: 'Read the letter left for you',
@@ -140,6 +171,7 @@ export default {
         'cat readme.txt',
       ],
       done: ctx => ctx.read(`${ctx.home}/readme.txt`),
+      near: readNear,
     },
     {
       goal: 'Open the manual page of a command',
@@ -159,9 +191,10 @@ export default {
       ],
       // bash's echo prints --help back instead of answering it.
       done: ctx => ctx.commands.some(record => record.name !== 'echo' && record.args.includes('--help') && record.stdout !== ''),
+      near: helpNear,
     },
     {
-      goal: 'Wipe the screen clean',
+      goal: 'Wipe the screen clean with the `clear` command',
       hints: [
         'The screen is getting full. Start again with an empty one.',
         'The command is the plain English word `clear`.',
@@ -181,9 +214,8 @@ export default {
       '`ls` shows the letters and `cat` prints them. The real letter asks for a manual page (`man COMMAND`) or for a quick help (`COMMAND --help`).',
       secret => (secret.how === 'man' ? `man ${secret.command}` : `${secret.command} --help`),
     ],
-    done: (ctx, secret) => (secret.how === 'man'
-      ? ctx.ran('man', record => record.args.includes(secret.command))
-      : ctx.ran(secret.command, record => record.args.includes('--help'))),
+    done: didDeed,
+    near: bossNear,
     solve: solveBoss,
   },
   recap: [

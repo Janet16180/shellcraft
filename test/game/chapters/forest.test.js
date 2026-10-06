@@ -84,6 +84,42 @@ for (const [goal, prefix, miss, hit] of NEAR_MISSES) {
   });
 }
 
+const NEAR_NOTES = [
+  ['Enter the forest', [], 'ls forest', /cd forest/],
+  ['Enter the forest', [], 'cd forest', null],
+  ['Enter the forest', ['cd forest'], 'ls ~/forest', null],
+  ['Walk down to the deepest part of the cave: `forest/cave/deep`', ['cd forest'], 'cd forest/cave/deep', /already in the forest.*cave\/deep/],
+  ['Walk down to the deepest part of the cave: `forest/cave/deep`', [], 'cd /forest/cave/deep', /\/home\/hero\/forest/],
+  ['Walk down to the deepest part of the cave: `forest/cave/deep`', ['cd forest'], 'cd cave/deep', null],
+  ['Walk down to the deepest part of the cave: `forest/cave/deep`', [], 'cd forest/caev/deep', null],
+  ['From deep, climb back up into the cave with `..`', ['cd forest/cave/deep'], 'cd ~/forest/cave', /\.\./],
+  ['From deep, climb back up into the cave with `..`', ['cd forest/cave/deep'], 'cd ..', null],
+  ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd ../river', /relative/],
+  ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd /forest/river', /\/home\/hero\/forest/],
+  ['Jump to the river with an absolute path', ['cd forest/cave'], 'cd /home/hero/forest/river', null],
+  ['Jump to the river with an absolute path', ['cd forest/river'], 'cd .', /relative/],
+  ['Jump to the river with an absolute path', ['cd forest/river', 'cd ../cave'], 'cd -', null],
+  ['Go home with the shortest command there is', ['cd forest'], 'cd ~', /cd on its own/],
+  ['Go home with the shortest command there is', ['cd forest'], 'cd /home/hero', /cd on its own/],
+  ['Go home with the shortest command there is', ['cd forest'], 'cd', null],
+  ['Go home with the shortest command there is', [], 'cd ~', /cd on its own/],
+  ['Walk into the forest again, and let Tab finish the name', [], 'cd forest', /Tab/],
+  ['Walk into the forest again, and let Tab finish the name', [], 'cd fo\t', null],
+  ['Walk into the forest again, and let Tab finish the name', [], 'ls', null],
+];
+
+for (const [goal, prefix, line, note] of NEAR_NOTES) {
+  test(`"${goal}" gives ${note ? 'a near note' : 'no near note'} for ${JSON.stringify(line)}`, async () => {
+    assert.ok(goal in GOAL, `no task named ${goal}`);
+    const backend = await startChapter(chapter);
+    await play(chapter, backend, prefix);
+    const { ctx } = await type(backend, line);
+    const got = chapter.tasks[GOAL[goal]].near(ctx);
+    if (note) assert.match(got, note);
+    else assert.equal(got, null);
+  });
+}
+
 test('climbing into the cave with .. from the river, not from deep, does not count', async () => {
   assert.equal(await passes('From deep, climb back up into the cave with `..`', ['cd forest/river'], 'cd ../cave'), false);
 });

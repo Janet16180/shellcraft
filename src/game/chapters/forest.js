@@ -21,6 +21,26 @@ const riverOf = ctx => `${ctx.home}/forest/river`;
 const climbsWithDots = record => /^\.\.(\/|$)/.test(record.args[0] ?? '');
 const isAbsolute = record => (record.args[0] ?? '').startsWith('/');
 const lastCd = ctx => ctx.commands.findLast(record => record.name === 'cd');
+const usedTab = ctx => ctx.completions.some(tab => tab.completed !== tab.line);
+const walkedIntoForest = ctx => !isInside(ctx.before.cwd, forestOf(ctx)) && isInside(ctx.cwd, forestOf(ctx));
+const steppedOutOfDeep = ctx => ctx.before.cwd === deepOf(ctx) && ctx.cwd === caveOf(ctx);
+
+function pathNear(ctx) {
+  const failed = ctx.commands.find(record => record.name === 'cd' && record.status !== 0);
+  if (!failed) return null;
+
+  const forest = forestOf(ctx);
+  const arg = failed.args[0] ?? '';
+  let note = null;
+  if (arg.startsWith('forest/') && failed.cwd === forest) note = `You are already in the forest (the prompt shows ~/forest). From here the path is ${arg.slice('forest/'.length)}.`;
+  else if (arg.startsWith('/forest')) note = `A path that starts with / starts at the root, not at your home. Your forest is ${forest}, or ~/forest.`;
+  return note;
+}
+
+function riverNear(ctx) {
+  const relative = ctx.cwd === riverOf(ctx) && ctx.ran('cd', record => record.args.length > 0 && record.args[0] !== '-' && !isAbsolute(record));
+  return relative ? 'You reached the river with a relative path. This task wants an absolute one, starting with /.' : pathNear(ctx);
+}
 
 function setupBoss(random, { home, user }) {
   const target = `${home}/forest${pick(random, SPOTS)}/${BEACON}${token(random, 3)}`;
@@ -83,6 +103,8 @@ export default {
         'cd forest',
       ],
       done: ctx => isInside(ctx.cwd, forestOf(ctx)),
+      near: ctx => (ctx.ran('ls', record => ctx.hasPath(record, forestOf(ctx))) && !isInside(ctx.cwd, forestOf(ctx))
+        ? 'That looked into the forest from outside. To walk in, use cd forest.' : null),
     },
     {
       goal: 'Walk down to the deepest part of the cave: `forest/cave/deep`',
@@ -92,6 +114,7 @@ export default {
         'cd ~/forest/cave/deep',
       ],
       done: ctx => ctx.cwd === deepOf(ctx),
+      near: pathNear,
     },
     {
       goal: 'Read what glitters down there',
@@ -109,7 +132,9 @@ export default {
         '`..` means the parent of the directory you are in. Stand in deep first.',
         'cd ..',
       ],
-      done: ctx => ctx.before.cwd === deepOf(ctx) && ctx.cwd === caveOf(ctx) && ctx.ran('cd', climbsWithDots),
+      done: ctx => steppedOutOfDeep(ctx) && ctx.ran('cd', climbsWithDots),
+      near: ctx => (steppedOutOfDeep(ctx) && !ctx.ran('cd', climbsWithDots)
+        ? 'You reached the cave, but without .. this time. Go back into deep and type cd .. to step back out.' : null),
     },
     {
       goal: 'Jump to the river with an absolute path',
@@ -119,7 +144,8 @@ export default {
         'cd /home/hero/forest/river',
       ],
       done: ctx => ctx.cwd === riverOf(ctx)
-        && ctx.ran('cd', record => (record.args[0] ?? '').startsWith('/') && ctx.hasPath(record, riverOf(ctx))),
+        && ctx.ran('cd', record => isAbsolute(record) && ctx.hasPath(record, riverOf(ctx))),
+      near: riverNear,
     },
     {
       goal: 'Jump back to where you were with `cd -`',
@@ -138,6 +164,8 @@ export default {
         'cd',
       ],
       done: ctx => ctx.cwd === ctx.home && ctx.ran('cd', record => record.args.length === 0),
+      near: ctx => (ctx.cwd === ctx.home && ctx.ran('cd', record => record.args.length > 0)
+        ? 'That works, but there is a shorter way home: cd on its own.' : null),
     },
     {
       goal: 'Walk into the forest again, and let Tab finish the name',
@@ -146,8 +174,9 @@ export default {
         'Tab finishes a name from its first letters when only one name matches.',
         'Type cd fo, press Tab, then press Enter.',
       ],
-      done: ctx => !isInside(ctx.before.cwd, forestOf(ctx)) && isInside(ctx.cwd, forestOf(ctx))
-        && ctx.completions.some(tab => tab.completed !== tab.line),
+      done: ctx => walkedIntoForest(ctx) && usedTab(ctx),
+      near: ctx => (walkedIntoForest(ctx) && !usedTab(ctx)
+        ? 'You typed the whole name. Try cd fo and press Tab.' : null),
     },
   ],
   solve: ['cd forest', 'cd cave/deep', 'cat ancient_key.txt', 'cd ..', 'cd /home/hero/forest/river', 'cd -', 'cd', 'cd fo\t'],

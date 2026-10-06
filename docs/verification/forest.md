@@ -42,6 +42,18 @@ Vertical words in chapters 1 and 2 were checked against this bridge: Linux's "up
 | "Shortest command" home is `cd` alone; `cd ~` and `cd /home/hero` do not pass that task | by design; the lesson says `cd ~` also goes home, the goal asks for the shortest |
 | Checks: each task has a near-miss that does not pass and a line that does | SIM: 16 near-miss tests (e.g. `cd ../river` is relative; `cd ../cave` from the river is not from deep; `cd forest` typed in full uses no Tab; Tab while already in the forest is not walking in). Each check also survived mutation testing: removing any one condition makes a test fail |
 
+## Near notes (shown when a line got close the wrong way)
+
+| Note | Evidence |
+|---|---|
+| Enter the forest: "That looked into the forest from outside. To walk in, use cd forest." | `ls(1)` lists without moving; R2 |
+| Deep: "You are already in the forest (the prompt shows ~/forest). From here the path is cave/deep." | R3: the prompt in the forest is `hero@kernelia:~/forest$`; `path_resolution(7)`: a relative path starts at the current directory |
+| Deep and river: "A path that starts with / starts at the root, not at your home. Your forest is /home/hero/forest, or ~/forest." | `path_resolution(7)` Step 1; Tilde Expansion |
+| `..`: "You reached the cave, but without .. this time. Go back into deep and type cd .. to step back out." | game text; `..` is the parent (`path_resolution(7)`) |
+| River: "You reached the river with a relative path. This task wants an absolute one, starting with /." | `path_resolution(7)` Step 1 |
+| Home: "That works, but there is a shorter way home: cd on its own." | `bash(1)` cd: with no dir, HOME is the default |
+| Tab: "You typed the whole name. Try cd fo and press Tab." | R3 |
+
 ## Boss: The Trapdoor
 
 | Claim | Evidence |
