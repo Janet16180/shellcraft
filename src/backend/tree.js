@@ -5,6 +5,20 @@
  */
 
 /**
+ * One entry of a directory by name. Only the directory's own entries count,
+ * so a name like `constructor` or `__proto__` never finds what a plain object
+ * inherits.
+ *
+ * @param {object|null} node A TreeNode, or null.
+ * @param {string} name An entry name.
+ * @returns {object|null} The entry, or null if node is not a directory holding it.
+ */
+export function childOf(node, name) {
+  const children = node?.children;
+  return children && Object.hasOwn(children, name) ? children[name] : null;
+}
+
+/**
  * Find the node at an absolute path in an observed tree.
  *
  * @param {object} tree The TreeNode rooted at '/'.
@@ -16,7 +30,7 @@ export function nodeAt(tree, path) {
   if (!path.startsWith('/')) throw new Error(`path must be absolute, got ${path}`);
 
   let node = tree;
-  for (const name of path.split('/').filter(Boolean)) node = node?.children?.[name] ?? null;
+  for (const name of path.split('/').filter(Boolean)) node = childOf(node, name);
   return node;
 }
 
