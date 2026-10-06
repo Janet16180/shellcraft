@@ -87,6 +87,17 @@ test('the hearts are explained before the player starts', () => {
   assert.match(STEPS.at(-1).text.join(' '), /hearts/i);
 });
 
+test('running out of hearts is told as the game does it: the part in play set up again, only a refill after a clear', () => {
+  const text = STEPS.at(-1).text.join(' ');
+  assert.match(text, /refills them and sets up again the part you are playing/);
+  assert.match(text, /cleared[^.]*only refills them/);
+  assert.match(text, /never lose XP/);
+});
+
+test('the ls step says plain ls leaves out hidden names, the ones starting with a dot', () => {
+  assert.match(STEPS.find(s => s.id === 'ls').text.join(' '), /except hidden ones, whose names start with a dot/);
+});
+
 test('the intro ends with the player typing a real command', () => {
   const last = STEPS.at(-1);
   assert.equal(last.id, 'your-turn');
