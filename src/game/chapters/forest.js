@@ -31,8 +31,10 @@ function pathNear(ctx) {
 
   const forest = forestOf(ctx);
   const arg = failed.args[0] ?? '';
+  const fromHere = arg.slice('forest/'.length);
+  const already = 'You are already in the forest (the prompt shows ~/forest).';
   let note = null;
-  if (arg.startsWith('forest/') && failed.cwd === forest) note = `You are already in the forest (the prompt shows ~/forest). From here the path is ${arg.slice('forest/'.length)}.`;
+  if (arg.startsWith('forest/') && failed.cwd === forest) note = fromHere ? `${already} From here the path is ${fromHere}.` : already;
   else if (arg.startsWith('/forest')) note = `A path that starts with / starts at the root, not at your home. Your forest is ${forest}, or ~/forest.`;
   return note;
 }

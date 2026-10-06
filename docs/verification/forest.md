@@ -59,6 +59,7 @@ Vertical words in chapters 1 and 2 were checked against this bridge. "Up" appear
 |---|---|
 | Enter the forest: "That looked into the forest from outside. To walk in, use cd forest." | `ls(1)` lists without moving; R2 |
 | Deep: "You are already in the forest (the prompt shows ~/forest). From here the path is cave/deep." | R3: the prompt in the forest is `hero@kernelia:~/forest$`; `path_resolution(7)`: a relative path starts at the current directory |
+| Deep: `cd forest/` from the forest gets only "You are already in the forest (the prompt shows ~/forest)." (factcheck 2026-10-06: it printed "From here the path is .", an empty path read as a dot) | R3; real bash: `cd forest/` in `~/forest` fails with `No such file or directory` |
 | Deep and river: "A path that starts with / starts at the root, not at your home. Your forest is /home/hero/forest, or ~/forest." | `path_resolution(7)` Step 1; Tilde Expansion |
 | `..`: "You reached the cave, but without .. this time. Go back into deep and type cd .. to step back out." | game text; `..` is the parent (`path_resolution(7)`) |
 | River: "You reached the river with a relative path. This task wants an absolute one, starting with /." | `path_resolution(7)` Step 1 |

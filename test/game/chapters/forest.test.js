@@ -98,6 +98,7 @@ const NEAR_NOTES = [
   ['Enter the forest', [], 'cd forest', null],
   ['Enter the forest', ['cd forest'], 'ls ~/forest', null],
   ['Go deeper into the cave, all the way to `forest/cave/deep`', ['cd forest'], 'cd forest/cave/deep', /already in the forest.*cave\/deep/],
+  ['Go deeper into the cave, all the way to `forest/cave/deep`', ['cd forest'], 'cd forest/', /^You are already in the forest \(the prompt shows ~\/forest\)\.$/],
   ['Go deeper into the cave, all the way to `forest/cave/deep`', [], 'cd /forest/cave/deep', /\/home\/hero\/forest/],
   ['Go deeper into the cave, all the way to `forest/cave/deep`', ['cd forest'], 'cd cave/deep', null],
   ['Go deeper into the cave, all the way to `forest/cave/deep`', [], 'cd forest/caev/deep', null],
