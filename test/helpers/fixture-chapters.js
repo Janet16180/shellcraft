@@ -32,7 +32,12 @@ function awakening() {
     lesson: '<p>Look around.</p>',
     tasks: [
       { goal: 'Print where you are', tip: 'pwd prints the directory you are in.', hints: ['Where are you?', 'Use pwd.', 'pwd'], done: ctx => ctx.ran('pwd') },
-      { goal: 'Read the letter', hints: ['A letter waits.', 'Use cat.', 'cat letter.txt'], done: ctx => ctx.read(`${ctx.home}/letter.txt`) },
+      {
+        goal: 'Read the letter',
+        hints: ['A letter waits.', 'Use cat.', 'cat letter.txt'],
+        done: ctx => ctx.read(`${ctx.home}/letter.txt`),
+        near: ctx => (ctx.tried('cat') && !ctx.read(`${ctx.home}/letter.txt`) ? 'The letter is `letter.txt`.' : null),
+      },
     ],
     solve: ['pwd', 'cat letter.txt'],
     boss: {

@@ -72,6 +72,8 @@ function requireBooted(s) {
 }
 
 const current = s => s.chapters[s.index];
+// Backticks mark typed names for the page; in bash they would run a command.
+const terminalText = text => text.replaceAll('`', '');
 const who = s => ({ home: s.obs.home, user: s.obs.user });
 const statuses = s => chapterStatuses(s.chapters, { current: current(s)?.id ?? null, cleared: s.save.cleared });
 const persist = s => s.store.setItem(SAVE_KEY, serializeSave(s.save));
@@ -138,10 +140,24 @@ async function shellTurn(s, line, completions) {
   const ctx = makeContext({ commands: result.commands, before, obs: after, completions });
   const effects = [...lineEffects(ctx, result.blocked), ...(current(s).effects?.(ctx) ?? [])];
   const events = await advance(s, ctx);
+  const completed = events.some(e => e.kind === 'task' || e.kind === 'boss');
+  const note = completed ? null : nearNote(s, ctx);
+  const output = note === null ? result.output : [...result.output, { stream: 'note', tone: 'coach', text: terminalText(note) }];
   const danger = result.blocked[0] ?? dangers(ctx)[0];
   if (danger !== undefined) events.push(...await hurt(s, danger));
   if (s.obs !== after) effects.push(...worldEffects(after, s.obs));
-  return { result, obs: s.obs, effects, events, view: view(s) };
+  return { result: { ...result, output }, obs: s.obs, effects, events, view: view(s) };
+}
+
+function nearNote(s, ctx) {
+  const chapter = current(s);
+  let note = null;
+  if (s.phase === 'quest') {
+    for (const task of chapter.tasks.filter((_, i) => !s.tasksDone[i])) note ??= task.near?.(ctx) ?? null;
+  } else if (s.phase === 'boss') {
+    note = chapter.boss.near?.(ctx, s.secret) ?? null;
+  }
+  return note;
 }
 
 async function advance(s, ctx) {
@@ -274,9 +290,6 @@ function questText(s) {
 
 /** Game commands typed in the terminal; they are not Linux and never reach the backend. */
 const GAME_COMMANDS = new Map([['hint', hintText], ['quest', questText]]);
-
-// Backticks mark typed names for the page; in bash they would run a command.
-const terminalText = text => text.replaceAll('`', '');
 
 function gameTurn(s, text) {
   const result = { output: [{ stream: 'note', text: terminalText(text) }], status: 0, commands: [], blocked: [] };
