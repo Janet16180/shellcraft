@@ -4,7 +4,7 @@
  * observation only, so they work with any backend. Only failed commands get
  * a note; a correct line never does.
  */
-import { nodeAt, childOf, isInside } from '../backend/tree.js';
+import { nodeAt, childOf, isInside, baseName } from '../backend/tree.js';
 import { READERS, operands, resolvePath } from './checks.js';
 
 const NOT_FOUND = 127;
@@ -22,7 +22,6 @@ const WINDOWS = new Map([
   ['ipconfig', 'ipconfig is the Windows command. On Linux, try ip addr (not simulated here).'],
 ]);
 
-const baseName = path => path.slice(path.lastIndexOf('/') + 1);
 const nodeOf = (ctx, record, arg) => ctx.node(resolvePath(arg, record.cwd, ctx.home));
 const promptPath = (cwd, home) => (isInside(cwd, home) ? `~${cwd.slice(home.length)}` : cwd);
 

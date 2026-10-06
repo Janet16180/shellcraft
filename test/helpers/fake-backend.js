@@ -10,14 +10,12 @@
  * `loads` and `lines` record what the game asked for, for assertions.
  */
 import { dir, file } from '../../src/backend/spec.js';
-import { nodeAt, isInside } from '../../src/backend/tree.js';
+import { nodeAt, isInside, parentOf, baseName } from '../../src/backend/tree.js';
 import { requestedSignal, endsInteractiveShell } from '../../src/backend/signals.js';
 import { resolvePath } from '../../src/game/checks.js';
 
 const SHELL_PID = 733;
 
-const parentOf = path => path.slice(0, path.lastIndexOf('/')) || '/';
-const baseName = path => path.slice(path.lastIndexOf('/') + 1);
 
 /**
  * Create a fake backend.
