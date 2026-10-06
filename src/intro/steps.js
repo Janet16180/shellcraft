@@ -165,7 +165,7 @@ export const STEPS = [
       ['Tab', 'completes a name. Type <code>cd fo</code> and press Tab: bash fills in <code>forest/</code>.'],
       ['Up', 'brings back the line you ran before. Press it again to go further back.'],
       ['man', '<code>man ls</code> shows the manual of <code>ls</code>. On a real system it opens in a pager: press <kbd>q</kbd> to leave.'],
-      ['hint', '<code>hint</code> is not a Linux command. It is this game\'s helper: the first hint for a step is free, the next two cost XP.'],
+      ['hint', '<code>hint</code> is not a Linux command. It is this game\'s helper: the first hint for a step is free, the next two lower the XP that step pays.'],
     ],
     text: [
       'A few keys and commands do most of the work. You do not need to remember them now: the Spellbook keeps every command you learn.',
