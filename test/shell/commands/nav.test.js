@@ -61,3 +61,10 @@ test('cd accepts -L, -P and --, and rejects other options like bash', async () =
   const bad = await run(b, 'cd -help');
   assert.deepEqual([bad.err, bad.status], ['bash: cd: -h: invalid option\ncd: usage: cd [-L|[-P [-e]] [-@]] [dir]\n', 2]);
 });
+
+test('cd -@ is an invalid option on Linux although the usage line lists it', async () => {
+  const b = await shell();
+  const r = await run(b, 'cd -@ /tmp');
+  assert.deepEqual([r.err, r.status], ['bash: cd: -@: invalid option\ncd: usage: cd [-L|[-P [-e]] [-@]] [dir]\n', 2]);
+  assert.equal((await b.observe()).cwd, '/home/hero');
+});

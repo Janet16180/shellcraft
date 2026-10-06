@@ -18,3 +18,7 @@ test('programs without a known version text give null', () => {
   assert.equal(versionText('cd'), null);
   assert.equal(versionText('ps'), null);
 });
+
+test('hostname prints the net-tools version', () => {
+  assert.equal(versionText('hostname'), 'hostname 3.23\n');
+});
