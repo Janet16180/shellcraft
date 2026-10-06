@@ -246,7 +246,7 @@ const NAME_LINES = [
   'NAME', 'NAME --version', 'NAME --help', 'help NAME', 'type NAME', 'which NAME', 'man NAME', 'man -f NAME',
   'echo ~NAME', 'echo $NAME', 'NAME=v; echo $NAME', 'echo $((NAME + 1))', 'export NAME=w; printenv NAME', 'unset NAME; echo "[$NAME]"',
   'alias NAME', "alias NAME='echo aliased'", 'NAME', 'type NAME', 'unalias NAME', 'NAME',
-  'ls --NAME', 'grep --NAME x readme.txt', 'kill -s NAME 1', 'kill -NAME 1', 'find . -NAME', 'echo hi | grep "[[:NAME:]]"', 'pkill NAME',
+  'ls --NAME', 'grep --NAME x readme.txt', 'kill -s NAME 1', 'kill -NAME 1', 'find . -NAME', 'echo hi | grep "[[:NAME:]]"', 'ls [[:NAME:]]*', 'find . -name "[[:NAME:]]*"', 'pkill NAME',
 ];
 
 test('every name an object inherits behaves like an ordinary name', async () => {
