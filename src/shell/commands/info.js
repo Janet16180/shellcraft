@@ -4,7 +4,7 @@
 
 import { result, withNote } from '../result.js';
 import { localeQuote } from '../quote.js';
-import { parseOptions, mapLongOptions } from '../options.js';
+import { parseOptions, mapLongOptions, optionFailure } from '../options.js';
 import { versionText } from '../versions.js';
 import { builtinOptions } from '../builtins.js';
 import { TERMINAL } from '../system.js';
@@ -48,15 +48,17 @@ function pwd(args, { sys }) {
 
 function whoami(args, { sys }) {
   const o = parseOptions('whoami', args, '');
+  const failed = optionFailure('whoami', o, 1);
   let r = result(`${sys.user}\n`);
-  if (o.err) r = result('', o.err, 1);
+  if (failed) r = failed;
   else if (o.rest.length) r = result('', `whoami: extra operand ${localeQuote(o.rest[0])}\nTry 'whoami --help' for more information.`, 1);
   return r;
 }
 
 function uname(args, { sys }) {
   const o = parseOptions('uname', args, 'asnrvmpio');
-  if (o.err) return result('', o.err, 1);
+  const failed = optionFailure('uname', o, 1);
+  if (failed) return failed;
   if (o.rest.length) return result('', `uname: extra operand ${localeQuote(o.rest[0])}\nTry 'uname --help' for more information.`, 1);
   const all = o.flags.has('a');
   let keys = 'snrvmpio'.split('').filter(k => o.flags.has(k) || (all && !'pi'.includes(k)));
@@ -85,8 +87,9 @@ function who(args, { sys, stdin }) {
   const shown = onlyStdin && stdin != null ? [] : records;
   let text = (o.flags.has('H') ? WHO_HEADING : '') + shown.map(loginLine).join('');
   if (o.flags.has('q')) text = `${records.map(r => r.user).join(' ')}\n# users=${records.length}\n`;
+  const failed = optionFailure('who', o, 1);
   let r = result(text);
-  if (o.err) r = result('', o.err, 1);
+  if (failed) r = failed;
   else if (o.rest.length > 2) r = result('', `who: extra operand ${localeQuote(o.rest[2])}\nTry 'who --help' for more information.`, 1);
   return r;
 }
@@ -153,7 +156,8 @@ function hostname(args, { sys }) {
 
 function id(args, { sys }) {
   const o = parseOptions('id', args, 'ugGnr');
-  if (o.err) return result('', o.err, 1);
+  const failed = optionFailure('id', o, 1);
+  if (failed) return failed;
   const f = o.flags;
   const show = (num, name) => (f.has('n') ? name : String(num));
   let text = `uid=1000(${sys.user}) gid=1000(${sys.user}) groups=1000(${sys.user})`;

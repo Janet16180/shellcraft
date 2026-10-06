@@ -6,7 +6,7 @@ import { splitLines, byteLength, sizeOf } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
 import { compareNames } from '../../backend/tree.js';
 import { can } from '../perms.js';
-import { parseOptions } from '../options.js';
+import { parseOptions, optionFailure } from '../options.js';
 import { shellQuote, localeQuote } from '../quote.js';
 import { result, withNote, needInput } from '../result.js';
 
@@ -77,6 +77,7 @@ function readPart(which, f, a, { sys, stdin }, state) {
 
 function headTail(which, args, ctx) {
   const a = headTailArgs(which, args);
+  if (a.o.unsimulated) return optionFailure(which, a.o, 1);
   if (a.error) return result('', a.error, 1);
   if (!a.o.rest.length && ctx.stdin == null) return needInput(which);
   const files = a.o.rest.length ? a.o.rest : ['-'];
@@ -119,7 +120,8 @@ function wcRows(inputs, fields, width, labelled) {
 
 function wc(args, { sys, stdin }) {
   const o = parseOptions('wc', args, 'lwcmL');
-  if (o.err) return result('', o.err, 1);
+  const failed = optionFailure('wc', o, 1);
+  if (failed) return failed;
   if (!o.rest.length && stdin == null) return needInput('wc');
   const chosen = WC_FIELDS.filter(k => o.flags.has(k));
   const fields = chosen.length ? chosen : ['l', 'w', 'c'];
@@ -157,7 +159,8 @@ function sortCompare(flags) {
 
 function sort(args, { sys, stdin }) {
   const o = parseOptions('sort', args, 'rnufbz');
-  if (o.err) return result('', o.err, 2);
+  const failed = optionFailure('sort', o, 2);
+  if (failed) return failed;
   if (!o.rest.length && stdin == null) return needInput('sort');
   const sep = o.flags.has('z') ? '\0' : '\n';
   const { lines, errs } = readLines(sys, 'sort', o.rest, stdin, sep);
@@ -171,7 +174,8 @@ function sort(args, { sys, stdin }) {
 
 function uniq(args, { sys, stdin }) {
   const o = parseOptions('uniq', args, 'cdui');
-  if (o.err) return result('', o.err, 1);
+  const failed = optionFailure('uniq', o, 1);
+  if (failed) return failed;
   if (!o.rest.length && stdin == null) return needInput('uniq');
   const input = openInput(sys, o.rest[0] ?? '-', stdin);
   if (input.code) return result('', `uniq: ${shellQuote(o.rest[0])}: ${reason(input.code)}`, 1);

@@ -141,3 +141,13 @@ test('into a pipe, ls -C uses an exported COLUMNS, else 80, and quotes nothing',
   assert.equal(wide.split('\n')[0], '10.txt\tB\t    Zebra   a$b        cherry  my notes.txt  tab\tx');
   assert.ok(narrow.split('\n').length > wide.split('\n').length);
 });
+
+test('a real ls option the game does not simulate gets a note, not invalid option', async () => {
+  const b = await shell();
+  for (const line of ['ls -R', 'ls -laR', 'ls --recursive', 'dir -i']) {
+    const r = await run(b, line);
+    assert.deepEqual([r.out, r.err, r.status], ['', '', 2], line);
+    assert.match(r.note, /^(ls|dir) (-R|--recursive|-i) is a real option, but this game does not simulate it\.$/, line);
+  }
+  assert.equal((await run(b, 'ls -z')).err, "ls: invalid option -- 'z'\nTry 'ls --help' for more information.\n");
+});

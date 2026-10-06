@@ -8,7 +8,7 @@ import { baseName, joinDisp, joinPath, newDir, newFile, addChild, removeChild } 
 import { resolve, errorText } from '../paths.js';
 import { compareNames, isInside } from '../../backend/tree.js';
 import { can, canChangeEntries, canUnlink } from '../perms.js';
-import { parseOptions } from '../options.js';
+import { parseOptions, optionFailure } from '../options.js';
 import { shellQuote } from '../quote.js';
 import { result, withNote } from '../result.js';
 import { leaveIfGone } from './files.js';
@@ -96,8 +96,9 @@ function transfer(sys, op, srcTyped, dest, acc) {
 }
 
 function copyOrMove(name, args, { sys }) {
-  const o = parseOptions(name, args, name === 'mv' ? 'ivnfT' : 'rRivnfpaT');
-  if (o.err) return result('', o.err, 1);
+  const o = parseOptions(name, args, name === 'mv' ? 'ivn' : 'rRivna');
+  const failed = optionFailure(name, o, 1);
+  if (failed) return failed;
   const tryHelp = `Try '${name} --help' for more information.`;
   if (!o.rest.length) return result('', `${name}: missing file operand\n${tryHelp}`, 1);
   if (o.rest.length === 1) return result('', `${name}: missing destination file operand after ${q(o.rest[0])}\n${tryHelp}`, 1);

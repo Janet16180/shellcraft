@@ -12,7 +12,7 @@ import { compilePosix } from '../regex.js';
 import { result, withNote } from '../result.js';
 import { varValue, setVar, exportedVars } from '../vars.js';
 import { compareNames } from '../../backend/tree.js';
-import { parseOptions } from '../options.js';
+import { parseOptions, optionFailure } from '../options.js';
 import { nameTable } from '../table.js';
 
 /**
@@ -61,7 +61,7 @@ function searchCommand(mode) {
   return (args, ctx) => {
     const o = parseOptions(name, args, '');
     const error = o.err && `${o.err.split('\n')[0]}\nTry '${name} --help' or '${name} --usage' for more information.`;
-    return error ? result('', error, 1) : searchPages(mode, o.rest, ctx);
+    return optionFailure(name, { err: error, unsimulated: o.unsimulated }, 1) ?? searchPages(mode, o.rest, ctx);
   };
 }
 

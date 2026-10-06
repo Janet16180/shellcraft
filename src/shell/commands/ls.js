@@ -8,7 +8,7 @@ import { sizeOf } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
 import { compareNames } from '../../backend/tree.js';
 import { can } from '../perms.js';
-import { parseOptions, mapLongOptions } from '../options.js';
+import { parseOptions, mapLongOptions, optionFailure } from '../options.js';
 import { layoutColumns } from '../columns.js';
 import { shellQuote, needsQuoting } from '../quote.js';
 import { exportedVars } from '../vars.js';
@@ -146,8 +146,9 @@ function listDirectory(d, opts, ctx, header) {
 
 function parseLs(name, args, tty) {
   const long = mapLongOptions(name, args, LONG);
-  const o = long.err ? { err: long.err } : parseOptions(name, long.args, SHORT);
-  if (o.err) return { error: o.err };
+  const o = long.err || long.unsimulated ? long : parseOptions(name, long.args, SHORT);
+  const failure = optionFailure(name, o, 2);
+  if (failure) return { failure };
   const f = o.flags;
   let format = tty || name === 'dir' || f.has('C') ? 'columns' : 'single';
   if (f.has('1')) format = 'single';
@@ -186,7 +187,7 @@ function lineWidth(sys, piped, overlay) {
 
 function listing(name, args, { sys, piped, env }) {
   const parsed = parseLs(name, args, !piped);
-  if (parsed.error) return result('', parsed.error, 2);
+  if (parsed.failure) return parsed.failure;
   const { opts } = parsed;
   const operands = parsed.operands.length ? parsed.operands : ['.'];
   const { files, dirs, errs } = classify(sys, operands, opts);

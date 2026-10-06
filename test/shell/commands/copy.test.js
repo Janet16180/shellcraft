@@ -45,3 +45,11 @@ test('mv renames, moves into directories, and refuses to move a directory into i
   assert.equal((await run(b, 'mv /etc/hostname .')).err, "mv: cannot move '/etc/hostname' to './hostname': Permission denied\n");
   assert.equal((await run(b, 'mv -v forest woods')).out, "renamed 'forest' -> 'woods'\n");
 });
+
+test('a real cp or mv long option the game does not simulate gets a note; an unknown one is an error', async () => {
+  const b = await shell();
+  const sparse = await run(b, 'cp --sparse=always readme.txt copy.txt');
+  assert.deepEqual([sparse.err, sparse.status, sparse.note], ['', 1, 'cp --sparse is a real option, but this game does not simulate it.']);
+  assert.equal((await run(b, 'mv -f readme.txt moved.txt')).note, 'mv -f is a real option, but this game does not simulate it.');
+  assert.equal((await run(b, 'cp --bogus readme.txt x')).err, "cp: unrecognized option '--bogus'\nTry 'cp --help' for more information.\n");
+});

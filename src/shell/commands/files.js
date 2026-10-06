@@ -8,7 +8,7 @@ import { baseName, newDir, newFile, addChild, removeChild, joinDisp } from '../f
 import { resolve, errorText } from '../paths.js';
 import { compareNames } from '../../backend/tree.js';
 import { can, canChangeEntries, canUnlink, canChmod } from '../perms.js';
-import { parseOptions } from '../options.js';
+import { parseOptions, optionFailure } from '../options.js';
 import { shellQuote, localeQuote } from '../quote.js';
 import { result, withNote, needInput } from '../result.js';
 import { openInput, reason } from './text.js';
@@ -31,8 +31,9 @@ export function leaveIfGone(sys) {
 }
 
 function cat(args, { sys, stdin }) {
-  const o = parseOptions('cat', args, 'nAbEsTv');
-  if (o.err) return result('', o.err, 1);
+  const o = parseOptions('cat', args, 'n');
+  const failed = optionFailure('cat', o, 1);
+  if (failed) return failed;
   if (!o.rest.length && stdin == null) return needInput('cat');
   const errs = [];
   let text = '';
@@ -52,8 +53,9 @@ const pager = name => (args, ctx) => withNote(cat(args.filter(x => !x.startsWith
   `A real ${name} opens the file in a scrollable viewer: arrow keys or Space to move, / to search, q to quit. Here it simply prints the file.`);
 
 function touch(args, { sys }) {
-  const o = parseOptions('touch', args, 'acm');
-  if (o.err) return result('', o.err, 1);
+  const o = parseOptions('touch', args, 'm');
+  const failed = optionFailure('touch', o, 1);
+  if (failed) return failed;
   if (!o.rest.length) return result('', `touch: missing file operand\n${tryHelp('touch')}`, 1);
   const errs = [];
   for (const f of o.rest) {
@@ -85,8 +87,9 @@ function makeDir(sys, path, verbose) {
 const prefixes = path => path.split('/').map((_, i, all) => all.slice(0, i + 1).join('/')).filter(p => p !== '' && !/(^|\/)\.\.?$/.test(p));
 
 function mkdir(args, { sys }) {
-  const o = parseOptions('mkdir', args, 'pv', 'm');
-  if (o.err) return result('', o.err, 1);
+  const o = parseOptions('mkdir', args, 'pv');
+  const failed = optionFailure('mkdir', o, 1);
+  if (failed) return failed;
   if (!o.rest.length) return result('', `mkdir: missing operand\n${tryHelp('mkdir')}`, 1);
   const errs = [];
   let out = '';
@@ -107,7 +110,8 @@ function mkdir(args, { sys }) {
 
 function rmdir(args, { sys }) {
   const o = parseOptions('rmdir', args, 'pv');
-  if (o.err) return result('', o.err, 1);
+  const failed = optionFailure('rmdir', o, 1);
+  if (failed) return failed;
   if (!o.rest.length) return result('', `rmdir: missing operand\n${tryHelp('rmdir')}`, 1);
   const errs = [];
   let out = '';
@@ -165,8 +169,9 @@ function rmOne(sys, f, flags, acc) {
 }
 
 function rm(args, { sys, block }) {
-  const o = parseOptions('rm', args, 'rRfidv');
-  if (o.err) return result('', o.err, 1);
+  const o = parseOptions('rm', args, 'rRfiv');
+  const failed = optionFailure('rm', o, 1);
+  if (failed) return failed;
   if (!o.rest.length && !o.flags.has('f')) return result('', `rm: missing operand\n${tryHelp('rm')}`, 1);
   const acc = { out: '', errs: [], verbose: o.flags.has('v'), block, blocked: false };
   for (const f of o.rest) rmOne(sys, f, o.flags, acc);
