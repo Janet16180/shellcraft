@@ -110,6 +110,13 @@ test('correct lines get no note', () => {
   for (const commands of lines) assert.equal(note(...commands), null, commands[0].args.join(' '));
 });
 
+test('a name like an object property gets no note and no error', () => {
+  for (const name of ['toString', 'constructor', '__proto__', 'constructor/x']) {
+    assert.equal(note(failed('cat', [name])), null, name);
+    assert.equal(note(notFound(name)), null, name);
+  }
+});
+
 test('a plain mistake the coach does not know gets no note', () => {
   assert.equal(note(failed('cd', ['forrest'])), null);
   assert.equal(note(notFound('sl')), null);
