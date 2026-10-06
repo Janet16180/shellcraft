@@ -97,6 +97,7 @@ export default {
   tasks: [
     {
       goal: 'Enter the forest',
+      tip: '`cd` followed by a directory name walks you into it.',
       hints: [
         'The forest is a door in your home. Walk through it.',
         'From your home, `cd` followed by a directory name moves you into that directory.',
@@ -108,6 +109,7 @@ export default {
     },
     {
       goal: 'Walk down to the deepest part of the cave: `forest/cave/deep`',
+      tip: 'A path with slashes goes several rooms deeper at once, like `cd cave/deep` from the forest.',
       hints: [
         'The cave is in the forest, and deep is inside the cave.',
         'Walk one room at a time with `cd`, or give `cd` a path with slashes, like `cave/deep` from the forest.',
@@ -118,6 +120,7 @@ export default {
     },
     {
       goal: 'Read what glitters down there',
+      tip: '`ls` shows the names in the room you are in, and `cat` prints a file.',
       hints: [
         'Something glitters in deep. List the room to learn its name.',
         '`ls` shows the file name, then `cat` prints the file.',
@@ -127,6 +130,7 @@ export default {
     },
     {
       goal: 'From deep, climb back up into the cave with `..`',
+      tip: '`..` is the parent directory, so `cd ..` from deep steps back out into the cave.',
       hints: [
         'deep is inside the cave, so the cave is its parent.',
         '`..` means the parent of the directory you are in. Stand in deep first.',
@@ -138,6 +142,7 @@ export default {
     },
     {
       goal: 'Jump to the river with an absolute path',
+      tip: 'An absolute path starts at the root with `/`, like `/home/hero/forest/river`.',
       hints: [
         'An absolute path works from anywhere, because it starts at the root of the tree, `/`.',
         'Start the path with `/` and name every directory on the way: home, hero, forest, river.',
@@ -149,6 +154,7 @@ export default {
     },
     {
       goal: 'Jump back to where you were with `cd -`',
+      tip: '`cd -` jumps back to the directory you were in before, and prints its path.',
       hints: [
         'The shell remembers the directory you were in before this one.',
         'A dash after `cd` means: go back to the previous directory.',
@@ -158,6 +164,7 @@ export default {
     },
     {
       goal: 'Go home with the shortest command there is',
+      tip: '`cd` with nothing after it takes you home.',
       hints: [
         'There is a way home that needs no path at all.',
         '`cd` with nothing after it takes you home.',
@@ -169,6 +176,7 @@ export default {
     },
     {
       goal: 'Walk into the forest again, and let Tab finish the name',
+      tip: 'Type the first letters of a name, like `cd fo`, then press Tab to finish it.',
       hints: [
         'You do not have to type every letter of a name.',
         'Tab finishes a name from its first letters when only one name matches.',

@@ -42,6 +42,15 @@ Man pages from the Ubuntu 24.04 host.
 | Near-misses fail for the right reason on real bash: `Whoami`, `PWD`, `cls` are unknown commands; `ls -help` is an invalid option; `help ls` finds no help topic | D: `bash: Whoami: command not found`; `bash: cls: command not found`; `ls: invalid option -- 'e'` status 2; `help: no help topics match 'ls'` status 1 |
 | Checks: each task has a near-miss that does not pass and a line that does | SIM: 15 near-miss tests (e.g. `LS --help` fails, `cat .bashrc` reads the wrong file). Each check survived mutation testing: removing any one condition makes a test fail |
 
+## Tips (one sentence per task, shown with the goal)
+
+| Tip | Evidence |
+|---|---|
+| `whoami` prints your user name, the name before the @ in the prompt | `whoami(1)`; `bash(1)` `\u` before `@` in Ubuntu's PS1 |
+| `pwd`, `ls` on its own, `cat FILE`, `man COMMAND` | the lesson rows above |
+| Many commands print a short summary with `--help` (two dashes) | the `--help` lesson row above |
+| `clear` wipes the screen; Ctrl+L does too | the clear lesson row above |
+
 ## Near notes (shown when a line got close the wrong way)
 
 | Note | Evidence |

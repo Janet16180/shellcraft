@@ -137,6 +137,7 @@ export default {
   tasks: [
     {
       goal: 'Ask the terminal who you are',
+      tip: '`whoami` prints your user name, the name before the @ in the prompt.',
       hints: [
         'Your name is in the prompt, but a command can tell you too.',
         'The command is `whoami`: who am i, written as one word.',
@@ -146,6 +147,7 @@ export default {
     },
     {
       goal: 'Find out where you are standing',
+      tip: '`pwd` prints the full path of the directory you are in.',
       hints: [
         'The prompt shows `~`, a short name. Ask for the full path.',
         '`pwd` means print working directory.',
@@ -155,6 +157,7 @@ export default {
     },
     {
       goal: 'Look around your home',
+      tip: '`ls` on its own lists the directory you are in.',
       hints: [
         'What is in this room? Ask for a list.',
         '`ls` lists the directory you are in.',
@@ -165,6 +168,7 @@ export default {
     },
     {
       goal: 'Read the letter left for you',
+      tip: '`cat` followed by a file name prints that file on the screen.',
       hints: [
         'There is a `.txt` file in your home. Print it on the screen.',
         '`cat` followed by a file name prints that file.',
@@ -175,6 +179,7 @@ export default {
     },
     {
       goal: 'Open the manual page of a command',
+      tip: '`man` followed by a command name, like `man ls`, opens its manual page.',
       hints: [
         'Most commands come with a manual. One command opens it.',
         '`man` followed by a command name opens its manual page.',
@@ -184,6 +189,7 @@ export default {
     },
     {
       goal: 'Ask a command for its quick help',
+      tip: 'Many commands print a short summary when you add `--help`, with two dashes.',
       hints: [
         'Many commands explain themselves if you ask with an option.',
         'Add `--help` after the command name: two dashes, then help.',
@@ -195,6 +201,7 @@ export default {
     },
     {
       goal: 'Wipe the screen clean with the `clear` command',
+      tip: '`clear` wipes the screen; Ctrl+L does too, but this task wants the command.',
       hints: [
         'The screen is getting full. Start again with an empty one.',
         'The command is the plain English word `clear`.',

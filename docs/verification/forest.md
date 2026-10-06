@@ -42,6 +42,17 @@ Vertical words in chapters 1 and 2 were checked against this bridge: Linux's "up
 | "Shortest command" home is `cd` alone; `cd ~` and `cd /home/hero` do not pass that task | by design; the lesson says `cd ~` also goes home, the goal asks for the shortest |
 | Checks: each task has a near-miss that does not pass and a line that does | SIM: 16 near-miss tests (e.g. `cd ../river` is relative; `cd ../cave` from the river is not from deep; `cd forest` typed in full uses no Tab; Tab while already in the forest is not walking in). Each check also survived mutation testing: removing any one condition makes a test fail |
 
+## Tips (one sentence per task, shown with the goal)
+
+| Tip | Evidence |
+|---|---|
+| `cd` with a directory name walks you into it; a path with slashes goes several rooms deeper | R2 (`cd forest`, `cd cave/deep`) |
+| `ls` shows the names, `cat` prints a file | R2 |
+| `..` is the parent, so `cd ..` from deep steps back out into the cave | `path_resolution(7)`; R2 |
+| An absolute path starts at the root with `/` | `path_resolution(7)` Step 1 |
+| `cd -` jumps back to the previous directory and prints its path; `cd` alone goes home | `bash(1)` cd |
+| Type the first letters, then Tab finishes the name | R3 |
+
 ## Near notes (shown when a line got close the wrong way)
 
 | Note | Evidence |
