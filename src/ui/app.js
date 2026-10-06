@@ -9,7 +9,7 @@ import { renderHUD } from './hud.js';
 import { questHTML, spellsHTML, chaptersHTML } from './panels.js';
 import { titleCardHTML, bossCardHTML, debriefHTML, openCard, closeCard } from './cards.js';
 import { commandForPath, commandForPick } from './picks.js';
-import { esc } from './output.js';
+import { esc, inlineCode } from './output.js';
 import { confetti } from './confetti.js';
 import { bootText, restoredText } from './messages.js';
 import { createSound } from './sound.js';
@@ -60,7 +60,7 @@ function show(ui, view) {
   doc.getElementById('levels').innerHTML = chaptersHTML(view.chapters);
   renderCrumbs(doc, view.prompt);
   ui.terminal.setPrompt(view.prompt);
-  if (previous && previous.rank.title !== view.rank.title) toast(ui, `Rank up: you are now ${view.rank.title}`);
+  if (previous && previous.rank.title !== view.rank.title) toast(ui, `Rank up: you are now ${esc(view.rank.title)}`);
 }
 
 function showRoom(ui) {
@@ -87,11 +87,11 @@ function renderCrumbs(doc, { cwd, home }) {
   doc.getElementById('crumbs').innerHTML = `<button type="button" data-cd="/" aria-label="the root directory, /">/</button>${buttons.join('/')}${area}`;
 }
 
-function toast(ui, text) {
+function toast(ui, html) {
   const el = ui.doc.getElementById('toast');
-  el.textContent = text;
+  el.innerHTML = html;
   el.classList.add('on');
-  ui.doc.getElementById('announce').textContent = text;
+  ui.doc.getElementById('announce').textContent = el.textContent;
   clearTimeout(ui.toastTimer);
   ui.toastTimer = setTimeout(() => el.classList.remove('on'), TOAST_MS);
 }
@@ -131,7 +131,7 @@ function applyTurn(ui, turn) {
 
 const EVENTS = {
   task(ui, { goal, xp }) {
-    toast(ui, `Quest complete: ${goal}  +${xp} XP`);
+    toast(ui, `Quest complete: ${inlineCode(goal)}  +${xp} XP`);
     ui.sound.play('ok');
     confetti(ui.doc.getElementById('confetti'), { origins: [[0.3, 0.3]], count: 30 });
   },

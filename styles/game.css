@@ -628,9 +628,7 @@ kbd {
 }
 
 .hints span {
-  font-family: var(--font-mono);
-  font-size: 14px;
-  color: var(--accent);
+  font-size: 15px;
 }
 
 .cleared-note {

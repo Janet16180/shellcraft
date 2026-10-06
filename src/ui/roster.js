@@ -6,15 +6,18 @@
 
 import { esc } from './output.js';
 
-/** The pictures the vertical slice shows, with the plain truth behind each one. */
+/**
+ * The pictures the vertical slice shows, with the plain truth behind each one.
+ * `what` is trusted HTML: anything the player might type is in <code>.
+ */
 export const ROSTER = [
-  { kind: 'hero', name: 'You', what: 'Where you stand is your working directory, the path pwd prints.' },
-  { kind: 'door', name: 'Door', what: 'A directory. cd NAME walks through it.' },
-  { kind: 'item', name: 'Item', what: 'A file. cat NAME prints what is in it.' },
-  { kind: 'exit', name: 'Way back', what: 'The parent directory, .. (cd .. goes up one level).' },
-  { kind: 'stairs-down', name: 'Stairs down', what: 'The way back from your home: its parent, /home, is outside your home, so the stairs lead down into the dungeon.' },
+  { kind: 'hero', name: 'You', what: 'Where you stand is your working directory, the path <code>pwd</code> prints.' },
+  { kind: 'door', name: 'Door', what: 'A directory. <code>cd NAME</code> walks through it.' },
+  { kind: 'item', name: 'Item', what: 'A file. <code>cat NAME</code> prints what is in it.' },
+  { kind: 'exit', name: 'Way back', what: 'The parent directory, <code>..</code> (<code>cd ..</code> goes up one level).' },
+  { kind: 'stairs-down', name: 'Stairs down', what: 'The way back from your home: its parent, <code>/home</code>, is outside your home, so the stairs lead down into the dungeon.' },
   { kind: 'dungeon-door', name: 'Dungeon door', what: 'A directory outside your home. Most of them belong to root, the administrator.' },
-  { kind: 'home-door', name: 'Door home', what: 'In /home, the door to your home directory, /home/hero.' },
+  { kind: 'home-door', name: 'Door home', what: 'In <code>/home</code>, the door to your home directory, <code>/home/hero</code>.' },
   { kind: 'locked', name: 'Padlocked door', what: 'A directory you have no permission to enter.' },
   { kind: 'chained', name: 'Chained item', what: 'A file you have no permission to read.' },
 ];
@@ -28,7 +31,7 @@ export const ROSTER = [
  */
 export function renderRoster(list, drawKey) {
   list.innerHTML = ROSTER.map(({ kind, name, what }) =>
-    `<li><canvas width="40" height="40" data-kind="${kind}" aria-hidden="true"></canvas><div><b>${esc(name)}</b><span>${esc(what)}</span></div></li>`).join('');
+    `<li><canvas width="40" height="40" data-kind="${kind}" aria-hidden="true"></canvas><div><b>${esc(name)}</b><span>${what}</span></div></li>`).join('');
   for (const canvas of list.querySelectorAll('canvas')) drawKey(canvas, canvas.dataset.kind);
 }
 

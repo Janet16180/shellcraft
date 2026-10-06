@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { esc, displayPath, promptHTML, chunkLine, clears } from '../../src/ui/output.js';
+import { esc, displayPath, promptHTML, chunkLine, clears, inlineCode } from '../../src/ui/output.js';
 
 const HERO = { user: 'hero', host: 'kernelia', home: '/home/hero' };
 
@@ -65,4 +65,16 @@ test('the clear chunk is an instruction to the screen, not text to print', () =>
   assert.equal(chunkLine(chunk), null);
   assert.equal(clears(chunk), true);
   assert.equal(clears({ stream: 'out', text: 'hi\n' }), false);
+});
+
+test('backticks in authored text become code, the rest is escaped', () => {
+  assert.equal(inlineCode('Walk to `forest/cave/deep` & <rest>'), 'Walk to <code>forest/cave/deep</code> &amp; &lt;rest&gt;');
+});
+
+test('text without backticks is only escaped', () => {
+  assert.equal(inlineCode('Enter the forest'), 'Enter the forest');
+});
+
+test('markup inside backticks is escaped too', () => {
+  assert.equal(inlineCode('`a<b`'), '<code>a&lt;b</code>');
 });

@@ -16,6 +16,17 @@ export function esc(text) {
 }
 
 /**
+ * Escape authored text and set `backticked` parts as code, so names the player
+ * might type show in the terminal face.
+ *
+ * @param {string} text Plain text, possibly with `code` spans.
+ * @returns {string} HTML.
+ */
+export function inlineCode(text) {
+  return esc(text).replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
+/**
  * Show a path the way bash's \w does: the home directory and paths under it
  * start with a tilde.
  *

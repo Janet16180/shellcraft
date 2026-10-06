@@ -7,11 +7,17 @@ test('every picture in the map key is one the map can draw', () => {
   for (const { kind } of ROSTER) assert.ok(KEY_KINDS.includes(kind), kind);
 });
 
-test('every map key entry has a name and a plain explanation', () => {
+test('every map key entry has a name and a plain explanation, marked up only with code', () => {
   for (const { kind, name, what } of ROSTER) {
     assert.ok(name, kind);
     assert.ok(what.endsWith('.'), kind);
+    for (const [, tag] of what.matchAll(/<\/?([a-z]+)>/g)) assert.equal(tag, 'code', kind);
   }
+});
+
+test('commands in the map key are set as code, so they show in the terminal face', () => {
+  const door = ROSTER.find(r => r.kind === 'door').what;
+  assert.match(door, /<code>cd NAME<\/code>/);
 });
 
 test('the room picks list doors with a slash, then items, then the way back', () => {

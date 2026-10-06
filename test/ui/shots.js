@@ -106,6 +106,8 @@ async function gameShots(browser, base, out, width) {
   await shot(page, out, `forest-${width}`);
   await type(page, 'cd /', 3500);
   await shot(page, out, `dungeon-${width}`);
+  await page.click('#roster summary');
+  await page.locator('.mapwrap').screenshot({ path: join(out, `mapkey-${width}.png`) });
   const wide = await overflow(page);
   await context.close();
   return [...errors, ...(wide > 0 ? [`horizontal overflow of ${wide}px at ${width}`] : [])];

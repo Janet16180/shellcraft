@@ -4,7 +4,7 @@
  * other string is escaped.
  */
 
-import { esc } from './output.js';
+import { esc, inlineCode } from './output.js';
 import { hintLabel, hintTitle } from './hints.js';
 
 const STATUS_TEXT = { playing: 'playing', open: 'open', cleared: 'cleared', locked: 'locked', soon: 'coming soon' };
@@ -25,7 +25,7 @@ function taskRow({ goal, done, next }, index) {
   const cls = done ? 'done' : next ? 'next' : '';
   const current = next ? ' aria-current="step"' : '';
   const state = done ? '<span class="sr-only"> (done)</span>' : '';
-  return `<li class="${cls}"${current}><span class="num" aria-hidden="true">${done ? '&#10003;' : index + 1}</span><span class="goal">${esc(goal)}${state}</span></li>`;
+  return `<li class="${cls}"${current}><span class="num" aria-hidden="true">${done ? '&#10003;' : index + 1}</span><span class="goal">${inlineCode(goal)}${state}</span></li>`;
 }
 
 function revealedHints({ phase, tasks, boss }) {
@@ -33,8 +33,13 @@ function revealedHints({ phase, tasks, boss }) {
   return tasks.find(task => task.next)?.hints ?? [];
 }
 
+// The last hint is the exact line to type, so all of it is code.
+function hintText(level, text) {
+  return level === 3 ? `<code>${esc(text)}</code>` : inlineCode(text);
+}
+
 function hintsHTML(hint, hints) {
-  const revealed = hints.map(({ level, text }) => `<li><b>${esc(hintTitle(level))}</b><span>${esc(text)}</span></li>`).join('');
+  const revealed = hints.map(({ level, text }) => `<li><b>${esc(hintTitle(level))}</b><span>${hintText(level, text)}</span></li>`).join('');
   return `<div class="hintbox">
     ${revealed ? `<ul class="hints" aria-label="Hints">${revealed}</ul>` : ''}
     <button class="px-btn small" id="hintBtn" type="button"${hint ? '' : ' disabled'}>${esc(hintLabel(hint))}</button>
@@ -76,8 +81,8 @@ export function questHTML({ chapter, hint }) {
 function spellHTML({ name, summary, examples, unlocked }) {
   if (!unlocked) return `<div class="spell locked"><h3>${esc(name)}</h3><p>Locked: you learn it in a later chapter.</p></div>`;
   const chips = examples.map(([line, note]) =>
-    `<button type="button" class="chip" data-ins="${esc(line)}">${esc(line)}${note ? `<small>${esc(note)}</small>` : ''}</button>`).join('');
-  return `<div class="spell"><h3>${esc(name)}</h3><p>${esc(summary)}</p><div class="ex">${chips}</div></div>`;
+    `<button type="button" class="chip" data-ins="${esc(line)}">${esc(line)}${note ? `<small>${inlineCode(note)}</small>` : ''}</button>`).join('');
+  return `<div class="spell"><h3>${esc(name)}</h3><p>${inlineCode(summary)}</p><div class="ex">${chips}</div></div>`;
 }
 
 /**

@@ -3,11 +3,11 @@
  * The *HTML functions are pure; openCard and closeCard drive the overlay.
  */
 
-import { esc } from './output.js';
+import { esc, inlineCode } from './output.js';
 import { keepFocusIn } from './focus.js';
 
 function pairs(list) {
-  return `<dl>${list.map(([command, meaning]) => `<dt>${esc(command)}</dt><dd>${esc(meaning)}</dd>`).join('')}</dl>`;
+  return `<dl>${list.map(([command, meaning]) => `<dt>${esc(command)}</dt><dd>${inlineCode(meaning)}</dd>`).join('')}</dl>`;
 }
 
 /**

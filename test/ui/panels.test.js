@@ -87,3 +87,20 @@ test('a replayed chapter says up front that it pays no XP', () => {
   assert.match(questHTML(view), /replaying it pays no XP/);
   assert.doesNotMatch(questHTML(sampleView()), /replaying/);
 });
+
+test('backticked names in goals, summaries and notes show as code', () => {
+  const view = sampleView();
+  view.chapter.tasks[1].goal = 'Walk to `forest/cave/deep`';
+  assert.match(questHTML(view), /Walk to <code>forest\/cave\/deep<\/code>/);
+  const html = spellsHTML([{ name: 'pwd', summary: 'Print `pwd`.', examples: [['pwd', 'prints `/home/hero`']], unlocked: true }]);
+  assert.match(html, /<p>Print <code>pwd<\/code>\.<\/p>/);
+  assert.match(html, /<small>prints <code>\/home\/hero<\/code><\/small>/);
+});
+
+test('the exact-command hint is all code; the others are prose', () => {
+  const view = sampleView();
+  view.chapter.tasks[1].hints = [{ level: 1, text: 'Where are you?', cost: 0 }, { level: 3, text: 'pwd', cost: 5 }];
+  const html = questHTML(view);
+  assert.match(html, /<span>Where are you\?<\/span>/);
+  assert.match(html, /<span><code>pwd<\/code><\/span>/);
+});
