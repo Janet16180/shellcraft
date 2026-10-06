@@ -290,7 +290,7 @@ function finishIntro(ui, yourTurn) {
   const first = !ui.view.introSeen;
   ui.session.markIntroSeen();
   ui.view = ui.session.view();
-  if (first && yourTurn) showCallout(ui, `Your turn: type <code>${esc(yourTurn)}</code> and press <kbd>Enter</kbd>.`);
+  if (first) showCallout(ui, `Your turn: type <code>${esc(yourTurn)}</code> and press <kbd>Enter</kbd>.`);
   ui.terminal.focus();
 }
 
@@ -353,6 +353,12 @@ function wireControls(ui) {
     ui.sound.play('ok');
   });
   doc.getElementById('introBtn').addEventListener('click', () => ui.intro());
+  doc.getElementById('keyBtn').addEventListener('click', () => {
+    const roster = doc.getElementById('roster');
+    roster.open = true;
+    roster.scrollIntoView({ block: 'nearest' });
+    roster.querySelector('summary').focus({ preventScroll: true });
+  });
   wireReset(ui);
 }
 
