@@ -22,7 +22,7 @@ export function titleCardHTML(resume) {
   return `<div class="eyebrow">A terminal adventure</div>
     <h2 class="title-logo" id="cardTitle">${logoSVG('SHELLCRAFT')}</h2>
     <p>A Shadow Daemon has taken over the machine Kernelia. Explore a world made of files and directories, cast real Linux commands, and learn the terminal along the way.</p>
-    <p>The commands you learn here work in bash on a real Linux system. Where the game's simulation differs, the terminal tells you.</p>
+    <p>The commands you learn here work in bash on a real Linux system. Where the game's simulation differs, the terminal usually says so.</p>
     <div class="actions">
       <button class="px-btn primary" type="button" id="goBtn">${go}</button>
       ${resume ? '<button class="px-btn ghost" type="button" id="newBtn">New game</button>' : ''}

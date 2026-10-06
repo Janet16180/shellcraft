@@ -105,8 +105,14 @@ test('the exact-command hint is all code; the others are prose', () => {
   assert.match(html, /<span><code>pwd<\/code><\/span>/);
 });
 
-test('the strip over the terminal names the next task and where it is in the list', () => {
-  assert.equal(nowHTML(sampleView().chapter), '<b>Next task 2 of 3:</b> Find out where you are standing');
+test('the strip over the terminal names the next task, where it is in the list, and its tip', () => {
+  assert.equal(nowHTML(sampleView().chapter), '<b>Next task 2 of 3:</b> Find out where you are standing<span class="tip"><code>pwd</code> prints the full path of the directory you are in.</span>');
+});
+
+test('a task without a tip shows its goal alone', () => {
+  const chapter = sampleView().chapter;
+  chapter.tasks[1].tip = null;
+  assert.equal(nowHTML(chapter), '<b>Next task 2 of 3:</b> Find out where you are standing');
 });
 
 test('in the boss room the strip names the boss; a cleared chapter says so', () => {
@@ -124,4 +130,11 @@ test('in the quest the lesson comes first, open, before the tasks', () => {
   const html = questHTML(sampleView());
   assert.doesNotMatch(html, /lesson-again/);
   assert.ok(html.indexOf('You wake up inside a terminal') < html.indexOf('quest-log'));
+});
+
+test('the chapter you are in is marked as current whatever its status, cleared included', () => {
+  const chapters = sampleView().chapters;
+  chapters[0].status = 'cleared';
+  const html = chaptersHTML(chapters);
+  assert.match(html, /data-ch="awakening" class="cur" aria-current="true">.*<span class="status cleared">cleared<\/span>/s);
 });
