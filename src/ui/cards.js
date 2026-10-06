@@ -101,7 +101,9 @@ export function openCard(doc, html, kind = '') {
     if (event.key === 'Escape') card.querySelector('[data-dismiss]')?.click();
     else keepFocus(event);
   };
-  card.querySelector('button')?.focus();
+  // A long card keeps its title in view; focusing a button at the bottom would scroll it away.
+  card.querySelector('button')?.focus({ preventScroll: true });
+  card.scrollTop = 0;
   return card;
 }
 
