@@ -15,9 +15,9 @@ const ANGLE_PLACEHOLDER = /<[A-Za-z][\w-]*>/;
 const isText = x => typeof x === 'string' && x.trim() !== '';
 const isFunction = x => typeof x === 'function';
 
-function assertHints(hints, where) {
+function assertHints(hints, where, resolve = hint => hint) {
   assert.ok(Array.isArray(hints) && hints.length === 3, `${where}: needs exactly 3 hints (nudge, technique, command)`);
-  hints.forEach((hint, i) => {
+  hints.map(resolve).forEach((hint, i) => {
     assert.ok(isText(hint), `${where}: hint ${i + 1} must be non-empty text`);
     assert.ok(!ANGLE_PLACEHOLDER.test(hint), `${where}: hint ${i + 1} uses an <angle> placeholder; write it in UPPERCASE`);
   });
@@ -45,12 +45,12 @@ function assertBoss(boss, where) {
   assert.ok(boss && typeof boss === 'object', `${where}: needs a boss`);
   assert.ok(isText(boss.title), `${where} boss: title must be non-empty text`);
   assert.ok(isText(boss.briefing), `${where} boss: briefing must be non-empty text`);
-  assertHints(boss.hints, `${where} boss`);
   for (const name of ['setup', 'done', 'solve']) assert.ok(isFunction(boss[name]), `${where} boss: ${name} must be a function`);
 
   const room = boss.setup(createRandom(1), WHO);
   assert.ok(room && Array.isArray(room.patch) && 'secret' in room, `${where} boss: setup must return { patch, secret }`);
   validatePatch(room.patch);
+  assertHints(boss.hints, `${where} boss`, hint => (isFunction(hint) ? hint(room.secret) : hint));
 }
 
 function assertSpells(spells, where) {
@@ -66,7 +66,8 @@ function assertSpells(spells, where) {
 /**
  * Check one chapter module against the authoring contract. A `soon`
  * placeholder needs only id, act and title. The setup functions are called
- * with a seeded random and their patches validated.
+ * with a seeded random and their patches validated. Boss hints may be
+ * functions of the secret; they are called with the secret from boss.setup.
  *
  * @param {object} chapter The chapter module's default export.
  * @returns {void}
@@ -85,6 +86,7 @@ export function assertChapter(chapter) {
   assertLines(chapter.solve, `${where} solve`);
   assertBoss(chapter.boss, where);
   assertPairs(chapter.recap, `${where} recap`);
+  assert.ok(isText(chapter.why), `${where}: why must be non-empty text`);
   assertPairs(chapter.field, `${where} field`);
   assertSpells(chapter.spells, where);
   assert.ok(chapter.effects === undefined || isFunction(chapter.effects), `${where}: effects must be a function when present`);

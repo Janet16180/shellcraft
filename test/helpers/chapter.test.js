@@ -37,6 +37,22 @@ test('a hint with a real input redirection is accepted', () => {
   assert.doesNotThrow(() => assertChapter(chapter));
 });
 
+test('a boss hint may be a function of the secret, checked with the secret from setup', () => {
+  const chapter = playable();
+  chapter.boss.hints[2] = secret => `touch ${secret.name}`;
+  assert.doesNotThrow(() => assertChapter(chapter));
+  chapter.boss.hints[2] = () => '';
+  assert.throws(() => assertChapter(chapter), /boss: hint 3 must be non-empty text/);
+  chapter.boss.hints[2] = () => 'touch <name>';
+  assert.throws(() => assertChapter(chapter), /UPPERCASE/);
+});
+
+test('a task hint cannot be a function', () => {
+  const chapter = playable();
+  chapter.tasks[0].hints[2] = () => 'pwd';
+  assert.throws(() => assertChapter(chapter), /task 1: hint 3 must be non-empty text/);
+});
+
 test('missing check functions are rejected', () => {
   const chapter = playable();
   chapter.tasks[0].done = true;
@@ -46,8 +62,9 @@ test('missing check functions are rejected', () => {
   assert.throws(() => assertChapter(noSolve), /boss: solve/);
 });
 
-test('empty lesson text, solve lines or recap are rejected', () => {
+test('empty lesson text, why, solve lines or recap are rejected', () => {
   assert.throws(() => assertChapter({ ...playable(), lesson: '  ' }), /lesson/);
+  assert.throws(() => assertChapter({ ...playable(), why: '' }), /why/);
   assert.throws(() => assertChapter({ ...playable(), solve: [] }), /solve/);
   assert.throws(() => assertChapter({ ...playable(), recap: [['ls']] }), /recap/);
 });

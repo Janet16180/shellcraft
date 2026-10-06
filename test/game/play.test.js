@@ -5,6 +5,7 @@ import { createRandom } from '../../src/game/rng.js';
 import { createSimBackend } from '../../src/shell/backend.js';
 import { createMemoryStore } from '../helpers/memory-store.js';
 import { fixtureChapters, fixtureWorld } from '../helpers/fixture-chapters.js';
+import { typeLine } from '../helpers/type-line.js';
 
 const HOME = '/home/hero';
 
@@ -17,9 +18,9 @@ async function bootSim({ chapters, baseWorld, seed = 1 }) {
 
 async function playChapter(session, chapter) {
   const turns = [];
-  for (const line of chapter.solve) turns.push(await session.submit(line));
+  for (const line of chapter.solve) turns.push(await typeLine(line, session));
   const bossStart = turns.at(-1);
-  for (const line of chapter.boss.solve(bossStart.obs)) turns.push(await session.submit(line));
+  for (const line of chapter.boss.solve(bossStart.obs)) turns.push(await typeLine(line, session));
   return { turns, bossStart, last: turns.at(-1) };
 }
 
@@ -69,4 +70,16 @@ test('the simulator reports an unknown command and a listing of hidden files as 
   const { session } = await bootSim({ chapters: fixtureChapters(), baseWorld: fixtureWorld });
   const turn = await session.submit('sl; ls -a');
   assert.deepEqual(turn.effects, [{ kind: 'reveal', path: HOME }, { kind: 'unknown-command', name: 'sl' }]);
+});
+
+test('a tab in a solve line completes through the simulator and the checks see it', async () => {
+  const chapters = fixtureChapters();
+  const [task] = chapters[0].tasks;
+  chapters[0].tasks[0] = { ...task, done: ctx => ctx.completions.some(c => c.completed !== c.line) && ctx.cwd === `${HOME}/forest` };
+  const { session } = await bootSim({ chapters, baseWorld: fixtureWorld });
+  assert.deepEqual((await session.submit('cd forest')).events, []);
+  await session.submit('cd');
+  const turn = await typeLine('cd fo\t', session);
+  assert.equal(turn.result.commands[0].args[0], 'forest/');
+  assert.deepEqual(turn.events.map(e => [e.kind, e.index]), [['task', 0]]);
 });

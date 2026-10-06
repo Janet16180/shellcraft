@@ -10,7 +10,7 @@
  * @typedef {import('./effects.js').Effect} Effect
  *
  * @typedef {object} GameEvent One of: `task {index, goal, xp}`, `boss-start {title}`,
- *   `boss {xp}`, `chapter {id, recap, field, xp, next}`, `heart-lost {reason, left}`,
+ *   `boss {xp}`, `chapter {id, recap, why, field, xp, next}`, `heart-lost {reason, left}`,
  *   `hearts-restored {phase}`; each has a `kind`.
  *
  * @typedef {object} Turn
@@ -47,7 +47,7 @@ export function createSession({ backend, chapters, baseWorld, store, random }) {
 
   const s = {
     backend, chapters, baseWorld, store, random,
-    save: null, boot: null, obs: null, index: null,
+    save: null, boot: null, obs: null, index: null, completions: [],
     phase: 'quest', tasksDone: [], hints: [], bossHints: 0, secret: undefined, hearts: MAX_HEARTS, replay: false,
   };
   return {
@@ -56,10 +56,11 @@ export function createSession({ backend, chapters, baseWorld, store, random }) {
     submit: line => submit(s, line),
     hint: () => hint(s),
     view: () => view(s),
-    complete: async line => {
+    observation: () => {
       requireBooted(s);
-      return s.backend.complete(line);
+      return s.obs;
     },
+    complete: line => complete(s, line),
     setSound: on => setSound(s, on),
     markIntroSeen: () => updateSave(s, { introSeen: true }),
     reset: () => reset(s),
@@ -114,18 +115,27 @@ async function start(s, id, fresh) {
   return view(s);
 }
 
-async function submit(s, line) {
+async function complete(s, line) {
   requireBooted(s);
-  const answer = GAME_COMMANDS.get(line.trim());
-  return answer ? gameTurn(s, answer(s)) : shellTurn(s, line);
+  const result = await s.backend.complete(line);
+  s.completions.push({ line, completed: result.line });
+  return result;
 }
 
-async function shellTurn(s, line) {
+async function submit(s, line) {
+  requireBooted(s);
+  const completions = s.completions;
+  s.completions = [];
+  const answer = GAME_COMMANDS.get(line.trim());
+  return answer ? gameTurn(s, answer(s)) : shellTurn(s, line, completions);
+}
+
+async function shellTurn(s, line, completions) {
   const before = s.obs;
   const result = await s.backend.run(line);
   const after = await s.backend.observe();
   s.obs = after;
-  const ctx = makeContext({ commands: result.commands, before, obs: after });
+  const ctx = makeContext({ commands: result.commands, before, obs: after, completions });
   const effects = [...lineEffects(ctx, result.blocked), ...(current(s).effects?.(ctx) ?? [])];
   const events = await advance(s, ctx);
   const danger = result.blocked[0] ?? dangers(ctx)[0];
@@ -179,7 +189,7 @@ function clearChapter(s) {
   s.save.chapter = next ?? chapter.id;
   return [
     { kind: 'boss', xp: bossXp },
-    { kind: 'chapter', id: chapter.id, recap: chapter.recap, field: chapter.field, xp: clearXp, next },
+    { kind: 'chapter', id: chapter.id, recap: chapter.recap, why: chapter.why, field: chapter.field, xp: clearXp, next },
   ];
 }
 
@@ -215,6 +225,13 @@ function hintTarget(s) {
   return target;
 }
 
+// A boss hint may be a function of the secret, so it can name the random target.
+const resolveHint = (s, hint) => (typeof hint === 'function' ? hint(s.secret) : hint);
+
+function revealed(s, hints, used, base) {
+  return hints.slice(0, used).map((hint, i) => ({ level: i + 1, text: resolveHint(s, hint), cost: nextHint(base, i, s.replay).cost }));
+}
+
 function hint(s) {
   requireBooted(s);
   const target = hintTarget(s);
@@ -223,17 +240,23 @@ function hint(s) {
     const next = nextHint(target.base, target.used, s.replay);
     if (next) target.use();
     const level = next?.level ?? HINT_LEVELS;
-    shown = { level, text: target.hints[level - 1], cost: next?.cost ?? 0 };
+    shown = { level, text: resolveHint(s, target.hints[level - 1]), cost: next?.cost ?? 0 };
   }
   return shown;
 }
 
 function hintText(s) {
   const shown = hint(s);
+  const target = hintTarget(s);
+  const following = target && nextHint(target.base, target.used, s.replay);
   let text = 'This chapter is cleared: there is nothing left to hint at.';
   if (shown) {
-    const cost = shown.cost > 0 ? ` (costs ${shown.cost} XP)` : '';
+    const cost = shown.cost > 0 ? ` (cost ${shown.cost} XP)` : '';
     text = `Hint ${shown.level} of ${HINT_LEVELS}${cost}: ${shown.text}`;
+  }
+  if (following) {
+    const price = following.cost > 0 ? `costs ${following.cost} XP` : 'free';
+    text += `\nType hint again for hint ${following.level} (${price}).`;
   }
   return text;
 }
@@ -288,8 +311,13 @@ function chapterView(s) {
     phase: s.phase,
     lesson: chapter.lesson,
     replay: s.replay,
-    tasks: chapter.tasks.map((task, i) => ({ goal: task.goal, done: s.tasksDone[i], next: i === next, hints: task.hints.slice(0, s.hints[i]) })),
-    boss: { title: chapter.boss.title, briefing: chapter.boss.briefing, hints: chapter.boss.hints.slice(0, s.bossHints) },
+    tasks: chapter.tasks.map((task, i) => ({
+      goal: task.goal,
+      done: s.tasksDone[i],
+      next: i === next,
+      hints: revealed(s, task.hints, s.hints[i], XP.task),
+    })),
+    boss: { title: chapter.boss.title, briefing: chapter.boss.briefing, hints: revealed(s, chapter.boss.hints, s.bossHints, XP.boss) },
   };
 }
 

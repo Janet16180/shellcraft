@@ -16,6 +16,12 @@ test('the context exposes the line, both observations, home and the new cwd', ()
   assert.equal(ctx.obs.cwd, `${HOME}/forest`);
 });
 
+test('the context carries the Tab completions since the previous line, none by default', () => {
+  const completions = [{ line: 'cd fo', completed: 'cd forest/' }];
+  assert.deepEqual(makeContext({ commands: [], before: observation(), obs: observation(), completions }).completions, completions);
+  assert.deepEqual(context([]).completions, []);
+});
+
 test('node finds files and directories by absolute path in the observation after the line', () => {
   const ctx = context([]);
   assert.equal(ctx.node(`${HOME}/readme.txt`).content, 'Welcome, hero.\n');
