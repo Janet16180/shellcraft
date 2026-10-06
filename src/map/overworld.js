@@ -135,9 +135,9 @@ function stars(ctx, t, wall) {
 
 function ripples(ctx, t) {
   const shift = Math.floor(t / 160) % 12;
+  const underBridge = x => x > 132 && x < 186;
   for (let x = -12 + shift; x < ART.width; x += 12) {
-    if (x > 132 && x < 186) continue;
-    box(ctx, '#9fd3f5', x, 150 + ((x + 300) % 3), 4, 1);
+    if (!underBridge(x)) box(ctx, '#9fd3f5', x, 150 + ((x + 300) % 3), 4, 1);
   }
 }
 

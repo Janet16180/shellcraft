@@ -103,7 +103,6 @@ export async function journey(stage, from, obs, token) {
     },
   ];
   for (const step of steps) {
-    if (token !== stage.state.token) return;
-    await step();
+    if (token === stage.state.token) await step();
   }
 }

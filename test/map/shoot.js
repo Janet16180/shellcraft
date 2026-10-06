@@ -15,7 +15,7 @@ const page = url => `${base}/test/map/harness.html?${url}`;
 async function stills(browser) {
   const sizes = [
     { w: 640, dpr: 1, cases: null },
-    { w: 360, dpr: 2, cases: ['cottage', 'forest', 'hall', 'archive', 'gatehouse', 'armory', 'scrap'] },
+    { w: 360, dpr: 2, cases: ['cottage', 'forest', 'hall', 'archive', 'gatehouse', 'armory', 'scrap', 'crowded'] },
     { w: 960, dpr: 1, cases: ['cottage', 'hall'] },
   ];
   for (const { w, dpr, cases } of sizes) {

@@ -42,10 +42,13 @@ function paintRoom(stage, t, now) {
   layout.items.forEach((item, i) => drawItem(ax, item, scene.biome, t, i));
   if (layout.moreItems) drawMore(ax, layout.moreItems, 'item');
   if (layout.exit) painter.exit(ax, layout.exit, scene, t);
-  if (!scene.daemon) return;
-  state.daemon.x = 262 + Math.round(Math.sin(t / 700) * 10);
-  state.daemon.y = 70 + Math.round(Math.cos(t / 500) * 6);
-  drawDaemon(ax, state.daemon, now < state.daemon.flashUntil);
+  if (scene.daemon) paintDaemon(ax, state.daemon, t, now);
+}
+
+function paintDaemon(ax, daemon, t, now) {
+  daemon.x = 262 + Math.round(Math.sin(t / 700) * 10);
+  daemon.y = 70 + Math.round(Math.cos(t / 500) * 6);
+  drawDaemon(ax, daemon, now < daemon.flashUntil);
 }
 
 function paintArt(stage, t, now) {

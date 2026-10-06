@@ -102,9 +102,9 @@ export function fitCanvas(stage) {
     oy: Math.round((canvas.height - ART.height * scale) / 2),
   });
   const narrow = cssWidth < NARROW_CSS;
-  if (narrow === view.narrow) return;
+  const relayout = narrow !== view.narrow && state.obs !== null;
   view.narrow = narrow;
-  if (state.obs) settle(stage, state.obs);
+  if (relayout) settle(stage, state.obs);
 }
 
 /**

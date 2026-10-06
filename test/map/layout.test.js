@@ -112,7 +112,7 @@ test('picking on a door, an item or the exit names what is there', () => {
 test('the label above a door picks the door too', () => {
   const layout = layoutRoom(readRoom(observe('/home/hero/forest'), none));
   const door = layout.doors[1];
-  assert.equal(pickAt(layout, door.cx, door.y - 6).name, door.name);
+  assert.equal(pickAt(layout, door.cx, door.y - 12).name, door.name);
 });
 
 test('every hit box lies inside the picture', () => {

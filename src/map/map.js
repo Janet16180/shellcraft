@@ -81,7 +81,7 @@ function show(stage, obs) {
   const { state } = stage;
   state.token += 1;
   stage.motion.finish();
-  Object.assign(state, { fade: 0, trip: null, gateOpen: false, hover: null });
+  Object.assign(state, { fade: 0, trip: null, gateOpen: false, hover: null, banner: null, bubbles: [], flashUntil: 0, shakeUntil: 0 });
   Object.assign(state.player, STAND, { walking: false });
   state.revealed.clear();
   settle(stage, obs);
@@ -101,8 +101,8 @@ async function play(stage, effects, obs) {
   for (const effect of effects) BEFORE[effect.kind]?.(stage, effect, before.layout);
   if (obs.cwd !== before.path) await journey(stage, before.path, obs, token);
   else settle(stage, obs);
-  if (token !== state.token) return;
-  for (const effect of effects) AFTER[effect.kind]?.(stage, effect);
+  const current = token === state.token;
+  if (current) for (const effect of effects) AFTER[effect.kind]?.(stage, effect);
 }
 
 function pickFrom(stage, event) {
