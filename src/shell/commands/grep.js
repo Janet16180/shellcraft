@@ -73,6 +73,17 @@ function prefix(source, lineNo, opts) {
   return { text, html };
 }
 
+function markMatches(line, re) {
+  let html = '';
+  let last = 0;
+  for (const m of line.matchAll(re)) {
+    if (!m[0]) continue;
+    html += esc(line.slice(last, m.index)) + span('g-match', m[0]);
+    last = m.index + m[0].length;
+  }
+  return html + esc(line.slice(last));
+}
+
 function emitLine(line, pre, re, opts, acc) {
   const matches = opts.only ? [...line.matchAll(re.global)].map(m => m[0]).filter(Boolean) : [];
   for (const m of matches) {
@@ -80,7 +91,7 @@ function emitLine(line, pre, re, opts, acc) {
     acc.html += `${pre.html}${span('g-match', m)}${opts.sep}`;
   }
   if (opts.only) return;
-  const marked = opts.invert ? esc(line) : esc(line).replace(new RegExp(re.global.source, re.global.flags), m => (m ? `<span class="g-match">${m}</span>` : m));
+  const marked = opts.invert ? esc(line) : markMatches(line, re.global);
   acc.text += `${pre.text}${line}${opts.sep}`;
   acc.html += `${pre.html}${marked}${opts.sep}`;
 }
