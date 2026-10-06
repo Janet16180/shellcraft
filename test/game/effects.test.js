@@ -83,19 +83,24 @@ test('line effects include the world changes before the per-command ones', () =>
   assert.deepEqual(kinds(lineEffects(ctx, ['x'])), ['travel', 'reveal', 'guardian']);
 });
 
-test('rm -r of the root or of home is dangerous however it is written', () => {
+test('rm -r of the root, of home or of a directory holding home is dangerous however it is written', () => {
   const lines = [
     record('rm', ['-rf', '/']),
     record('rm', ['-R', '//']),
     record('rm', ['--recursive', '~']),
     record('rm', ['-r', HOME]),
     record('rm', ['-r', '~/']),
+    record('rm', ['-rf', '/home']),
+    record('rm', ['-r', '/home/']),
   ];
   for (const r of lines) assert.equal(dangers(context([r])).length, 1, r.args.join(' '));
 });
 
 test('rm -r of anything else, or rm without -r, is not dangerous', () => {
-  const lines = [record('rm', ['-r', 'forest']), record('rm', ['/']), record('rm', ['-f', HOME]), record('ls', ['-r', '/'])];
+  const lines = [
+    record('rm', ['-r', 'forest']), record('rm', ['/']), record('rm', ['-f', HOME]), record('ls', ['-r', '/']),
+    record('rm', ['-r', '/home/heroine']), record('rm', ['-r', '/hom']),
+  ];
   for (const r of lines) assert.deepEqual(dangers(context([r])), [], `${r.name} ${r.args.join(' ')}`);
 });
 
