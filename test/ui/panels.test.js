@@ -80,3 +80,10 @@ test('chapters that are locked or still being written cannot be opened', () => {
   assert.match(html, /data-ch="forest" class="locked" disabled>/);
   assert.match(html, /data-ch="unseen" class="soon" disabled>.*coming soon/s);
 });
+
+test('a replayed chapter says up front that it pays no XP', () => {
+  const view = sampleView();
+  view.chapter.replay = true;
+  assert.match(questHTML(view), /replaying it pays no XP/);
+  assert.doesNotMatch(questHTML(sampleView()), /replaying/);
+});

@@ -64,8 +64,10 @@ export function questHTML({ chapter, hint }) {
   let body = `<ol class="quest-log" aria-label="Tasks">${tasks.map(taskRow).join('')}</ol>`;
   if (phase === 'boss') body = bossHTML(boss);
   if (phase === 'done') body = clearedHTML();
+  const replay = chapter.replay ? '<p class="replay">You cleared this chapter before, so replaying it pays no XP.</p>' : '';
   return `<div class="eyebrow">Chapter ${number} &middot; ${PHASE_TEXT[phase]}</div>
     <h2>${esc(title)}</h2>
+    ${replay}
     <div class="lesson">${lesson}</div>
     ${body}
     ${phase === 'done' ? '' : hintsHTML(hint, revealedHints(chapter))}`;

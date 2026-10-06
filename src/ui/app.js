@@ -12,6 +12,7 @@ import { hintLabel, hintTitle, typedHintFollowUp } from './hints.js';
 import { commandForPath, commandForPick } from './picks.js';
 import { esc } from './output.js';
 import { confetti } from './confetti.js';
+import { bootText, restoredText } from './messages.js';
 import { createSound } from './sound.js';
 import { renderRoster } from './roster.js';
 import { playIntro } from '../intro/player.js';
@@ -150,11 +151,6 @@ function applyTurn(ui, turn) {
   for (const event of turn.events) onEvent(ui, event, turn.events);
 }
 
-const RESTORED = {
-  quest: 'The Guardian set this chapter up again and refilled your hearts. Finished tasks stay finished, and your XP is safe.',
-  boss: 'The Guardian built a new boss room and refilled your hearts. Your hints and XP are safe.',
-};
-
 const EVENTS = {
   task(ui, { goal, xp }) {
     toast(ui, `Quest complete: ${goal}  +${xp} XP`);
@@ -180,7 +176,7 @@ const EVENTS = {
     ui.map.say('Ouch!', 'player');
   },
   'hearts-restored'(ui, { phase }) {
-    ui.terminal.printLine(`[Guardian] You ran out of hearts. ${RESTORED[phase]}`, 'note');
+    ui.terminal.printLine(`[Guardian] ${restoredText(phase)}`, 'note');
   },
 };
 
@@ -248,6 +244,8 @@ function begin(ui) {
   closeCard(ui.doc);
   ui.terminal.clear();
   ui.terminal.printLine('Welcome to Kernelia GNU/Linux (simulated).', 'sys');
+  const saved = bootText(ui.view.boot);
+  if (saved) ui.terminal.printLine(saved, 'note');
   chapterBanner(ui);
   if (ui.view.introSeen) ui.terminal.focus();
   else ui.intro();
