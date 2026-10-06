@@ -10,7 +10,7 @@
       { "line": "ls -l /dev/null", "reason": "/dev/null is stamped when the system starts: the container's start time versus the simulator's world time" }
     ] },
   { "name": "ls options and errors", "world": "home", "lines": ["ls -z", "ls -l -a", "ls -al forest/cave", "ls --all"] },
-  { "name": "ls output into a pipe", "world": "names", "lines": ["ls | cat", "ls names | cat", "ls -a names | cat", "ls -F names | cat"] },
+  { "name": "ls output into a pipe", "world": "names", "lines": ["ls | cat", "ls names | cat", "ls -a names | cat", "ls -F names | cat", "ls -C names | cat", "COLUMNS=40 ls -C names | cat", "COLUMNS=40", "ls names"] },
   { "name": "cat", "world": "home", "lines": ["cat readme.txt", "cat -n readme.txt", "cat readme.txt .secret_map", "cat nope", "cat forest", "cat /etc/vault.conf", "cat /etc/motd", "cat -z readme.txt", "cat -n forest/cave/bat.txt nope"] },
   { "name": "echo", "world": "home", "lines": ["echo hello", "echo   spaced    words", "echo 'single  quoted'", "echo \"double  $HOME\"", "echo -n no newline", "echo -e 'a\\tb'", "echo $USER", "echo", "echo ~", "echo ~/forest"] },
   { "name": "clear", "world": "home", "lines": ["clear"] },

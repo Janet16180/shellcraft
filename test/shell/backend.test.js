@@ -6,7 +6,7 @@ import { shell, run, NOW } from './helpers.js';
 
 test('every port method returns a promise', async () => {
   const b = createSimBackend({ now: () => NOW });
-  const calls = [b.load([]), b.run('pwd'), b.observe(), b.complete('pw')];
+  const calls = [b.load([]), b.run('pwd'), b.observe(), b.complete('pw'), b.resize(100)];
   for (const c of calls) assert.ok(c instanceof Promise);
   await Promise.all(calls);
 });
@@ -174,4 +174,15 @@ test("the player's own interactive shell carries the key 'shell'", async () => {
   assert.equal(shells.length, 1);
   assert.equal(shells[0].cmd, '-bash');
   assert.equal(shells[0].user, 'hero');
+});
+
+test('resize sets the terminal width that bash reports in COLUMNS', async () => {
+  const b = await shell();
+  await b.resize(120);
+  assert.equal((await run(b, 'echo $COLUMNS')).out, '120\n');
+});
+
+test('resize raises for anything but a positive integer', async () => {
+  const b = await shell();
+  for (const bad of [0, -3, 2.5, '80', NaN]) await assert.rejects(b.resize(bad), /positive integer/, String(bad));
 });

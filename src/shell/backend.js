@@ -2,7 +2,7 @@
  * The simulated bash behind the backend port (src/backend/port.js).
  */
 
-import { createSystem } from './system.js';
+import { createSystem, resizeTerminal } from './system.js';
 import { snapshot } from './fs.js';
 import { executeLine } from './exec.js';
 import { applyPatch } from './patch.js';
@@ -73,5 +73,6 @@ export function createSimBackend({ user = 'hero', host = 'kernelia', home = '/ho
     run: async line => runLine(sys, line),
     observe: async () => observe(sys),
     complete: async line => complete(sys, line, Object.keys(COMMANDS)),
+    resize: async columns => resizeTerminal(sys, columns),
   };
 }
