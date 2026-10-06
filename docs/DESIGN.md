@@ -57,7 +57,7 @@ once in `src/backend/access.js`: the simulator enforces it and the map draws pad
 ### 2.2 Session API (`src/game/session.js`, consumed by the UI)
 
 ```js
-const session = createSession({ backend, chapters, store, random });
+const session = createSession({ backend, chapters, baseWorld, store, random });  // baseWorld from world.js, injected by main.js
 await session.boot();                 // -> View   load the save (validated), start the current chapter
 await session.startChapter(id, { fresh });   // -> View
 await session.submit(line);           // -> Turn
