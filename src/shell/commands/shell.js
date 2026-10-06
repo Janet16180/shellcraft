@@ -4,13 +4,14 @@
  */
 
 import { lookup, normalize, joinPath } from '../fs.js';
-import { BUILTINS, BUILTIN_HELP, builtinHelp } from '../builtins.js';
+import { BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from '../builtins.js';
 import { can } from '../perms.js';
 import { manText, hasManPage, manEntries } from '../man.js';
 import { compilePosix } from '../regex.js';
 import { result, withNote } from '../result.js';
 import { varValue, setVar, exportedVars } from '../vars.js';
 import { compareNames } from '../collate.js';
+import { parseOptions } from '../options.js';
 
 /**
  * Find a command's program the way PATH lookup does.
@@ -28,7 +29,8 @@ export function findInPath(sys, name) {
 }
 
 const SECTION = /^[1-9]$/;
-const SMALL_MANUAL = "This game's manual holds only the pages of the commands it simulates, so a real man -k finds many more.";
+const SMALL_MANUAL = "This game's manual holds only the pages of the commands it simulates, so a real search finds many more.";
+const SEARCHERS = { '-k': 'apropos', '-f': 'whatis' };
 
 function summaryLine(entry, width) {
   const line = `${`${entry.name} (1)`.padEnd(20)} - ${entry.description}`;
@@ -48,6 +50,19 @@ function lookupPages(mode, keywords, width) {
   return withNote(result(found.map(e => `${summaryLine(e, width)}\n`).join(''), errs.join('\n'), errs.length ? 16 : 0), mode === '-k' ? SMALL_MANUAL : null);
 }
 
+function searchPages(mode, keywords, { sys, piped }) {
+  return keywords.length ? lookupPages(mode, keywords, piped ? 0 : sys.columns) : result(`${SEARCHERS[mode]} what?\n`, '', 1);
+}
+
+function searchCommand(mode) {
+  const name = SEARCHERS[mode];
+  return (args, ctx) => {
+    const o = parseOptions(name, args, '');
+    const error = o.err && `${o.err.split('\n')[0]}\nTry '${name} --help' or '${name} --usage' for more information.`;
+    return error ? result('', error, 1) : searchPages(mode, o.rest, ctx);
+  };
+}
+
 function manPage(name, section) {
   const builtin = name in BUILTIN_HELP ? `${name} is built into bash, so it has no manual page of its own. Try help ${name}.` : null;
   let r;
@@ -62,13 +77,12 @@ function missingPage(section) {
   return result('', `${ask}\nFor example, try 'man man'.`, 1);
 }
 
-function man(args, { sys, piped }) {
-  const mode = args[0] === '-k' || args[0] === '-f' ? args[0] : null;
+function man(args, ctx) {
+  const mode = Object.hasOwn(SEARCHERS, args[0]) ? args[0] : null;
   const section = !mode && SECTION.test(args[0] ?? '') ? args[0] : null;
   const pages = args.slice(mode || section ? 1 : 0);
   let r;
-  if (mode && !pages.length) r = result('', mode === '-k' ? 'apropos what?' : 'whatis what?', 1);
-  else if (mode) r = lookupPages(mode, pages, piped ? 0 : sys.columns);
+  if (mode) r = searchPages(mode, pages, ctx);
   else if (!pages.length) r = missingPage(section);
   else r = manPage(pages[0], section);
   return r;
@@ -85,7 +99,7 @@ function type(args, { sys }) {
   for (const x of args) {
     const path = findInPath(sys, x);
     if (sys.aliases[x]) out.push(`${x} is aliased to \`${sys.aliases[x]}'`);
-    else if (BUILTINS.has(x)) out.push(`${x} is a shell builtin`);
+    else if (BASH_BUILTINS.has(x)) out.push(`${x} is a shell builtin`);
     else if (path && sys.hashed.has(x)) out.push(`${x} is hashed (${path})`);
     else if (path) out.push(`${x} is ${path}`);
     else errs.push(`bash: type: ${x}: not found`);
@@ -191,6 +205,8 @@ const HELP = [
 
 export default {
   man,
+  apropos: searchCommand('-k'),
+  whatis: searchCommand('-f'),
   history: (_args, { sys }) => result(sys.history.map((h, i) => `${String(i + 1).padStart(5)}  ${h}\n`).join('')),
   which,
   type,

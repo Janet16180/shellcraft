@@ -16,7 +16,7 @@ import { result, withNote } from './result.js';
 import { manText, hasManPage } from './man.js';
 import { versionText } from './versions.js';
 import { varValue, setVar } from './vars.js';
-import { BUILTINS, BUILTIN_HELP, builtinHelp } from './builtins.js';
+import { BUILTINS, BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from './builtins.js';
 
 const MAX_DEPTH = 8;
 const SYSTEM_HOMES = { root: '/root', daemon: '/usr/sbin', bin: '/bin', sys: '/dev', nobody: '/nonexistent' };
@@ -32,7 +32,7 @@ function firstOf(args, ...wanted) {
 }
 
 const UNSIMULATED = new Set(['w', 'nl', 'cut', 'tr', 'du', 'df', 'ln', 'stat', 'diff', 'tar', 'chown', 'rev', 'seq', 'yes', 'od', 'tee', 'xargs',
-  'basename', 'dirname', 'realpath', 'readlink', 'printf', 'test', 'read', 'tac', 'shuf', 'cmp', 'comm', 'paste', 'join', 'split', 'fold',
+  'basename', 'dirname', 'realpath', 'readlink', 'tac', 'shuf', 'cmp', 'comm', 'paste', 'join', 'split', 'fold',
   'expand', 'md5sum', 'sha256sum', 'base64', 'sleep', 'watch', 'free', 'uptime', 'lsblk', 'mount', 'apt', 'perl', 'gzip', 'whereis', 'stty', 'tput']);
 const isAssignment = word => 'lit' in word.parts[0] && !word.parts[0].q && ASSIGNMENT.test(word.parts[0].lit);
 const withNewline = text => (text && !text.endsWith('\n') ? `${text}\n` : text);
@@ -94,6 +94,10 @@ function commandNotFound(name) {
   return withNote(result('', `bash: ${name}: command not found`, 127), hint);
 }
 
+function unsimulatedBuiltin(name) {
+  return withNote(result('', '', 1), `${name} is built into bash, but this game does not simulate it.`);
+}
+
 function dispatch(sh, argv, streams, overlay) {
   const { sys } = sh;
   const [name, ...args] = argv;
@@ -107,6 +111,7 @@ function dispatch(sh, argv, streams, overlay) {
   else if (args[0] === '--help' && name in BUILTIN_HELP) r = withNote(result(builtinHelp(name), '', 2), helpNote(name));
   else if (firstOf(args, '--version', '--help') === '--version' && versionText(name) && !BUILTINS.has(name)) r = result(versionText(name));
   else if (args.includes('--help') && hasManPage(name) && !BUILTINS.has(name) && !OWN_OPTIONS.has(name)) r = withNote(result(manText(name, true)), `Real ${name} --help prints a longer list of options.`);
+  else if (!sh.commands[name] && BASH_BUILTINS.has(name)) r = unsimulatedBuiltin(name);
   else if (!sh.commands[name]) r = commandNotFound(name);
   else {
     if (!BUILTINS.has(name)) sys.hashed.add(name);

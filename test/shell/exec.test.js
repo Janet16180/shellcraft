@@ -170,6 +170,15 @@ test('a real command the game does not simulate gets a note saying so', async ()
   assert.equal((await run(b, 'florp')).note, '');
 });
 
+test('a bash builtin the game does not simulate is not reported as missing', async () => {
+  const b = await shell();
+  for (const [line, name] of [['printf hi', 'printf'], ['test -e x', 'test'], ['read x', 'read'], ['[ -e x ]', '['], ['source x.sh', 'source']]) {
+    const r = await run(b, line);
+    assert.deepEqual([r.out, r.err, r.status], ['', '', 1]);
+    assert.equal(r.note, `${name} is built into bash, but this game does not simulate it.`);
+  }
+});
+
 test('a short --help says that the real one lists more options', async () => {
   assert.equal((await run(await shell(), 'ls --help')).note, 'Real ls --help prints a longer list of options.');
 });

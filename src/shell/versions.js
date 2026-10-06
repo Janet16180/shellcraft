@@ -33,6 +33,9 @@ const OTHERS = {
   grep: `grep (GNU grep) 3.11\nCopyright (C) 2023 Free Software Foundation, Inc.\n${GPL}\nWritten by Mike Haertel and others; see\n<https://git.savannah.gnu.org/cgit/grep.git/tree/AUTHORS>.\n\ngrep -P uses PCRE2 10.42 2022-12-11\n`,
   find: `find (GNU findutils) 4.9.0\nCopyright (C) 2022 Free Software Foundation, Inc.\n${GPL}\nWritten by Eric B. Decker, James Youngman, and Kevin Dalley.\nFeatures enabled: D_TYPE O_NOFOLLOW(enabled) LEAF_OPTIMISATION FTS(FTS_CWDFD) CBO(level=2) \n`,
   hostname: 'hostname 3.23\n',
+  man: 'man 2.12.0\n',
+  apropos: 'apropos 2.12.0\n',
+  whatis: 'whatis 2.12.0\n',
   tree: 'tree v2.1.1 © 1996 - 2023 by Steve Baker, Thomas Moore, Francesc Rocher, Florian Sesser, Kyosuke Tokoro\n',
 };
 

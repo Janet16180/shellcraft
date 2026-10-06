@@ -4,6 +4,12 @@
  * help bash prints for them.
  */
 
+/** Every builtin of bash 5.2 (`compgen -b`), simulated or not. */
+export const BASH_BUILTINS = new Set(['.', ':', '[', 'alias', 'bg', 'bind', 'break', 'builtin', 'caller', 'cd', 'command', 'compgen', 'complete',
+  'compopt', 'continue', 'declare', 'dirs', 'disown', 'echo', 'enable', 'eval', 'exec', 'exit', 'export', 'false', 'fc', 'fg', 'getopts', 'hash',
+  'help', 'history', 'jobs', 'kill', 'let', 'local', 'logout', 'mapfile', 'popd', 'printf', 'pushd', 'pwd', 'read', 'readarray', 'readonly',
+  'return', 'set', 'shift', 'shopt', 'source', 'suspend', 'test', 'times', 'trap', 'true', 'type', 'typeset', 'ulimit', 'umask', 'unalias',
+  'unset', 'wait']);
 export const BUILTINS = new Set(['cd', 'history', 'alias', 'export', 'exit', 'logout', 'type', 'echo', 'pwd', 'kill', 'true', 'false', 'help', 'unalias', 'unset']);
 export const NO_BINARY = new Set(['cd', 'history', 'alias', 'export', 'exit', 'logout', 'type', 'help', 'unalias', 'unset']);
 
