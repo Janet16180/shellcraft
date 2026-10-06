@@ -128,6 +128,16 @@ async function titleAndTouch(browser, base, out) {
   return [...title.errors, ...touch.errors];
 }
 
+async function tallShot(browser, base, out) {
+  const { page, context, errors } = await openPage(browser, base, { width: 1400, height: 1100 });
+  await startSkippingIntro(page);
+  for (const line of ['ls', 'cat readme.txt']) await type(page, line);
+  await page.locator('.side').evaluate(side => { side.scrollTop = 300; });
+  await shot(page, out, 'tall-1400');
+  await context.close();
+  return errors;
+}
+
 async function main() {
   const [outArg] = process.argv.slice(2).filter(a => !a.startsWith('--'));
   if (!outArg) throw new Error('usage: node test/ui/shots.js OUT_DIR [--fixtures]');
@@ -138,6 +148,7 @@ async function main() {
   const errors = [];
   try {
     errors.push(...await titleAndTouch(browser, base, out));
+    errors.push(...await tallShot(browser, base, out));
     for (const width of [1400, 900, 360]) errors.push(...await gameShots(browser, base, out, width));
     errors.push(...await introShots(browser, base, out, 1400, false));
     errors.push(...await introShots(browser, base, out, 360, false));
