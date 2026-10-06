@@ -12,7 +12,10 @@ import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const IMAGE = 'shellcraft-difftest';
-const IN_CONTAINER = ['cat', 'cp', 'mv', 'mkdir', 'rm', 'rmdir', 'touch', 'grep', 'id', 'uname', 'who', 'whoami', 'ls', 'dir', 'tree', 'sort', 'uniq', 'wc', 'head', 'tail'];
+const IN_CONTAINER = [
+  'cat', 'cp', 'mv', 'mkdir', 'rm', 'rmdir', 'touch', 'grep', 'id', 'uname', 'who', 'whoami', 'ls', 'dir', 'tree', 'sort', 'uniq', 'wc', 'head', 'tail',
+  'pgrep', 'pkill', 'killall',
+];
 const ON_HOST = ['apropos', 'whatis'];
 const SEPARATOR = '\u001eNEXT\u001e';
 const OUT = path.resolve(import.meta.dirname, '..', 'src', 'shell', 'real-options.js');
@@ -28,8 +31,8 @@ export function optionsIn(help) {
   const short = new Set();
   const long = new Set();
   for (const line of help.split('\n')) {
-    const spec = /^\s+(-[^\s,]+(?:,?\s-[^\s,]+)*)/.exec(line)?.[1] ?? '';
-    for (const word of spec.split(/,?\s+/)) {
+    const spec = /^\s+(-[^\s,]+(?:,?\s*-[^\s,]+)*)/.exec(line)?.[1] ?? '';
+    for (const word of spec.split(/,\s*|\s+/)) {
       const longName = /^(--[A-Za-z0-9][\w-]*)/.exec(word);
       const shortName = /^-([A-Za-z0-9?])(?![\w-])/.exec(word);
       if (longName) long.add(longName[1]);

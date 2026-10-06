@@ -15,10 +15,10 @@ import { compileGlob } from '../glob.js';
 import { localeQuote } from '../quote.js';
 import { result, withNote } from '../result.js';
 import { nameTable } from '../table.js';
+import { knownUsers } from '../system.js';
 import { versionText } from '../versions.js';
 
 const UNITS = { c: 1, w: 2, b: 512, k: 1024, M: 1024 ** 2, G: 1024 ** 3 };
-const SYSTEM_USERS = ['root', 'daemon', 'bin', 'sys', 'nobody'];
 const FIND_HELP = `Usage: find [-H] [-L] [-P] [-Olevel] [-D debugopts] [path...] [expression]
 
 Default path is the current directory; default expression is -print.
@@ -213,7 +213,7 @@ function find(args, { sys }) {
   let k = 0;
   while (k < args.length && !args[k].startsWith('-') && args[k] !== '!' && args[k] !== '(') k++;
   const starts = k ? args.slice(0, k) : ['.'];
-  const users = new Set([...SYSTEM_USERS, sys.user]);
+  const users = knownUsers(sys);
   const ctx = { out: [], errs: [], maxDepth: Infinity, minDepth: 0, users };
   const parsed = parseExpression(args.slice(k), ctx);
   if (parsed.tooDeep) return withNote(result('', '', 1), `Real find accepts deeper nesting, but the game stops at ${MAX_GROUPS} levels of parentheses.`);

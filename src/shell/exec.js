@@ -17,10 +17,9 @@ import { manText, hasManPage, shortHelpNote } from './man.js';
 import { versionText } from './versions.js';
 import { varValue, setVar } from './vars.js';
 import { BUILTINS, BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from './builtins.js';
-import { nameTable } from './table.js';
+import { SYSTEM_HOMES } from './system.js';
 
 const MAX_DEPTH = 32;
-const SYSTEM_HOMES = nameTable({ root: '/root', daemon: '/usr/sbin', bin: '/bin', sys: '/dev', nobody: '/nonexistent' });
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const CONTINUATION = 'In a real terminal, bash would wait for the rest of the command on a new line (a > prompt). Here the line ends where you pressed Enter.';
 const BACKGROUND = 'Background jobs are not simulated yet: the command ran in the foreground.';

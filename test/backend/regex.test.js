@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { compilePosix } from '../../src/shell/regex.js';
+import { compilePosix } from '../../src/backend/regex.js';
 
 const matches = (pattern, line, opts = {}) => {
   const { regex, error } = compilePosix([pattern], opts);

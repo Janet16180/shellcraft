@@ -8,7 +8,7 @@ import { BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from '../builtins.js';
 import { can } from '../perms.js';
 import { manText, hasManPage, manEntries, shortHelpNote } from '../man.js';
 import { versionText } from '../versions.js';
-import { compilePosix } from '../regex.js';
+import { compilePosix } from '../../backend/regex.js';
 import { result, withNote } from '../result.js';
 import { varValue, setVar, exportedVars } from '../vars.js';
 import { compareNames } from '../../backend/tree.js';

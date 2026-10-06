@@ -5,6 +5,8 @@
  * answers, so the simulator and the hearts always agree.
  */
 
+import { VALUE_OPTIONS, scanOptions } from './procargs.js';
+
 const STANDARD = [
   'HUP', 'INT', 'QUIT', 'ILL', 'TRAP', 'ABRT', 'BUS', 'FPE', 'KILL', 'USR1', 'SEGV', 'USR2', 'PIPE', 'ALRM', 'TERM', 'STKFLT',
   'CHLD', 'CONT', 'STOP', 'TSTP', 'TTIN', 'TTOU', 'URG', 'XCPU', 'XFSZ', 'VTALRM', 'PROF', 'WINCH', 'IO', 'PWR', 'SYS',
@@ -93,28 +95,6 @@ export function endsInteractiveShell(sig) {
   return (action === 'terminate' || action === 'stop') && !BASH_SURVIVES.has(sig);
 }
 
-/**
- * Whether sending a signal to a kill operand ends the player's session. The
- * shell's PID, 0 (its process group) and minus its PID reach the shell, which
- * survives the signals bash ignores. -1 reaches every process the user owns,
- * the terminal included, so any signal that ends or stops a process ends the
- * session there.
- *
- * @param {string} operand A kill operand, like '1234', '0' or '-1'.
- * @param {number} sig A signal number from 0 to 64.
- * @param {number} shellPid The PID of the player's shell.
- * @returns {boolean} True when the session would end.
- * @throws {Error} If sig is not a signal number.
- */
-export function endsSession(operand, sig, shellPid) {
-  const action = defaultAction(sig);
-  const pid = /^-?\d+$/.test(operand) ? Number(operand) : null;
-  let ends = false;
-  if (pid === -1) ends = action === 'terminate' || action === 'stop';
-  else if (pid === 0 || pid === shellPid || pid === -shellPid) ends = endsInteractiveShell(sig);
-  return ends;
-}
-
 const outcome = (status, signal, spec, operands) => ({ status, signal, spec, operands });
 
 function decided(sig, spec, operands) {
@@ -145,37 +125,22 @@ function killSignal(args) {
   return result;
 }
 
-const PKILL_VALUES = 'gGPstuUFrqO';
-const PKILL_LONG_VALUES = ['--signal', '--pgroup', '--group', '--parent', '--session', '--terminal', '--euid', '--uid', '--pidfile', '--runstates', '--queue', '--older', '--ns', '--nslist', '--cgroup'];
-const KILLALL_VALUES = 'syounZ';
-const KILLALL_LONG_VALUES = ['--signal', '--younger-than', '--older-than', '--user', '--ns', '--context'];
-
-function takesNextValue(word, shortValues, longValues) {
-  const letters = word.slice(1);
-  return word.startsWith('--') ? longValues.includes(word) : [...letters].findIndex(c => shortValues.includes(c)) === letters.length - 1;
-}
-
-// Walk getopt-style arguments up to `--`, calling onOption with each option
-// word and the value it takes from the next argument, if any.
-function scanOptions(args, shortValues, longValues, onOption) {
-  const end = args.includes('--') ? args.indexOf('--') : args.length;
-  const operands = [];
-  let missing = null;
-  for (let i = 0; i < end && missing === null; i++) {
-    const word = args[i];
-    if (word.length < 2 || !word.startsWith('-')) operands.push(word);
-    else if (!takesNextValue(word, shortValues, longValues)) onOption(word, null);
-    else if (i + 1 === end) missing = word;
-    else onOption(word, args[++i]);
-  }
-  return { operands: [...operands, ...args.slice(end + 1)], missing };
+/**
+ * Take out the signal word pkill finds before reading its options: the first
+ * argument that is a dash and a signal, wherever it is, as procps does.
+ *
+ * @param {string[]} args pkill's arguments.
+ * @returns {{spec: string|null, rest: string[]}} The signal as typed, without the dash, and the other arguments.
+ */
+export function pkillPrescan(args) {
+  const at = args.findIndex(word => word.length > 1 && word.startsWith('-') && !word.startsWith('--') && parseSignal(word.slice(1)) !== null);
+  return { spec: at < 0 ? null : args[at].slice(1), rest: at < 0 ? args : args.filter((_, i) => i !== at) };
 }
 
 function pkillSignal(args) {
-  const prescan = args.findIndex(word => word.length > 1 && word.startsWith('-') && !word.startsWith('--') && parseSignal(word.slice(1)) !== null);
-  const rest = prescan < 0 ? args : args.filter((_, i) => i !== prescan);
-  let spec = prescan < 0 ? null : args[prescan].slice(1);
-  const scan = scanOptions(rest, PKILL_VALUES, PKILL_LONG_VALUES, (word, value) => {
+  const prescan = pkillPrescan(args);
+  let spec = prescan.spec;
+  const scan = scanOptions(prescan.rest, VALUE_OPTIONS.pkill, (word, value) => {
     if (word === '--signal') spec = value;
     else if (word.startsWith('--signal=')) spec = word.slice('--signal='.length);
   });
@@ -197,13 +162,13 @@ function killallSignal(args) {
   let spec = null;
   let list = false;
   let usage = null;
-  const scan = scanOptions(args, KILLALL_VALUES, KILLALL_LONG_VALUES, (word, value) => {
+  const scan = scanOptions(args, VALUE_OPTIONS.killall, (word, value) => {
     if (word === '--signal' || word === '-s') spec = value;
     else if (word.startsWith('--signal=')) spec = word.slice('--signal='.length);
     else if (/^-s./.test(word)) spec = word.slice(2);
     else if (word === '-l' || word === '--list') list = true;
     else if (/^-[A-Z\d]/.test(word)) spec = word.slice(1);
-    else if (!/^-[egiqrvwIV]+$|^--/.test(word)) usage = usage ?? word;
+    else if (!/^-[egyoilqrsuvwZVIn]|^--/.test(word)) usage = usage ?? word;
   });
   let result = decided(spec === null ? 15 : killallNumber(spec), spec, scan.operands);
   if (scan.missing !== null) result = outcome('missing', null, scan.missing, []);

@@ -40,5 +40,6 @@
       { "line": "nano x", "reason": "editors are not simulated (and not installed in the container)", "real": false },
       { "line": "vim x", "reason": "editors are not simulated (and not installed in the container)", "real": false },
       { "line": "sudo ls", "reason": "sudo asks for a password on the terminal; the simulator refuses as for a user outside sudoers", "real": false }
-    ] }
+    ] },
+  {"name": "process selection", "world": "home", "lines": ["pgrep -x bash > /dev/null; echo $?", "pgrep '^ba' > /dev/null; echo $?", "pgrep 'b.sh$' > /dev/null; echo $?", "pgrep -t pts/0 -x bash > /dev/null; echo $?", "pgrep -u hero -x bash > /dev/null; echo $?", "pgrep -x nosuchproc", "pgrep -i '^BASH$' > /dev/null; echo $?", "pgrep a b", "pgrep", "pgrep '('", "pgrep -u nobodyzz x", "pgrep -k x", "pkill -u", "pkill -0 -x nosuchproc", "killall -u nobodyzz", "killall -u", "killall -0 nosuchproc", "pkill -0 -u hero -x bash; echo $?", "kill -0 0; echo $?"]}
 ]

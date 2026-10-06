@@ -2,16 +2,15 @@
  * POSIX regular expressions as GNU grep reads them, translated to
  * JavaScript. Basic expressions (BRE) treat `+ ? | ( ) { }` as literal and
  * accept GNU's `\+ \? \| \( \) \{ \}`; extended ones (ERE) use them directly.
- * Malformed patterns give GNU grep's messages.
+ * Malformed patterns give GNU grep's messages. Shared by the simulated grep
+ * and the process names pkill and pgrep match, in the game rules too.
  */
 
-import { nameTable } from './table.js';
-
 const WORD = 'A-Za-z0-9_';
-const CLASSES = nameTable({
+const CLASSES = {
   alpha: 'A-Za-z', digit: '0-9', alnum: '0-9A-Za-z', upper: 'A-Z', lower: 'a-z', space: ' \\t\\n\\r\\f\\v', blank: ' \\t',
   punct: '!-\\/:-@\\[-`{-~', xdigit: '0-9A-Fa-f', cntrl: '\\x00-\\x1f\\x7f', print: ' -~', graph: '!-~',
-});
+};
 const ESCAPED = { '<': `\\b(?=[${WORD}])`, '>': `\\b(?<=[${WORD}])`, b: '\\b', B: '\\B', w: `[${WORD}]`, W: `[^${WORD}]`, s: '\\s', S: '\\S', '`': '^', "'": '$' };
 const UNMATCHED_BRACKET = 'Unmatched [, [^, [:, [., or [=';
 const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
@@ -23,7 +22,7 @@ function namedItem(p, j, kind) {
   let item;
   if (close < 0) item = { error: UNMATCHED_BRACKET };
   else if (kind !== ':') item = { text: escapeClass(name), next: close + 2 };
-  else if (CLASSES[name]) item = { text: CLASSES[name], next: close + 2 };
+  else if (Object.hasOwn(CLASSES, name)) item = { text: CLASSES[name], next: close + 2 };
   else item = { error: 'Invalid character class name' };
   return item;
 }

@@ -8,7 +8,7 @@ import { joinDisp, splitLines } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
 import { compareNames } from '../../backend/tree.js';
 import { can } from '../perms.js';
-import { compilePosix } from '../regex.js';
+import { compilePosix } from '../../backend/regex.js';
 import { parseOptions, mapLongOptions, optionFailure } from '../options.js';
 import { shellQuote } from '../quote.js';
 import { result, needInput } from '../result.js';

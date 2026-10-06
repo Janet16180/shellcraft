@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SIGNAL_LIST, signalName, parseSignal, defaultAction, endsInteractiveShell, endsSession, requestedSignal } from '../../src/backend/signals.js';
+import { SIGNAL_LIST, signalName, parseSignal, defaultAction, endsInteractiveShell, requestedSignal, pkillPrescan } from '../../src/backend/signals.js';
 
 test('the list holds the 62 Linux signals as kill -l numbers them', () => {
   assert.equal(SIGNAL_LIST.length, 62);
@@ -84,17 +84,12 @@ test('only kill, pkill and killall send signals', () => {
   assert.throws(() => requestedSignal('ls', []), /does not send signals/);
 });
 
-test('a kill operand ends the session when it reaches the shell or every process', () => {
-  const shell = 4242;
-  for (const operand of ['4242', '0', '-4242']) {
-    assert.equal(endsSession(operand, 9, shell), true, operand);
-    assert.equal(endsSession(operand, 15, shell), false, operand);
-  }
-  assert.equal(endsSession('-1', 15, shell), true);
-  assert.equal(endsSession('-1', 19, shell), true);
-  assert.equal(endsSession('-1', 0, shell), false);
-  assert.equal(endsSession('-1', 28, shell), false);
-  assert.equal(endsSession('77', 9, shell), false);
-  assert.equal(endsSession('-77', 9, shell), false);
-  assert.equal(endsSession('abc', 9, shell), false);
+test('pkill takes out the first argument that names a signal, wherever it is', () => {
+  assert.deepEqual(pkillPrescan(['sleep', '-IO', '-9']), { spec: 'IO', rest: ['sleep', '-9'] });
+  assert.deepEqual(pkillPrescan(['-u', 'hero']), { spec: null, rest: ['-u', 'hero'] });
+});
+
+test('killall options that take a value are not usage errors', () => {
+  assert.deepEqual(requestedSignal('killall', ['-9', '-u', 'hero']), { status: 'send', signal: 9, spec: '9', operands: [] });
+  assert.equal(requestedSignal('killall', ['-uhero', 'sleep']).status, 'send');
 });

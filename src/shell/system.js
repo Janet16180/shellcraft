@@ -12,6 +12,15 @@ const ROOT_META = { owner: 'root', group: 'root' };
 
 /** The terminal the player's shell runs on. */
 export const TERMINAL = 'pts/0';
+
+/** The system accounts every machine has, with their home directories. */
+export const SYSTEM_HOMES = nameTable({ root: '/root', daemon: '/usr/sbin', bin: '/bin', sys: '/dev', nobody: '/nonexistent' });
+
+/**
+ * @param {{user: string}} sys The machine state.
+ * @returns {Set<string>} The user names the machine knows: the system accounts and the player.
+ */
+export const knownUsers = sys => new Set([...Object.keys(SYSTEM_HOMES), sys.user]);
 const BINARY = '\u007fELF\u0002\u0001\u0001\u0000';
 
 /**

@@ -17,3 +17,7 @@ test('options are read from the indented option lines of a --help text', () => {
 test('a bracketed group in a usage line adds its letters', () => {
   assert.equal(optionsIn('usage: tree [-acdF] [-L level]\n  -L level      Descend only level directories deep.').short, 'FLacd');
 });
+
+test('psmisc writes its options without a space after the comma', () => {
+  assert.deepEqual(optionsIn('  -e,--exact          require exact match\n  -s,--signal SIGNAL  send this signal'), { short: 'es', long: ['--exact', '--signal'] });
+});
