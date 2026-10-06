@@ -25,19 +25,6 @@ const CONTINUATION = 'In a real terminal, bash would wait for the rest of the co
 const BACKGROUND = 'Background jobs are not simulated yet: the command ran in the foreground.';
 const OWN_OPTIONS = new Set(['clear']);
 const helpNote = name => `Real bash prints a longer description here; help ${name} shows the same text.`;
-const MISTAKES = {
-  cls: 'cls is the Windows command. On Linux, use clear.',
-  del: 'del is the Windows command. On Linux, use rm.',
-  copy: 'copy is the Windows command. On Linux, use cp.',
-  move: 'move is the Windows command. On Linux, use mv.',
-  ren: 'ren is the Windows command. On Linux, rename with mv.',
-  ipconfig: 'ipconfig is the Windows command. On Linux, try ip addr (not simulated here).',
-  'cd..': 'Put a space between cd and the dots: cd ..',
-  'ls-l': 'Put a space before the option: ls -l',
-  'ls-a': 'Put a space before the option: ls -a',
-  'ls-la': 'Put a space before the option: ls -la',
-};
-
 
 function firstOf(args, ...wanted) {
   const end = args.includes('--') ? args.indexOf('--') : args.length;
@@ -102,16 +89,8 @@ function runFile(sh, name, args, ctx) {
   return res;
 }
 
-function notFoundHint(sh, name) {
-  const lower = name.toLowerCase();
-  let hint = MISTAKES[name] ?? null;
-  if (!hint && UNSIMULATED.has(name)) hint = `${name} is a real command on Ubuntu, but this game does not simulate it.`;
-  else if (!hint && lower !== name && sh.commands[lower]) hint = `Commands are case-sensitive. Try ${lower}`;
-  return hint;
-}
-
-function commandNotFound(sh, name) {
-  const hint = notFoundHint(sh, name);
+function commandNotFound(name) {
+  const hint = UNSIMULATED.has(name) ? `${name} is a real command on Ubuntu, but this game does not simulate it.` : null;
   return withNote(result('', `bash: ${name}: command not found`, 127), hint);
 }
 
@@ -128,7 +107,7 @@ function dispatch(sh, argv, streams, overlay) {
   else if (args[0] === '--help' && name in BUILTIN_HELP) r = withNote(result(builtinHelp(name), '', 2), helpNote(name));
   else if (firstOf(args, '--version', '--help') === '--version' && versionText(name) && !BUILTINS.has(name)) r = result(versionText(name));
   else if (args.includes('--help') && hasManPage(name) && !BUILTINS.has(name) && !OWN_OPTIONS.has(name)) r = withNote(result(manText(name, true)), `Real ${name} --help prints a longer list of options.`);
-  else if (!sh.commands[name]) r = commandNotFound(sh, name);
+  else if (!sh.commands[name]) r = commandNotFound(name);
   else {
     if (!BUILTINS.has(name)) sys.hashed.add(name);
     r = sh.commands[name](args, ctx);

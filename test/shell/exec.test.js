@@ -45,13 +45,12 @@ test('output sent to /dev/null disappears', async () => {
   assert.equal((await run(b, 'cat /dev/null')).out, '');
 });
 
-test('an unknown command fails with 127 and a note for common mistakes', async () => {
+test('an unknown command fails with 127 and leaves teaching notes to the game', async () => {
   const b = await shell();
-  const r = await run(b, 'cd..');
-  assert.deepEqual([r.err, r.status], ['bash: cd..: command not found\n', 127]);
-  assert.match(r.note, /space between cd and the dots/);
-  assert.match((await run(b, 'LS')).note, /case-sensitive. Try ls/);
-  assert.equal((await run(b, 'florp')).note, '');
+  for (const line of ['cd..', 'LS', 'cls', 'florp']) {
+    const r = await run(b, line);
+    assert.deepEqual([r.err, r.status, r.note], [`bash: ${line}: command not found\n`, 127, '']);
+  }
 });
 
 test('aliases expand in the first word unless it is quoted', async () => {
