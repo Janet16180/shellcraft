@@ -12,7 +12,7 @@ import { pickAt } from './layout.js';
 import { createStage, settle, fitCanvas, say, showBanner, shake, flash, burstAt, STAND } from './stage.js';
 import { paintFrame } from './render.js';
 import { journey } from './journey.js';
-import { INK } from './palette.js';
+import { INK, TOON, DAEMON } from './palette.js';
 
 export { biomeFor } from './biomes.js';
 export { layoutRoom } from './layout.js';
@@ -48,7 +48,7 @@ const BEFORE = {
 function revealSparkle(stage, e) {
   const { scene } = stage.state;
   if (e.path !== scene.path) return;
-  [...scene.layout.doors, ...scene.layout.items].filter(x => x.hidden).forEach(x => burstAt(stage, x.path, ['#ffffff', INK.v]));
+  [...scene.layout.doors, ...scene.layout.items].filter(x => x.hidden).forEach(x => burstAt(stage, x.path, [INK.w, INK.v]));
 }
 
 const AFTER = {
@@ -66,13 +66,13 @@ const AFTER = {
   },
   'daemon-killed': stage => {
     const { daemon } = stage.state;
-    stage.motion.burst(daemon.x + 12, daemon.y + 12, ['#3b1d5c', '#ff3355', '#e8d7ff', '#ffd36b'], 70, 2.4);
+    stage.motion.burst(daemon.x + 12, daemon.y + 12, [DAEMON.body, DAEMON.eye, DAEMON.glow, TOON.y], 70, 2.4);
     shake(stage);
   },
   'gate-opened': stage => {
     stage.state.gateOpen = true;
     stage.state.scene.gateOpen = true;
-    stage.motion.burst(160, 40, ['#ffd36b', '#ffffff'], 50, 2);
+    stage.motion.burst(160, 40, [TOON.y, INK.w], 50, 2);
     shake(stage);
   },
 };
@@ -81,7 +81,7 @@ function show(stage, obs) {
   const { state } = stage;
   state.token += 1;
   stage.motion.finish();
-  Object.assign(state, { fade: 0, trip: null, gateOpen: false, hover: null });
+  Object.assign(state, { fade: 0, trip: null, gateOpen: false, hover: null, banner: null, bubbles: [], flashUntil: 0, shakeUntil: 0 });
   Object.assign(state.player, STAND, { walking: false });
   state.revealed.clear();
   settle(stage, obs);
@@ -101,8 +101,8 @@ async function play(stage, effects, obs) {
   for (const effect of effects) BEFORE[effect.kind]?.(stage, effect, before.layout);
   if (obs.cwd !== before.path) await journey(stage, before.path, obs, token);
   else settle(stage, obs);
-  if (token !== state.token) return;
-  for (const effect of effects) AFTER[effect.kind]?.(stage, effect);
+  const current = token === state.token;
+  if (current) for (const effect of effects) AFTER[effect.kind]?.(stage, effect);
 }
 
 function pickFrom(stage, event) {

@@ -54,6 +54,22 @@ const CASES = {
     tree.children.opt = dir({ 'notes.txt': file('') });
     return { obs: observe('/opt', { tree }) };
   },
+  dark: () => {
+    const tree = sampleTree();
+    tree.children.tmp = dir({ loot: file('') }, { mode: 0o711 });
+    return { obs: observe('/tmp', { tree }) };
+  },
+  gone: () => {
+    const tree = sampleTree();
+    delete tree.children.home.children.hero.children.junk;
+    return { obs: observe('/home/hero/junk', { tree }) };
+  },
+  crowded: () => {
+    const tree = busyTree();
+    for (const name of ['bin', 'boot', 'lib', 'media', 'mnt', 'opt', 'proc', 'run', 'sbin', 'srv', 'sys']) tree.children[name] = dir({});
+    tree.children['swap.img'] = file('', { mode: 0o600 });
+    return { obs: observe('/', { tree }) };
+  },
 };
 
 const only = params.get('only')?.split(',') ?? Object.keys(CASES);

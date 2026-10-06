@@ -5,6 +5,7 @@
  * fits shows a "+N" marker in the last slot.
  */
 
+/** Size of the picture in art pixels. */
 export const ART = { width: 320, height: 200 };
 
 const MARGIN = 12;
@@ -15,7 +16,7 @@ const ITEM_ROW = 44;
 const WALL = 52;
 const ITEM = 16;
 const SPARSE_ITEM_STEP = 96;
-const LABEL_ABOVE = 10;
+const LABEL_ABOVE = 14;
 const ITEM_HIT = { above: 4, below: 20 };
 const EXIT = { x: 146, y: 186, w: 28, h: 14, label: 26 };
 const CAPACITY = { wide: { doors: 7, cols: 6 }, narrow: { doors: 5, cols: 4 } };

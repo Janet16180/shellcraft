@@ -6,9 +6,10 @@
 
 import { planTravel } from './travel.js';
 import { settle, showBanner, STAND } from './stage.js';
+import { INK, TOON } from './palette.js';
 
 const EXIT_STAND = { x: 160, y: 196 };
-const WARP = ['#b59cff', '#ffffff', '#ffd36b'];
+const WARP = [INK.v, INK.w, TOON.y];
 const TRIP_MS = 1100;
 const TRIP_BANNERS = {
   descend: home => ({ title: 'THE DUNGEON', sub: `outside your home, ${home}` }),
@@ -103,7 +104,6 @@ export async function journey(stage, from, obs, token) {
     },
   ];
   for (const step of steps) {
-    if (token !== stage.state.token) return;
-    await step();
+    if (token === stage.state.token) await step();
   }
 }

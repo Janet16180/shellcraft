@@ -7,6 +7,11 @@
 const toon = rows => ({ pal: 'toon', rows });
 const ink = rows => ({ pal: 'ink', rows });
 
+/**
+ * Every sprite by name; an array is an animation's frames.
+ *
+ * @type {Record<string, {pal: 'ink'|'toon', rows: string[]} | {pal: 'ink'|'toon', rows: string[]}[]>}
+ */
 export const SPRITES = {
   player: toon(['...hhhh...', '..hhyhhh..', '.hhhhhhhh.', 'hhhhhhhhhh', '..ssssss..', '..sesses..', '..ssssss..', '.rrrrrrrr.', 'srrrrrrrrs', '.rrryyrrr.', '.rrrrrrrr.']),
   legs: [toon(['..bb..bb..']), toon(['.bb....bb.'])],
