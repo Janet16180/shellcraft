@@ -5,7 +5,6 @@
 const PAGES = {
   ls: ['list directory contents', 'ls [OPTION]... [FILE]...', 'List information about the FILEs (the current directory by default).',
     [['-a', 'do not ignore entries starting with .'], ['-A', 'like -a, but without . and ..'], ['-l', 'use a long listing format'], ['-h', 'with -l, print sizes like 4.0K'], ['-r', 'reverse order while sorting'], ['-1', 'list one file per line'], ['-F', 'append indicator (/ for directories, * for executables)'], ['-d', 'list directories themselves, not their contents']]],
-  cd: ['change the shell working directory (bash builtin)', 'cd [DIR]', 'Change the current directory to DIR. With no DIR, go to $HOME. "cd -" goes to the previous directory.', []],
   pwd: ['print name of current/working directory', 'pwd', 'Print the full path of the current working directory.', []],
   cat: ['concatenate files and print on the standard output', 'cat [OPTION]... [FILE]...', 'Concatenate FILE(s) to standard output. With no FILE, read standard input.', [['-n', 'number all output lines']]],
   echo: ['display a line of text', 'echo [OPTION]... [STRING]...', 'Echo the STRING(s) to standard output.', [['-n', 'do not output the trailing newline'], ['-e', 'enable interpretation of backslash escapes like \\n']]],
@@ -29,8 +28,7 @@ const PAGES = {
   top: ['display Linux processes', 'top', 'A live, updating view of processes sorted by CPU usage. Press q to quit.', []],
   man: ['an interface to the system reference manuals', 'man PAGE', 'Show the manual page for a command. Scroll with arrows, search with /, quit with q.', []],
   whoami: ['print effective user name', 'whoami', 'Print the user name associated with the current effective user ID.', []],
-  clear: ['clear the terminal screen', 'clear', 'Clear the screen. Ctrl+L does the same.', []],
-  history: ['display the command history list (bash builtin)', 'history', 'Show previously entered commands. !N reruns command N in real bash.', []],
+  clear: ['clear the terminal screen', 'clear [-x]', 'Clear the terminal screen and its scrollback buffer.', [['-x', 'do not try to clear the scrollback buffer']]],
   tree: ['list contents of directories in a tree-like format', 'tree [OPTION]... [DIRECTORY]', 'Recursively list directories as an indented tree.', [['-a', 'include hidden files'], ['-d', 'list directories only'], ['-L LEVEL', 'descend only LEVEL directories deep']]],
   less: ['opposite of more (a file pager)', 'less FILE', 'View a file one screen at a time. Space: next page, b: back, /word: search, q: quit.', []],
   which: ['locate a command', 'which COMMAND...', 'Print the full path of the program that would run for each COMMAND.', []],

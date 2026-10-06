@@ -4,11 +4,12 @@
  */
 
 import { lookup, normalize, joinPath } from '../fs.js';
-import { BUILTINS } from '../builtins.js';
+import { BUILTINS, BUILTIN_HELP, builtinHelp } from '../builtins.js';
 import { can } from '../perms.js';
 import { manText, hasManPage } from '../man.js';
 import { result, withNote } from '../result.js';
-import { baseEnvironment, varValue } from '../vars.js';
+import { varValue, setVar, exportedVars } from '../vars.js';
+import { compareNames } from '../collate.js';
 
 /**
  * Find a command's program the way PATH lookup does.
@@ -27,7 +28,10 @@ export function findInPath(sys, name) {
 
 function man(args) {
   if (!args.length) return result('', "What manual page do you want?\nFor example, try 'man man'.", 1);
-  if (!hasManPage(args[0])) return result('', `No manual entry for ${args[0]}`, 16);
+  if (!hasManPage(args[0])) {
+    const builtin = args[0] in BUILTIN_HELP ? `${args[0]} is built into bash, so it has no manual page of its own. Try help ${args[0]}.` : null;
+    return withNote(result('', `No manual entry for ${args[0]}`, 16), builtin);
+  }
   return withNote(result(manText(args[0], false)), 'A real man page opens in a pager: arrow keys to scroll, / to search, q to quit.');
 }
 
@@ -43,6 +47,7 @@ function type(args, { sys }) {
     const path = findInPath(sys, x);
     if (sys.aliases[x]) out.push(`${x} is aliased to \`${sys.aliases[x]}'`);
     else if (BUILTINS.has(x)) out.push(`${x} is a shell builtin`);
+    else if (path && sys.hashed.has(x)) out.push(`${x} is hashed (${path})`);
     else if (path) out.push(`${x} is ${path}`);
     else errs.push(`bash: type: ${x}: not found`);
   }
@@ -62,17 +67,46 @@ function alias(args, { sys }) {
   return r;
 }
 
+function declareLine(name, value) {
+  return `declare -x ${name}="${value.replace(/["\\$`]/g, '\\$&')}"\n`;
+}
+
 function exportVars(args, { sys }) {
+  const listing = !args.length || (args.length === 1 && args[0] === '-p');
+  const exported = exportedVars(sys);
+  if (listing) return result(Object.keys(exported).sort(compareNames).map(k => declareLine(k, exported[k])).join(''));
   for (const x of args) {
     const i = x.indexOf('=');
-    if (i > 0) sys.vars[x.slice(0, i)] = x.slice(i + 1);
+    if (i > 0) setVar(sys, x.slice(0, i), x.slice(i + 1), true);
+    else setVar(sys, x, varValue(sys, x), true);
   }
   return result();
 }
 
-function env(_args, { sys }) {
-  const all = { ...baseEnvironment(sys), ...sys.vars };
+function env(_args, { sys, env: overlay }) {
+  const all = { ...exportedVars(sys), ...overlay };
   return result(Object.entries(all).map(([k, v]) => `${k}=${v}\n`).join(''));
+}
+
+function printenv(args, ctx) {
+  const all = { ...exportedVars(ctx.sys), ...ctx.env };
+  const found = args.filter(a => a in all);
+  return args.length ? result(found.map(a => `${all[a]}\n`).join(''), '', found.length === args.length ? 0 : 1) : env(args, ctx);
+}
+
+function unset(args, { sys }) {
+  for (const name of args.filter(a => a !== '-v')) delete sys.vars[name];
+  return result();
+}
+
+function unalias(args, { sys }) {
+  const errs = [];
+  if (args[0] === '-a') sys.aliases = {};
+  for (const name of args.filter(a => a !== '-a')) {
+    if (name in sys.aliases) delete sys.aliases[name];
+    else errs.push(`bash: unalias: ${name}: not found`);
+  }
+  return result('', errs.join('\n'), errs.length ? 1 : 0);
 }
 
 function sudo(args, { sys }) {
@@ -97,6 +131,14 @@ function bash(args, { sys, runScript }) {
   return r;
 }
 
+function help(args) {
+  const missing = args.find(a => !(a in BUILTIN_HELP));
+  let r = withNote(result(`${HELP}\n`), 'In real bash, help lists the shell builtins. Use man COMMAND to learn any real command.');
+  if (missing) r = result('', `bash: help: no help topics match \`${missing}'.  Try \`help help' or \`man -k ${missing}' or \`info ${missing}'.`, 1);
+  else if (args.length) r = withNote(result(args.map(builtinHelp).join('')), 'Real bash prints a longer description for each builtin.');
+  return r;
+}
+
 const HELP = [
   'Commands you can use here:',
   '  Look around   pwd  ls  cd  tree  whoami  hostname  date',
@@ -114,9 +156,11 @@ export default {
   which,
   type,
   alias,
+  unalias,
+  unset,
   export: exportVars,
   env,
-  printenv: (args, ctx) => (args.length ? result(args.map(a => `${varValue(ctx.sys, a)}\n`).join('')) : env(args, ctx)),
+  printenv,
   sudo,
   nano: editor('nano', 'In real nano, Ctrl+O saves and Ctrl+X exits.'),
   vim: editor('vim', 'Real vim tip: press Esc, type :wq and Enter to save and quit, or :q! to quit without saving.'),
@@ -125,5 +169,5 @@ export default {
   logout: exit,
   bash,
   sh: bash,
-  help: () => withNote(result(`${HELP}\n`), 'In real bash, help lists the shell builtins. Use man COMMAND to learn any real command.'),
+  help,
 };

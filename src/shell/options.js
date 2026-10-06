@@ -14,6 +14,7 @@ function parseCluster(name, args, i, known, withValue, acc) {
       const v = inline || args[++next];
       if (v === undefined) acc.err = `${name}: option requires an argument -- '${ch}'\n${usage(name)}`;
       acc.vals[ch] = v;
+      acc.lists[ch] = [...(acc.lists[ch] ?? []), v];
       break;
     }
     if (!known.includes(ch)) acc.err = `${name}: invalid option -- '${ch}'\n${usage(name)}`;
@@ -31,11 +32,12 @@ function parseCluster(name, args, i, known, withValue, acc) {
  * @param {string[]} args The arguments.
  * @param {string} known Letters accepted as flags.
  * @param {string} [withValue] Letters that take a value (`-n 5` or `-n5`).
- * @returns {{flags: Set<string>, vals: Record<string, string>, rest: string[], err: string|null}}
- *   The parse, or err set to the message the real command prints for a bad option.
+ * @returns {{flags: Set<string>, vals: Record<string, string>, lists: Record<string, string[]>, rest: string[], err: string|null}}
+ *   The parse: the last value of each option in vals, every value in lists; or
+ *   err set to the message the real command prints for a bad option.
  */
 export function parseOptions(name, args, known, withValue = '') {
-  const acc = { flags: new Set(), vals: {}, rest: [], err: null };
+  const acc = { flags: new Set(), vals: {}, lists: {}, rest: [], err: null };
   let ended = false;
   for (let i = 0; i < args.length && !acc.err; i++) {
     const x = args[i];

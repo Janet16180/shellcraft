@@ -40,3 +40,39 @@ test('uname names the kernel', async () => {
   assert.equal((await run(b, 'uname')).out, 'Linux\n');
   assert.match((await run(b, 'uname -a')).out, /^Linux kernelia /);
 });
+
+test('uname prints the fields asked for, in the standard order', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'uname -n')).out, 'kernelia\n');
+  assert.equal((await run(b, 'uname -sr')).out, 'Linux 6.8.0-kernelia\n');
+  assert.equal((await run(b, 'uname -a')).out, 'Linux kernelia 6.8.0-kernelia #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux\n');
+});
+
+test('id -u, -g, -G and -n print single fields', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'id -u')).out, '1000\n');
+  assert.equal((await run(b, 'id -un')).out, 'hero\n');
+  assert.equal((await run(b, 'id -Gn')).out, 'hero\n');
+});
+
+test('whoami takes no operands', async () => {
+  const r = await run(await shell(), 'whoami now');
+  assert.deepEqual([r.err, r.status], ["whoami: extra operand ‘now’\nTry 'whoami --help' for more information.\n", 1]);
+});
+
+test('echo -e reads every bash escape and stops at \\c', async () => {
+  const b = await shell();
+  assert.equal((await run(b, "echo -e 'a\\x41\\0102\\\\b'")).out, 'aAB\\b\n');
+  assert.equal((await run(b, "echo -e 'stop\\cnever'")).out, 'stop');
+  assert.equal((await run(b, "echo -E 'a\\nb'")).out, 'a\\nb\n');
+});
+
+test('clear has no --help: it rejects the option like ncurses clear, with status 1', async () => {
+  const r = await run(await shell(), 'clear --help');
+  assert.deepEqual([r.out, r.status], ['', 1]);
+  assert.equal(r.err, "clear: invalid option -- '-'\nUsage: clear [options]\n\nOptions:\n  -T TERM     use this instead of $TERM\n  -V          print curses-version\n  -x          do not try to clear scrollback\n");
+});
+
+test('clear -x keeps the scrollback', async () => {
+  assert.equal((await run(await shell(), 'clear -x')).out, '\u001b[H\u001b[2J');
+});

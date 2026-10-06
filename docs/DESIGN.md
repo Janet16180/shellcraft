@@ -46,7 +46,7 @@ Rules:
 
 ### 2.1 Backend port (`src/backend/port.js`)
 
-`load(patch)`, `run(line)`, `observe()`, `complete(line)`, all async. World patches are built
+`load(patch)`, `run(line)`, `observe()`, `complete(line)`, `resize(columns)`, all async. World patches are built
 with `src/backend/spec.js` (`put`, `remove`, `proc`, `stop`, `cd`, `dir`, `file`). The
 backend owns what a real system owns: the programs in `/usr/bin` (the simulator lists one
 executable per command it implements; the world spec must not define `/usr/bin`), PIDs, the
@@ -202,7 +202,7 @@ The game teaches what real Linux does, so the simulator is tested against real b
 | Teammate | Owns | Slice deliverable |
 |---|---|---|
 | lead | `docs/`, `src/backend/`, `AUTHORING.md`, merges | contracts, integration, verification, previews |
-| shell | `src/shell/`, `test/shell/`, `difftest/` | the v1 simulator as ES modules behind the port (M1, fast), then the fixes and the differential harness (M2) |
+| shell | `src/shell/`, `test/shell/`, `test/difftest/`, `difftest/` | the v1 simulator as ES modules behind the port (M1, fast), then the fixes and the differential harness (M2) |
 | engine | `src/game/` except `chapters/` and `world.js`; `test/game/` except chapter tests; `test/helpers/` | session, checks, progress, effects, rng, save + v1 migration |
 | author | `src/game/chapters/`, `src/game/world.js`, `test/game/chapters/`, `test/game/world.test.js`, `docs/verification/` | world spec (ported v1 areas + dungeon), chapters 1 and 2 with boss rooms |
 | art | `src/map/`, `test/map/` | overworld + dungeon renderer, transitions, effects, labels, describeRoom |

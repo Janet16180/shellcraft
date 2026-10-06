@@ -12,11 +12,6 @@ test('man prints a page with a note about the pager, and errors like man-db', as
   assert.equal((await run(b, 'man')).status, 1);
 });
 
-test('history numbers the lines typed so far', async () => {
-  const r = await runAll(await shell(), ['pwd', 'ls', 'history']);
-  assert.equal(r.out, '    1  pwd\n    2  ls\n    3  history\n');
-});
-
 test('which finds programs in PATH; builtins without a program are not found', async () => {
   const b = await shell();
   assert.equal((await run(b, 'which ls')).out, '/usr/bin/ls\n');
@@ -65,4 +60,64 @@ test('help lists the simulated commands without game helpers', async () => {
   const r = await run(await shell(), 'help');
   assert.match(r.out, /grep/);
   assert.doesNotMatch(r.out, /hint|quest/);
+});
+
+test('type says a program is hashed after it has run', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'type ls')).out, 'ls is /usr/bin/ls\n');
+  await run(b, 'ls > /dev/null');
+  assert.equal((await run(b, 'type ls')).out, 'ls is hashed (/usr/bin/ls)\n');
+});
+
+test('unalias removes an alias', async () => {
+  const b = await shell();
+  await run(b, 'unalias ll');
+  assert.equal((await run(b, 'll')).status, 127);
+  assert.equal((await run(b, 'unalias zz')).err, 'bash: unalias: zz: not found\n');
+});
+
+test('printenv fails with no output for an unset variable', async () => {
+  const r = await run(await shell(), 'printenv NOPE');
+  assert.deepEqual([r.out, r.status], ['', 1]);
+});
+
+test('history skips lines that start with a space and repeated lines, like Ubuntu', async () => {
+  const r = await runAll(await shell(), ['pwd', 'pwd', ' echo secret', 'ls', 'history']);
+  assert.equal(r.out, '    1  pwd\n    2  ls\n    3  history\n');
+});
+
+test('export alone lists the environment as declare -x lines; unset removes a variable', async () => {
+  const b = await shell();
+  await run(b, 'export SPELL=\'say "hi"\'');
+  assert.match((await run(b, 'export')).out, /^declare -x SPELL="say \\"hi\\""$/m);
+  await run(b, 'unset SPELL');
+  assert.equal((await run(b, 'echo "[$SPELL]"')).out, '[]\n');
+});
+
+test('a builtin given --help prints its bash usage line and summary, with status 2', async () => {
+  const b = await shell();
+  const pwd = await run(b, 'pwd --help');
+  assert.deepEqual([pwd.out, pwd.status], ['pwd: pwd [-LP]\n    Print the name of the current working directory.\n', 2]);
+  assert.match(pwd.note, /help pwd/);
+  assert.equal((await run(b, 'cd --help')).out.split('\n')[0], 'cd: cd [-L|[-P [-e]] [-@]] [dir]');
+  assert.equal((await run(b, 'echo --help')).out, '--help\n');
+  assert.equal((await run(b, 'true --help')).status, 0);
+});
+
+test('help NAME shows a builtin the same way, with status 0', async () => {
+  const r = await run(await shell(), 'help cd');
+  assert.deepEqual([r.out.split('\n')[1], r.status], ['    Change the shell working directory.', 0]);
+  assert.equal((await run(await shell(), 'help nope')).err, 'bash: help: no help topics match `nope\'.  Try `help help\' or `man -k nope\' or `info nope\'.\n');
+});
+
+test('builtins like cd have no manual page; the note points to help', async () => {
+  const r = await run(await shell(), 'man cd');
+  assert.deepEqual([r.err, r.status], ['No manual entry for cd\n', 16]);
+  assert.match(r.note, /help cd/);
+});
+
+test('the clear page describes clear itself', async () => {
+  const page = (await run(await shell(), 'man clear')).out;
+  assert.doesNotMatch(page, /Ctrl\+L/);
+  assert.match(page, /scrollback/);
 });

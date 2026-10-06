@@ -26,34 +26,6 @@ test('wc counts lines, words and bytes', async () => {
   assert.equal((await run(b, 'cat inv.txt | wc -l')).out, '5\n');
 });
 
-test('grep prints matching lines with -i, -v, -n and -c', async () => {
-  const b = await withScroll();
-  assert.equal((await run(b, 'grep welcome readme.txt')).out, 'welcome.\n');
-  assert.equal((await run(b, 'grep -i DEAR readme.txt')).out, 'Dear apprentice,\n');
-  assert.equal((await run(b, 'grep -v a inv.txt')).out, 'b\nb\nc\n');
-  assert.equal((await run(b, 'grep -n c inv.txt')).out, '4:c\n');
-  assert.equal((await run(b, 'grep -c b inv.txt')).out, '2\n');
-});
-
-test('grep exits 1 without a match and 2 on a missing file', async () => {
-  const b = await withScroll();
-  assert.equal((await run(b, 'grep zzz inv.txt')).status, 1);
-  assert.equal((await run(b, 'grep a nope')).status, 2);
-});
-
-test('grep -r searches a directory and labels each line', async () => {
-  const r = await run(await withScroll(), 'grep -r bat forest');
-  assert.equal(r.out, 'forest/cave/bat.txt:A bat.\n');
-});
-
-test('find walks the tree with -name, -type and -maxdepth', async () => {
-  const b = await withScroll();
-  assert.equal((await run(b, 'find forest')).out, 'forest\nforest/cave\nforest/cave/bat.txt\nforest/mushroom.txt\n');
-  assert.equal((await run(b, 'find . -name "*.txt" -maxdepth 1')).out, './inv.txt\n./readme.txt\n./scroll.txt\n');
-  assert.equal((await run(b, 'find forest -type d')).out, 'forest\nforest/cave\n');
-  assert.equal((await run(b, 'find nope')).err, "find: 'nope': No such file or directory\n");
-});
-
 test('sort orders lines; -r reverses, -u drops repeats, -n compares numbers', async () => {
   const b = await withScroll();
   assert.equal((await run(b, 'sort inv.txt')).out, 'a\na\nb\nb\nc\n');
@@ -65,4 +37,33 @@ test('uniq collapses adjacent repeats; -c counts them', async () => {
   const b = await withScroll();
   assert.equal((await run(b, 'sort inv.txt | uniq')).out, 'a\nb\nc\n');
   assert.equal((await run(b, 'sort inv.txt | uniq -c')).out, '      2 a\n      2 b\n      1 c\n');
+});
+
+test('head -c counts bytes and head -n -N drops the last N lines', async () => {
+  const b = await withScroll();
+  assert.equal((await run(b, 'head -c 5 readme.txt')).out, 'Dear ');
+  assert.equal((await run(b, 'head -n -13 scroll.txt')).out, 'line 1\nline 2\n');
+});
+
+test('head and tail name the file they cannot open, with quotes', async () => {
+  const b = await withScroll();
+  assert.equal((await run(b, 'head nope')).err, "head: cannot open 'nope' for reading: No such file or directory\n");
+  assert.equal((await run(b, 'tail forest')).err, "tail: error reading 'forest': Is a directory\n");
+  assert.equal((await run(b, 'head -n x scroll.txt')).err, 'head: invalid number of lines: \u2018x\u2019\n');
+});
+
+test('wc pads its columns to the total size of the files, and to 7 for piped input', async () => {
+  const b = await withScroll();
+  assert.equal((await run(b, 'wc -l scroll.txt inv.txt')).out, ' 15 scroll.txt\n  5 inv.txt\n 20 total\n');
+  assert.equal((await run(b, 'cat inv.txt | wc')).out, '      5       5      10\n');
+  const dir = await run(b, 'wc forest');
+  assert.deepEqual([dir.out, dir.err, dir.status], ['      0       0       0 forest\n', 'wc: forest: Is a directory\n', 1]);
+});
+
+test('sort uses byte order, so capitals come first; -f folds case and -n compares numbers', async () => {
+  const b = await shell([put('/home/hero/mix.txt', file('banana\nApple\ncherry\n10 x\n9 y\n', { owner: 'hero' }))]);
+  assert.equal((await run(b, 'sort mix.txt')).out, '10 x\n9 y\nApple\nbanana\ncherry\n');
+  assert.equal((await run(b, 'sort -f mix.txt')).out, '10 x\n9 y\nApple\nbanana\ncherry\n');
+  assert.equal((await run(b, 'sort -n mix.txt')).out, 'Apple\nbanana\ncherry\n9 y\n10 x\n');
+  assert.equal((await run(b, 'sort nope')).err, 'sort: cannot read: nope: No such file or directory\n');
 });

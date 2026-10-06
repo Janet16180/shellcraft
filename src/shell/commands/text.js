@@ -1,259 +1,197 @@
 /**
- * Text tools: head, tail, wc, grep, find, sort, uniq.
+ * Text tools: head, tail, wc, sort, uniq (grep and find have their own modules).
  */
 
-import { lookup, normalize, baseName, joinDisp, splitLines, byteLength } from '../fs.js';
+import { splitLines, byteLength, sizeOf } from '../fs.js';
+import { resolve, errorText } from '../paths.js';
 import { compareNames } from '../collate.js';
 import { can } from '../perms.js';
-import { globRe } from '../glob.js';
 import { parseOptions } from '../options.js';
+import { shellQuote, localeQuote } from '../quote.js';
 import { result, withNote, needInput } from '../result.js';
-import { esc, span } from '../html.js';
-import { readSources } from './files.js';
 
-const errResult = (out, errs, failStatus = 1) => result(out, errs.join('\n'), errs.length ? failStatus : 0);
-const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-function readOne(sys, which, f, stdin) {
-  const node = f === '-' ? null : lookup(sys.root, normalize(f, sys.cwd));
-  let content = null;
-  let error = null;
-  if (f === '-') content = stdin ?? '';
-  else if (!node) error = `${which}: cannot open '${f}' for reading: No such file or directory`;
-  else if (node.type === 'dir') error = `${which}: error reading '${f}': Is a directory`;
-  else if (!can(sys, node, 'r')) error = `${which}: cannot open '${f}' for reading: Permission denied`;
-  else content = node.content;
-  return { content, error };
+/**
+ * Open a file operand for reading, or standard input for `-`.
+ *
+ * @param {object} sys The machine state.
+ * @param {string} f The operand as typed.
+ * @param {string|null} stdin Piped input.
+ * @returns {{content: string|null, node: object|null, code: string|null}} The content and node,
+ *   or an error: an errno code from paths.js, or 'EISDIR' for a directory.
+ */
+export function openInput(sys, f, stdin) {
+  const r = f === '-' ? null : resolve(sys, f);
+  let opened;
+  if (f === '-') opened = { content: stdin ?? '', node: null, code: null };
+  else if (r.error) opened = { content: null, node: null, code: r.error };
+  else if (r.node.type === 'dir') opened = { content: null, node: r.node, code: 'EISDIR' };
+  else if (!can(sys, r.node, 'r')) opened = { content: null, node: r.node, code: 'EACCES' };
+  else opened = { content: r.node.content, node: r.node, code: null };
+  return opened;
 }
 
-function selectLines(which, lines, count, fromStart) {
-  let sel;
-  if (which === 'head') sel = lines.slice(0, count);
-  else if (fromStart) sel = lines.slice(Math.max(0, count - 1));
-  else sel = count === 0 ? [] : lines.slice(-count);
-  return sel;
-}
+/**
+ * @param {string} code An error code from openInput().
+ * @returns {string} Its message.
+ */
+export const reason = code => (code === 'EISDIR' ? 'Is a directory' : errorText(code));
 
-function headTail(which, rawArgs, { sys, stdin }) {
-  const args = rawArgs.flatMap(x => (/^-\d+$/.test(x) ? ['-n', x.slice(1)] : [x]));
-  const o = parseOptions(which, args, 'qv', 'n');
-  if (o.err) return result('', o.err, 1);
-  let raw = o.vals.n ?? '10';
-  const fromStart = which === 'tail' && raw.startsWith('+');
-  if (fromStart) raw = raw.slice(1);
-  if (!/^\d+$/.test(raw)) return result('', `${which}: invalid number of lines: '${o.vals.n}'`, 1);
-  if (!o.rest.length && stdin == null) return needInput(which);
-  const files = o.rest.length ? o.rest : ['-'];
-  const errs = [];
-  let out = '';
-  files.forEach((f, idx) => {
-    const { content, error } = readOne(sys, which, f, stdin);
-    if (error) { errs.push(error); return; }
-    if (files.length > 1) out += `${idx ? '\n' : ''}==> ${f} <==\n`;
-    out += selectLines(which, splitLines(content), parseInt(raw, 10), fromStart).map(l => `${l}\n`).join('');
+function headTailArgs(which, rawArgs) {
+  const takesValue = i => i > 0 && (rawArgs[i - 1] === '-n' || rawArgs[i - 1] === '-c');
+  const args = rawArgs.flatMap((x, i) => {
+    if (/^-\d+$/.test(x) && !takesValue(i)) return ['-n', x.slice(1)];
+    if (which === 'tail' && /^\+\d+$/.test(x) && !takesValue(i)) return ['-n', x];
+    return [x];
   });
-  return errResult(out, errs);
+  const o = parseOptions(which, args.filter(x => which !== 'tail' || x !== '-f'), 'qv', 'nc');
+  const raw = o.vals.c ?? o.vals.n ?? '10';
+  const number = raw.replace(/^[+-]/, '');
+  let error = o.err;
+  if (!error && !/^\d+$/.test(number)) error = `${which}: invalid number of ${o.vals.c === undefined ? 'lines' : 'bytes'}: ${localeQuote(raw)}`;
+  return {
+    o, error, bytes: o.vals.c !== undefined, count: Number(number), follow: which === 'tail' && rawArgs.includes('-f'),
+    fromStart: which === 'tail' && raw.startsWith('+'), allBut: which === 'head' && raw.startsWith('-'),
+  };
 }
 
-function tail(args, ctx) {
-  const r = headTail('tail', args.filter(x => x !== '-f'), ctx);
-  return args.includes('-f') ? withNote(r, 'tail -f would keep running and print new lines as the file grows (Ctrl+C stops it). The game prints once.') : r;
+function selectPart(which, text, a) {
+  const units = a.bytes ? [...text] : text.split(/(?<=\n)/).filter(Boolean);
+  let sel;
+  if (which === 'head') sel = a.allBut ? units.slice(0, Math.max(0, units.length - a.count)) : units.slice(0, a.count);
+  else if (a.fromStart) sel = units.slice(Math.max(0, a.count - 1));
+  else sel = a.count === 0 ? [] : units.slice(-a.count);
+  return sel.join('');
+}
+
+function readError(which, f, code) {
+  const name = shellQuote(f, { always: true });
+  return code === 'EISDIR' ? `${which}: error reading ${name}: Is a directory` : `${which}: cannot open ${name} for reading: ${reason(code)}`;
+}
+
+function readPart(which, f, a, { sys, stdin }, state) {
+  const { content, code } = openInput(sys, f, stdin);
+  if (code) state.errs.push(readError(which, f, code));
+  if (state.headers && (!code || code === 'EISDIR')) state.out += `${state.printed++ ? '\n' : ''}==> ${f === '-' ? 'standard input' : f} <==\n`;
+  if (!code) state.out += selectPart(which, content, a);
+}
+
+function headTail(which, args, ctx) {
+  const a = headTailArgs(which, args);
+  if (a.error) return result('', a.error, 1);
+  if (!a.o.rest.length && ctx.stdin == null) return needInput(which);
+  const files = a.o.rest.length ? a.o.rest : ['-'];
+  const state = { out: '', errs: [], printed: 0, headers: (files.length > 1 && !a.o.flags.has('q')) || a.o.flags.has('v') };
+  for (const f of files) readPart(which, f, a, ctx, state);
+  const r = result(state.out, state.errs.join('\n'), state.errs.length ? 1 : 0);
+  return a.follow ? withNote(r, 'tail -f would keep running and print new lines as the file grows (Ctrl+C stops it). Here it prints once.') : r;
+}
+
+const WC_FIELDS = ['l', 'w', 'm', 'c', 'L'];
+
+function wcCounts(text) {
+  return {
+    l: (text.match(/\n/g) ?? []).length,
+    w: text.split(/[ \t\n\v\f\r]+/).filter(Boolean).length,
+    m: [...text].length,
+    c: byteLength(text),
+    L: Math.max(0, ...text.split('\n').map(l => [...l].length)),
+  };
+}
+
+function wcWidth(inputs, fields) {
+  const opened = inputs.filter(i => i.code === null || i.code === 'EISDIR');
+  const irregular = opened.some(i => i.name === '-' || i.code === 'EISDIR');
+  const total = opened.reduce((t, i) => t + (i.node?.type === 'file' ? sizeOf(i.node) : 0), 0);
+  return inputs.length === 1 && fields.length === 1 ? 1 : Math.max(irregular ? 7 : 1, String(total).length);
+}
+
+function wcRows(inputs, fields, width, labelled) {
+  const row = (counts, label) => `${fields.map(k => String(counts[k]).padStart(width)).join(' ')}${label}\n`;
+  const total = { l: 0, w: 0, m: 0, c: 0, L: 0 };
+  let out = '';
+  for (const input of inputs.filter(i => !i.code || i.code === 'EISDIR')) {
+    const counts = wcCounts(input.content ?? '');
+    for (const k of WC_FIELDS) total[k] = k === 'L' ? Math.max(total.L, counts.L) : total[k] + counts[k];
+    out += row(counts, labelled ? ` ${input.name}` : '');
+  }
+  return inputs.length > 1 ? out + row(total, ' total') : out;
 }
 
 function wc(args, { sys, stdin }) {
-  const o = parseOptions('wc', args, 'lwcm');
+  const o = parseOptions('wc', args, 'lwcmL');
   if (o.err) return result('', o.err, 1);
-  let fields = ['l', 'w', 'c'].filter(k => o.flags.has(k) || (k === 'c' && o.flags.has('m')));
-  if (!fields.length) fields = ['l', 'w', 'c'];
   if (!o.rest.length && stdin == null) return needInput('wc');
-  const fromStdin = !o.rest.length;
-  const { out, errs } = readSources(sys, 'wc', fromStdin ? ['-'] : o.rest, stdin);
-  const rows = out.map(s => ({
-    label: fromStdin ? '' : s.label,
-    l: (s.content.match(/\n/g) || []).length,
-    w: s.content.split(/\s+/).filter(Boolean).length,
-    c: byteLength(s.content),
-  }));
-  if (rows.length > 1) {
-    const sum = k => rows.reduce((t, r) => t + r[k], 0);
-    rows.push({ label: 'total', l: sum('l'), w: sum('w'), c: sum('c') });
-  }
-  let width = Math.max(1, ...rows.flatMap(r => fields.map(k => String(r[k]).length)));
-  if (fields.length === 1 && rows.length === 1) width = 0;
-  if (fromStdin && fields.length > 1) width = 7;
-  const text = rows.map(r => fields.map(k => String(r[k]).padStart(width)).join(' ') + (r.label ? ` ${r.label}` : '')).join('\n');
-  return errResult(text ? `${text}\n` : '', errs);
+  const chosen = WC_FIELDS.filter(k => o.flags.has(k));
+  const fields = chosen.length ? chosen : ['l', 'w', 'c'];
+  const inputs = (o.rest.length ? o.rest : ['-']).map(name => ({ name, ...openInput(sys, name, stdin) }));
+  const errs = inputs.filter(i => i.code).map(i => `wc: ${shellQuote(i.name)}: ${reason(i.code)}`);
+  const out = wcRows(inputs, fields, wcWidth(inputs, fields), o.rest.length > 0);
+  return result(out, errs.join('\n'), errs.length ? 1 : 0);
 }
 
-function grepSources(sys, files, recursive, stdin) {
-  const sources = [];
+function readLines(sys, name, files, stdin, separator) {
   const errs = [];
-  const walk = (node, label) => {
-    for (const k of Object.keys(node.children).sort(compareNames)) {
-      const child = node.children[k];
-      const shown = label ? joinDisp(label, k) : k;
-      if (child.type === 'dir') walk(child, shown);
-      else sources.push({ label: shown, content: child.content });
-    }
-  };
-  const defaulted = !files.length && recursive;
-  if (!files.length && !recursive) sources.push({ label: '(standard input)', content: stdin });
-  for (const f of defaulted ? ['.'] : files) {
-    const node = lookup(sys.root, normalize(f, sys.cwd));
-    if (!node) errs.push(`grep: ${f}: No such file or directory`);
-    else if (node.type === 'dir' && recursive) walk(node, defaulted ? '' : f);
-    else if (node.type === 'dir') errs.push(`grep: ${f}: Is a directory`);
-    else if (!can(sys, node, 'r')) errs.push(`grep: ${f}: Permission denied`);
-    else sources.push({ label: f, content: node.content });
+  let text = '';
+  for (const f of files.length ? files : ['-']) {
+    const { content, code } = openInput(sys, f, stdin);
+    if (code === 'EISDIR') errs.push(`${name}: read failed: ${shellQuote(f)}: Is a directory`);
+    else if (code) errs.push(`${name}: cannot read: ${shellQuote(f)}: ${reason(code)}`);
+    else text += content && !content.endsWith(separator) ? content + separator : content;
   }
-  return { sources, errs };
+  return { lines: text === '' ? [] : text.slice(0, -1).split(separator), errs };
 }
 
-function grepPattern(pat, flags) {
-  let source = pat;
-  try {
-    new RegExp(source);
-  } catch (e) {
-    if (!(e instanceof SyntaxError)) throw e;
-    source = escapeRe(pat);
-  }
-  if (flags.has('w')) source = `\\b(?:${source})\\b`;
-  return { test: new RegExp(source, flags.has('i') ? 'i' : ''), highlight: new RegExp(source, flags.has('i') ? 'gi' : 'g') };
+function numericValue(line) {
+  const m = /^[ \t]*(-?)(\d*)(?:\.(\d*))?/.exec(line);
+  return (m[1] ? -1 : 1) * Number(`${m[2] || '0'}.${m[3] || '0'}`);
 }
 
-function grepMatches(s, re, f, showName, acc) {
-  let count = 0;
-  splitLines(s.content).forEach((line, i) => {
-    if (re.test.test(line) === f.has('v')) return;
-    count++;
-    if (f.has('c') || f.has('l')) return;
-    let t = '';
-    let h = '';
-    if (showName) { t += `${s.label}:`; h += `${span('g-file', s.label)}${span('g-sep', ':')}`; }
-    if (f.has('n')) { t += `${i + 1}:`; h += `${span('g-num', String(i + 1))}${span('g-sep', ':')}`; }
-    acc.text.push(t + line);
-    acc.html.push(h + (f.has('v') ? esc(line) : esc(line).replace(re.highlight, m => `<span class="g-match">${m}</span>`)));
-  });
-  return count;
-}
-
-function grep(args, { sys, stdin }) {
-  const usage = "Usage: grep [OPTION]... PATTERNS [FILE]...\nTry 'grep --help' for more information.";
-  const o = parseOptions('grep', args, 'invcrRlwEHh');
-  if (o.err) return result('', o.err.replace("Try 'grep --help'", "Usage: grep [OPTION]... PATTERNS [FILE]...\nTry 'grep --help'"), 2);
-  if (!o.rest.length) return result('', usage, 2);
-  const f = o.flags;
-  const recursive = f.has('r') || f.has('R');
-  const files = o.rest.slice(1);
-  if (!files.length && !recursive && stdin == null) return needInput('grep');
-  const re = grepPattern(o.rest[0], f);
-  const { sources, errs } = grepSources(sys, files, recursive, stdin);
-  let showName = sources.length > 1 || recursive;
-  if (f.has('h')) showName = false;
-  if (f.has('H')) showName = true;
-  const acc = { text: [], html: [] };
-  let any = false;
-  for (const s of sources) {
-    const count = grepMatches(s, re, f, showName, acc);
-    any ||= count > 0;
-    const counted = `${showName ? `${s.label}:` : ''}${count}`;
-    if (f.has('c')) { acc.text.push(counted); acc.html.push(esc(counted)); }
-    else if (f.has('l') && count) { acc.text.push(s.label); acc.html.push(span('g-file', s.label)); }
-  }
-  let status = any ? 0 : 1;
-  if (errs.length) status = 2;
-  const out = acc.text.length ? `${acc.text.join('\n')}\n` : '';
-  return result(out, errs.join('\n'), status, out ? `${acc.html.join('\n')}\n` : null);
-}
-
-function findArgs(args) {
-  const paths = [];
-  const tests = [];
-  let i = 0;
-  let maxDepth = Infinity;
-  let error = null;
-  while (i < args.length && !args[i].startsWith('-')) paths.push(args[i++]);
-  while (i < args.length && !error) {
-    const t = args[i++];
-    const v = args[i++];
-    if ((t === '-name' || t === '-iname') && v !== undefined) {
-      const re = globRe(v, t === '-iname');
-      tests.push(e => re.test(e.name));
-    } else if (t === '-type' && (v === 'f' || v === 'd')) tests.push(e => e.node.type === (v === 'd' ? 'dir' : 'file'));
-    else if (t === '-type' && v !== undefined) error = `find: Unknown argument to -type: ${v}`;
-    else if (t === '-maxdepth' && /^\d+$/.test(v ?? '')) maxDepth = parseInt(v, 10);
-    else if (t === '-maxdepth') error = `find: Expected a positive decimal integer argument to -maxdepth, but got '${v ?? ''}'`;
-    else if (['-name', '-iname', '-type'].includes(t)) error = `find: missing argument to \`${t}'`;
-    else error = `find: unknown predicate \`${t}'`;
-  }
-  return { paths: paths.length ? paths : ['.'], tests, maxDepth, error };
-}
-
-function find(args, { sys }) {
-  const { paths, tests, maxDepth, error } = findArgs(args);
-  if (error) return result('', error, 1);
-  const out = [];
-  const errs = [];
-  const visit = (shown, node, name, depth) => {
-    if (tests.every(t => t({ name, node }))) out.push(shown);
-    if (node.type !== 'dir' || depth >= maxDepth) return;
-    for (const k of Object.keys(node.children).sort(compareNames)) visit(joinDisp(shown, k), node.children[k], k, depth + 1);
-  };
-  for (const p of paths) {
-    const abs = normalize(p, sys.cwd);
-    const node = lookup(sys.root, abs);
-    if (!node) errs.push(`find: '${p}': No such file or directory`);
-    else visit(p, node, p === '.' ? '.' : baseName(abs) || '/', 0);
-  }
-  return errResult(out.length ? `${out.join('\n')}\n` : '', errs);
-}
-
-function linesFrom(sys, name, files, stdin) {
-  if (!files.length) return { lines: splitLines(stdin ?? ''), errs: [] };
-  const { out, errs } = readSources(sys, name, files, stdin);
-  return { lines: out.flatMap(s => splitLines(s.content)), errs };
+function sortCompare(flags) {
+  const fold = s => (flags.has('f') ? s.replace(/[a-z]/g, c => c.toUpperCase()) : s);
+  const blanks = s => (flags.has('b') ? s.replace(/^[ \t]+/, '') : s);
+  const key = flags.has('n')
+    ? (a, b) => numericValue(a) - numericValue(b)
+    : (a, b) => compareNames(fold(blanks(a)), fold(blanks(b)));
+  return { key, full: (a, b) => key(a, b) || compareNames(a, b) };
 }
 
 function sort(args, { sys, stdin }) {
-  const o = parseOptions('sort', args, 'rnuf');
+  const o = parseOptions('sort', args, 'rnufbz');
   if (o.err) return result('', o.err, 2);
   if (!o.rest.length && stdin == null) return needInput('sort');
-  const src = linesFrom(sys, 'sort', o.rest, stdin);
-  const f = o.flags;
-  const text = (x, y) => (f.has('f') ? x.toLowerCase().localeCompare(y.toLowerCase()) : x.localeCompare(y));
-  const cmp = f.has('n') ? (x, y) => (parseFloat(x) || 0) - (parseFloat(y) || 0) || x.localeCompare(y) : text;
-  let lines = [...src.lines].sort(cmp);
-  if (f.has('r')) lines.reverse();
-  if (f.has('u')) lines = lines.filter((l, i) => i === 0 || cmp(l, lines[i - 1]) !== 0);
-  const errs = src.errs.map(e => e.replace(/^sort: (.*): No such file or directory$/, 'sort: cannot read: $1: No such file or directory'));
-  return errResult(lines.length ? `${lines.join('\n')}\n` : '', errs, 2);
+  const sep = o.flags.has('z') ? '\0' : '\n';
+  const { lines, errs } = readLines(sys, 'sort', o.rest, stdin, sep);
+  if (errs.length) return result('', errs[0], 2);
+  const { key, full } = sortCompare(o.flags);
+  const sign = o.flags.has('r') ? -1 : 1;
+  let sorted = [...lines].sort((a, b) => sign * full(a, b));
+  if (o.flags.has('u')) sorted = sorted.filter((l, i) => i === 0 || key(l, sorted[i - 1]) !== 0);
+  return result(sorted.map(l => l + sep).join(''));
 }
 
 function uniq(args, { sys, stdin }) {
   const o = parseOptions('uniq', args, 'cdui');
   if (o.err) return result('', o.err, 1);
   if (!o.rest.length && stdin == null) return needInput('uniq');
-  const src = linesFrom(sys, 'uniq', o.rest.slice(0, 1), stdin);
+  const input = openInput(sys, o.rest[0] ?? '-', stdin);
+  if (input.code) return result('', `uniq: ${shellQuote(o.rest[0])}: ${reason(input.code)}`, 1);
   const same = (x, y) => (o.flags.has('i') ? x.toLowerCase() === y.toLowerCase() : x === y);
   const groups = [];
-  for (const line of src.lines) {
-    const g = groups[groups.length - 1];
+  for (const line of splitLines(input.content)) {
+    const g = groups.at(-1);
     if (g && same(g.line, line)) g.n++;
     else groups.push({ line, n: 1 });
   }
   let sel = groups;
   if (o.flags.has('d')) sel = sel.filter(g => g.n > 1);
   if (o.flags.has('u')) sel = sel.filter(g => g.n === 1);
-  const text = sel.map(g => (o.flags.has('c') ? `${String(g.n).padStart(7)} ` : '') + g.line).join('\n');
-  return errResult(text ? `${text}\n` : '', src.errs);
+  return result(sel.map(g => `${o.flags.has('c') ? `${String(g.n).padStart(7)} ` : ''}${g.line}\n`).join(''));
 }
 
 export default {
   head: (args, ctx) => headTail('head', args, ctx),
-  tail,
+  tail: (args, ctx) => headTail('tail', args, ctx),
   wc,
-  grep,
-  find,
   sort,
   uniq,
 };

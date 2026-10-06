@@ -16,7 +16,7 @@ const DOT_OPERAND = /(^|\/)\.\.?\/*$/;
 
 const REASONS = {
   root: 'rm -r on / tries to erase the whole system. GNU rm refuses it by default (--preserve-root), but never try it on a real machine.',
-  home: 'rm -r on your home directory would delete everything in it, and there is no undo.',
+  home: 'rm -r on your home directory, or on a directory that holds it, would delete everything in your home, and there is no undo.',
   shell: 'kill -9 on your own shell ends it at once. In a real terminal your session would close.',
 };
 
@@ -85,9 +85,10 @@ function rmDanger(ctx, record) {
   const recursive = ctx.flag(record, 'r') || ctx.flag(record, 'R') || record.args.includes('--recursive');
   const named = { ...record, args: record.args.filter(a => !DOT_OPERAND.test(a)) };
   const paths = recursive ? ctx.paths(named) : [];
+  const holdsHome = path => ctx.home === path || ctx.home.startsWith(`${path}/`);
   let reason = null;
   if (paths.includes('/')) reason = REASONS.root;
-  else if (paths.includes(ctx.home)) reason = REASONS.home;
+  else if (paths.some(holdsHome)) reason = REASONS.home;
   return reason;
 }
 
@@ -106,8 +107,9 @@ function killDanger(ctx, record) {
 }
 
 /**
- * Dangerous attempts in a line, whether or not they succeeded: rm -r of / or
- * of home, and kill -9 of the player's shell (the process with key 'shell').
+ * Dangerous attempts in a line, whether or not they succeeded: rm -r of /, of
+ * home or of a directory holding home, and kill -9 of the player's shell (the
+ * process with key 'shell').
  *
  * @param {object} ctx The line's check context from makeContext.
  * @returns {string[]} One reason per dangerous command, in order.

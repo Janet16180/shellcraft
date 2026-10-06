@@ -36,3 +36,8 @@ test('a process without a key or a command raises', () => {
 test('a node with a mode outside 0 to 7777 raises', () => {
   assert.throws(() => validatePatch([put('/x', file('', { mode: 0o10000 }))]), /mode/);
 });
+
+test("the key 'shell' is reserved for the player's own shell and raises in a patch", () => {
+  assert.throws(() => validatePatch([proc({ key: 'shell', user: 'hero', cmd: 'x' })]), /reserved/);
+  assert.throws(() => validatePatch([stop('shell')]), /reserved/);
+});

@@ -72,3 +72,14 @@ test('top shows one snapshot sorted by CPU, with a note', async () => {
   assert.match(rows[0], /shadow_daemon/);
   assert.match(r.note, /refreshes/);
 });
+
+test('kill -l lists all 64 signals and translates numbers and names', async () => {
+  const b = await shell();
+  const table = (await run(b, 'kill -l')).out;
+  assert.match(table, /^ 1\) SIGHUP\t 2\) SIGINT/);
+  assert.match(table, /31\) SIGSYS\t34\) SIGRTMIN\t/);
+  assert.match(table, /64\) SIGRTMAX\t\n$/);
+  assert.equal((await run(b, 'kill -l 9')).out, 'KILL\n');
+  assert.equal((await run(b, 'kill -l TERM')).out, '15\n');
+  assert.equal((await run(b, 'kill -s')).err, 'bash: kill: -s: option requires an argument\n');
+});

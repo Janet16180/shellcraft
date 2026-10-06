@@ -161,7 +161,37 @@ export function snapshot(node) {
 }
 
 /**
- * Place a node at an absolute path, replacing what was there.
+ * Add or replace an entry in a directory, updating the directory's time as a
+ * real filesystem does when its entries change.
+ *
+ * @param {object} dirNode The directory.
+ * @param {string} name The entry name.
+ * @param {object} node The entry.
+ * @param {number} mtime The time of the change.
+ * @returns {object} The entry.
+ */
+export function addChild(dirNode, name, node, mtime) {
+  dirNode.children[name] = node;
+  dirNode.mtime = mtime;
+  return node;
+}
+
+/**
+ * Remove an entry from a directory, updating the directory's time.
+ *
+ * @param {object} dirNode The directory.
+ * @param {string} name The entry name.
+ * @param {number} mtime The time of the change.
+ * @returns {void}
+ */
+export function removeChild(dirNode, name, mtime) {
+  delete dirNode.children[name];
+  dirNode.mtime = mtime;
+}
+
+/**
+ * Place a node at an absolute path, replacing what was there. The parent
+ * directory takes the node's time.
  *
  * @param {object} root The root directory node.
  * @param {string} abs Absolute path other than '/'.
@@ -172,7 +202,7 @@ export function snapshot(node) {
 export function insert(root, abs, node) {
   const parent = lookup(root, parentOf(abs));
   if (!parent || parent.type !== 'dir') throw new Error(`cannot place ${abs}: ${parentOf(abs)} is not a directory`);
-  parent.children[baseName(abs)] = node;
+  addChild(parent, baseName(abs), node, node.mtime);
 }
 
 /**
@@ -180,9 +210,10 @@ export function insert(root, abs, node) {
  *
  * @param {object} root The root directory node.
  * @param {string} abs Absolute path other than '/'.
+ * @param {number} mtime The time of the change, for the parent directory.
  * @returns {void}
  */
-export function detach(root, abs) {
+export function detach(root, abs, mtime) {
   const parent = lookup(root, parentOf(abs));
-  if (parent && parent.type === 'dir') delete parent.children[baseName(abs)];
+  if (parent && parent.type === 'dir' && baseName(abs) in parent.children) removeChild(parent, baseName(abs), mtime);
 }

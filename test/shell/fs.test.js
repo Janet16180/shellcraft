@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalize, lookup, parentOf, baseName, joinPath, joinDisp, splitLines, byteLength, sizeOf, newDir, newFile, cloneNode, fromSpec, snapshot, insert, detach } from '../../src/shell/fs.js';
+import { normalize, lookup, parentOf, baseName, joinPath, joinDisp, splitLines, byteLength, sizeOf, newDir, newFile, cloneNode, fromSpec, snapshot, insert, detach, addChild, removeChild } from '../../src/shell/fs.js';
 import { dir, file } from '../../src/backend/spec.js';
 
 const meta = { mode: 0o755, owner: 'root', group: 'root', mtime: 1 };
@@ -75,9 +75,18 @@ test('insert places a node under an existing directory and raises otherwise', ()
   assert.throws(() => insert(root, '/nope/b', newDir({}, meta)), /not a directory/);
 });
 
-test('detach removes a node and ignores a missing one', () => {
+test('detach removes a node, stamps its parent, and ignores a missing one', () => {
   const root = tree();
-  detach(root, '/home/hero/a.txt');
-  detach(root, '/nope/x');
+  detach(root, '/home/hero/a.txt', 50);
+  detach(root, '/nope/x', 60);
   assert.equal(lookup(root, '/home/hero/a.txt'), null);
+  assert.equal(lookup(root, '/home/hero').mtime, 50);
+});
+
+test('adding or removing an entry updates the directory time', () => {
+  const d = newDir({}, meta);
+  addChild(d, 'x', newFile('', meta), 10);
+  assert.equal(d.mtime, 10);
+  removeChild(d, 'x', 20);
+  assert.deepEqual([d.mtime, d.children], [20, {}]);
 });

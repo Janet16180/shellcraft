@@ -1,19 +1,29 @@
 /**
- * Running a typed line: parse it, expand words, wire pipelines and
- * redirections, dispatch each command, and record what ran.
+ * Running a typed line: parse it, then for each command expand its words,
+ * open its redirections, dispatch it, route its output, and record it.
+ *
+ * Output goes to a sink `{write(stream, text, html), note(text)}`; the typed
+ * line writes to the terminal, scripts and command substitutions capture it.
  */
 
-import { tokenize, parse } from './parse.js';
-import { expandGlob } from './glob.js';
-import { lookup, normalize, parentOf, baseName, newFile } from './fs.js';
-import { can, canChangeEntries } from './perms.js';
+import { tokenize } from './lexer.js';
+import { parse } from './parse.js';
+import { expandWords, expandTarget, expandAssignment } from './expand.js';
+import { openRedirects, writeTo } from './redirect.js';
+import { resolve, errorText } from './paths.js';
+import { can } from './perms.js';
 import { result, withNote } from './result.js';
 import { manText, hasManPage } from './man.js';
-import { varValue } from './vars.js';
+import { varValue, setVar } from './vars.js';
+import { BUILTINS, BUILTIN_HELP, builtinHelp } from './builtins.js';
 
-const MAX_SCRIPT_DEPTH = 4;
+const MAX_DEPTH = 8;
+const SYSTEM_HOMES = { root: '/root', daemon: '/usr/sbin', bin: '/bin', sys: '/dev', nobody: '/nonexistent' };
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
-
+const CONTINUATION = 'In a real terminal, bash would wait for the rest of the command on a new line (a > prompt). Here the line ends where you pressed Enter.';
+const BACKGROUND = 'Background jobs are not simulated yet: the command ran in the foreground.';
+const OWN_OPTIONS = new Set(['clear']);
+const helpNote = name => `Real bash prints a longer description here; help ${name} shows the same text.`;
 const MISTAKES = {
   cls: 'cls is the Windows command. On Linux, use clear.',
   del: 'del is the Windows command. On Linux, use rm.',
@@ -27,156 +37,179 @@ const MISTAKES = {
   'ls-la': 'Put a space before the option: ls -la',
 };
 
-function writeRedirect(sys, target, content, append) {
-  const p = normalize(target, sys.cwd);
-  const node = lookup(sys.root, p);
-  const parent = lookup(sys.root, parentOf(p));
-  let error = '';
-  if (node && node.dev === 'null') error = '';
-  else if (node && node.type === 'dir') error = `bash: ${target}: Is a directory`;
-  else if (!parent || parent.type !== 'dir') error = `bash: ${target}: No such file or directory`;
-  else if (node ? !can(sys, node, 'w') : !canChangeEntries(sys, parent)) error = `bash: ${target}: Permission denied`;
-  else if (node) Object.assign(node, { content: append ? node.content + content : content, mtime: sys.now() });
-  else parent.children[baseName(p)] = newFile(content, { mode: 0o666 & ~sys.umask, owner: sys.user, group: sys.user, mtime: sys.now() });
-  return error;
+const isAssignment = word => 'lit' in word.parts[0] && !word.parts[0].q && ASSIGNMENT.test(word.parts[0].lit);
+const withNewline = text => (text && !text.endsWith('\n') ? `${text}\n` : text);
+
+function expansionEnv(sh) {
+  const { sys } = sh;
+  const errors = [];
+  return {
+    sys, errors,
+    fail: message => errors.push(message),
+    lookupVar: name => varValue(sys, name),
+    homeOf: user => ({ ...SYSTEM_HOMES, [sys.user]: sys.home })[user] ?? null,
+    substitute: line => capture(sh, line).out,
+  };
 }
 
-function readRedirect(sys, target) {
-  const node = lookup(sys.root, normalize(target, sys.cwd));
-  let input = null;
-  let error = '';
-  if (!node) error = `bash: ${target}: No such file or directory`;
-  else if (node.type === 'dir') error = `bash: ${target}: Is a directory`;
-  else if (!can(sys, node, 'r')) error = `bash: ${target}: Permission denied`;
-  else input = node.content;
-  return { input, error };
+function capture(sh, line, errPrefix = null) {
+  const out = { out: '', err: '', status: 0 };
+  const sink = {
+    write: (stream, text) => { out[stream] += errPrefix && stream === 'err' ? text.replace(/^bash: /gm, errPrefix) : text; },
+    note: sh.run.sink.note,
+  };
+  sh.run.depth++;
+  out.status = executeLine(sh, line, sink);
+  sh.run.depth--;
+  return out;
+}
+
+function runScriptText(sh, text, name) {
+  if (sh.run.depth >= MAX_DEPTH) return result('', `bash: ${name}: maximum nesting level exceeded`, 1);
+  let out = '';
+  let err = '';
+  let status = 0;
+  text.split('\n').forEach((raw, i) => {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) return;
+    const r = capture(sh, line, `${name}: line ${i + 1}: `);
+    out += r.out;
+    err += r.err;
+    status = r.status;
+  });
+  return result(out, err.replace(/\n$/, ''), status);
+}
+
+function runFile(sh, name, args, ctx) {
+  const r = resolve(sh.sys, name);
+  let res;
+  if (r.error) res = result('', `bash: ${name}: ${errorText(r.error)}`, r.error === 'ENOENT' ? 127 : 126);
+  else if (r.node.type === 'dir') res = result('', `bash: ${name}: Is a directory`, 126);
+  else if (!can(sh.sys, r.node, 'x')) res = result('', `bash: ${name}: Permission denied`, 126);
+  else if (r.node.bin) res = sh.commands[r.node.bin](args, ctx);
+  else if (!can(sh.sys, r.node, 'r')) res = result('', `bash: ${name}: Permission denied`, 126);
+  else res = runScriptText(sh, r.node.content, name);
+  return res;
 }
 
 function commandNotFound(sh, name) {
   const lower = name.toLowerCase();
-  const hint = MISTAKES[name] ?? (sh.commands[lower] ? `Commands are case-sensitive. Try ${lower}` : null);
+  const hint = MISTAKES[name] ?? (lower !== name && sh.commands[lower] ? `Commands are case-sensitive. Try ${lower}` : null);
   return withNote(result('', `bash: ${name}: command not found`, 127), hint);
 }
 
-function runFile(sh, name, args, ctx) {
-  const p = normalize(name, sh.sys.cwd);
-  const node = lookup(sh.sys.root, p);
-  let r;
-  if (!node) r = result('', `bash: ${name}: No such file or directory`, 127);
-  else if (node.type === 'dir') r = result('', `bash: ${name}: Is a directory`, 126);
-  else if (!can(sh.sys, node, 'x')) r = result('', `bash: ${name}: Permission denied`, 126);
-  else if (node.bin) r = sh.commands[node.bin](args, ctx);
-  else r = runScriptText(sh, node.content);
-  return r;
-}
-
-function dispatch(sh, argv, stdin, piped) {
+function dispatch(sh, argv, streams, overlay) {
+  const { sys } = sh;
   const [name, ...args] = argv;
   const ctx = {
-    sys: sh.sys, stdin, piped, commands: sh.commands,
+    sys, stdin: streams.stdin, piped: streams.out.kind !== 'terminal', commands: sh.commands, env: overlay,
     block: reason => sh.run.blocked.push(reason),
-    runScript: node => runScriptText(sh, node.content),
+    runScript: (node, scriptName) => runScriptText(sh, node.content, scriptName),
   };
   let r;
-  if (ASSIGNMENT.test(name) && !args.length) {
-    const i = name.indexOf('=');
-    sh.sys.vars[name.slice(0, i)] = name.slice(i + 1);
-    r = result();
-  } else if (name.includes('/')) r = runFile(sh, name, args, ctx);
-  else if (args.includes('--help') && hasManPage(name) && name !== 'echo') r = result(manText(name, true));
+  if (name.includes('/')) r = runFile(sh, name, args, ctx);
+  else if (args[0] === '--help' && name in BUILTIN_HELP) r = withNote(result(builtinHelp(name), '', 2), helpNote(name));
+  else if (args.includes('--help') && hasManPage(name) && !BUILTINS.has(name) && !OWN_OPTIONS.has(name)) r = result(manText(name, true));
   else if (!sh.commands[name]) r = commandNotFound(sh, name);
-  else r = sh.commands[name](args, ctx);
+  else {
+    if (!BUILTINS.has(name)) sys.hashed.add(name);
+    r = sh.commands[name](args, ctx);
+  }
   return r;
 }
 
-function expandArgs(sh, args) {
-  const { sys } = sh;
-  let argv = args.flatMap(t => expandGlob(t, sys.root, sys.cwd));
-  if (argv.length && sys.aliases[argv[0]] && !args[0].quoted) {
-    const { tokens } = tokenize(sys.aliases[argv[0]], { lookupVar: n => varValue(sys, n), home: sys.home });
-    argv = [...tokens.filter(t => !t.op).map(t => t.v), ...argv.slice(1)];
-  }
-  return argv;
+function aliasExpand(sh, words, seen = new Set()) {
+  const first = words[0];
+  const plain = first && first.parts.length === 1 && 'lit' in first.parts[0] && !first.parts[0].q;
+  const name = plain ? first.parts[0].lit : null;
+  if (name === null || seen.has(name) || !(name in sh.sys.aliases)) return words;
+  const expanded = tokenize(sh.sys.aliases[name]).tokens.filter(t => t.type === 'word');
+  return [...aliasExpand(sh, expanded, new Set([...seen, name])), ...words.slice(1)];
 }
 
-function emit(sink, r) {
-  if (r.err) sink.err(r.err);
-  if (r.note) sink.note(r.note);
+function route(sh, sink, target, text, html) {
+  if (!text) return;
+  if (target.kind === 'terminal') sink.write(target.stream, text, target.stream === 'out' ? html : null);
+  else if (target.kind === 'pipe') target.buffer += text;
+  else writeTo(sh.sys, target, text);
 }
 
-function runStage(sh, st, stdin, place, sink) {
+function prepare(sh, cmd, stdin, last) {
+  const env = expansionEnv(sh);
+  let k = 0;
+  while (k < cmd.words.length && isAssignment(cmd.words[k])) k++;
+  const values = cmd.words.slice(0, k).map(w => [w.parts[0].lit.split('=')[0], expandAssignment(w, env)]);
+  const argv = expandWords(aliasExpand(sh, cmd.words.slice(k)), env);
+  const targets = cmd.redirs.map(r => ({ op: r.op, fd: r.fd, expanded: expandTarget(r.target, env) }));
+  const bad = env.errors.length ? { expanded: { error: env.errors[0] } } : targets.find(t => t.expanded.error);
+  const base = { stdin, out: last ? { kind: 'terminal', stream: 'out' } : { kind: 'pipe', buffer: '' }, err: { kind: 'terminal', stream: 'err' } };
+  const opened = bad ? { error: bad.expanded.error, streams: base, records: [] }
+    : openRedirects(sh.sys, targets.map(t => ({ op: t.op, fd: t.fd, target: t.expanded.value })), base);
+  return { argv, values, opened, base, abort: env.errors.length > 0 };
+}
+
+function runCommand(sh, cmd, stdin, place, sink) {
   const { sys } = sh;
-  const argv = expandArgs(sh, st.args);
-  const outR = st.redir.findLast(r => r.op !== '<');
-  const inR = st.redir.findLast(r => r.op === '<');
   const cwd = sys.cwd;
-  const fromFile = inR ? readRedirect(sys, inR.target) : { input: stdin, error: '' };
-  const r = fromFile.error || !argv.length
-    ? result('', fromFile.error, fromFile.error ? 1 : 0)
-    : dispatch(sh, argv, fromFile.input, !place.last || Boolean(outR));
-  emit(sink, r);
-  let out = r.out;
-  let status = r.status;
-  const redirectError = outR && !fromFile.error ? writeRedirect(sys, outR.target, out, outR.op === '>>') : '';
-  if (redirectError) { sink.err(redirectError); status = 1; }
-  if (outR) out = '';
-  else if (place.last && out) sink.out(out, r.html);
-  if (sh.run.depth === 0 && argv.length && !fromFile.error) {
-    sh.run.records.push({
-      name: argv[0], args: argv.slice(1), cwd, status, stdout: r.out, pipeline: place.pipeline, stage: place.stage, stages: place.stages,
-      redirects: st.redir.filter(x => x.op !== '<').map(x => ({ op: x.op, target: normalize(x.target, cwd) })),
-    });
+  const { argv, values, opened, base, abort } = prepare(sh, cmd, stdin, place.last);
+  const { streams } = opened;
+  let r = result();
+  if (opened.error) r = result('', opened.error, 1);
+  else if (!argv.length) values.forEach(([name, value]) => setVar(sys, name, value));
+  else r = dispatch(sh, argv, streams, Object.fromEntries(values));
+  route(sh, sink, opened.error ? base.err : streams.err, withNewline(r.err), null);
+  if (r.note) sink.note(r.note);
+  route(sh, sink, streams.out, r.out, r.html);
+  if (sh.run.depth === 0 && argv.length && !opened.error) {
+    sh.run.records.push({ name: argv[0], args: argv.slice(1), cwd, status: r.status, stdout: r.out, ...place.record, redirects: opened.records });
   }
-  return { status, out };
+  return { status: r.status, piped: streams.out.kind === 'pipe' ? streams.out.buffer : '', abort };
 }
 
-function runPipeline(sh, stages, sink) {
-  const pipeline = sh.run.pipelines++;
+function runPipeline(sh, pipeline, sink) {
+  const index = sh.run.depth === 0 ? sh.run.pipelines++ : -1;
   let stdin = null;
   let status = 0;
-  stages.forEach((st, stage) => {
-    const place = { pipeline, stage, stages: stages.length, last: stage === stages.length - 1 };
-    const done = runStage(sh, st, stdin, place, sink);
+  let abort = false;
+  pipeline.forEach((cmd, stage) => {
+    const place = { last: stage === pipeline.length - 1, record: { pipeline: index, stage, stages: pipeline.length } };
+    const done = runCommand(sh, cmd, stage === 0 ? null : stdin, place, sink);
     status = done.status;
-    stdin = done.out;
+    stdin = done.piped;
+    abort ||= done.abort;
   });
-  return status;
+  return { status, abort };
 }
 
 /**
- * Run one line through a sink. Used for the typed line and for each line of a script.
+ * Run one line: the typed line, a line of a script, or a command substitution.
  *
- * @param {{sys: object, commands: object, run: object}} sh The machine, the command table and the line collector.
+ * @param {{sys: object, commands: object, run: object}} sh The machine, the
+ *   command table and the collector for this typed line (records, blocked reasons, depth, sink).
  * @param {string} line The line.
- * @param {{out: Function, err: Function, note: Function}} sink Where output goes.
+ * @param {{write: (stream: 'out'|'err', text: string, html?: string|null) => void, note: (text: string) => void}} sink Where output goes.
  * @returns {number} The exit status of the last pipeline that ran.
  */
 export function executeLine(sh, line, sink) {
   const { sys } = sh;
-  const { tokens, error: lexError } = tokenize(line, { lookupVar: n => varValue(sys, n), home: sys.home });
-  const { seq, error: parseError } = lexError ? { seq: [], error: lexError } : parse(tokens);
-  let status = 0;
+  const lexed = tokenize(line);
+  const parsed = lexed.error ? { list: [], error: lexed.error, incomplete: true } : parse(lexed.tokens);
+  let status = sys.lastStatus;
   let prev = null;
-  if (parseError) { sink.err(parseError); status = 2; }
-  for (const item of seq) {
-    const skip = (prev === '&&' && status !== 0) || (prev === '||' && status === 0);
-    if (!skip) status = runPipeline(sh, item.pipeline, sink);
+  if (parsed.error) {
+    sink.write('err', `${parsed.error}\n`);
+    if (parsed.incomplete) sink.note(CONTINUATION);
+    status = 2;
+  }
+  let abort = false;
+  for (const item of parsed.list) {
+    const skip = abort || (prev === '&&' && status !== 0) || (prev === '||' && status === 0);
+    const ran = skip ? null : runPipeline(sh, item.pipeline, sink);
+    if (ran) ({ status, abort } = ran);
+    if (ran && item.next === '&') sink.note(BACKGROUND);
+    sys.lastStatus = status;
     prev = item.next;
   }
   sys.lastStatus = status;
   return status;
-}
-
-function runScriptText(sh, text) {
-  if (sh.run.depth >= MAX_SCRIPT_DEPTH) return result('', 'bash: maximum script nesting reached', 1);
-  sh.run.depth++;
-  let out = '';
-  let status = 0;
-  const sink = { ...sh.run.sink, out: t => { out += t; } };
-  for (const raw of text.split('\n')) {
-    const line = raw.trim();
-    if (line && !line.startsWith('#')) status = executeLine(sh, line, sink);
-  }
-  sh.run.depth--;
-  return result(out, '', status);
 }

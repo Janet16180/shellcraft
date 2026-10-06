@@ -2,11 +2,12 @@
  * The simulated bash behind the backend port (src/backend/port.js).
  */
 
-import { createSystem } from './system.js';
+import { createSystem, resizeTerminal } from './system.js';
 import { snapshot } from './fs.js';
 import { executeLine } from './exec.js';
 import { applyPatch } from './patch.js';
 import { complete } from './complete.js';
+import { varValue } from './vars.js';
 import { COMMANDS, BINARIES } from './commands/index.js';
 
 const CLEAR_MARK = '\u001b[2J';
@@ -14,22 +15,28 @@ const CLEAR_MARK = '\u001b[2J';
 function collector() {
   const run = { chunks: [], records: [], blocked: [], depth: 0, pipelines: 0 };
   run.sink = {
-    out: (text, html) => {
-      const chunk = { stream: 'out', text };
+    write: (stream, text, html) => {
+      const chunk = { stream, text };
       if (html) chunk.html = html;
-      if (text.includes(CLEAR_MARK)) chunk.tone = 'clear';
+      if (stream === 'out' && text.includes(CLEAR_MARK)) chunk.tone = 'clear';
       run.chunks.push(chunk);
     },
-    err: text => run.chunks.push({ stream: 'err', text: `${text}\n` }),
     note: text => run.chunks.push({ stream: 'note', text }),
   };
   return run;
 }
 
+function remembered(sys, line) {
+  const control = varValue(sys, 'HISTCONTROL').split(':');
+  const ignoreSpace = control.includes('ignorespace') || control.includes('ignoreboth');
+  const ignoreDups = control.includes('ignoredups') || control.includes('ignoreboth');
+  return !(ignoreSpace && /^\s/.test(line)) && !(ignoreDups && sys.history.at(-1) === line);
+}
+
 function runLine(sys, line) {
   const run = collector();
   const typed = line.trim() !== '';
-  if (typed) sys.history.push(line);
+  if (typed && remembered(sys, line)) sys.history.push(line);
   const status = typed ? executeLine({ sys, commands: COMMANDS, run }, line, run.sink) : sys.lastStatus;
   return { output: run.chunks, status, commands: run.records, blocked: run.blocked };
 }
@@ -40,7 +47,7 @@ function observe(sys) {
     if (p.key !== undefined) rec.key = p.key;
     return rec;
   });
-  return { user: sys.user, host: sys.host, home: sys.home, cwd: sys.cwd, tree: snapshot(sys.root), procs };
+  return { user: sys.user, groups: [...sys.groups], host: sys.host, home: sys.home, cwd: sys.cwd, tree: snapshot(sys.root), procs };
 }
 
 /**
@@ -66,5 +73,6 @@ export function createSimBackend({ user = 'hero', host = 'kernelia', home = '/ho
     run: async line => runLine(sys, line),
     observe: async () => observe(sys),
     complete: async line => complete(sys, line, Object.keys(COMMANDS)),
+    resize: async columns => resizeTerminal(sys, columns),
   };
 }

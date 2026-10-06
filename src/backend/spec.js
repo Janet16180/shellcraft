@@ -8,6 +8,7 @@
  */
 
 const OPS = new Set(['put', 'remove', 'proc', 'stop', 'cd']);
+const PLAYER_SHELL = 'shell';
 const MAX_MODE = 0o7777;
 
 /**
@@ -87,6 +88,8 @@ function checkOp(op) {
   if (op.op === 'put') checkNode(op.node, op.path);
   if (op.op === 'proc' && !op.proc.key) throw new Error('proc: every process needs a key');
   if (op.op === 'proc' && !op.proc.cmd) throw new Error(`proc ${op.proc.key}: every process needs a cmd`);
+  const key = op.op === 'proc' ? op.proc.key : op.key;
+  if (key === PLAYER_SHELL) throw new Error(`${op.op}: the key '${PLAYER_SHELL}' is reserved for the player's own shell`);
 }
 
 /**
@@ -96,7 +99,8 @@ function checkOp(op) {
  * @param {object[]} patch The operations, in the order they apply.
  * @returns {object[]} The same patch.
  * @throws {Error} If an operation is unknown, uses a relative path, has a mode
- *   outside 0 to 7777, or describes a process without a key or a command.
+ *   outside 0 to 7777, describes a process without a key or a command, or uses
+ *   the key 'shell', which belongs to the player's own shell.
  */
 export function validatePatch(patch) {
   patch.forEach(checkOp);

@@ -1,0 +1,34 @@
+[
+  { "name": "whoami and pwd", "world": "home", "lines": ["whoami", "pwd", "hostname", "id", "groups"] },
+  { "name": "ls in a terminal", "world": "home", "lines": ["ls", "ls forest", "ls -a", "ls -A", "ls -1", "ls -F", "ls -r", "ls -aF forest", "ls -d forest", "ls -d", "ls forest library", "ls readme.txt forest", "ls nope", "ls nope readme.txt"] },
+  { "name": "ls sorting in C.UTF-8", "world": "names", "lines": ["ls names", "ls -a names", "ls -1 names", "ls -r names", "ls -F names"] },
+  { "name": "ls long format", "world": "home", "lines": ["ls -l", "ls -la", "ls -l forest", "ls -lh", "ls -lh library", "ls -l library/scroll_of_ages.txt", "ls -ld forest", "ls -l gate", "ls -lA"] },
+  { "name": "ls long format of old files", "world": "home", "worldTime": "2025-09-25T10:00:00Z", "lines": ["ls -l", "ls -l forest"] },
+  { "name": "ls of system places", "world": "home", "lines": ["ls /root", "ls -l /srv", "ls /srv/empty", "ls -ld /tmp", "ls -ld /root", "ls -la /tmp", "ls -l /dev/null", "ls -l /root/treasure.txt", "ls -ld /etc/vault.conf"],
+    "intended": [
+      { "line": "ls -la /tmp", "reason": "the container's / is an overlayfs directory that reports 1 link; a real disk reports 2 plus its subdirectories, as the simulator does" },
+      { "line": "ls -l /dev/null", "reason": "/dev/null is stamped when the system starts: the container's start time versus the simulator's world time" }
+    ] },
+  { "name": "ls options and errors", "world": "home", "lines": ["ls -z", "ls -l -a", "ls -al forest/cave", "ls --all"] },
+  { "name": "ls output into a pipe", "world": "names", "lines": ["ls | cat", "ls names | cat", "ls -a names | cat", "ls -F names | cat", "ls -C names | cat", "COLUMNS=40 ls -C names | cat", "COLUMNS=40", "ls names"] },
+  { "name": "cat", "world": "home", "lines": ["cat readme.txt", "cat -n readme.txt", "cat readme.txt .secret_map", "cat nope", "cat forest", "cat /etc/vault.conf", "cat /etc/motd", "cat -z readme.txt", "cat -n forest/cave/bat.txt nope"] },
+  { "name": "echo", "world": "home", "lines": ["echo hello", "echo   spaced    words", "echo 'single  quoted'", "echo \"double  $HOME\"", "echo -n no newline", "echo -e 'a\\tb'", "echo $USER", "echo", "echo ~", "echo ~/forest"] },
+  { "name": "clear", "world": "home", "lines": ["clear"] },
+  { "name": "clear options", "world": "home", "lines": ["clear --help", "clear -x", "clear foo", "clear -V", "help nope"],
+    "intended": [{ "line": "clear -V", "reason": "the simulator reports the ncurses version of Ubuntu 24.04's package, which may differ in a container image update" }] },
+  { "name": "builtin help", "world": "home", "lines": ["pwd --help", "cd --help", "help cd", "help pwd cd", "echo --help", "true --help", "false --help"],
+    "intended": [
+      { "line": "pwd --help", "reason": "the simulator prints bash's usage and summary lines, not the full description (same status, 2)" },
+      { "line": "cd --help", "reason": "the simulator prints bash's usage and summary lines, not the full description (same status, 2)" },
+      { "line": "help cd", "reason": "the simulator prints bash's usage and summary lines, not the full description" },
+      { "line": "help pwd cd", "reason": "the simulator prints bash's usage and summary lines, not the full description" }
+    ] },
+  { "name": "help for commands", "world": "home",
+    "lines": ["man ls", "ls --help", "man", "man nope"],
+    "intended": [
+      { "line": "man ls", "reason": "the simulator shows its own short page; the container has no manual pages and a real man opens a pager", "real": false },
+      { "line": "ls --help", "reason": "the simulator prints a short usage summary instead of coreutils' long help text" },
+      { "line": "man", "reason": "the minimized container image has no man-db; the simulator prints man-db's message" },
+      { "line": "man nope", "reason": "the minimized container image has no man-db; the simulator prints man-db's message" }
+    ] }
+]

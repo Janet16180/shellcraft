@@ -40,6 +40,15 @@ bridges "cd .. goes up" with the map's dungeon below home.
 2. Preview artifact for the user; collect their reactions.
 3. Chapters 3 to 14 by authors in parallel, each followed by a fact-checker.
 
+## Backlog (after the slice)
+
+- Chapter 12 (Well of Echoes) needs the simulator to read `~/.bashrc` (today `ll` and `la` are
+  built in) and support `source ~/.bashrc`.
+- Real-terminal (termlab) path only: the record-based danger check detects `kill -9` of the
+  player's shell, not HUP, USR1 and the other signals that end it (the simulator refuses those
+  itself). Fix by sharing one signal table from the backend side, not by copying it into src/game.
+- Fact-check round: the heart-loss reason texts in src/game/effects.js.
+
 ## Rules
 
 Feature branches, small commits, no trailers, never push. Ask the user before deleting
