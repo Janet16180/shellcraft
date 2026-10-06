@@ -127,20 +127,20 @@ const DECOR = {
     rugWithRing(ctx, wall);
     shields(ctx, wall);
   },
-  archive: (ctx, wall) => scrolls(ctx, wall),
+  archive: scrolls,
   scriptorium: (ctx, wall) => {
     books(ctx, wall);
     desk(ctx);
   },
   cellar: ctx => big(ctx, SPRITES.barrel, [[10, 156], [30, 164], [266, 160], [288, 154]]),
-  scrap: ctx => scraps(ctx),
-  gatehouse: (ctx, wall) => shields(ctx, wall),
-  quarters: ctx => bed(ctx),
+  scrap: scraps,
+  gatehouse: shields,
+  quarters: bed,
   vault: ctx => big(ctx, SPRITES.chest, [[12, 150]]),
-  armory: (ctx, wall) => weapons(ctx, wall),
+  armory: weapons,
   workshop: ctx => big(ctx, SPRITES.anvil, [[18, 162]]),
   pit: ctx => big(ctx, SPRITES.rune, [[14, 156], [282, 156]], { alpha: 0.8 }),
-  corridor: (ctx, wall) => cobwebs(ctx, wall),
+  corridor: cobwebs,
 };
 
 /**
