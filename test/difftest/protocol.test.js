@@ -17,12 +17,21 @@ test('each line keeps the previous status for $?', () => {
   assert.match(inputScript(['false', 'echo $?'], { cds: [], aliases: {} }), /\(exit "\$__st"\)\necho \$\?/);
 });
 
-test('output splits back into one stdout, stderr and status per line', () => {
-  const stdout = `noise${RS}B0${RS}a\n${RS}E0${RS}${RS}B1${RS}${RS}E2${RS}`;
+test('each line is stamped with the container clock when it starts and ends', () => {
+  const text = inputScript(['ls'], { cds: [], aliases: {} });
+  assert.ok(text.includes(`printf '${RS}B0 %(%s)T${RS}' -1`));
+  assert.ok(text.includes(`printf '${RS}E%d %(%s)T${RS}' "$__st" -1`));
+});
+
+test('output splits back into one stdout, stderr, status and clock per line', () => {
+  const stdout = `noise${RS}B0 100${RS}a\n${RS}E0 101${RS}${RS}B1 101${RS}${RS}E2 102${RS}`;
   const stderr = `job control noise\n${RS}B0${RS}${RS}B1${RS}oops\n${RS}Z${RS}exit\n`;
-  assert.deepEqual(splitOutput(stdout, stderr, 2), [{ out: 'a\n', err: '', status: 0 }, { out: '', err: 'oops\n', status: 2 }]);
+  assert.deepEqual(splitOutput(stdout, stderr, 2), [
+    { out: 'a\n', err: '', status: 0, started: 100, ended: 101 },
+    { out: '', err: 'oops\n', status: 2, started: 101, ended: 102 },
+  ]);
 });
 
 test('a line whose end marker never came has a null status', () => {
-  assert.equal(splitOutput(`${RS}B0${RS}x`, '', 1)[0].status, null);
+  assert.equal(splitOutput(`${RS}B0 5${RS}x`, '', 1)[0].status, null);
 });
