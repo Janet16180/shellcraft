@@ -31,7 +31,7 @@ function awakening() {
     setup: (_random, { home }) => [put(`${home}/letter.txt`, file('Dear hero.\n'))],
     lesson: '<p>Look around.</p>',
     tasks: [
-      { goal: 'Print where you are', hints: ['Where are you?', 'Use pwd.', 'pwd'], done: ctx => ctx.ran('pwd') },
+      { goal: 'Print where you are', tip: 'pwd prints the directory you are in.', hints: ['Where are you?', 'Use pwd.', 'pwd'], done: ctx => ctx.ran('pwd') },
       { goal: 'Read the letter', hints: ['A letter waits.', 'Use cat.', 'cat letter.txt'], done: ctx => ctx.read(`${ctx.home}/letter.txt`) },
     ],
     solve: ['pwd', 'cat letter.txt'],

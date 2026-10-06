@@ -12,8 +12,11 @@ const ID = /^[a-z][a-z0-9-]*$/;
 // An angle-bracketed word is a placeholder the shell would read as a redirection.
 const ANGLE_PLACEHOLDER = /<[A-Za-z][\w-]*>/;
 
+const MAX_TIP = 140;
+
 const isText = x => typeof x === 'string' && x.trim() !== '';
 const isFunction = x => typeof x === 'function';
+const isOptionalFunction = x => x === undefined || isFunction(x);
 
 function assertHints(hints, where, resolve = hint => hint) {
   assert.ok(Array.isArray(hints) && hints.length === 3, `${where}: needs exactly 3 hints (nudge, technique, command)`);
@@ -38,6 +41,11 @@ function assertTasks(tasks, where) {
     assert.ok(isText(task.goal), `${where} task ${i + 1}: goal must be non-empty text`);
     assertHints(task.hints, `${where} task ${i + 1}`);
     assert.ok(isFunction(task.done), `${where} task ${i + 1}: done must be a function`);
+    assert.ok(isOptionalFunction(task.near), `${where} task ${i + 1}: near must be a function when present`);
+    if (task.tip !== undefined) {
+      assert.ok(isText(task.tip), `${where} task ${i + 1}: tip must be non-empty text`);
+      assert.ok(task.tip.length <= MAX_TIP, `${where} task ${i + 1}: tip has ${task.tip.length} characters, at most ${MAX_TIP} allowed`);
+    }
   });
 }
 
@@ -46,6 +54,7 @@ function assertBoss(boss, where) {
   assert.ok(isText(boss.title), `${where} boss: title must be non-empty text`);
   assert.ok(isText(boss.briefing), `${where} boss: briefing must be non-empty text`);
   for (const name of ['setup', 'done', 'solve']) assert.ok(isFunction(boss[name]), `${where} boss: ${name} must be a function`);
+  assert.ok(isOptionalFunction(boss.near), `${where} boss: near must be a function when present`);
 
   const room = boss.setup(createRandom(1), WHO);
   assert.ok(room && Array.isArray(room.patch) && 'secret' in room, `${where} boss: setup must return { patch, secret }`);

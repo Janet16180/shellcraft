@@ -148,8 +148,15 @@ test('solving the boss clears the chapter, pays the boss and the bonus, and open
   ]);
   assert.equal(turn.view.chapter.phase, 'done');
   assert.equal(turn.view.xp, 70);
-  assert.deepEqual(turn.view.chapters.map(c => c.status), ['playing', 'open', 'soon']);
+  assert.deepEqual(turn.view.chapters.map(c => [c.status, c.current]), [['cleared', true], ['open', false], ['soon', false]]);
   assert.deepEqual(saved(store), { version: 2, chapter: 'forest', cleared: ['awakening'], xp: 70, sound: false, introSeen: false });
+});
+
+test('a cleared chapter can be started again while it is the current one', async () => {
+  const { session } = await booted();
+  await clearAwakening(session);
+  const view = await session.startChapter('awakening');
+  assert.deepEqual([view.chapter.phase, view.chapter.replay, view.chapters[0].status], ['quest', true, 'cleared']);
 });
 
 test('replaying a cleared chapter pays nothing', async () => {
@@ -358,16 +365,17 @@ test('chapter-defined effects are added to the line effects', async () => {
 test('the view lists every chapter with its status and the spellbook with what is unlocked', async () => {
   const { view } = await booted();
   assert.deepEqual(view.chapters, [
-    { id: 'awakening', number: 1, act: 1, title: 'The Awakening', status: 'playing' },
-    { id: 'forest', number: 2, act: 1, title: 'The Whispering Forest', status: 'locked' },
-    { id: 'unseen', number: 3, act: 1, title: 'Things Unseen', status: 'soon' },
+    { id: 'awakening', number: 1, act: 1, title: 'The Awakening', status: 'playing', current: true },
+    { id: 'forest', number: 2, act: 1, title: 'The Whispering Forest', status: 'locked', current: false },
+    { id: 'unseen', number: 3, act: 1, title: 'Things Unseen', status: 'soon', current: false },
   ]);
   assert.deepEqual(view.spellbook.map(s => [s.name, s.chapter, s.unlocked]), [['pwd', 'awakening', true], ['cd', 'forest', false]]);
   assert.equal(view.spellbook[0].summary, 'Print the working directory.');
 });
 
-test('the view carries the lesson, the boss and the rank', async () => {
+test('the view carries the lesson, the task tips, the boss and the rank', async () => {
   const { view } = await booted();
+  assert.deepEqual(view.chapter.tasks.map(t => t.tip), ['pwd prints the directory you are in.', null]);
   assert.equal(view.chapter.lesson, '<p>Look around.</p>');
   assert.deepEqual(view.chapter.boss, { title: 'The Sign', briefing: '<p>Do what the sign says.</p>', hints: [] });
   assert.deepEqual(view.rank, { title: 'Novice', floor: 0, next: 150 });
