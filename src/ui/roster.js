@@ -22,16 +22,20 @@ export const ROSTER = [
   { kind: 'chained', name: 'Chained item', what: 'A file you have no permission to read.' },
 ];
 
+const KEY_PX = 40;
+
 /**
  * Fill the map key list with each picture and its explanation.
  *
  * @param {HTMLElement} list The <ul> to fill.
  * @param {(canvas: HTMLCanvasElement, kind: string) => void} drawKey The map's key painter.
+ * @param {number} pixelRatio The device pixel ratio, so the pictures stay crisp.
  * @returns {void}
  */
-export function renderRoster(list, drawKey) {
+export function renderRoster(list, drawKey, pixelRatio) {
+  const size = Math.round(KEY_PX * pixelRatio);
   list.innerHTML = ROSTER.map(({ kind, name, what }) =>
-    `<li><canvas width="40" height="40" data-kind="${kind}" aria-hidden="true"></canvas><div><b>${esc(name)}</b><span>${what}</span></div></li>`).join('');
+    `<li><canvas width="${size}" height="${size}" data-kind="${kind}" aria-hidden="true"></canvas><div><b>${esc(name)}</b><span>${what}</span></div></li>`).join('');
   for (const canvas of list.querySelectorAll('canvas')) drawKey(canvas, canvas.dataset.kind);
 }
 

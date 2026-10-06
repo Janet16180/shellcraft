@@ -65,6 +65,12 @@
   --size-h2: 22px;
   --size-h1: 34px;
 
+  /* The page's brick wall, fixed to the window so a band painted with it lines up. */
+  --wall:
+    linear-gradient(rgba(11, 10, 18, 0.72), rgba(11, 10, 18, 0.72)) fixed,
+    var(--brick) 0 0 / 64px 64px fixed,
+    var(--bg);
+
   --gutter: 16px;
   --gap: 20px;
 

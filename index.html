@@ -24,36 +24,39 @@
   </header>
 
   <main class="grid">
-    <section class="mapwrap" aria-label="Map">
-      <nav class="crumbs" id="crumbs" aria-label="Where you are"></nav>
-      <div class="stage window">
-        <canvas id="map" width="640" height="400" role="img" aria-label="Map of the directory you are in"></canvas>
-        <div class="toast" id="toast" aria-hidden="true"></div>
-      </div>
-      <div class="picks"><span id="picksLabel">In this room:</span><div class="picklist" id="picks" role="group" aria-labelledby="picksLabel"></div></div>
-      <p class="sr-only" id="roomText" aria-live="polite"></p>
+    <div class="side">
+      <section class="mapwrap" aria-label="Map">
+        <nav class="crumbs" id="crumbs" aria-label="Where you are"></nav>
+        <div class="stage window">
+          <canvas id="map" width="640" height="400" role="img" aria-label="Map of the directory you are in"></canvas>
+          <div class="toast" id="toast" aria-hidden="true"></div>
+        </div>
+        <div class="picks"><span id="picksLabel">In this room:</span><div class="picklist" id="picks" role="group" aria-labelledby="picksLabel"></div></div>
+        <p class="sr-only" id="roomText" aria-live="polite"></p>
+      </section>
+
+      <section class="panelwrap window" aria-label="Quest, spellbook and chapters">
+        <div class="tabs" role="tablist">
+          <button type="button" role="tab" id="tabbtn-quest" aria-controls="tab-quest" aria-selected="true" data-tab="quest">Quest</button>
+          <button type="button" role="tab" id="tabbtn-spells" aria-controls="tab-spells" aria-selected="false" tabindex="-1" data-tab="spells">Spellbook</button>
+          <button type="button" role="tab" id="tabbtn-levels" aria-controls="tab-levels" aria-selected="false" tabindex="-1" data-tab="levels">Chapters</button>
+        </div>
+        <div class="panel" id="tab-quest" role="tabpanel" aria-labelledby="tabbtn-quest" tabindex="0"></div>
+        <div class="panel" id="tab-spells" role="tabpanel" aria-labelledby="tabbtn-spells" tabindex="0" hidden><div class="spells" id="spells"></div></div>
+        <div class="panel" id="tab-levels" role="tabpanel" aria-labelledby="tabbtn-levels" tabindex="0" hidden>
+          <div id="levels"></div>
+          <button class="px-btn danger small" id="resetBtn" type="button">Reset progress</button>
+        </div>
+      </section>
+
       <details class="roster" id="roster">
         <summary>Map key: what each picture really is</summary>
         <ul id="rosterList"></ul>
       </details>
-    </section>
-
-    <section class="panelwrap window" aria-label="Quest, spellbook and chapters">
-      <div class="tabs" role="tablist">
-        <button type="button" role="tab" id="tabbtn-quest" aria-controls="tab-quest" aria-selected="true" data-tab="quest">Quest</button>
-        <button type="button" role="tab" id="tabbtn-spells" aria-controls="tab-spells" aria-selected="false" tabindex="-1" data-tab="spells">Spellbook</button>
-        <button type="button" role="tab" id="tabbtn-levels" aria-controls="tab-levels" aria-selected="false" tabindex="-1" data-tab="levels">Chapters</button>
-      </div>
-      <div class="panel" id="tab-quest" role="tabpanel" aria-labelledby="tabbtn-quest" tabindex="0"></div>
-      <div class="panel" id="tab-spells" role="tabpanel" aria-labelledby="tabbtn-spells" tabindex="0" hidden><div class="spells" id="spells"></div></div>
-      <div class="panel" id="tab-levels" role="tabpanel" aria-labelledby="tabbtn-levels" tabindex="0" hidden>
-        <div id="levels"></div>
-        <button class="px-btn danger small" id="resetBtn" type="button">Reset progress</button>
-      </div>
-    </section>
+    </div>
 
     <section class="term window" id="term" aria-label="Terminal">
-      <div class="termbar" aria-hidden="true"><i style="background:var(--danger)"></i><i style="background:var(--accent)"></i><i style="background:var(--good)"></i><span id="termTitle">hero@kernelia: ~</span></div>
+      <div class="termbar" aria-hidden="true"><i></i><i></i><i></i><span id="termTitle">hero@kernelia: ~</span></div>
       <p class="task-strip" id="now"></p>
       <div class="screen" id="screen">
         <div id="out" role="log" aria-live="polite" aria-label="Terminal output"></div>

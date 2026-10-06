@@ -4,34 +4,22 @@
  *
  *   node test/ui/shots.js OUT_DIR [--fixtures]
  *
- * Serves the worktree with python's http.server on a free 127.0.0.1 port and
- * wraps index.html in the skeleton the artifact host adds at publish time, so
- * the shots match production. --fixtures swaps src/main.js for
+ * Serves the worktree with scripts/serve.js on a free 127.0.0.1 port (it wraps
+ * index.html in the artifact host's skeleton, so the shots match production).
+ * --fixtures swaps src/main.js for
  * test/ui/fixtures/dev-main.js (the engine's fixture chapters). Plays a quest,
  * a boss room and the adventure log at 1400, 900 and 360 px wide, the intro at
  * 1400 and 360, and the intro as still frames with reduced motion. Stops the
  * server and the browser it starts.
  */
 
-import { spawn } from 'node:child_process';
-import { readFile, mkdir } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright-core';
+import { startServer } from '../../scripts/serve.js';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const SKELETON = '<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>';
 const FIXTURES = process.argv.includes('--fixtures');
-
-function serve() {
-  const server = spawn('python3', ['-u', '-m', 'http.server', '0', '--bind', '127.0.0.1'], { cwd: ROOT });
-  return new Promise((done, fail) => {
-    server.stdout.on('data', data => {
-      const port = /port (\d+)/.exec(String(data))?.[1];
-      if (port) done({ server, base: `http://127.0.0.1:${port}` });
-    });
-    server.on('error', fail);
-  });
-}
 
 async function openPage(browser, base, { width, height = 900, reduced = false, touch = false }) {
   const context = await browser.newContext({
@@ -44,8 +32,6 @@ async function openPage(browser, base, { width, height = 900, reduced = false, t
   const errors = [];
   page.on('pageerror', error => errors.push(`${width}px: ${error}`));
   page.on('console', msg => { if (msg.type() === 'error') errors.push(`${width}px: ${msg.text()}`); });
-  const index = await readFile(join(ROOT, 'index.html'), 'utf8');
-  await page.route(/\/index\.html$/, route => route.fulfill({ contentType: 'text/html', body: SKELETON + index }));
   if (FIXTURES) await page.route(/\/src\/main\.js$/, route => route.fulfill({ contentType: 'text/javascript', body: "import '../test/ui/fixtures/dev-main.js';" }));
   await page.goto(`${base}/index.html`);
   await page.waitForSelector('#goBtn');
@@ -107,7 +93,8 @@ async function gameShots(browser, base, out, width) {
   await type(page, 'cd /', 3500);
   await shot(page, out, `dungeon-${width}`);
   await page.click('#roster summary');
-  await page.locator('.mapwrap').screenshot({ path: join(out, `mapkey-${width}.png`) });
+  await page.locator('#roster').scrollIntoViewIfNeeded();
+  await page.locator('#roster').screenshot({ path: join(out, `mapkey-${width}.png`) });
   const wide = await overflow(page);
   await context.close();
   return [...errors, ...(wide > 0 ? [`horizontal overflow of ${wide}px at ${width}`] : [])];
@@ -146,7 +133,7 @@ async function main() {
   if (!outArg) throw new Error('usage: node test/ui/shots.js OUT_DIR [--fixtures]');
   const out = resolve(outArg);
   await mkdir(out, { recursive: true });
-  const { server, base } = await serve();
+  const { server, url: base } = await startServer({ root: ROOT, port: 0 });
   const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true });
   const errors = [];
   try {
@@ -157,7 +144,7 @@ async function main() {
     errors.push(...await introShots(browser, base, out, 900, true));
   } finally {
     await browser.close();
-    server.kill();
+    server.close();
   }
   console.log(errors.length ? `problems:\n${errors.join('\n')}` : 'no page errors, no horizontal overflow');
 }

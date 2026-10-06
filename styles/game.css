@@ -7,10 +7,7 @@ body {
   margin: 0;
   padding-inline: var(--gutter);
   padding-block: 18px 28px;
-  background:
-    linear-gradient(rgba(11, 10, 18, 0.72), rgba(11, 10, 18, 0.72)),
-    var(--brick) 0 0 / 64px 64px,
-    var(--bg);
+  background: var(--wall);
   color: var(--text);
   font-family: var(--font-prose);
   font-size: var(--size-body);
@@ -191,8 +188,16 @@ kbd {
 .grid {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-  grid-template-areas: "map term" "panel term";
+  grid-template-areas: "side term";
   gap: 26px;
+}
+
+.side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  min-width: 0;
 }
 
 /* ---------- HUD ---------- */
@@ -346,11 +351,12 @@ kbd {
   image-rendering: pixelated;
 }
 
+/* Over the floor, clear of the door labels along the wall. */
 .toast {
   position: absolute;
   left: 50%;
-  top: 14px;
-  transform: translateX(-50%);
+  top: 52%;
+  transform: translate(-50%, -50%);
   max-width: 92%;
   padding: 6px 12px;
   background: var(--c-ink);
@@ -785,14 +791,10 @@ kbd {
 
 .term {
   grid-area: term;
-  position: sticky;
-  top: 16px;
-  align-self: start;
+  position: relative;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 140px);
-  min-height: 560px;
-  max-height: 960px;
+  height: 560px;
   min-width: 0;
   background: var(--term-bg);
 }
@@ -812,6 +814,15 @@ kbd {
   width: 10px;
   height: 10px;
   display: inline-block;
+  background: var(--danger);
+}
+
+.termbar i:nth-child(2) {
+  background: var(--accent);
+}
+
+.termbar i:nth-child(3) {
+  background: var(--good);
 }
 
 .termbar span {
@@ -837,6 +848,7 @@ kbd {
 
 .screen {
   flex: 1;
+  tab-size: 8;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
@@ -984,18 +996,64 @@ kbd {
   border-right: 12px solid transparent;
 }
 
-@media (max-width: 900px) {
+/* Wide and tall enough: the page fits the window like an app. The left column scrolls on its own
+   and the terminal fills the height, so its input line is always in view. */
+@media (min-width: 901px) and (min-height: 600px) {
+  body {
+    overflow: hidden;
+  }
+
+  .app {
+    height: 100%;
+  }
+
   .grid {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "map" "term" "panel";
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* The padding keeps the windows' outer frames and shadows inside the scrolling box. */
+  .side {
+    overflow-y: auto;
+    padding: 10px 16px 18px 10px;
+    margin: -10px -16px -18px -10px;
+  }
+
+  .side > * {
+    flex-shrink: 0;
+  }
+
+  /* The map stays in view while the quest panel scrolls under it. */
+  .mapwrap {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    margin-top: -10px;
+    padding: 10px 0 16px;
+    background: var(--wall);
   }
 
   .term {
-    position: relative;
-    top: 0;
-    min-height: 0;
+    height: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "map" "term" "panel" "roster";
+  }
+
+  .side {
+    display: contents;
+  }
+
+  .roster {
+    grid-area: roster;
+  }
+
+  .term {
     height: 70vh;
-    max-height: none;
   }
 
   .brand {
