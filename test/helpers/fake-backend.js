@@ -13,6 +13,7 @@ import { dir, file } from '../../src/backend/spec.js';
 import { nodeAt, isInside, parentOf, baseName } from '../../src/backend/tree.js';
 import { requestedSignal, endsInteractiveShell } from '../../src/backend/signals.js';
 import { resolvePath } from '../../src/game/checks.js';
+import { processName } from '../../src/game/dangers.js';
 
 const SHELL_PID = 733;
 
@@ -87,13 +88,18 @@ const fail = (text, status = 1) => ({ status, stdout: '', output: [{ stream: 'er
 const notFound = name => () => fail(`${name}: command not found`, 127);
 const options = args => args.filter(a => a.startsWith('-')).join('');
 const operands = args => args.filter(a => !a.startsWith('-'));
-const procName = cmd => cmd.split(' ')[0].replace(/^-/, '').split('/').pop();
 
 function signal(world, name) {
   return (args, result) => {
     const asked = requestedSignal(name, args);
     const sent = asked.status === 'send' && asked.signal !== 0;
-    const named = p => (name === 'kill' ? asked.operands.includes(String(p.pid)) : asked.operands.includes(procName(p.cmd)));
+    // Like the simulator: kill by PID, killall by exact name, pkill by a name containing the pattern.
+    const matches = {
+      kill: p => asked.operands.includes(String(p.pid)),
+      killall: p => asked.operands.includes(processName(p.cmd)),
+      pkill: p => asked.operands.some(pattern => processName(p.cmd).includes(pattern)),
+    };
+    const named = matches[name];
     const targets = sent ? world.procs.filter(named) : [];
     const shellHit = targets.some(p => p.key === 'shell') && endsInteractiveShell(asked.signal);
     if (shellHit) result.blocked.push('The Guardian kept your shell alive.');
