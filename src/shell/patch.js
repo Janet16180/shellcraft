@@ -5,7 +5,7 @@
 import { validatePatch } from '../backend/spec.js';
 import { lookup, fromSpec, insert, detach, parentOf } from './fs.js';
 import { allocPid, makeProc, TERMINAL } from './system.js';
-import { SIGNALS } from './commands/procs.js';
+import { parseSignal, signalName } from '../backend/signals.js';
 
 const SYSTEM_PATHS = ['/usr/bin', '/dev/null'];
 
@@ -15,8 +15,9 @@ function touchesSystem(path) {
 
 function signalNumbers(spec) {
   return (spec.ignores ?? []).map(name => {
-    if (!(name in SIGNALS)) throw new Error(`proc ${spec.key}: unknown signal ${name}`);
-    return SIGNALS[name];
+    const sig = parseSignal(name);
+    if (sig === null || signalName(sig) !== name) throw new Error(`proc ${spec.key}: unknown signal ${name}`);
+    return sig;
   });
 }
 

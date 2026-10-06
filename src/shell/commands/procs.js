@@ -4,42 +4,78 @@
 
 import { allocPid, TERMINAL } from '../system.js';
 import { result, withNote } from '../result.js';
+import { SIGNAL_LIST, signalName, parseSignal, defaultAction, endsInteractiveShell, requestedSignal } from '../../backend/signals.js';
 
-export const SIGNALS = { HUP: 1, INT: 2, QUIT: 3, ABRT: 6, KILL: 9, USR1: 10, USR2: 12, PIPE: 13, ALRM: 14, TERM: 15, CHLD: 17, CONT: 18, STOP: 19, TSTP: 20 };
-const NAME_OF = Object.fromEntries(Object.entries(SIGNALS).map(([k, v]) => [v, k]));
-const TERMINATING = new Set([1, 2, 3, 6, 9, 10, 12, 13, 14, 15]);
-const STOPPING = new Set([19, 20]);
-const UNCATCHABLE = new Set([9, 19]);
-const SHELL_IGNORES = new Set([2, 3, 15, 20]);
+const KILL = parseSignal('KILL');
+const STOP = parseSignal('STOP');
+const UNCATCHABLE = new Set([KILL, STOP]);
 const KILL_USAGE = 'kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]';
-const LINUX_SIGNALS = [
-  'HUP', 'INT', 'QUIT', 'ILL', 'TRAP', 'ABRT', 'BUS', 'FPE', 'KILL', 'USR1', 'SEGV', 'USR2', 'PIPE', 'ALRM', 'TERM', 'STKFLT',
-  'CHLD', 'CONT', 'STOP', 'TSTP', 'TTIN', 'TTOU', 'URG', 'XCPU', 'XFSZ', 'VTALRM', 'PROF', 'WINCH', 'IO', 'PWR', 'SYS',
-];
-const ALL_SIGNALS = [
-  ...LINUX_SIGNALS.map((name, i) => [i + 1, name]),
-  ...Array.from({ length: 31 }, (_, i) => [34 + i, i === 0 ? 'RTMIN' : i <= 15 ? `RTMIN+${i}` : i === 30 ? 'RTMAX' : `RTMAX-${30 - i}`]),
-];
-const SIGNAL_TABLE = ALL_SIGNALS.map(([n, name], i) => `${String(n).padStart(2)}) SIG${name}${(i + 1) % 5 === 0 ? '\n' : '\t'}`).join('') + '\n';
+const SIGNAL_TABLE = SIGNAL_LIST.map(([n, name], i) => `${String(n).padStart(2)}) SIG${name}${(i + 1) % 5 === 0 ? '\n' : '\t'}`).join('') + '\n';
+const PKILL_USAGE = `Usage:
+ pkill [options] <pattern>
 
-/**
- * Parse a signal given as a number (`9`) or a name with or without SIG (`KILL`, `sigterm`).
- *
- * @param {string|undefined} spec The signal as typed.
- * @returns {number|null} Its number, or null if it is not a signal.
- */
-export function parseSignal(spec) {
-  let sig = null;
-  if (spec !== undefined && /^\d+$/.test(spec)) {
-    const n = parseInt(spec, 10);
-    sig = n >= 0 && n <= 64 ? n : null;
-  } else if (spec !== undefined) {
-    sig = SIGNALS[spec.toUpperCase().replace(/^SIG/, '')] ?? null;
-  }
-  return sig;
-}
+Options:
+ -<sig>                    signal to send (either number or name)
+ -H, --require-handler     match only if signal handler is present
+ -q, --queue <value>       integer value to be sent with the signal
+ -e, --echo                display what is killed
+ -c, --count               count of matching processes
+ -f, --full                use full process name to match
+ -g, --pgroup <PGID,...>   match listed process group IDs
+ -G, --group <GID,...>     match real group IDs
+ -i, --ignore-case         match case insensitively
+ -n, --newest              select most recently started
+ -o, --oldest              select least recently started
+ -O, --older <seconds>     select where older than seconds
+ -P, --parent <PPID,...>   match only child processes of the given parent
+ -s, --session <SID,...>   match session IDs
+     --signal <sig>        signal to send (either number or name)
+ -t, --terminal <tty,...>  match by controlling terminal
+ -u, --euid <ID,...>       match by effective IDs
+ -U, --uid <ID,...>        match by real IDs
+ -x, --exact               match exactly with the command name
+ -F, --pidfile <file>      read PIDs from file
+ -L, --logpidfile          fail if PID file is not locked
+ -r, --runstates <state>   match runstates [D,S,Z,...]
+ -A, --ignore-ancestors    exclude our ancestors from results
+ --cgroup <grp,...>        match by cgroup v2 names
+ --ns <PID>                match the processes that belong to the same
+                           namespace as <pid>
+ --nslist <ns,...>         list which namespaces will be considered for
+                           the --ns option.
+                           Available namespaces: ipc, mnt, net, pid, user, uts
 
-const signalName = sig => NAME_OF[sig] ?? String(sig);
+ -h, --help     display this help and exit
+ -V, --version  output version information and exit
+
+For more details see pgrep(1).`;
+const KILLALL_USAGE = `Usage: killall [OPTION]... [--] NAME...
+       killall -l, --list
+       killall -V, --version
+
+  -e,--exact          require exact match for very long names
+  -I,--ignore-case    case insensitive process name match
+  -g,--process-group  kill process group instead of process
+  -y,--younger-than   kill processes younger than TIME
+  -o,--older-than     kill processes older than TIME
+  -i,--interactive    ask for confirmation before killing
+  -l,--list           list all known signal names
+  -q,--quiet          don't print complaints
+  -r,--regexp         interpret NAME as an extended regular expression
+  -s,--signal SIGNAL  send this signal instead of SIGTERM
+  -u,--user USER      kill only process(es) running as USER
+  -v,--verbose        report if the signal was successfully sent
+  -V,--version        display version information
+  -w,--wait           wait for processes to die
+  -n,--ns PID         match processes that belong to the same namespaces
+                      as PID
+  -Z,--context REGEXP kill only process(es) having context
+                      (must precede other arguments)
+
+`;
+const KILLALL_LIST = `HUP INT QUIT ILL TRAP ABRT BUS FPE KILL USR1 SEGV USR2 PIPE ALRM TERM STKFLT
+CHLD CONT STOP TSTP TTIN TTOU URG XCPU XFSZ VTALRM PROF WINCH POLL PWR SYS
+`;
 
 function clockTime(t) {
   const [m, s] = t.split(':').map(Number);
@@ -52,9 +88,10 @@ function shortCmd(cmd) {
 }
 
 function signalShell(sys, sig, block) {
+  const harmful = ['terminate', 'stop'].includes(defaultAction(sig));
   let note = null;
-  if (SHELL_IGNORES.has(sig)) note = `Interactive bash ignores SIG${signalName(sig)}, so your shell keeps running.`;
-  else if (TERMINATING.has(sig) || sig === 19) block(`SIG${signalName(sig)} would stop the player's own shell (PID ${sys.shellPid})`);
+  if (endsInteractiveShell(sig)) block(`SIG${signalName(sig)} would stop the player's own shell (PID ${sys.shellPid})`);
+  else if (harmful) note = `Interactive bash ignores SIG${signalName(sig)}, so your shell keeps running.`;
   return note;
 }
 
@@ -74,9 +111,9 @@ export function deliver(sys, proc, sig, block) {
   if (denied || sig === 0) note = null;
   else if (proc.pid === sys.shellPid) note = signalShell(sys, sig, block);
   else if (ignored) note = null;
-  else if (TERMINATING.has(sig)) sys.procs = sys.procs.filter(p => p !== proc);
-  else if (STOPPING.has(sig)) proc.stat = `T${proc.stat.slice(1)}`;
-  else if (sig === SIGNALS.CONT && proc.stat.startsWith('T')) proc.stat = `${proc.runStat}${proc.stat.slice(1)}`;
+  else if (defaultAction(sig) === 'terminate') sys.procs = sys.procs.filter(p => p !== proc);
+  else if (defaultAction(sig) === 'stop') proc.stat = `T${proc.stat.slice(1)}`;
+  else if (defaultAction(sig) === 'continue' && proc.stat.startsWith('T')) proc.stat = `${proc.runStat}${proc.stat.slice(1)}`;
   return { denied, note };
 }
 
@@ -119,31 +156,19 @@ function ps(args, { sys }) {
 function listSignals(args) {
   const named = args.map(a => {
     const n = /^\d+$/.test(a) ? Number(a) : null;
-    const byNumber = n === null ? null : ALL_SIGNALS.find(([num]) => num === (n > 128 ? n - 128 : n));
-    const byName = ALL_SIGNALS.find(([, name]) => name === a.toUpperCase().replace(/^SIG/, ''));
-    if (n !== null) return byNumber ? { out: `${byNumber[1]}\n` } : { err: `bash: kill: ${a}: invalid signal specification` };
-    return byName ? { out: `${byName[0]}\n` } : { err: `bash: kill: ${a}: invalid signal specification` };
+    const name = n === null ? null : signalName(n > 128 ? n - 128 : n);
+    const sig = n === null ? parseSignal(a) : null;
+    if (n !== null) return name ? { out: `${name}\n` } : { err: `bash: kill: ${a}: invalid signal specification` };
+    return sig ? { out: `${sig}\n` } : { err: `bash: kill: ${a}: invalid signal specification` };
   });
   const errs = named.filter(x => x.err).map(x => x.err);
   return args.length ? result(named.map(x => x.out ?? '').join(''), errs.join('\n'), errs.length ? 1 : 0) : result(SIGNAL_TABLE);
 }
 
-function killArgs(args) {
-  let sig = SIGNALS.TERM;
-  let start = 0;
-  let error = null;
-  if ((args[0] === '-s' || args[0] === '-n') && args.length < 2) error = `bash: kill: ${args[0]}: option requires an argument`;
-  else if (args[0] === '-s' || args[0] === '-n') {
-    sig = parseSignal(args[1]);
-    start = 2;
-    if (sig === null) error = `bash: kill: ${args[1]}: invalid signal specification`;
-  } else if (args[0].startsWith('-')) {
-    sig = parseSignal(args[0].slice(1));
-    start = 1;
-    if (sig === null) error = `bash: kill: ${args[0].slice(1)}: invalid signal specification`;
-  }
-  return { sig, pids: args.slice(start), error };
-}
+const KILL_ERRORS = {
+  missing: spec => `bash: kill: ${spec}: option requires an argument`,
+  invalid: spec => `bash: kill: ${spec}: invalid signal specification`,
+};
 
 function killOne(sys, x, sig, block) {
   const numeric = /^\d+$/.test(x);
@@ -158,26 +183,34 @@ function killOne(sys, x, sig, block) {
 
 function kill(args, { sys, block }) {
   if (!args.length) return result('', KILL_USAGE, 2);
-  if (args[0] === '-l' || args[0] === '-L') return listSignals(args.slice(1));
-  const { sig, pids, error } = killArgs(args);
-  if (error) return result('', error, 1);
-  if (!pids.length) return result('', KILL_USAGE, 2);
-  const sent = pids.map(x => killOne(sys, x, sig, block));
+  const asked = requestedSignal('kill', args);
+  if (asked.status === 'list') return listSignals(asked.operands);
+  if (asked.status !== 'send') return result('', KILL_ERRORS[asked.status](asked.spec), 1);
+  if (!asked.operands.length) return result('', KILL_USAGE, 2);
+  const sent = asked.operands.map(x => killOne(sys, x, asked.signal, block));
   const errs = sent.filter(r => r.error).map(r => r.error);
   return withNote(result('', errs.join('\n'), errs.length ? 1 : 0), sent.find(r => r.note)?.note ?? null);
 }
 
+const PKILL_ERRORS = {
+  invalid: spec => `Unknown signal "${spec}".\n${PKILL_USAGE}`,
+  missing: spec => `pkill: option '${spec}' requires an argument\n\n${PKILL_USAGE}`,
+};
+
+function refusal(name, asked) {
+  let r = result('', "pkill: no matching criteria specified\nTry `pkill --help' for more information.", 2);
+  if (name === 'pkill' && asked.status !== 'send') r = result('', PKILL_ERRORS[asked.status](asked.spec), 2);
+  else if (name === 'killall' && asked.status === 'list') r = result(KILLALL_LIST);
+  else if (name === 'killall' && asked.status === 'invalid') r = result('', `${asked.spec}: unknown signal; killall -l lists signals.`, 1);
+  else if (name === 'killall') r = result('', KILLALL_USAGE, 1);
+  return r;
+}
+
 function killByName(name, args, { sys, block }, exact) {
-  let sig = SIGNALS.TERM;
-  const patterns = [];
-  for (const x of args) {
-    if (x.startsWith('-')) sig = parseSignal(x.slice(1).replace(/^-?signal=?/, '')) ?? sig;
-    else patterns.push(x);
-  }
-  if (!patterns.length) {
-    return exact ? result('', 'Usage: killall [OPTION]... [--] NAME...', 1)
-      : result('', "pkill: no matching criteria specified\nTry `pkill --help' for more information.", 2);
-  }
+  const asked = requestedSignal(name, args);
+  const patterns = asked.operands;
+  if (asked.status !== 'send' || !patterns.length) return refusal(name, asked);
+  const sig = asked.signal;
   const errs = [];
   const notes = [];
   let matched = 0;
