@@ -11,27 +11,32 @@ Read this first when resuming, then `docs/DESIGN.md` and `AUTHORING.md`.
 - The original artifact: https://claude.ai/artifact/M4J2FKo8Q5pDtJQ9Y3Y2dz (do not republish it
   until the user approves the new version; previews go to a separate private artifact).
 
-## In flight: slice round 2 (2026-10-06)
+## In flight: slice round 3, code health (2026-10-06)
 
-The slice is complete on main and plays end to end (lead's own Chrome runs at 1400 and 360 px).
-Reviews done: fact-check (merged; simulator findings to shell), teaching review
-(docs/reviews/teaching-slice.md). Round 2 from those reviews, contracts at df81ccf:
+Rounds 1 and 2 are merged. The **private preview** of the slice is published from main d230516:
+https://claude.ai/artifact/Nqt9UZqv6MPiaci46Q3vi3 (the lead read all 99 files first). The user
+plays it next; collect their reactions before chapters 3 to 14.
 
-| Name | Round 2 |
-|---|---|
-| engine | near notes + task tips in session/View, src/game/coach.js (typo notes from records, ported from the simulator), cleared chapter not shown as playing |
-| author | dead ends (forest task 6, trapdoor relative path + flame.txt + hint 3), near notes, a tip per task, deeper/back-out wording, trim chapter 1 lesson |
-| shell | fact-check wrong answers (option errors, --version, man -k, who), deterministic difftest instead of the silent retry; LAST: drop teaching notes once coach is on main |
-| ui | tip in the task strip, coach note style, title wording, map key wording, intro matches the game + Tab animation, toasts after cards, visible rank-up |
-| review | read-only code review against the user's principles -> docs/reviews/code-slice.md |
+Round 3 is the code review's list (docs/reviews/code-slice.md), plus two lead findings:
 
-Then: browser QA (worktree .scratch/wt/qa ready), the lead's replay, a private preview artifact.
+| Name | Round 3 | Merged so far |
+|---|---|---|
+| engine | dangers.js (A, then B on signals.js), M1 overlap guard, L8 save chapter progress, L1 L2 L7 L9, one-note-per-line test, who() passes host, childOf in effects.js and coach.js | dd8b6cc |
+| shell | prototype-named files (`cat constructor`, `touch __proto__`), H2 grep escaping, signals.js, collate and copy on tree.js, L4 hostile nesting, find/man -help, M6, L5, L6, L3 | through 68c48c5 |
+| ui | M1 single queue (Tab and Hint too), tree.isInside in output.js, L11 PLAYER, L1 levels, L9, L10 | earlier round 3 extras |
+| author | tree helpers (done), baseWorld takes host (waits for engine's who() change) | c8fec26 |
+
+Merge order constraints: engine's M1 (eba1c20) raises on overlapping session calls, so it lands
+in the same merge as ui's single queue, never alone. engine's L8 (d01576f) sits on M1. author's
+host commit lands after engine's who() change.
+
+Then: browser QA (worktree .scratch/wt/qa ready), the lead's replay, republish the preview.
 
 ## After the slice
 
 1. Fresh reviewers: fact-checker per chapter (blind playtest first), browser QA (3 widths,
    keyboard, reduced motion), teaching reviewer, a code review against AUTHORING.md section 1.
-2. Preview artifact for the user; collect their reactions.
+2. Collect the user's reactions to the preview.
 3. Chapters 3 to 14 by authors in parallel, each followed by a fact-checker.
 
 ## Backlog (after the slice)
