@@ -38,9 +38,10 @@ const RANK_FLASH_MS = 3200;
 export async function startApp({ doc, session, createMap, createIntroBackend, resizeTerminal }) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const sound = createSound();
-  const ui = { doc, session, sound, reducedMotion, view: null, mapQueue: createQueue(), rankUp: null };
+  const ui = { doc, session, sound, reducedMotion, view: null, queue: createQueue(), mapQueue: createQueue(), rankUp: null };
   ui.terminal = createTerminal({
     root: doc.getElementById('term'),
+    queue: ui.queue,
     onSubmit: line => runLine(ui, line),
     onComplete: line => session.complete(line),
     onKey: () => sound.play('key'),
@@ -52,9 +53,17 @@ export async function startApp({ doc, session, createMap, createIntroBackend, re
   doc.getElementById('brand').innerHTML = logoSVG('SHELLCRAFT');
   renderRoster(doc.getElementById('rosterList'), drawKey, devicePixelRatio || 1);
   wireControls(ui);
-  show(ui, await session.boot());
-  showRoom(ui);
+  await act(ui, async () => {
+    show(ui, await session.boot());
+    showRoom(ui);
+  });
   showTitle(ui);
+}
+
+// Every session call runs in the queue the player's lines use, so two never overlap (the session
+// raises if they do).
+function act(ui, step) {
+  return ui.queue.add(step);
 }
 
 function show(ui, view) {
@@ -165,8 +174,10 @@ async function runLine(ui, line) {
 }
 
 function revealHint(ui) {
-  if (ui.session.hint()) ui.sound.play('hint');
-  show(ui, ui.session.view());
+  return act(ui, () => {
+    if (ui.session.hint()) ui.sound.play('hint');
+    show(ui, ui.session.view());
+  });
 }
 
 function applyTurn(ui, turn) {
@@ -253,8 +264,10 @@ function openDebrief(ui) {
 
 async function startChapter(ui, id, fresh) {
   hideCard(ui);
-  show(ui, await ui.session.startChapter(id, { fresh }));
-  showRoom(ui);
+  await act(ui, async () => {
+    show(ui, await ui.session.startChapter(id, { fresh }));
+    showRoom(ui);
+  });
   ui.terminal.clear();
   chapterBanner(ui);
   if (fresh) ui.terminal.printLine('You jumped to this chapter, so the world was set up fresh.', 'sys');
@@ -269,8 +282,10 @@ function showTitle(ui) {
   card.querySelector('#goBtn').onclick = () => begin(ui);
   const fresh = card.querySelector('#newBtn');
   if (fresh) fresh.onclick = async () => {
-    show(ui, await ui.session.reset());
-    showRoom(ui);
+    await act(ui, async () => {
+      show(ui, await ui.session.reset());
+      showRoom(ui);
+    });
     begin(ui);
   };
 }
@@ -286,10 +301,12 @@ function begin(ui) {
   else ui.intro();
 }
 
-function finishIntro(ui, yourTurn) {
+async function finishIntro(ui, yourTurn) {
   const first = !ui.view.introSeen;
-  ui.session.markIntroSeen();
-  ui.view = ui.session.view();
+  await act(ui, () => {
+    ui.session.markIntroSeen();
+    ui.view = ui.session.view();
+  });
   if (first) showCallout(ui, `Your turn: type <code>${esc(yourTurn)}</code> and press <kbd>Enter</kbd>.`);
   ui.terminal.focus();
 }
@@ -347,11 +364,11 @@ function wireControls(ui) {
     if (event.target.closest('#hintBtn')) revealHint(ui);
     if (event.target.closest('#logBtn')) openDebrief(ui);
   });
-  doc.getElementById('soundBtn').addEventListener('click', () => {
+  doc.getElementById('soundBtn').addEventListener('click', () => act(ui, () => {
     session.setSound(!ui.view.sound);
     show(ui, session.view());
     ui.sound.play('ok');
-  });
+  }));
   doc.getElementById('introBtn').addEventListener('click', () => ui.intro());
   doc.getElementById('keyBtn').addEventListener('click', () => {
     const roster = doc.getElementById('roster');
@@ -380,8 +397,10 @@ function wireReset(ui) {
     armed = !armed;
     button.textContent = armed ? 'Click again to erase all progress' : 'Reset progress';
     if (armed) return;
-    show(ui, await ui.session.reset());
-    showRoom(ui);
+    await act(ui, async () => {
+      show(ui, await ui.session.reset());
+      showRoom(ui);
+    });
     ui.terminal.clear();
     chapterBanner(ui);
     showTab(ui.doc, 'quest');

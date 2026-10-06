@@ -1,4 +1,4 @@
-/* global document, window, getComputedStyle */
+/* global document, window, getComputedStyle, KeyboardEvent */
 /**
  * Screenshots of the real game for visual review (not part of npm test).
  *
@@ -12,8 +12,9 @@
  * and 360, and the intro as still frames with reduced motion. It reports page
  * errors, horizontal overflow, plain `ls` lines that wrap, an input squeezed
  * by a long prompt, a terminal that scrolls sideways, a boss divider printed
- * after the new prompt, cards that open
- * scrolled, and a page that scrolls when the app should fit the window.
+ * after the new prompt, cards that open scrolled, a page that scrolls when
+ * the app should fit the window, and session calls that overlap when the
+ * player clicks everything at once (the session raises on overlap).
  * Stops the server and the browser it starts.
  */
 
@@ -211,6 +212,31 @@ async function fitProblems(browser, base, out, width, height) {
   return errors;
 }
 
+// A line, Tab, a hint, the sound button, a chapter restart and a reset in one tick: each must wait
+// its turn, or the session raises and the page reports an error.
+async function rushProblems(browser, base) {
+  const { page, context, errors } = await openPage(browser, base, { width: 1400 });
+  await startSkippingIntro(page);
+  await page.evaluate(() => {
+    const cmd = document.getElementById('cmd');
+    const press = key => cmd.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    const click = selector => document.querySelector(selector).click();
+    cmd.value = 'ls';
+    press('Enter');
+    cmd.value = 'cat rea';
+    press('Tab');
+    click('#hintBtn');
+    click('#soundBtn');
+    click('#levels button[data-ch]');
+    click('#resetBtn');
+    click('#resetBtn');
+    click('#soundBtn');
+  });
+  await page.waitForTimeout(3000);
+  await context.close();
+  return errors.map(error => `rush: ${error}`);
+}
+
 async function titleTallTouch(browser, base, out) {
   const title = await openPage(browser, base, { width: 1400 });
   await shot(title.page, out, 'title-1400');
@@ -239,6 +265,7 @@ async function main() {
   const errors = [];
   try {
     errors.push(...await titleTallTouch(browser, base, out));
+    errors.push(...await rushProblems(browser, base));
     errors.push(...await fitProblems(browser, base, out, 1400, 900));
     errors.push(...await fitProblems(browser, base, out, 900, 700));
     for (const width of [1400, 900, 360]) errors.push(...await gameShots(browser, base, out, width));
