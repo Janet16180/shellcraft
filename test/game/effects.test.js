@@ -42,6 +42,12 @@ test('a file replaced by a directory is removed and created', () => {
   ]);
 });
 
+test('a file named like an object property is created and removed like any other', () => {
+  const withConstructor = observation({ tree: withHome(h => { h.constructor = file('x'); }) });
+  assert.deepEqual(worldEffects(observation(), withConstructor), [{ kind: 'created', path: `${HOME}/constructor`, type: 'file' }]);
+  assert.deepEqual(worldEffects(withConstructor, observation()), [{ kind: 'removed', path: `${HOME}/constructor`, type: 'file' }]);
+});
+
 test('changing a file content creates no effect', () => {
   const after = observation({ tree: withHome(h => { h['readme.txt'] = file('changed\n'); }) });
   assert.deepEqual(worldEffects(observation(), after), []);

@@ -4,7 +4,7 @@
  * observation only, so they work with any backend. Only failed commands get
  * a note; a correct line never does.
  */
-import { nodeAt, isInside } from '../backend/tree.js';
+import { nodeAt, childOf, isInside } from '../backend/tree.js';
 import { READERS, operands, resolvePath } from './checks.js';
 
 const NOT_FOUND = 127;
@@ -71,8 +71,8 @@ function firstMissing(tree, path) {
   const names = path.split('/').filter(Boolean);
   let parent = tree;
   let i = 0;
-  while (parent.children?.[names[i]]) {
-    parent = parent.children[names[i]];
+  while (childOf(parent, names[i])) {
+    parent = childOf(parent, names[i]);
     i += 1;
   }
   return { siblings: parent.children ?? {}, name: names[i], last: i === names.length - 1 };

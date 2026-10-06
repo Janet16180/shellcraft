@@ -193,3 +193,25 @@ test('the coach explains common mistakes on the real world and simulator', async
     ['For most commands, one dash starts short options, so -help means -h -e -l -p. Long options take two dashes: --help.'],
   ]);
 });
+
+test('a reload during the forest boss gives a new room on a fresh world that can still be solved', async () => {
+  const store = storeWith({ chapter: 'forest', cleared: ['awakening'] });
+  const first = await bootReal({ store });
+  await playLines(first.session, FOREST.solve);
+  assert.equal(first.session.view().chapter.phase, 'boss');
+
+  const second = await bootReal({ store, seed: 2 });
+  assert.equal(second.view.chapter.phase, 'boss');
+  assert.ok(second.view.chapter.tasks.every(t => t.done));
+  const [last] = await playLines(second.session, FOREST.boss.solve(second.session.observation()));
+  assert.deepEqual(kinds(last.events), ['boss', 'chapter']);
+});
+
+test('a typing mistake on the real simulator prints exactly one note, the coach\'s', async () => {
+  const { session } = await bootReal();
+  for (const line of ['cls', 'cd..', 'ls-l', 'WHOAMI', 'CD forest', 'del readme.txt']) {
+    const notes = (await session.submit(line)).result.output.filter(c => c.stream === 'note');
+    assert.equal(notes.length, 1, `${line}: ${JSON.stringify(notes)}`);
+    assert.equal(notes[0].tone, 'coach', line);
+  }
+});

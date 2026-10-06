@@ -6,7 +6,7 @@
  * @typedef {{kind: string} & Record<string, unknown>} Effect
  */
 
-import { compareNames } from '../backend/tree.js';
+import { childOf, compareNames } from '../backend/tree.js';
 
 const NOT_FOUND = 127;
 const childPath = (path, name) => (path === '/' ? `/${name}` : `${path}/${name}`);
@@ -14,8 +14,8 @@ const childPath = (path, name) => (path === '/' ? `/${name}` : `${path}/${name}`
 function diffTree(was, now, path, found) {
   const names = new Set([...Object.keys(was.children), ...Object.keys(now.children)]);
   for (const name of [...names].sort(compareNames)) {
-    const a = was.children[name];
-    const b = now.children[name];
+    const a = childOf(was, name);
+    const b = childOf(now, name);
     const replaced = a && b && a.type !== b.type;
     if (a && (!b || replaced)) found.removed.push({ kind: 'removed', path: childPath(path, name), type: a.type });
     if (b && (!a || replaced)) found.created.push({ kind: 'created', path: childPath(path, name), type: b.type });

@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SAVE_KEY, V1_SAVE_KEY, freshSave, parseSave, serializeSave } from '../../src/game/save.js';
 
-const FRESH = { chapter: null, cleared: [], xp: 0, sound: false, introSeen: false };
+const FRESH = { chapter: null, cleared: [], xp: 0, sound: false, introSeen: false, progress: null };
+const PROGRESS = { chapter: 'forest', phase: 'quest', tasks: [true, false], hints: [3, 1], bossHints: 0 };
 const v2 = fields => JSON.stringify({ version: 2, chapter: 'forest', cleared: ['awakening'], xp: 40, sound: true, introSeen: true, ...fields });
 
 test('the saves live under the v2 key, with the v1 key kept for migration', () => {
@@ -21,14 +22,18 @@ test('with nothing stored the player starts fresh', () => {
 
 test('a valid v2 save is resumed as stored', () => {
   assert.deepEqual(parseSave({ v2: v2(), v1: null }), {
-    save: { chapter: 'forest', cleared: ['awakening'], xp: 40, sound: true, introSeen: true },
+    save: { chapter: 'forest', cleared: ['awakening'], xp: 40, sound: true, introSeen: true, progress: null },
     status: 'resumed',
   });
 });
 
 test('a v2 save written by serializeSave reads back the same', () => {
-  const save = { chapter: 'awakening', cleared: [], xp: 10, sound: false, introSeen: true };
+  const save = { chapter: 'awakening', cleared: [], xp: 10, sound: false, introSeen: true, progress: null };
   assert.deepEqual(parseSave({ v2: serializeSave(save), v1: null }).save, save);
+  const playing = { ...save, chapter: 'forest', progress: PROGRESS };
+  assert.deepEqual(parseSave({ v2: serializeSave(playing), v1: null }).save, playing);
+  const boss = { ...save, progress: { chapter: 'awakening', phase: 'boss', tasks: [true], hints: [0], bossHints: 2 } };
+  assert.deepEqual(parseSave({ v2: serializeSave(boss), v1: null }).save, boss);
 });
 
 test('duplicate cleared ids are dropped', () => {
@@ -70,6 +75,7 @@ test('a v1 save is migrated: chapter indexes become ids and earlier chapters cou
       xp: 380,
       sound: true,
       introSeen: false,
+      progress: null,
     },
     status: 'migrated',
   });
@@ -88,7 +94,27 @@ test('a damaged v1 save starts fresh and says so', () => {
   for (const text of broken) assert.deepEqual(parseSave({ v2: null, v1: text }), { save: FRESH, status: 'damaged' }, text);
 });
 
+test('a v2 save written before chapter progress was saved reads as no progress', () => {
+  assert.equal(parseSave({ v2: v2(), v1: null }).save.progress, null);
+});
+
+test('damaged chapter progress damages the save', () => {
+  const broken = [
+    'nope',
+    { ...PROGRESS, chapter: 3 },
+    { ...PROGRESS, phase: 'done' },
+    { ...PROGRESS, tasks: 'all' },
+    { ...PROGRESS, tasks: [1, 0] },
+    { ...PROGRESS, hints: [4, 0] },
+    { ...PROGRESS, hints: [1.5, 0] },
+    { ...PROGRESS, hints: [0] },
+    { ...PROGRESS, bossHints: -1 },
+    { ...PROGRESS, bossHints: undefined },
+  ];
+  for (const progress of broken) assert.equal(parseSave({ v2: v2({ progress }), v1: null }).status, 'damaged', JSON.stringify(progress));
+});
+
 test('serializeSave writes the version with the fields', () => {
-  const save = { chapter: 'forest', cleared: ['awakening'], xp: 40, sound: true, introSeen: true };
+  const save = { chapter: 'forest', cleared: ['awakening'], xp: 40, sound: true, introSeen: true, progress: PROGRESS };
   assert.deepEqual(JSON.parse(serializeSave(save)), { version: 2, ...save });
 });
