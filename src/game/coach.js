@@ -49,7 +49,7 @@ function notFoundNote(ctx, record, known) {
 function optionNote(record) {
   const option = record.args.find(a => ONE_DASH_LONG.has(a));
   const letters = option ? [...option.slice(1)].map(c => `-${c}`).join(' ') : '';
-  return option ? `One dash starts short options, so ${option} means ${letters}. Long options take two dashes: --${option.slice(1)}.` : null;
+  return option ? `For most commands, one dash starts short options, so ${option} means ${letters}. Long options take two dashes: --${option.slice(1)}.` : null;
 }
 
 function readsDirectoryNote(ctx, record) {
@@ -92,14 +92,15 @@ function lookalikeNote(tree, path) {
 function missingPathNote(ctx, record, arg) {
   const path = resolvePath(arg, record.cwd, ctx.home);
   const [first, ...rest] = arg.split('/');
-  const fromHere = rest.join('/');
+  const fromHere = rest.filter(Boolean).join('/');
   const repeatsCwd = !arg.startsWith('/') && first === baseName(record.cwd) && rest.length > 0 && nodeOf(ctx, record, fromHere) !== null;
 
   let note = null;
   if (arg.startsWith('/') && ctx.node(`${ctx.home}${path}`) !== null) {
     note = `A path that starts with / starts at the root, not at your home. Your ${path.slice(1)} is ${ctx.home}${path}, or ~${path}.`;
   } else if (repeatsCwd) {
-    note = `You are already in ${first} (the prompt shows ${promptPath(record.cwd, ctx.home)}). From here the path is ${fromHere}.`;
+    const onward = fromHere === '' ? '' : ` From here the path is ${fromHere}.`;
+    note = `You are already in ${first} (the prompt shows ${promptPath(record.cwd, ctx.home)}).${onward}`;
   } else {
     note = lookalikeNote(ctx.obs.tree, path);
   }
