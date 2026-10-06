@@ -2,7 +2,7 @@
  * Moving around and looking: cd and tree (ls has its own module).
  */
 
-import { compareNames } from '../collate.js';
+import { compareNames } from '../../backend/tree.js';
 import { can } from '../perms.js';
 import { parseOptions } from '../options.js';
 import { result, withNote } from '../result.js';

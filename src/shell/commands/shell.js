@@ -10,7 +10,7 @@ import { manText, hasManPage, manEntries } from '../man.js';
 import { compilePosix } from '../regex.js';
 import { result, withNote } from '../result.js';
 import { varValue, setVar, exportedVars } from '../vars.js';
-import { compareNames } from '../collate.js';
+import { compareNames } from '../../backend/tree.js';
 import { parseOptions } from '../options.js';
 import { nameTable } from '../table.js';
 

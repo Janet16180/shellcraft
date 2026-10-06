@@ -6,7 +6,7 @@
 
 import { baseName, newDir, newFile, addChild, removeChild, joinDisp } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
-import { compareNames } from '../collate.js';
+import { compareNames } from '../../backend/tree.js';
 import { can, canChangeEntries, canUnlink, canChmod } from '../perms.js';
 import { parseOptions } from '../options.js';
 import { shellQuote, localeQuote } from '../quote.js';
