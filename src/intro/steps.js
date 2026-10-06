@@ -16,6 +16,7 @@
  * - light: whether the room is lit (it stays dark until ls looks around).
  * - scroll: show the file the line printed as an unrolled scroll.
  * - say: a speech bubble for the hero.
+ * - ring: the door or item the line is about ('..' for the way back), ringed on the map.
  * - yourTurn: the line the player is asked to type in the real terminal.
  *
  * Every sentence is meant to be true on Ubuntu 24.04 with bash 5.2.
@@ -115,6 +116,7 @@ export const STEPS = [
     id: 'cd-forest',
     title: 'Walk through a door with <code>cd</code>',
     type: 'cd forest',
+    ring: 'forest',
     say: 'Into the forest!',
     text: [
       '<code>cd</code> changes directory. You walked through the door into <code>forest</code>, and the prompt now shows <code>~/forest</code>.',
@@ -126,6 +128,7 @@ export const STEPS = [
     id: 'cd-up',
     title: 'Go back up with <code>cd ..</code>',
     type: 'cd ..',
+    ring: '..',
     text: [
       '<code>..</code> (two dots) is the parent directory: the one this directory sits in. The parent of <code>~/forest</code> is your home, so you are back where you started.',
     ],
@@ -135,6 +138,7 @@ export const STEPS = [
     id: 'cat',
     title: 'Read a file with <code>cat</code>',
     type: 'cat readme.txt',
+    ring: 'readme.txt',
     scroll: true,
     text: [
       '<code>cat</code> prints the contents of a file in the terminal. The name comes from concatenate: give it several files and it prints them one after another.',

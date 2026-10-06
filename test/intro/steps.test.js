@@ -138,3 +138,15 @@ test('a title that names a command shows it in the monospace face', () => {
     assert.match(step.title, /<code>[^<]+<\/code>$/, step.id);
   }
 });
+
+test('each ringed name is in the room when its step opens', async () => {
+  const backend = await introShell();
+  for (const step of STEPS.filter(s => s.type)) {
+    if (step.ring) {
+      const obs = await backend.observe();
+      const room = obs.cwd.split('/').filter(Boolean).reduce((node, name) => node.children[name], obs.tree);
+      assert.ok(step.ring === '..' || step.ring in room.children, step.id);
+    }
+    await backend.run(step.type);
+  }
+});

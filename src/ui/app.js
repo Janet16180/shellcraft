@@ -13,9 +13,9 @@ import { esc } from './output.js';
 import { confetti } from './confetti.js';
 import { bootText, restoredText } from './messages.js';
 import { createSound } from './sound.js';
-import { renderRoster } from './roster.js';
+import { renderRoster, picksHTML } from './roster.js';
 import { playIntro } from '../intro/player.js';
-import { biomeFor } from '../map/map.js';
+import { biomeFor, drawKey } from '../map/map.js';
 
 const TABS = ['quest', 'spells', 'levels'];
 const TOAST_MS = 2600;
@@ -42,7 +42,7 @@ export async function startApp({ doc, session, createMap, createIntroBackend }) 
   });
   ui.map = createMap(doc.getElementById('map'), { reducedMotion, onPick: pick => ui.terminal.insert(commandForPick(pick)) });
   ui.intro = () => playIntro({ doc, createMap, createBackend: createIntroBackend, reducedMotion, sound, onDone: line => finishIntro(ui, line) });
-  renderRoster(doc.getElementById('rosterList'));
+  renderRoster(doc.getElementById('rosterList'), drawKey);
   wireControls(ui);
   show(ui, await session.boot());
   showRoom(ui);
@@ -65,14 +65,16 @@ function show(ui, view) {
 
 function showRoom(ui) {
   ui.map.show(ui.session.observation());
-  announceRoom(ui);
+  roomSettled(ui);
 }
 
 // The map keeps its canvas labelled with the room in words; the live region repeats it aloud.
-function announceRoom(ui) {
+function roomSettled(ui) {
   const room = ui.doc.getElementById('roomText');
   const text = ui.doc.getElementById('map').getAttribute('aria-label');
   if (room.textContent !== text) room.textContent = text;
+  ui.picks = ui.map.picks();
+  ui.doc.getElementById('picks').innerHTML = picksHTML(ui.picks);
 }
 
 function renderCrumbs(doc, { cwd, home }) {
@@ -122,7 +124,7 @@ function applyTurn(ui, turn) {
   ui.terminal.print(turn.result.output);
   if (turn.result.output.some(chunk => chunk.stream === 'err')) ui.sound.play('err');
   if (turn.effects.some(e => e.kind === 'travel')) ui.sound.play('step');
-  ui.mapQueue = ui.mapQueue.then(() => ui.map.play(turn.effects, turn.obs)).then(() => announceRoom(ui));
+  ui.mapQueue = ui.mapQueue.then(() => ui.map.play(turn.effects, turn.obs)).then(() => roomSettled(ui));
   show(ui, turn.view);
   for (const event of turn.events) onEvent(ui, event, turn.events);
 }
@@ -271,6 +273,7 @@ function wireTabs(doc) {
 function wireControls(ui) {
   const { doc, session, terminal } = ui;
   wireTabs(doc);
+  wirePicks(ui);
   doc.getElementById('crumbs').addEventListener('click', event => {
     const path = event.target.closest('button')?.dataset.cd;
     if (path) terminal.insert(commandForPath(path));
@@ -294,6 +297,17 @@ function wireControls(ui) {
   });
   doc.getElementById('introBtn').addEventListener('click', () => ui.intro());
   wireReset(ui);
+}
+
+function wirePicks(ui) {
+  const list = ui.doc.getElementById('picks');
+  const pickOf = event => ui.picks[event.target.closest('[data-pick]')?.dataset.pick];
+  list.addEventListener('click', event => {
+    const pick = pickOf(event);
+    if (pick) ui.terminal.insert(commandForPick(pick));
+  });
+  for (const type of ['focusin', 'mouseover']) list.addEventListener(type, event => ui.map.focus(pickOf(event)?.name ?? null));
+  for (const type of ['focusout', 'mouseleave']) list.addEventListener(type, () => ui.map.focus(null));
 }
 
 function wireReset(ui) {

@@ -120,7 +120,10 @@ async function runStep(it, step, backend, before, live) {
   now.querySelector('.cursor').remove();
   now.insertAdjacentHTML('afterend', outputHTML(result.output) + waitingLineHTML(after));
   scrollScreen(it);
-  if (before.cwd !== after.cwd) it.sound.play('step');
+  if (before.cwd !== after.cwd) {
+    it.sound.play('step');
+    it.map.focus(null);
+  }
   if (step.scroll) showScroll(it, result.output.map(c => c.text).join(''));
   await it.map.play(worldEffects(before, after), after);
   if (live() && step.say) it.map.say(step.say, 'player');
@@ -135,6 +138,7 @@ async function showStep(it, index) {
   const before = await backend.observe();
   if (!live()) return;
   it.map.show(before);
+  it.map.focus(step.ring ?? null);
   it.$('introStage').classList.toggle('dark', !(STEPS[index - 1]?.light ?? false));
   it.$('introScreen').innerHTML = transcriptHTML(history) + waitingLineHTML(before);
   scrollScreen(it);

@@ -376,9 +376,17 @@ kbd {
   color: var(--muted);
 }
 
+.picklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .picks button {
   font-family: var(--font-mono);
+  font-weight: 400;
   font-size: 13.5px;
+  letter-spacing: 0;
 }
 
 /* The sprite roster: what each picture on the map really is. */
