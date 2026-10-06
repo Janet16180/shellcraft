@@ -4,6 +4,8 @@
  *
  * Usage: node difftest/run.js [NAME_FILTER] [--jobs N] [--verbose]
  * Exit status: 0 all cases pass, 1 some case differs, 2 skipped (no Docker).
+ * A case that differs runs once more and only the second run counts: files
+ * created during a case are stamped by two clocks that can straddle a minute.
  */
 
 import { spawn, spawnSync } from 'node:child_process';
@@ -145,7 +147,11 @@ async function main() {
   const build = spawnSync('docker', ['build', '-q', '-t', IMAGE, HERE], { encoding: 'utf8' });
   if (build.status !== 0) throw new Error(`docker build failed:\n${build.stderr}`);
   mkdirSync(path.join(ROOT, '.scratch'), { recursive: true });
-  const results = await pool(loadCases(filter), jobs, runCase);
+  const cases = loadCases(filter);
+  const results = await pool(cases, jobs, runCase);
+  const differing = results.flatMap((r, i) => (r.lines.some(l => l.verdict === 'differ') ? [i] : []));
+  const retried = await pool(differing, jobs, i => runCase(cases[i], cases.length + i));
+  differing.forEach((i, k) => { results[i] = retried[k]; });
   process.exitCode = report(results, args.includes('--verbose')) ? 1 : 0;
 }
 

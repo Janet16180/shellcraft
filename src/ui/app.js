@@ -148,7 +148,10 @@ const EVENTS = {
     ui.sound.play('ok');
     confetti(ui.doc.getElementById('confetti'), { origins: [[0.3, 0.3]], count: 30 });
   },
-  'boss-start'(ui) {
+  // The divider goes in at once, before the next prompt: a boss room may move the player, and the
+  // scrollback must not suggest the line just typed did that.
+  'boss-start'(ui, { title }) {
+    ui.terminal.printLine(`-- Boss room: ${title} --`, 'chapter');
     afterMap(ui, () => openBoss(ui));
   },
   boss(ui, { xp }) {
@@ -186,7 +189,6 @@ function openBoss(ui) {
   const card = openCard(ui.doc, bossCardHTML(chapter.boss, chapter.number), 'boss');
   card.querySelector('#bossGo').onclick = () => {
     closeCard(ui.doc);
-    ui.terminal.printLine(`-- Boss room: ${chapter.boss.title} --`, 'chapter');
     ui.terminal.focus();
   };
 }

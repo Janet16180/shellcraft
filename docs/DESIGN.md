@@ -98,7 +98,7 @@ Teaching notes for common beginner mistakes are game rules, so they live in the 
 are derived from `CommandRecord`s and the observation, which keeps them working on a real bash:
 a name with the wrong case, a missing extension (`cat readme`), `cat` of a directory, a long
 option with one dash (`ls -help`), `/forest` for `~/forest`, a name with a space typed without
-quotes, a missing space (`cdforest`, `cd..`, `ls-l`), Windows commands (`cls`, `dir`, `copy`).
+quotes, a missing space (`cdforest`, `cd..`, `ls-l`), Windows commands (`cls`, `del`, `copy`; not `dir`, which coreutils also ships).
 At most one note per line, after any task or boss `near` note (AUTHORING section 2). Notes appear
 as `note` chunks with tone `coach`. The simulator keeps only notes that explain where the
 simulation differs from real Linux (a pager that prints instead of paging).

@@ -58,7 +58,7 @@ export const STEPS = [
     title: 'This is a terminal',
     text: [
       'You type a command, press <kbd>Enter</kbd>, and the computer answers in text.',
-      'The map shows the directory you are in. It is dark because you have not looked around yet.',
+      'The map shows the directory you are in. In this tour it stays dark until you look around.',
     ],
     light: false,
   },

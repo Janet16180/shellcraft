@@ -76,3 +76,17 @@ test('clear has no --help: it rejects the option like ncurses clear, with status
 test('clear -x keeps the scrollback', async () => {
   assert.equal((await run(await shell(), 'clear -x')).out, '\u001b[H\u001b[2J');
 });
+
+test('whoami rejects options like coreutils and treats any other word as an extra operand', async () => {
+  const b = await shell();
+  assert.deepEqual(await run(b, 'whoami -help').then(r => [r.err, r.status]), ["whoami: invalid option -- 'h'\nTry 'whoami --help' for more information.\n", 1]);
+  assert.equal((await run(b, 'whoami --foo')).err, "whoami: unrecognized option '--foo'\nTry 'whoami --help' for more information.\n");
+  assert.equal((await run(b, 'whoami -')).err, "whoami: extra operand ‘-’\nTry 'whoami --help' for more information.\n");
+});
+
+test('pwd accepts -L and -P, ignores operands, and rejects other options like bash', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'pwd -P')).out, '/home/hero\n');
+  assert.equal((await run(b, 'pwd foo')).out, '/home/hero\n');
+  assert.deepEqual(await run(b, 'pwd -help').then(r => [r.out, r.err, r.status]), ['', 'bash: pwd: -h: invalid option\npwd: usage: pwd [-LP]\n', 2]);
+});

@@ -2,6 +2,14 @@
   { "name": "kill messages", "world": "home", "lines": ["kill", "kill abc", "kill 99999", "kill -9 99999", "kill -FOO 1", "kill 1", "kill -l", "kill -s TERM 99999", "kill -s", "kill -l 9", "kill -9"] },
   { "name": "machine facts", "world": "home", "lines": ["uname", "uname -s", "uname -n", "hostname", "id", "id -u", "id -un", "groups", "whoami"] },
   { "name": "tree", "world": "home", "lines": ["tree forest", "tree -a", "tree -d", "tree -L 1", "tree nope", "tree readme.txt", "tree /root"] },
+  { "name": "real commands the game does not simulate", "world": "home", "lines": ["who am i", "du -sh forest", "man -k directory", "man 1 ls", "man -f ls"],
+    "intended": [
+      { "line": "who am i", "reason": "who is not simulated; the simulator says command not found with a note pointing to whoami" },
+      { "line": "du -sh forest", "reason": "du is not simulated; a note says so" },
+      { "line": "man -k directory", "reason": "the minimized container has no man-db; the simulator searches only its own pages, with a note" },
+      { "line": "man 1 ls", "reason": "the minimized container has no man-db; the simulator shows its short page" },
+      { "line": "man -f ls", "reason": "the minimized container has no man-db" }
+    ] },
   { "name": "programs that wait for the keyboard", "world": "home",
     "lines": ["cat", "less readme.txt", "more readme.txt", "top", "sort", "head", "wc", "grep x", "uniq", "rm -i readme.txt", "bash", "exit", "nano x", "vim x", "sudo ls"],
     "intended": [

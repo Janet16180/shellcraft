@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseOptions } from '../../src/shell/options.js';
+import { parseOptions, mapLongOptions } from '../../src/shell/options.js';
 
 test('bundled short flags split and operands stay in order', () => {
   const o = parseOptions('ls', ['-la', 'x', '-F', 'y'], 'laF');
@@ -28,4 +28,10 @@ test('every value of a repeated option is kept in order', () => {
   const o = parseOptions('grep', ['-e', 'a', '-eb'], '', 'e');
   assert.deepEqual(o.lists.e, ['a', 'b']);
   assert.equal(o.vals.e, 'b');
+});
+
+test('long options map to letters before -- only, and unknown ones are reported', () => {
+  const table = { '--all': 'a' };
+  assert.deepEqual(mapLongOptions('ls', ['--all', '--color=auto', '--', '--all'], table), { args: ['-a', '--', '--all'], err: null });
+  assert.equal(mapLongOptions('ls', ['--nope'], table).err, "ls: unrecognized option '--nope'\nTry 'ls --help' for more information.");
 });

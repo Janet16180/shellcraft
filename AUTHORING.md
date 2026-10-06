@@ -90,8 +90,10 @@ the lesson to start. The lesson stays as the full reference.
 `near` is optional. When the line reached the goal's place or result by a method the task does not
 accept (a relative path where it asks for an absolute one, `cd forest` typed out where it asks for
 Tab), return one short sentence saying what the task wants; otherwise `null`. A task must never
-fail silently when the player did almost the right thing. The session shows at most one coach note
-per line: a task's (or the boss's) `near` note first, else a generic note from `src/game/coach.js`.
+fail silently when the player did almost the right thing. The session asks only the current task
+(the first unfinished one, which the panel highlights) or, in the boss room, the boss: a note about
+another task would answer a question the player was not asking. At most one coach note per line:
+that `near` note first, else a generic note from `src/game/coach.js`.
 
 ## 3. Content rules
 
