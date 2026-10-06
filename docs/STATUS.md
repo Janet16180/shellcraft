@@ -52,7 +52,9 @@ supporting files (pass them as null in `files`).
 - Real-terminal (termlab) path only: the record-based danger check detects `kill -9` of the
   player's shell, not HUP, USR1 and the other signals that end it (the simulator refuses those
   itself). Fix by sharing one signal table from the backend side, not by copying it into src/game.
-- Fact-check round: the heart-loss reason texts in src/game/effects.js.
+- grep -E patterns like `(a*)*b` can backtrack exponentially in the JS regex engine and freeze
+  the tab. Accepted for now (a player can only freeze their own page); a real fix needs a
+  non-backtracking matcher.
 
 ## Rules
 
