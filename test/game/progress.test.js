@@ -90,9 +90,12 @@ test('a new player can play only the first chapter', () => {
   assert.deepEqual(chapterStatuses(list, { current: null, cleared: [] }), ['open', 'locked', 'soon']);
 });
 
-test('clearing a chapter opens the next one and the current one shows as playing', () => {
+test('clearing a chapter opens the next one and the current uncleared one shows as playing', () => {
   assert.deepEqual(chapterStatuses(list, { current: 'forest', cleared: ['awakening'] }), ['cleared', 'playing', 'soon']);
-  assert.deepEqual(chapterStatuses(list, { current: 'awakening', cleared: ['awakening'] }), ['playing', 'open', 'soon']);
+});
+
+test('the current chapter shows as cleared once it is cleared', () => {
+  assert.deepEqual(chapterStatuses(list, { current: 'awakening', cleared: ['awakening'] }), ['cleared', 'open', 'soon']);
 });
 
 test('a soon chapter stays soon even when the one before it is cleared', () => {
