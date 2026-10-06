@@ -200,7 +200,7 @@ export default {
 <p>Why <code>man</code>? The manual lives on the machine itself, so the answer to "what does this option do?" is one command away, even offline. Some minimal systems, like Docker images, leave the manual pages out to save space.</p>`,
   field: [
     ['hostname', 'print the name of the machine, the part of the prompt after the @'],
-    ['man -k directory', 'search the short descriptions of every manual page for a word'],
+    ['man -k directory', 'search the short descriptions of the manual pages for a word'],
     ['man man', 'the manual of the manual'],
   ],
   spells: [

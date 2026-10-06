@@ -149,7 +149,7 @@ export default {
 <p>The Guardian has lit a beacon somewhere in the forest: a directory whose name starts with <code>beacon_</code>. Find it from where you stand, then reach it with a single <code>cd</code> and an absolute path. The jump only counts if you take it from the dungeon.</p>`,
     setup: setupBoss,
     hints: [
-      'ls can look into any directory from where you stand, if you give it a path.',
+      'ls can look into another directory from where you stand, if you give it a path.',
       'Search with ls ~/forest, then ls ~/forest/NAME for each room. Jump with cd and a path that starts with / or ~.',
       secret => `cd ${secret.target}`,
     ],
@@ -167,8 +167,8 @@ export default {
     ['ls ~/forest', 'paths work with other commands too'],
     ['cd fo', 'then press Tab to finish the name'],
   ],
-  why: `<p>Why one tree? On Linux, every disk, USB stick and network share appears as a directory somewhere under <code>/</code>. There are no drive letters like <code>C:</code>, so one absolute path names one place.</p>
-<p>Why two kinds of path? A relative path is short when the place is near. An absolute path means the same place wherever you stand, which is why configuration files and scripts usually use them.</p>
+  why: `<p>Why one tree? On Linux, every disk, USB stick and network share appears as a directory somewhere under <code>/</code> once it is mounted. There are no drive letters like <code>C:</code>, so one absolute path names one place.</p>
+<p>Why two kinds of path? A relative path is short when the place is near. An absolute path means the same place wherever you stand, which is why configuration files and scripts often use them.</p>
 <p>Why <code>~</code>? Your home is where your own files live, and you go there more than anywhere else. Bash replaces <code>~</code> with your home's path before the command runs, so <code>cd ~/forest</code> is really <code>cd /home/hero/forest</code>.</p>`,
   field: [
     ['ls /', 'look at the top of a real tree: bin, etc, home, usr, var and more'],
