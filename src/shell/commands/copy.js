@@ -38,32 +38,45 @@ function copyNode(sys, src, srcShown, targetParent, name, targetShown, acc) {
   return ok;
 }
 
-function problem(sys, op, src, target) {
-  const { name, recursive } = op;
-  const existing = target.node;
+function sourceProblem(op, src, target) {
   let kind = null;
   if (src.error) kind = `cannot stat ${q(src.shown)}: ${errorText(src.error)}`;
-  else if (name === 'cp' && src.node.type === 'dir' && !recursive) kind = `-r not specified; omitting directory ${q(src.shown)}`;
-  else if (existing === src.node) kind = `${q(src.shown)} and ${q(target.shown)} are the same file`;
+  else if (op.name === 'cp' && src.node.type === 'dir' && !op.recursive) kind = `-r not specified; omitting directory ${q(src.shown)}`;
+  else if (target.node === src.node) kind = `${q(src.shown)} and ${q(target.shown)} are the same file`;
   else if (src.node.type === 'dir' && isInside(target.abs, src.abs)) {
-    kind = name === 'mv' ? `cannot move ${q(src.shown)} to a subdirectory of itself, ${q(target.shown)}`
+    kind = op.name === 'mv' ? `cannot move ${q(src.shown)} to a subdirectory of itself, ${q(target.shown)}`
       : `cannot copy a directory, ${q(src.shown)}, into itself, ${q(target.shown)}`;
-  } else if (target.error && !(target.error === 'ENOENT' && target.parent)) {
-    kind = name === 'mv' ? `cannot move ${q(src.shown)} to ${q(target.shown)}: ${errorText(target.error)}`
-      : `cannot create ${src.node.type === 'dir' ? 'directory' : 'regular file'} ${q(target.shown)}: ${errorText(target.error)}`;
+  }
+  return kind;
+}
+
+function targetProblem(op, src, target) {
+  const existing = target.node;
+  const what = src.node.type === 'dir' ? 'directory' : 'regular file';
+  let kind = null;
+  if (target.error && !(target.error === 'ENOENT' && target.parent)) {
+    kind = op.name === 'mv' ? `cannot move ${q(src.shown)} to ${q(target.shown)}: ${errorText(target.error)}` : `cannot create ${what} ${q(target.shown)}: ${errorText(target.error)}`;
   } else if (existing?.type === 'dir' && src.node.type !== 'dir') kind = `cannot overwrite directory ${q(target.shown)} with non-directory`;
   else if (existing && existing.type !== 'dir' && src.node.type === 'dir') kind = `cannot overwrite non-directory ${q(target.shown)} with directory ${q(src.shown)}`;
   return kind;
 }
 
-function denied(sys, op, src, target) {
-  const writable = canChangeEntries(sys, target.parent);
+function moveDenied(sys, src, target) {
   let kind = null;
-  if (op.name === 'mv' && (!writable || !canUnlink(sys, src.parent, src.node))) kind = `cannot move ${q(src.shown)} to ${q(target.shown)}: Permission denied`;
-  else if (op.name === 'mv' && target.node?.type === 'dir' && Object.keys(target.node.children).length) kind = `cannot move ${q(src.shown)} to ${q(target.shown)}: Directory not empty`;
-  else if (op.name === 'cp' && target.node?.type === 'file' && !can(sys, target.node, 'w')) kind = `cannot create regular file ${q(target.shown)}: Permission denied`;
-  else if (op.name === 'cp' && !target.node && !writable) kind = `cannot create ${src.node.type === 'dir' ? 'directory' : 'regular file'} ${q(target.shown)}: Permission denied`;
+  if (!canChangeEntries(sys, target.parent) || !canUnlink(sys, src.parent, src.node)) kind = `cannot move ${q(src.shown)} to ${q(target.shown)}: Permission denied`;
+  else if (target.node?.type === 'dir' && Object.keys(target.node.children).length) kind = `cannot move ${q(src.shown)} to ${q(target.shown)}: Directory not empty`;
   return kind;
+}
+
+function copyDenied(sys, src, target) {
+  const what = src.node.type === 'dir' ? 'directory' : 'regular file';
+  const blocked = target.node ? target.node.type === 'file' && !can(sys, target.node, 'w') : !canChangeEntries(sys, target.parent);
+  return blocked ? `cannot create ${what} ${q(target.shown)}: Permission denied` : null;
+}
+
+function problem(sys, op, src, target) {
+  const early = sourceProblem(op, src, target) ?? (src.error ? null : targetProblem(op, src, target));
+  return early ?? (op.name === 'mv' ? moveDenied(sys, src, target) : copyDenied(sys, src, target));
 }
 
 function transfer(sys, op, srcTyped, dest, acc) {
@@ -72,11 +85,11 @@ function transfer(sys, op, srcTyped, dest, acc) {
   const targetShown = dest.intoDir && !s.error ? joinDisp(dest.typed, baseName(s.abs)) : dest.typed;
   const t = resolve(sys, dest.intoDir && !s.error ? joinPath(dest.abs, baseName(s.abs)) : dest.typed);
   const target = { ...t, shown: targetShown };
-  const kind = problem(sys, op, src, target) ?? denied(sys, op, src, target);
+  const kind = problem(sys, op, src, target);
+  const kept = Boolean(target.node) && op.noClobber;
   if (kind) acc.errs.push(`${op.name}: ${kind}`);
-  else if (target.node && op.noClobber) return;
-  else if (op.name === 'cp') copyNode(sys, src.node, src.shown, target.parent, baseName(target.abs), target.shown, acc);
-  else {
+  else if (!kept && op.name === 'cp') copyNode(sys, src.node, src.shown, target.parent, baseName(target.abs), target.shown, acc);
+  else if (!kept) {
     removeChild(src.parent, baseName(src.abs), sys.now());
     addChild(target.parent, baseName(target.abs), src.node, sys.now());
     if (acc.verbose) acc.out += `renamed ${q(src.shown)} -> ${q(target.shown)}\n`;

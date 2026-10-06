@@ -63,24 +63,26 @@ function selectPart(which, text, a) {
   return sel.join('');
 }
 
-function headTail(which, args, { sys, stdin }) {
+function readError(which, f, code) {
+  const name = shellQuote(f, { always: true });
+  return code === 'EISDIR' ? `${which}: error reading ${name}: Is a directory` : `${which}: cannot open ${name} for reading: ${reason(code)}`;
+}
+
+function readPart(which, f, a, { sys, stdin }, state) {
+  const { content, code } = openInput(sys, f, stdin);
+  if (code) state.errs.push(readError(which, f, code));
+  if (state.headers && (!code || code === 'EISDIR')) state.out += `${state.printed++ ? '\n' : ''}==> ${f === '-' ? 'standard input' : f} <==\n`;
+  if (!code) state.out += selectPart(which, content, a);
+}
+
+function headTail(which, args, ctx) {
   const a = headTailArgs(which, args);
   if (a.error) return result('', a.error, 1);
-  if (!a.o.rest.length && stdin == null) return needInput(which);
+  if (!a.o.rest.length && ctx.stdin == null) return needInput(which);
   const files = a.o.rest.length ? a.o.rest : ['-'];
-  const headers = (files.length > 1 && !a.o.flags.has('q')) || a.o.flags.has('v');
-  const errs = [];
-  let out = '';
-  let first = true;
-  for (const f of files) {
-    const { content, code } = openInput(sys, f, stdin);
-    if (code === 'EISDIR') errs.push(`${which}: error reading ${shellQuote(f, { always: true })}: Is a directory`);
-    else if (code) errs.push(`${which}: cannot open ${shellQuote(f, { always: true })} for reading: ${reason(code)}`);
-    if (headers && (!code || code === 'EISDIR')) out += `${first ? '' : '\n'}==> ${f === '-' ? 'standard input' : f} <==\n`;
-    if (headers && (!code || code === 'EISDIR')) first = false;
-    if (!code) out += selectPart(which, content, a);
-  }
-  const r = result(out, errs.join('\n'), errs.length ? 1 : 0);
+  const state = { out: '', errs: [], printed: 0, headers: (files.length > 1 && !a.o.flags.has('q')) || a.o.flags.has('v') };
+  for (const f of files) readPart(which, f, a, ctx, state);
+  const r = result(state.out, state.errs.join('\n'), state.errs.length ? 1 : 0);
   return a.follow ? withNote(r, 'tail -f would keep running and print new lines as the file grows (Ctrl+C stops it). Here it prints once.') : r;
 }
 
@@ -103,6 +105,18 @@ function wcWidth(inputs, fields) {
   return inputs.length === 1 && fields.length === 1 ? 1 : Math.max(irregular ? 7 : 1, String(total).length);
 }
 
+function wcRows(inputs, fields, width, labelled) {
+  const row = (counts, label) => `${fields.map(k => String(counts[k]).padStart(width)).join(' ')}${label}\n`;
+  const total = { l: 0, w: 0, m: 0, c: 0, L: 0 };
+  let out = '';
+  for (const input of inputs.filter(i => !i.code || i.code === 'EISDIR')) {
+    const counts = wcCounts(input.content ?? '');
+    for (const k of WC_FIELDS) total[k] = k === 'L' ? Math.max(total.L, counts.L) : total[k] + counts[k];
+    out += row(counts, labelled ? ` ${input.name}` : '');
+  }
+  return inputs.length > 1 ? out + row(total, ' total') : out;
+}
+
 function wc(args, { sys, stdin }) {
   const o = parseOptions('wc', args, 'lwcmL');
   if (o.err) return result('', o.err, 1);
@@ -110,19 +124,8 @@ function wc(args, { sys, stdin }) {
   const chosen = WC_FIELDS.filter(k => o.flags.has(k));
   const fields = chosen.length ? chosen : ['l', 'w', 'c'];
   const inputs = (o.rest.length ? o.rest : ['-']).map(name => ({ name, ...openInput(sys, name, stdin) }));
-  const width = wcWidth(inputs, fields);
-  const row = (counts, label) => `${fields.map(k => String(counts[k]).padStart(width)).join(' ')}${label}\n`;
-  const errs = [];
-  const total = { l: 0, w: 0, m: 0, c: 0, L: 0 };
-  let out = '';
-  for (const input of inputs) {
-    if (input.code) errs.push(`wc: ${shellQuote(input.name)}: ${reason(input.code)}`);
-    if (input.code && input.code !== 'EISDIR') continue;
-    const counts = wcCounts(input.content ?? '');
-    for (const k of WC_FIELDS) total[k] = k === 'L' ? Math.max(total.L, counts.L) : total[k] + counts[k];
-    out += row(counts, o.rest.length ? ` ${input.name}` : '');
-  }
-  if (inputs.length > 1) out += row(total, ' total');
+  const errs = inputs.filter(i => i.code).map(i => `wc: ${shellQuote(i.name)}: ${reason(i.code)}`);
+  const out = wcRows(inputs, fields, wcWidth(inputs, fields), o.rest.length > 0);
   return result(out, errs.join('\n'), errs.length ? 1 : 0);
 }
 

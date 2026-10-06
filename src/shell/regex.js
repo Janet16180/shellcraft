@@ -15,120 +15,138 @@ const UNMATCHED_BRACKET = 'Unmatched [, [^, [:, [., or [=';
 const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 const escapeClass = s => s.replace(/[\]\\[^-]/g, '\\$&');
 
+function namedItem(p, j, kind) {
+  const close = p.indexOf(`${kind}]`, j + 2);
+  const name = p.slice(j + 2, close);
+  let item;
+  if (close < 0) item = { error: UNMATCHED_BRACKET };
+  else if (kind !== ':') item = { text: escapeClass(name), next: close + 2 };
+  else if (CLASSES[name]) item = { text: CLASSES[name], next: close + 2 };
+  else item = { error: 'Invalid character class name' };
+  return item;
+}
+
+function bracketItem(p, j, first) {
+  const c = p[j];
+  const isRange = p[j + 1] === '-' && j + 2 < p.length && p[j + 2] !== ']';
+  let item;
+  if (c === ']' && !first) item = { done: true, next: j + 1 };
+  else if (c === '[' && ':=.'.includes(p[j + 1] ?? '')) item = namedItem(p, j, p[j + 1]);
+  else if (isRange && p.codePointAt(j + 2) < p.codePointAt(j)) item = { error: 'Invalid range end' };
+  else if (isRange) item = { text: `${escapeClass(c)}-${escapeClass(p[j + 2])}`, next: j + 3 };
+  else item = { text: escapeClass(c), next: j + 1 };
+  return item;
+}
+
 function bracket(p, i) {
-  let j = i + 1;
-  const negate = p[j] === '^';
-  if (negate) j++;
+  const negate = p[i + 1] === '^';
+  let j = i + (negate ? 2 : 1);
   let items = '';
-  let first = true;
-  let error = null;
-  let end = -1;
-  while (j < p.length && end < 0 && !error) {
-    const c = p[j];
-    const kind = c === '[' ? p[j + 1] : null;
-    const close = kind && ':=.'.includes(kind) ? p.indexOf(`${kind}]`, j + 2) : -1;
-    if (c === ']' && !first) end = j + 1;
-    else if (kind && ':=.'.includes(kind) && close < 0) error = UNMATCHED_BRACKET;
-    else if (kind === ':') {
-      const cls = CLASSES[p.slice(j + 2, close)];
-      if (cls) items += cls;
-      else error = 'Invalid character class name';
-      j = close + 2;
-    } else if (kind === '=' || kind === '.') {
-      items += escapeClass(p.slice(j + 2, close));
-      j = close + 2;
-    } else if (p[j + 1] === '-' && j + 2 < p.length && p[j + 2] !== ']') {
-      if (p.codePointAt(j + 2) < p.codePointAt(j)) error = 'Invalid range end';
-      items += `${escapeClass(c)}-${escapeClass(p[j + 2])}`;
-      j += 3;
-    } else {
-      items += escapeClass(c);
-      j++;
-    }
-    first = false;
+  let item = {};
+  for (let first = true; j < p.length && !item.done && !item.error; first = false) {
+    item = bracketItem(p, j, first);
+    items += item.text ?? '';
+    j = item.next ?? j;
   }
-  if (!error && end < 0) error = i === p.length - 1 ? 'Invalid regular expression' : UNMATCHED_BRACKET;
-  return { source: `[${negate ? '^' : ''}${items}]`, end, error };
+  let error = item.error ?? null;
+  if (!error && !item.done) error = i === p.length - 1 ? 'Invalid regular expression' : UNMATCHED_BRACKET;
+  return { source: `[${negate ? '^' : ''}${items}]`, end: j, error };
+}
+
+function parseBounds(body) {
+  const m = /^(\d*)(,?)(\d*)$/.exec(body);
+  if (!m || (m[1] === '' && m[2] === '')) return null;
+  const lo = Number(m[1] || 0);
+  const hi = m[3] === '' ? null : Number(m[3]);
+  return { invalid: hi !== null && hi < lo, source: m[2] ? `{${lo},${hi ?? ''}}` : `{${lo}}` };
 }
 
 function interval(p, i, ere) {
   const close = ere ? p.indexOf('}', i) : p.indexOf('\\}', i);
-  const body = close < 0 ? null : p.slice(i, close);
-  const m = body === null ? null : /^(\d*)(,?)(\d*)$/.exec(body);
-  const valid = m && (m[1] !== '' || m[2] !== '');
-  const lo = valid ? Number(m[1] || 0) : 0;
-  const hi = valid && m[3] !== '' ? Number(m[3]) : null;
+  const bounds = close < 0 ? null : parseBounds(p.slice(i, close));
   let r;
-  if (ere && !valid) r = { literal: true };
+  if (ere && !bounds) r = { literal: true };
   else if (close < 0) r = { error: 'Unmatched \\{' };
-  else if (!valid || (hi !== null && hi < lo)) r = { error: 'Invalid content of \\{\\}' };
-  else r = { source: m[2] ? `{${lo},${hi ?? ''}}` : `{${lo}}`, end: close + (ere ? 1 : 2) };
+  else if (!bounds || bounds.invalid) r = { error: 'Invalid content of \\{\\}' };
+  else r = { source: bounds.source, end: close + (ere ? 1 : 2) };
   return r;
 }
 
-function special(p, i, ere) {
+function classify(p, i, ere) {
   const c = p[i];
-  const escaped = c === '\\';
   const n = p[i + 1];
-  let kind = null;
-  if (ere && !escaped && '()|+?{'.includes(c)) kind = c;
-  else if (!ere && escaped && n !== undefined && '()|+?{'.includes(n)) kind = n;
-  return { kind, width: escaped ? 2 : 1 };
+  const op = ere ? c : (c === '\\' ? n : null);
+  let tok;
+  if (op !== null && op !== undefined && '()|+?{'.includes(op)) tok = { type: op, width: ere ? 1 : 2 };
+  else if (c === '\\') tok = { type: 'escape', char: n, width: 2 };
+  else if ('[*^$'.includes(c)) tok = { type: c, width: 1 };
+  else tok = { type: 'char', char: c, width: 1 };
+  return tok;
 }
 
-function translate(p, ere) {
-  const st = { out: '', start: true, quantified: false, open: 0, groups: 0, error: null, warning: null };
-  const atom = (text, quantifiable = true) => {
-    st.out += text;
+function atom(st, text) {
+  st.out += text;
+  st.start = false;
+  st.quantified = false;
+}
+
+function quantify(st, text, name) {
+  if (st.start && st.ere) st.warning ??= `${name} at start of expression`;
+  else if (st.start) atom(st, escapeRe(name));
+  else if (!st.quantified) { st.out += text; st.quantified = true; }
+}
+
+const HANDLERS = {
+  '(': st => { st.out += '('; st.open++; st.start = true; },
+  ')': st => {
+    if (st.open === 0 && !st.ere) st.error = 'Unmatched ) or \\)';
+    else if (st.open === 0) atom(st, '\\)');
+    else { st.open--; st.groups++; atom(st, ')'); }
+  },
+  '|': st => { st.out += '|'; st.start = true; },
+  '+': st => quantify(st, '+', '+'),
+  '?': st => quantify(st, '?', '?'),
+  '*': st => quantify(st, '*', '*'),
+  '{': (st, p, i, tok) => {
+    const iv = st.start ? { literal: true } : interval(p, i + tok.width, st.ere);
+    if (iv.error) st.error = iv.error;
+    else if (iv.literal) atom(st, '\\{');
+    else if (!st.quantified) { st.out += iv.source; st.quantified = true; }
+    return iv.end;
+  },
+  escape: (st, p, i, tok) => {
+    const n = tok.char;
+    const backref = n >= '1' && n <= '9';
+    if (n === undefined) st.error = 'Trailing backslash';
+    else if (backref && Number(n) > st.groups) st.error = 'Invalid back reference';
+    else atom(st, backref ? `\\${n}` : ESCAPED[n] ?? escapeRe(n));
+  },
+  '[': (st, p, i) => {
+    const br = bracket(p, i);
+    if (br.error) st.error = br.error;
+    else atom(st, br.source);
+    return br.end;
+  },
+  '^': st => {
+    const anchor = st.ere || st.start;
+    st.out += anchor ? '^' : '\\^';
+    st.start &&= anchor;
+  },
+  $: (st, p, i) => {
+    const rest = p.slice(i + 1);
+    st.out += st.ere || rest === '' || rest.startsWith('\\)') || rest.startsWith('\\|') ? '$' : '\\$';
     st.start = false;
-    st.quantified = false;
-    st.canQuantify = quantifiable;
-  };
-  const quantifier = (text, name) => {
-    if (st.start && ere) st.warning ??= `${name} at start of expression`;
-    else if (st.start) atom(escapeRe(name));
-    else if (!st.quantified) { st.out += text; st.quantified = true; }
-  };
+  },
+  char: (st, p, i, tok) => atom(st, tok.char === '.' ? '.' : escapeRe(tok.char)),
+};
+
+function translate(p, ere) {
+  const st = { ere, out: '', start: true, quantified: false, open: 0, groups: 0, error: null, warning: null };
   let i = 0;
   while (i < p.length && !st.error) {
-    const c = p[i];
-    const { kind, width } = special(p, i, ere);
-    if (kind === '(') { st.out += '('; st.open++; st.start = true; i += width; }
-    else if (kind === ')' || (!ere && c === '\\' && p[i + 1] === ')')) {
-      if (st.open === 0 && !ere) st.error = 'Unmatched ) or \\)';
-      else if (st.open === 0) atom('\\)');
-      else { st.open--; st.groups++; atom(')'); }
-      i += width;
-    } else if (kind === '|') { st.out += '|'; st.start = true; i += width; }
-    else if (kind === '+' || kind === '?') { quantifier(kind, kind); i += width; }
-    else if (kind === '{') {
-      const iv = st.start ? { literal: true } : interval(p, i + width, ere);
-      if (iv.error) st.error = iv.error;
-      else if (iv.literal) { atom('\\{'); i += width; }
-      else { if (!st.quantified) st.out += iv.source; st.quantified = true; i = iv.end; }
-    } else if (c === '\\') {
-      const n = p[i + 1];
-      if (n === undefined) st.error = 'Trailing backslash';
-      else if (n >= '1' && n <= '9' && Number(n) > st.groups) st.error = 'Invalid back reference';
-      else if (n >= '1' && n <= '9') atom(`\\${n}`);
-      else atom(ESCAPED[n] ?? escapeRe(n));
-      i += 2;
-    } else if (c === '[') {
-      const br = bracket(p, i);
-      if (br.error) st.error = br.error;
-      else { atom(br.source); i = br.end; }
-    } else if (c === '*') { quantifier('*', '*'); i++; }
-    else if (c === '^') {
-      const anchor = ere || st.start;
-      st.out += anchor ? '^' : '\\^';
-      if (!anchor) st.start = false;
-      i++;
-    } else if (c === '$') {
-      const rest = p.slice(i + 1);
-      st.out += ere || rest === '' || rest.startsWith('\\)') || rest.startsWith('\\|') ? '$' : '\\$';
-      st.start = false;
-      i++;
-    } else { atom(c === '.' ? '.' : escapeRe(c)); i++; }
+    const tok = classify(p, i, ere);
+    const next = HANDLERS[tok.type](st, p, i, tok);
+    i = next ?? i + tok.width;
   }
   if (!st.error && st.open > 0) st.error = 'Unmatched ( or \\(';
   return { source: st.out, error: st.error, warning: st.warning };

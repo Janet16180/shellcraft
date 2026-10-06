@@ -80,24 +80,31 @@ function scanDouble(line, start) {
   return { parts, end: i + 1, error };
 }
 
+const single = scan => ({ parts: scan.part ? [scan.part] : [], end: scan.end, error: scan.error });
+
+function scanSingleQuoted(line, i) {
+  const close = line.indexOf("'", i + 1);
+  return close < 0 ? { error: unclosed("'") } : { parts: [{ lit: line.slice(i + 1, close), q: true }], end: close + 1 };
+}
+
+function scanTilde(line, i) {
+  const user = /^~([A-Za-z_][A-Za-z0-9_-]*)?(?=$|[/\s|&;<>()])/.exec(line.slice(i));
+  return user ? { parts: [{ tilde: user[1] ?? '' }], end: i + user[0].length } : { parts: [{ lit: '~', q: false }], end: i + 1 };
+}
+
+const SCANNERS = {
+  "'": scanSingleQuoted,
+  '"': (line, i) => scanDouble(line, i + 1),
+  '\\': (line, i) => (i + 1 < line.length ? { parts: [{ lit: line[i + 1], q: true }], end: i + 2 } : { parts: [], end: i + 1 }),
+  $: (line, i) => single(scanDollar(line, i, false)),
+  '`': (line, i) => single(scanBacktick(line, i, false)),
+};
+
 function scanWordPart(line, i, atStart) {
   const c = line[i];
-  let scan;
-  if (c === "'") {
-    const close = line.indexOf("'", i + 1);
-    scan = close < 0 ? { error: unclosed("'") } : { parts: [{ lit: line.slice(i + 1, close), q: true }], end: close + 1 };
-  } else if (c === '"') scan = scanDouble(line, i + 1);
-  else if (c === '\\') scan = i + 1 < line.length ? { parts: [{ lit: line[i + 1], q: true }], end: i + 2 } : { parts: [], end: i + 1 };
-  else if (c === '$') {
-    const d = scanDollar(line, i, false);
-    scan = { parts: d.part ? [d.part] : [], end: d.end, error: d.error };
-  } else if (c === '`') {
-    const b = scanBacktick(line, i, false);
-    scan = { parts: b.part ? [b.part] : [], end: b.end, error: b.error };
-  } else if (c === '~' && atStart) {
-    const user = /^~([A-Za-z_][A-Za-z0-9_-]*)?(?=$|[/\s|&;<>()])/.exec(line.slice(i));
-    scan = user ? { parts: [{ tilde: user[1] ?? '' }], end: i + user[0].length } : { parts: [{ lit: c, q: false }], end: i + 1 };
-  } else scan = { parts: [{ lit: c, q: false }], end: i + 1 };
+  let scan = { parts: [{ lit: c, q: false }], end: i + 1 };
+  if (SCANNERS[c]) scan = SCANNERS[c](line, i);
+  else if (c === '~' && atStart) scan = scanTilde(line, i);
   return { parts: scan.parts ?? [], end: scan.end, error: scan.error ?? null };
 }
 
@@ -113,6 +120,40 @@ function mergeLiterals(parts) {
 
 const onlyDigits = word => word.parts.length > 0 && word.parts.every(p => 'lit' in p && !p.q && /^\d+$/.test(p.lit));
 
+function operatorToken(line, i, word) {
+  const c = line[i];
+  const op = METACHARS.includes(c) ? OPERATORS.find(o => line.startsWith(o, i)) : null;
+  const redir = '<>'.includes(c) ? REDIRECTS.find(r => line.startsWith(r, i)) : null;
+  const fd = redir && word && onlyDigits(word) ? Number(word.parts.map(p => p.lit).join('')) : null;
+  let token = null;
+  if (redir) token = { type: 'redir', op: redir, fd };
+  else if (op?.startsWith('&>')) token = { type: 'redir', op, fd: null };
+  else if (op) token = { type: 'op', op };
+  return token ? { token, width: token.op.length, takesWord: fd !== null } : null;
+}
+
+function finishWord(line, end, st) {
+  if (st.word) st.tokens.push({ type: 'word', parts: mergeLiterals(st.word.parts), raw: line.slice(st.word.start, end) });
+  st.word = null;
+}
+
+function step(line, i, st) {
+  const blank = line[i] === ' ' || line[i] === '\t';
+  const op = blank ? null : operatorToken(line, i, st.word);
+  let scan;
+  if (op?.takesWord) st.word = null;
+  if (blank || op) {
+    finishWord(line, i, st);
+    if (op) st.tokens.push(op.token);
+    scan = { end: i + (op ? op.width : 1), error: null };
+  } else {
+    st.word ??= { parts: [], start: i };
+    scan = scanWordPart(line, i, i === st.word.start);
+    st.word.parts.push(...scan.parts);
+  }
+  return scan;
+}
+
 /**
  * Split a line into word, operator and redirection tokens.
  *
@@ -121,34 +162,14 @@ const onlyDigits = word => word.parts.length > 0 && word.parts.every(p => 'lit' 
  *   bash prints when the line ends inside a quote or substitution.
  */
 export function tokenize(line) {
-  const tokens = [];
-  let word = null;
+  const st = { tokens: [], word: null };
   let error = null;
   let i = 0;
-  const finish = end => {
-    if (word) tokens.push({ type: 'word', parts: mergeLiterals(word.parts), raw: line.slice(word.start, end) });
-    word = null;
-  };
-  while (i < line.length && !error) {
-    const c = line[i];
-    const op = METACHARS.includes(c) ? OPERATORS.find(o => line.startsWith(o, i)) : null;
-    const redir = '<>'.includes(c) ? REDIRECTS.find(r => line.startsWith(r, i)) : null;
-    if (c === ' ' || c === '\t') { finish(i); i++; continue; }
-    if (c === '#' && !word) break;
-    if (redir || op) {
-      const fd = redir && word && onlyDigits(word) ? Number(word.parts.map(p => p.lit).join('')) : null;
-      if (fd !== null) word = null;
-      finish(i);
-      tokens.push(redir ? { type: 'redir', op: redir, fd } : (op.startsWith('&>') ? { type: 'redir', op, fd: null } : { type: 'op', op }));
-      i += (redir ?? op).length;
-      continue;
-    }
-    word ??= { parts: [], start: i };
-    const scan = scanWordPart(line, i, i === word.start);
+  while (i < line.length && !error && !(line[i] === '#' && !st.word)) {
+    const scan = step(line, i, st);
     error = scan.error;
-    word.parts.push(...scan.parts);
     i = scan.end;
   }
-  if (!error) finish(i);
-  return { tokens: error ? [] : tokens, error };
+  if (!error) finishWord(line, i, st);
+  return { tokens: error ? [] : st.tokens, error };
 }

@@ -23,3 +23,9 @@ test('an unknown flag or a missing value gives the coreutils message', () => {
   assert.equal(parseOptions('ls', ['-z'], 'la').err, "ls: invalid option -- 'z'\nTry 'ls --help' for more information.");
   assert.equal(parseOptions('head', ['-n'], '', 'n').err, "head: option requires an argument -- 'n'\nTry 'head --help' for more information.");
 });
+
+test('every value of a repeated option is kept in order', () => {
+  const o = parseOptions('grep', ['-e', 'a', '-eb'], '', 'e');
+  assert.deepEqual(o.lists.e, ['a', 'b']);
+  assert.equal(o.vals.e, 'b');
+});

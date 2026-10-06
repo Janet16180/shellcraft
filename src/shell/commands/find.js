@@ -40,25 +40,42 @@ function permTest(v) {
   return { test: tests[m[1]] };
 }
 
-function primary(name, v, ctx) {
-  const known = ctx.users;
-  const isEmpty = e => (e.node.type === 'dir' ? Object.keys(e.node.children).length === 0 : sizeOf(e.node) === 0);
+const isEmpty = e => (e.node.type === 'dir' ? Object.keys(e.node.children).length === 0 : sizeOf(e.node) === 0);
+
+const PRIMARIES = {
+  '-name': v => { const re = compileGlob(v); return { test: e => re.test(e.name) }; },
+  '-iname': v => { const re = compileGlob(v, { ignoreCase: true }); return { test: e => re.test(e.name) }; },
+  '-type': v => (v === 'f' || v === 'd' ? { test: e => e.node.type === (v === 'd' ? 'dir' : 'file') } : { error: `find: Unknown argument to -type: ${v}` }),
+  '-user': (v, ctx) => (ctx.users.has(v) ? { test: e => e.node.owner === v } : { error: `find: ${localeQuote(v)} is not the name of a known user` }),
+  '-group': v => ({ test: e => e.node.group === v }),
+  '-size': sizeTest,
+  '-perm': permTest,
+  '-empty': () => ({ test: isEmpty }),
+  '-print': (_v, ctx) => ({ test: e => ctx.out.push(e.shown) > 0, prints: true }),
+  '-true': () => ({ test: () => true }),
+  '-false': () => ({ test: () => false }),
+};
+
+function depthOption(t, v, ctx) {
   let p;
-  if (name === '-name' || name === '-iname') {
-    const re = compileGlob(v, { ignoreCase: name === '-iname' });
-    p = { test: e => re.test(e.name) };
-  } else if (name === '-type' && (v === 'f' || v === 'd')) p = { test: e => e.node.type === (v === 'd' ? 'dir' : 'file') };
-  else if (name === '-type') p = { error: `find: Unknown argument to -type: ${v}` };
-  else if (name === '-user' && !known.has(v)) p = { error: `find: ${localeQuote(v)} is not the name of a known user` };
-  else if (name === '-user') p = { test: e => e.node.owner === v };
-  else if (name === '-group') p = { test: e => e.node.group === v };
-  else if (name === '-size') p = sizeTest(v);
-  else if (name === '-perm') p = permTest(v);
-  else if (name === '-empty') p = { test: isEmpty };
-  else if (name === '-print') p = { test: e => { ctx.out.push(e.shown); return true; }, prints: true };
-  else if (name === '-true') p = { test: () => true };
-  else if (name === '-false') p = { test: () => false };
+  if (v === undefined) p = { error: `find: missing argument to \`${t}'` };
+  else if (!/^\d+$/.test(v)) p = { error: `find: Expected a positive decimal integer argument to ${t}, but got ${localeQuote(v)}` };
+  else {
+    ctx[t === '-maxdepth' ? 'maxDepth' : 'minDepth'] = Number(v);
+    p = { test: () => true };
+  }
   return p;
+}
+
+function primary(t, tokens, i, ctx) {
+  const v = WITH_VALUE.has(t) ? tokens[i] : undefined;
+  const used = WITH_VALUE.has(t) ? 1 : 0;
+  let p;
+  if (t === '-maxdepth' || t === '-mindepth') p = depthOption(t, v, ctx);
+  else if (WITH_VALUE.has(t) && v === undefined) p = { error: `find: missing argument to \`${t}'` };
+  else if (PRIMARIES[t]) p = PRIMARIES[t](v, ctx);
+  else p = { error: t === undefined ? 'find: invalid expression' : `find: unknown predicate \`${t}'` };
+  return { ...p, used };
 }
 
 function parseExpression(tokens, ctx) {
@@ -69,23 +86,18 @@ function parseExpression(tokens, ctx) {
     error ??= message;
     return () => false;
   };
+  const group = () => {
+    const inner = or();
+    return tokens[i++] === ')' ? inner : fail("find: invalid expression; I was expecting to find a ')' somewhere but did not see one.");
+  };
   const unary = () => {
     const t = tokens[i++];
     if (t === '!' || t === '-not') { const inner = unary(); return e => !inner(e); }
-    if (t === '(') { const inner = or(); if (tokens[i++] !== ')') return fail("find: invalid expression; I was expecting to find a ')' somewhere but did not see one."); return inner; }
-    if (t === '-maxdepth' || t === '-mindepth') {
-      const v = tokens[i++];
-      if (v === undefined) return fail(`find: missing argument to \`${t}'`);
-      if (!/^\d+$/.test(v)) return fail(`find: Expected a positive decimal integer argument to ${t}, but got ${localeQuote(v)}`);
-      ctx[t === '-maxdepth' ? 'maxDepth' : 'minDepth'] = Number(v);
-      return () => true;
-    }
-    if (WITH_VALUE.has(t) && tokens[i] === undefined) return fail(`find: missing argument to \`${t}'`);
-    const p = primary(t, WITH_VALUE.has(t) ? tokens[i++] : undefined, ctx);
-    if (!p) return fail(t === undefined ? 'find: invalid expression' : `find: unknown predicate \`${t}'`);
-    if (p.error) return fail(p.error);
+    if (t === '(') return group();
+    const p = primary(t, tokens, i, ctx);
+    i += p.used;
     prints ||= Boolean(p.prints);
-    return p.test;
+    return p.error ? fail(p.error) : p.test;
   };
   const and = () => {
     let left = unary();
