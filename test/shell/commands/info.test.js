@@ -40,3 +40,22 @@ test('uname names the kernel', async () => {
   assert.equal((await run(b, 'uname')).out, 'Linux\n');
   assert.match((await run(b, 'uname -a')).out, /^Linux kernelia /);
 });
+
+test('uname prints the fields asked for, in the standard order', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'uname -n')).out, 'kernelia\n');
+  assert.equal((await run(b, 'uname -sr')).out, 'Linux 6.8.0-kernelia\n');
+  assert.equal((await run(b, 'uname -a')).out, 'Linux kernelia 6.8.0-kernelia #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux\n');
+});
+
+test('id -u, -g, -G and -n print single fields', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'id -u')).out, '1000\n');
+  assert.equal((await run(b, 'id -un')).out, 'hero\n');
+  assert.equal((await run(b, 'id -Gn')).out, 'hero\n');
+});
+
+test('whoami takes no operands', async () => {
+  const r = await run(await shell(), 'whoami now');
+  assert.deepEqual([r.err, r.status], ["whoami: extra operand ‘now’\nTry 'whoami --help' for more information.\n", 1]);
+});

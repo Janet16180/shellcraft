@@ -39,7 +39,7 @@ export const reason = code => (code === 'EISDIR' ? 'Is a directory' : errorText(
 function headTailArgs(which, rawArgs) {
   const takesValue = i => i > 0 && (rawArgs[i - 1] === '-n' || rawArgs[i - 1] === '-c');
   const args = rawArgs.flatMap((x, i) => {
-    if (/^-\d+$/.test(x)) return ['-n', x.slice(1)];
+    if (/^-\d+$/.test(x) && !takesValue(i)) return ['-n', x.slice(1)];
     if (which === 'tail' && /^\+\d+$/.test(x) && !takesValue(i)) return ['-n', x];
     return [x];
   });

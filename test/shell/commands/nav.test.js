@@ -42,3 +42,12 @@ test('tree draws the hierarchy and counts directories and files', async () => {
   const r = await run(await shell(), 'tree forest');
   assert.equal(r.out, 'forest\n├── cave\n│\u00a0\u00a0 └── bat.txt\n└── mushroom.txt\n\n2 directories, 2 files\n');
 });
+
+test('cd resolves .. in the path as typed, like bash, so it can leave a locked directory', async () => {
+  const b = await shell();
+  await run(b, 'cd /root/..');
+  assert.equal((await b.observe()).cwd, '/');
+  await run(b, 'cd /tmp');
+  assert.equal((await run(b, 'cd nope/..')).err, 'bash: cd: nope/..: No such file or directory\n');
+  assert.equal((await run(b, 'cd ~/readme.txt/..')).err, 'bash: cd: /home/hero/readme.txt/..: Not a directory\n');
+});

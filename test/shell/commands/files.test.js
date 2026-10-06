@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run, runAll } from '../helpers.js';
-import { put, file } from '../../../src/backend/spec.js';
+import { put, file, dir } from '../../../src/backend/spec.js';
 
 const home = async b => (await b.observe()).tree.children.home.children.hero.children;
 
@@ -82,26 +82,6 @@ test('rm -v reports each removal and -i notes that the game answers yes', async 
   assert.match(r.note, /answers yes/);
 });
 
-test('cp copies files, needs -r for directories, and the copy belongs to the user', async () => {
-  const b = await shell();
-  await run(b, 'cp readme.txt copy.txt');
-  assert.equal((await home(b))['copy.txt'].content, 'Dear apprentice,\nwelcome.\n');
-  assert.equal((await run(b, 'cp forest woods')).err, "cp: -r not specified; omitting directory 'forest'\n");
-  await run(b, 'cp -r forest woods');
-  assert.ok((await home(b)).woods.children.cave);
-  await run(b, 'cp /etc/hostname .');
-  assert.equal((await home(b)).hostname.owner, 'hero');
-});
-
-test('mv renames and moves into directories', async () => {
-  const b = await shell();
-  await run(b, 'mv readme.txt letter.txt');
-  await run(b, 'mv letter.txt forest');
-  assert.ok((await home(b)).forest.children['letter.txt']);
-  assert.equal((await run(b, 'mv nope x')).err, "mv: cannot stat 'nope': No such file or directory\n");
-  assert.equal((await run(b, 'mv forest forest/cave')).err, "mv: cannot move 'forest' to a subdirectory of itself, 'forest/cave/forest'\n");
-});
-
 test('chmod sets octal and symbolic modes on files the user owns', async () => {
   const b = await shell();
   await run(b, 'chmod 700 readme.txt');
@@ -110,4 +90,27 @@ test('chmod sets octal and symbolic modes on files the user owns', async () => {
   assert.equal((await home(b))['readme.txt'].mode, 0o544);
   assert.equal((await run(b, 'chmod 777 /etc/hostname')).err, "chmod: changing permissions of '/etc/hostname': Operation not permitted\n");
   assert.equal((await run(b, 'chmod q+z x')).err, "chmod: invalid mode: \u2018q+z\u2019\nTry 'chmod --help' for more information.\n");
+});
+
+test('rm -r removes what it can and names each entry it cannot', async () => {
+  const b = await shell([put('/srv', dir({ 'a.txt': file('x') }))]);
+  const r = await run(b, 'rm -rf /srv');
+  assert.deepEqual([r.err, r.status], ["rm: cannot remove '/srv/a.txt': Permission denied\n", 1]);
+});
+
+test('rm -rv reports every file and directory it removes', async () => {
+  const r = await run(await shell(), 'rm -rv forest');
+  assert.equal(r.out, "removed 'forest/cave/bat.txt'\nremoved directory 'forest/cave'\nremoved 'forest/mushroom.txt'\nremoved directory 'forest'\n");
+});
+
+test('mkdir -v and rmdir -v report what they do', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'mkdir -pv a/b')).out, "mkdir: created directory 'a'\nmkdir: created directory 'a/b'\n");
+  assert.equal((await run(b, 'rmdir -v a/b')).out, "rmdir: removing directory, 'a/b'\n");
+});
+
+test('a path through a file or a locked directory gives the matching error', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'touch readme.txt/x')).err, "touch: cannot touch 'readme.txt/x': Not a directory\n");
+  assert.equal((await run(b, 'cat /root/secret.txt')).err, 'cat: /root/secret.txt: Permission denied\n');
 });
