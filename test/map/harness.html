@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map harness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Pixelify+Sans:wght@400;600&display=swap">
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 16px; background: #0b0a12; color: #f4f0e4; font: 14px "IBM Plex Mono", monospace; }
+  main { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+  figure { margin: 0; }
+  figcaption { margin: 4px 0 8px; color: #a3a0bf; }
+  canvas { display: block; width: 100%; aspect-ratio: 16 / 10; }
+  #picked { position: fixed; right: 8px; bottom: 8px; background: #1c1930; padding: 4px 8px; }
+</style>
+</head>
+<body>
+<main id="cases"></main>
+<div id="picked"></div>
+<script type="module" src="./harness.js"></script>
+</body>
+</html>
