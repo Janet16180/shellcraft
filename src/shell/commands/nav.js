@@ -9,6 +9,7 @@ import { result, withNote } from '../result.js';
 import { esc, span } from '../html.js';
 import { setVar, varValue } from '../vars.js';
 import { resolve, errorText } from '../paths.js';
+import { builtinOptions } from '../builtins.js';
 
 const isExe = node => node.type === 'file' && (node.mode & 0o111) !== 0;
 const indicator = node => {
@@ -43,7 +44,10 @@ function logicalResolve(sys, path) {
   return failed ?? resolve(sys, `/${stack.join('/')}`);
 }
 
-function cd(args, { sys }) {
+function cd(rawArgs, { sys }) {
+  const o = builtinOptions('cd', rawArgs, 'LPe@');
+  if (o.error) return result('', o.error, 2);
+  const args = o.rest;
   if (args.length > 1) return result('', 'bash: cd: too many arguments', 1);
   const back = args[0] === '-';
   const home = varValue(sys, 'HOME');

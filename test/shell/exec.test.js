@@ -45,13 +45,12 @@ test('output sent to /dev/null disappears', async () => {
   assert.equal((await run(b, 'cat /dev/null')).out, '');
 });
 
-test('an unknown command fails with 127 and a note for common mistakes', async () => {
+test('an unknown command fails with 127 and leaves teaching notes to the game', async () => {
   const b = await shell();
-  const r = await run(b, 'cd..');
-  assert.deepEqual([r.err, r.status], ['bash: cd..: command not found\n', 127]);
-  assert.match(r.note, /space between cd and the dots/);
-  assert.match((await run(b, 'LS')).note, /case-sensitive. Try ls/);
-  assert.equal((await run(b, 'florp')).note, '');
+  for (const line of ['cd..', 'LS', 'cls', 'florp']) {
+    const r = await run(b, line);
+    assert.deepEqual([r.err, r.status, r.note], [`bash: ${line}: command not found\n`, 127, '']);
+  }
 });
 
 test('aliases expand in the first word unless it is quoted', async () => {
@@ -153,4 +152,24 @@ test('an arithmetic error stops the rest of the line with status 1', async () =>
   const b = await shell();
   const r = await run(b, 'echo $((1/0)); echo after');
   assert.deepEqual([r.out, r.err, r.status], ['', 'bash: 1/0: division by 0 (error token is "0")\n', 1]);
+});
+
+test('--version prints the program version, as the real program does', async () => {
+  const b = await shell();
+  const r = await run(b, 'ls --version');
+  assert.deepEqual([r.out.split('\n')[0], r.status], ['ls (GNU coreutils) 9.4', 0]);
+  assert.equal((await run(b, 'cat --version')).out.split('\n')[0], 'cat (GNU coreutils) 9.4');
+  assert.equal((await run(b, 'echo --version')).out, '--version\n');
+});
+
+test('a real command the game does not simulate gets a note saying so', async () => {
+  const b = await shell();
+  const du = await run(b, 'du -sh');
+  assert.deepEqual([du.err, du.status], ['bash: du: command not found\n', 127]);
+  assert.equal(du.note, 'du is a real command on Ubuntu, but this game does not simulate it.');
+  assert.equal((await run(b, 'florp')).note, '');
+});
+
+test('a short --help says that the real one lists more options', async () => {
+  assert.equal((await run(await shell(), 'ls --help')).note, 'Real ls --help prints a longer list of options.');
 });

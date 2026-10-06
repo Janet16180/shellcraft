@@ -5,13 +5,15 @@
  * Between the player's lines the input holds marker lines that start with a
  * space, so HISTCONTROL=ignorespace keeps them out of `history`. Each marker
  * line saves `$?`, prints it, prints the next begin marker on both streams,
- * and restores `$?` for the next line.
+ * and restores `$?` for the next line. The stdout markers also carry the
+ * container clock in seconds, taken with the printf builtin so no process
+ * starts between the lines.
  */
 
 const RS = '\u001e';
 const quote = s => `'${String(s).replace(/'/g, "'\\''")}'`;
-const begin = i => ` printf '${RS}B${i}${RS}'; printf '${RS}B${i}${RS}' >&2`;
-const end = ` __st=$?; printf '${RS}E%d${RS}' "$__st"`;
+const begin = i => ` printf '${RS}B${i} %(%s)T${RS}' -1; printf '${RS}B${i}${RS}' >&2`;
+const end = ` __st=$?; printf '${RS}E%d %(%s)T${RS}' "$__st" -1`;
 
 /**
  * Build the input for bash.
@@ -35,12 +37,14 @@ export function inputScript(lines, { cds, aliases }) {
  * @param {string} stdout Everything on standard output.
  * @param {string} stderr Everything on standard error.
  * @param {number} count How many lines ran.
- * @returns {{out: string, err: string, status: number|null}[]} Per line; status null if its end marker is missing.
+ * @returns {{out: string, err: string, status: number|null, started: number|null, ended: number|null}[]}
+ *   Per line, with the container clock in seconds when it started and ended;
+ *   status and both clocks are null if its end marker is missing.
  */
 export function splitOutput(stdout, stderr, count) {
-  const results = Array.from({ length: count }, () => ({ out: '', err: '', status: null }));
-  for (const m of stdout.matchAll(new RegExp(`${RS}B(\\d+)${RS}([\\s\\S]*?)${RS}E(\\d+)${RS}`, 'g'))) {
-    Object.assign(results[Number(m[1])], { out: m[2], status: Number(m[3]) });
+  const results = Array.from({ length: count }, () => ({ out: '', err: '', status: null, started: null, ended: null }));
+  for (const m of stdout.matchAll(new RegExp(`${RS}B(\\d+) (\\d+)${RS}([\\s\\S]*?)${RS}E(\\d+) (\\d+)${RS}`, 'g'))) {
+    Object.assign(results[Number(m[1])], { out: m[3], status: Number(m[4]), started: Number(m[2]), ended: Number(m[5]) });
   }
   const parts = stderr.split(new RegExp(`${RS}(B\\d+|Z)${RS}`));
   for (let k = 1; k + 1 < parts.length; k += 2) {

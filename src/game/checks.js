@@ -4,7 +4,8 @@
  * same with the simulator or a real bash.
  */
 
-const READERS = new Set(['cat', 'less', 'more', 'head', 'tail']);
+/** Commands that read a file's content. */
+export const READERS = new Set(['cat', 'less', 'more', 'head', 'tail']);
 
 /**
  * Turn a path typed by the player into a clean absolute path. A leading `~`
@@ -51,7 +52,15 @@ function shortOptions(args) {
   return (end < 0 ? args : args.slice(0, end)).filter(a => /^-[^-]/.test(a));
 }
 
-function operands(args) {
+/**
+ * The non-option arguments of a command, as typed: everything that does not
+ * start with a dash, plus everything after `--`. A lone `-` (standard input)
+ * is not an operand.
+ *
+ * @param {string[]} args A CommandRecord's arguments.
+ * @returns {string[]} The operands, in order.
+ */
+export function operands(args) {
   const end = args.indexOf('--');
   const before = (end < 0 ? args : args.slice(0, end)).filter(a => !a.startsWith('-'));
   return end < 0 ? before : [...before, ...args.slice(end + 1)];

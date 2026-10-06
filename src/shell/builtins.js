@@ -30,3 +30,26 @@ export const BUILTIN_HELP = {
  * @returns {string} Its usage and summary as bash prints them.
  */
 export const builtinHelp = name => `${name}: ${BUILTIN_HELP[name][0]}\n    ${BUILTIN_HELP[name][1]}\n`;
+
+/**
+ * Parse a builtin's options the way bash does: letters from `known` may be
+ * bundled, `--` ends the options, and a lone `-` is an operand.
+ *
+ * @param {string} name A builtin with an entry in BUILTIN_HELP.
+ * @param {string[]} args Its arguments.
+ * @param {string} known The option letters it accepts.
+ * @returns {{flags: Set<string>, rest: string[], error: string|null}} The options and
+ *   operands, or bash's invalid-option message with the usage line.
+ */
+export function builtinOptions(name, args, known) {
+  const flags = new Set();
+  let i = 0;
+  let error = null;
+  for (; i < args.length && !error && /^-./.test(args[i]) && args[i] !== '--'; i++) {
+    const bad = [...args[i].slice(1)].find(ch => !known.includes(ch));
+    if (bad) error = `bash: ${name}: -${bad}: invalid option\n${name}: usage: ${BUILTIN_HELP[name][0]}`;
+    for (const ch of args[i].slice(1)) flags.add(ch);
+  }
+  if (args[i] === '--') i++;
+  return { flags, rest: args.slice(i), error };
+}

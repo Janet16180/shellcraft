@@ -1,6 +1,7 @@
 /**
  * Turning a world patch into a root shell script that builds the same world
- * inside the reference container, with fixed modification times.
+ * inside the reference container, with fixed modification times, and writing
+ * the login record the simulator's session starts with.
  */
 
 const quote = s => `'${String(s).replace(/'/g, "'\\''")}'`;
@@ -54,4 +55,20 @@ export function materialize(patch, mtimeMs) {
   ];
   const stamps = [...new Set(out.stamped)].map(p => `[ ! -e ${quote(p)} ] || touch -h -d @${seconds} -- ${quote(p)}`);
   return { script: ['set -e', ...accounts, ...out.lines, ...stamps].join('\n') + '\n', cds };
+}
+
+/**
+ * The root shell line that records a login in /run/utmp, as logging in on a
+ * terminal does. The container has no login of its own, so without it `who`
+ * would list no one.
+ *
+ * @param {string} user The user name.
+ * @param {string} line The terminal, like pts/0.
+ * @param {number} timeMs The login time, in ms since the epoch.
+ * @returns {string} The line, ending in a newline.
+ */
+export function loginRecord(user, line, timeMs) {
+  const time = `${new Date(timeMs).toISOString().slice(0, 19)},000000+00:00`;
+  const record = `[7] [00000] [${line.slice(-4)}] [${user}] [${line}] [] [0.0.0.0] [${time}]`;
+  return `printf '%s\\n' ${quote(record)} | utmpdump -r -o /run/utmp\n`;
 }

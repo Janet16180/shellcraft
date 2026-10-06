@@ -8,6 +8,9 @@ import { newDir, newFile, insert } from './fs.js';
 import { initialVars, setVar } from './vars.js';
 
 const ROOT_META = { owner: 'root', group: 'root' };
+
+/** The terminal the player's shell runs on. */
+export const TERMINAL = 'pts/0';
 const BINARY = '\u007fELF\u0002\u0001\u0001\u0000';
 
 /**
@@ -63,7 +66,7 @@ function systemProcs(sys) {
     make(2, 0, 'root', '[kthreadd]', '?', 'S'),
     make(cron, 1, 'root', '/usr/sbin/cron -f', '?', 'Ss'),
     make(sshd, 1, 'root', '/usr/sbin/sshd -D', '?', 'Ss'),
-    make(sys.shellPid, 1, sys.user, '-bash', 'pts/0', 'Ss', 'shell'),
+    make(sys.shellPid, 1, sys.user, '-bash', TERMINAL, 'Ss', 'shell'),
   ];
 }
 
@@ -77,10 +80,11 @@ function systemProcs(sys) {
  */
 export function createSystem({ user, host, home, now, random, binaries }) {
   if (!home.startsWith('/') || home === '/') throw new Error(`home must be an absolute path below /, got ${home}`);
+  const started = now();
   const sys = {
     user, host, home, now, random,
     groups: [user],
-    root: baseTree(home, user, binaries, now()),
+    root: baseTree(home, user, binaries, started), loginTime: started,
     cwd: home, oldpwd: null,
     vars: initialVars({ user, home, host }), aliases: { ll: 'ls -alF', la: 'ls -A' }, history: [], hashed: new Set(),
     lastStatus: 0, umask: 0o022, procs: [], nextPid: 300, shellPid: 0, columns: 80,

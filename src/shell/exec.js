@@ -14,6 +14,7 @@ import { resolve, errorText } from './paths.js';
 import { can } from './perms.js';
 import { result, withNote } from './result.js';
 import { manText, hasManPage } from './man.js';
+import { versionText } from './versions.js';
 import { varValue, setVar } from './vars.js';
 import { BUILTINS, BUILTIN_HELP, builtinHelp } from './builtins.js';
 
@@ -24,19 +25,15 @@ const CONTINUATION = 'In a real terminal, bash would wait for the rest of the co
 const BACKGROUND = 'Background jobs are not simulated yet: the command ran in the foreground.';
 const OWN_OPTIONS = new Set(['clear']);
 const helpNote = name => `Real bash prints a longer description here; help ${name} shows the same text.`;
-const MISTAKES = {
-  cls: 'cls is the Windows command. On Linux, use clear.',
-  del: 'del is the Windows command. On Linux, use rm.',
-  copy: 'copy is the Windows command. On Linux, use cp.',
-  move: 'move is the Windows command. On Linux, use mv.',
-  ren: 'ren is the Windows command. On Linux, rename with mv.',
-  ipconfig: 'ipconfig is the Windows command. On Linux, try ip addr (not simulated here).',
-  'cd..': 'Put a space between cd and the dots: cd ..',
-  'ls-l': 'Put a space before the option: ls -l',
-  'ls-a': 'Put a space before the option: ls -a',
-  'ls-la': 'Put a space before the option: ls -la',
-};
 
+function firstOf(args, ...wanted) {
+  const end = args.includes('--') ? args.indexOf('--') : args.length;
+  return args.slice(0, end).find(a => wanted.includes(a));
+}
+
+const UNSIMULATED = new Set(['w', 'nl', 'cut', 'tr', 'du', 'df', 'ln', 'stat', 'diff', 'tar', 'chown', 'rev', 'seq', 'yes', 'od', 'tee', 'xargs',
+  'basename', 'dirname', 'realpath', 'readlink', 'printf', 'test', 'read', 'tac', 'shuf', 'cmp', 'comm', 'paste', 'join', 'split', 'fold',
+  'expand', 'md5sum', 'sha256sum', 'base64', 'sleep', 'watch', 'free', 'uptime', 'lsblk', 'mount', 'apt', 'perl', 'gzip', 'whereis', 'stty', 'tput']);
 const isAssignment = word => 'lit' in word.parts[0] && !word.parts[0].q && ASSIGNMENT.test(word.parts[0].lit);
 const withNewline = text => (text && !text.endsWith('\n') ? `${text}\n` : text);
 
@@ -92,9 +89,8 @@ function runFile(sh, name, args, ctx) {
   return res;
 }
 
-function commandNotFound(sh, name) {
-  const lower = name.toLowerCase();
-  const hint = MISTAKES[name] ?? (lower !== name && sh.commands[lower] ? `Commands are case-sensitive. Try ${lower}` : null);
+function commandNotFound(name) {
+  const hint = UNSIMULATED.has(name) ? `${name} is a real command on Ubuntu, but this game does not simulate it.` : null;
   return withNote(result('', `bash: ${name}: command not found`, 127), hint);
 }
 
@@ -109,8 +105,9 @@ function dispatch(sh, argv, streams, overlay) {
   let r;
   if (name.includes('/')) r = runFile(sh, name, args, ctx);
   else if (args[0] === '--help' && name in BUILTIN_HELP) r = withNote(result(builtinHelp(name), '', 2), helpNote(name));
-  else if (args.includes('--help') && hasManPage(name) && !BUILTINS.has(name) && !OWN_OPTIONS.has(name)) r = result(manText(name, true));
-  else if (!sh.commands[name]) r = commandNotFound(sh, name);
+  else if (firstOf(args, '--version', '--help') === '--version' && versionText(name) && !BUILTINS.has(name)) r = result(versionText(name));
+  else if (args.includes('--help') && hasManPage(name) && !BUILTINS.has(name) && !OWN_OPTIONS.has(name)) r = withNote(result(manText(name, true)), `Real ${name} --help prints a longer list of options.`);
+  else if (!sh.commands[name]) r = commandNotFound(name);
   else {
     if (!BUILTINS.has(name)) sys.hashed.add(name);
     r = sh.commands[name](args, ctx);

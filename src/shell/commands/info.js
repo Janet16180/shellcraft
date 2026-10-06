@@ -5,6 +5,8 @@
 import { result } from '../result.js';
 import { localeQuote } from '../quote.js';
 import { parseOptions } from '../options.js';
+import { builtinOptions } from '../builtins.js';
+import { TERMINAL } from '../system.js';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -38,6 +40,19 @@ export function formatDate(ms) {
 
 const UNAME_FIELDS = { s: () => 'Linux', n: sys => sys.host, r: () => '6.8.0-kernelia', v: () => '#1 SMP PREEMPT_DYNAMIC', m: () => 'x86_64', p: () => 'x86_64', i: () => 'x86_64', o: () => 'GNU/Linux' };
 
+function pwd(args, { sys }) {
+  const o = builtinOptions('pwd', args, 'LP');
+  return o.error ? result('', o.error, 2) : result(`${sys.cwd}\n`);
+}
+
+function whoami(args, { sys }) {
+  const o = parseOptions('whoami', args, '');
+  let r = result(`${sys.user}\n`);
+  if (o.err) r = result('', o.err, 1);
+  else if (o.rest.length) r = result('', `whoami: extra operand ${localeQuote(o.rest[0])}\nTry 'whoami --help' for more information.`, 1);
+  return r;
+}
+
 function uname(args, { sys }) {
   const o = parseOptions('uname', args, 'asnrvmpio');
   if (o.err) return result('', o.err, 1);
@@ -46,6 +61,33 @@ function uname(args, { sys }) {
   let keys = 'snrvmpio'.split('').filter(k => o.flags.has(k) || (all && !'pi'.includes(k)));
   if (!keys.length) keys = ['s'];
   return result(`${keys.map(k => UNAME_FIELDS[k](sys)).join(' ')}\n`);
+}
+
+const WHO_HEADING = 'NAME     LINE         TIME             COMMENT\n';
+
+function loginLine({ user, line, time }) {
+  const d = new Date(time);
+  const date = `${d.getUTCFullYear()}-${two(d.getUTCMonth() + 1)}-${two(d.getUTCDate())} ${two(d.getUTCHours())}:${two(d.getUTCMinutes())}`;
+  return `${user.padEnd(8)} ${line.padEnd(12)} ${date}\n`;
+}
+
+/**
+ * The machine's only login record is the player's session on the terminal.
+ * A FILE operand names another record file, and the simulator has none, so
+ * it lists no one. `-m` (or any two operands, like `am i`) keeps the record of
+ * the terminal on standard input, so it lists no one when input is redirected.
+ */
+function who(args, { sys, stdin }) {
+  const o = parseOptions('who', args, 'Hmqs');
+  const records = o.rest.length === 1 ? [] : [{ user: sys.user, line: TERMINAL, time: sys.loginTime }];
+  const onlyStdin = o.flags.has('m') || o.rest.length === 2;
+  const shown = onlyStdin && stdin != null ? [] : records;
+  let text = (o.flags.has('H') ? WHO_HEADING : '') + shown.map(loginLine).join('');
+  if (o.flags.has('q')) text = `${records.map(r => r.user).join(' ')}\n# users=${records.length}\n`;
+  let r = result(text);
+  if (o.err) r = result('', o.err, 1);
+  else if (o.rest.length > 2) r = result('', `who: extra operand ${localeQuote(o.rest[2])}\nTry 'who --help' for more information.`, 1);
+  return r;
 }
 
 function id(args, { sys }) {
@@ -95,10 +137,9 @@ function echo(args) {
 }
 
 export default {
-  pwd: (_args, { sys }) => result(`${sys.cwd}\n`),
-  whoami: (args, { sys }) => (args.length
-    ? result('', `whoami: extra operand ${localeQuote(args[0])}\nTry 'whoami --help' for more information.`, 1)
-    : result(`${sys.user}\n`)),
+  pwd,
+  whoami,
+  who,
   id,
   groups: (_args, { sys }) => result(`${sys.groups.join(' ')}\n`),
   hostname: (_args, { sys }) => result(`${sys.host}\n`),

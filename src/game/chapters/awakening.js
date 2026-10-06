@@ -62,16 +62,40 @@ function deedIn(text) {
 const listsHome = (ctx, record) => ctx.hasPath(record, ctx.home)
   || (record.cwd === ctx.home && record.args.every(arg => arg.startsWith('-')));
 
+const didDeed = (ctx, { command, how }) => (how === 'man'
+  ? ctx.ran('man', record => record.args.includes(command))
+  : ctx.ran(command, record => record.args.includes('--help')));
+
+function readNear(ctx) {
+  const letter = `${ctx.home}/readme.txt`;
+  let note = null;
+  if (ctx.ran('ls', record => ctx.hasPath(record, letter))) note = 'ls only shows the name. cat prints what is inside: cat readme.txt';
+  else if (ctx.ran('cat', record => !ctx.hasPath(record, letter))) note = 'That was another file. The letter is readme.txt.';
+  return note;
+}
+
+
+function bossNear(ctx, secret) {
+  const forgery = secret.forgeries.find(deed => didDeed(ctx, deed));
+  const otherWay = secret.how === 'man'
+    ? ctx.tried(secret.command, record => record.args.includes('--help'))
+    : ctx.tried('man', record => record.args.includes(secret.command));
+  let note = null;
+  if (forgery) note = `Somewhere, the Shadow Daemon snickers. That letter was signed ${forgery.signer}. Compare the signatures with readme.txt.`;
+  else if (otherWay) note = `Right spell, wrong way. Read the real letter again: it asks for ${secret.how === 'man' ? 'the manual page' : 'the quick help'}.`;
+  return note;
+}
+
 function setupBoss(random, { home, user }) {
   const deeds = shuffle(random, Object.keys(RIDDLES)).slice(0, LETTERS.length).map(command => ({
     command,
     how: HAS_HELP.includes(command) && random() < 0.5 ? 'help' : 'man',
   }));
   const real = Math.floor(random() * LETTERS.length);
-  const forgers = shuffle(random, FORGERS);
-  const patch = LETTERS.map((name, i) => put(`${home}/${name}`,
-    file(letterText(deeds[i], i === real ? GUARDIAN : forgers[i]), { owner: user })));
-  return { patch, secret: deeds[real] };
+  const signers = shuffle(random, FORGERS).map((forger, i) => (i === real ? GUARDIAN : forger));
+  const patch = LETTERS.map((name, i) => put(`${home}/${name}`, file(letterText(deeds[i], signers[i]), { owner: user })));
+  const forgeries = deeds.map((deed, i) => ({ ...deed, signer: signers[i] })).filter((_, i) => i !== real);
+  return { patch, secret: { ...deeds[real], forgeries } };
 }
 
 function solveBoss(obs) {
@@ -90,10 +114,7 @@ export default {
     ...LETTERS.map(name => remove(`${player.home}/${name}`)),
     cd(player.home),
   ],
-  lesson: `<p>You wake up inside a terminal. The line waiting for you is the <b>prompt</b>:</p>
-<pre class="anat"><span class="pu">hero@kernelia</span>:<span class="pp">~</span>$</pre>
-<p><b>hero</b> is your user name and <b>kernelia</b> is the machine. After the colon comes the directory you are in: <b>~</b> is short for your home, <code>/home/hero</code>. The <b>$</b> means you are a normal user. Root, the administrator, gets a <b>#</b> instead.</p>
-<p>Type a command after the prompt and press <kbd>Enter</kbd>. Commands are case-sensitive: <code>ls</code> works, <code>LS</code> does not.</p>
+  lesson: `<p>You met the <b>prompt</b> in the intro, and the <b>Replay intro</b> button shows it again: <code>hero@kernelia:~$</code> names you, the machine and the directory you are in, where <code>~</code> is short for your home, <code>/home/hero</code>. The <code>$</code> means you are a normal user; root, the administrator, gets <code>#</code>. Type a command after the prompt and press <kbd>Enter</kbd>. Commands are case-sensitive: <code>ls</code> works, <code>LS</code> does not.</p>
 <ul>
 <li><code>whoami</code> prints your user name.</li>
 <li><code>pwd</code> prints the full path of the directory you are in. The name means <b>p</b>rint <b>w</b>orking <b>d</b>irectory.</li>
@@ -107,6 +128,7 @@ export default {
   tasks: [
     {
       goal: 'Ask the terminal who you are',
+      tip: '`whoami` prints your user name, the name before the @ in the prompt.',
       hints: [
         'Your name is in the prompt, but a command can tell you too.',
         'The command is `whoami`: who am i, written as one word.',
@@ -116,6 +138,7 @@ export default {
     },
     {
       goal: 'Find out where you are standing',
+      tip: '`pwd` prints the full path of the directory you are in.',
       hints: [
         'The prompt shows `~`, a short name. Ask for the full path.',
         '`pwd` means print working directory.',
@@ -125,24 +148,29 @@ export default {
     },
     {
       goal: 'Look around your home',
+      tip: '`ls` on its own lists the directory you are in.',
       hints: [
         'What is in this room? Ask for a list.',
         '`ls` lists the directory you are in.',
         'ls',
       ],
       done: ctx => ctx.ran('ls', record => listsHome(ctx, record)),
+      near: ctx => (ctx.ran('ls', record => !listsHome(ctx, record)) ? 'That listed another directory. To look around your home, run ls in your home with nothing after it.' : null),
     },
     {
       goal: 'Read the letter left for you',
+      tip: '`cat` followed by a file name prints that file on the screen.',
       hints: [
         'There is a `.txt` file in your home. Print it on the screen.',
         '`cat` followed by a file name prints that file.',
         'cat readme.txt',
       ],
       done: ctx => ctx.read(`${ctx.home}/readme.txt`),
+      near: readNear,
     },
     {
       goal: 'Open the manual page of a command',
+      tip: '`man` followed by a command name, like `man ls`, opens its manual page.',
       hints: [
         'Most commands come with a manual. One command opens it.',
         '`man` followed by a command name opens its manual page.',
@@ -152,6 +180,7 @@ export default {
     },
     {
       goal: 'Ask a command for its quick help',
+      tip: 'Many commands print a short summary when you add `--help`, with two dashes.',
       hints: [
         'Many commands explain themselves if you ask with an option.',
         'Add `--help` after the command name: two dashes, then help.',
@@ -159,9 +188,12 @@ export default {
       ],
       // bash's echo prints --help back instead of answering it.
       done: ctx => ctx.commands.some(record => record.name !== 'echo' && record.args.includes('--help') && record.stdout !== ''),
+      near: ctx => (ctx.tried('echo', record => record.args.includes('--help'))
+        ? 'echo prints its words back, even --help. Ask another command, like ls --help.' : null),
     },
     {
-      goal: 'Wipe the screen clean',
+      goal: 'Wipe the screen clean with the `clear` command',
+      tip: '`clear` wipes the screen; Ctrl+L does too, but this task wants the command.',
       hints: [
         'The screen is getting full. Start again with an empty one.',
         'The command is the plain English word `clear`.',
@@ -181,9 +213,8 @@ export default {
       '`ls` shows the letters and `cat` prints them. The real letter asks for a manual page (`man COMMAND`) or for a quick help (`COMMAND --help`).',
       secret => (secret.how === 'man' ? `man ${secret.command}` : `${secret.command} --help`),
     ],
-    done: (ctx, secret) => (secret.how === 'man'
-      ? ctx.ran('man', record => record.args.includes(secret.command))
-      : ctx.ran(secret.command, record => record.args.includes('--help'))),
+    done: didDeed,
+    near: bossNear,
     solve: solveBoss,
   },
   recap: [

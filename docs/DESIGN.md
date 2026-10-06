@@ -51,8 +51,14 @@ with `src/backend/spec.js` (`put`, `remove`, `proc`, `stop`, `cd`, `dir`, `file`
 backend owns what a real system owns: the programs in `/usr/bin` (the simulator lists one
 executable per command it implements; the world spec must not define `/usr/bin`), PIDs, the
 clock. The simulator also guards the world: it refuses `rm -r ~`, `rm -rf /`, `kill -9` of the
-player's shell, and reports each refusal in `RunResult.blocked`. The Linux permission rule lives
+player's shell, and reports each refusal in `RunResult.blocked`. (`rm -rf /` is not a block: real
+rm refuses it by itself, so the simulator prints rm's own refusal.) Whether a line costs a heart is
+a game rule (`src/game/effects.js`), decided from the records alone; `blocked` only drives the
+guardian effect, so hearts behave the same on any backend. The Linux permission rule lives
 once in `src/backend/access.js`: the simulator enforces it and the map draws padlocks with it.
+The player's identity (user, host, home) is `src/backend/player.js`. Likewise `src/backend/tree.js` (`nodeAt`, `isInside`, `compareNames` in C.UTF-8 order) and
+`src/backend/signals.js` (signal names and numbers, and which signals end an interactive bash)
+are the one home of that knowledge for every layer.
 
 ### 2.2 Session API (`src/game/session.js`, consumed by the UI)
 
@@ -98,7 +104,7 @@ Teaching notes for common beginner mistakes are game rules, so they live in the 
 are derived from `CommandRecord`s and the observation, which keeps them working on a real bash:
 a name with the wrong case, a missing extension (`cat readme`), `cat` of a directory, a long
 option with one dash (`ls -help`), `/forest` for `~/forest`, a name with a space typed without
-quotes, a missing space (`cdforest`, `cd..`, `ls-l`), Windows commands (`cls`, `dir`, `copy`).
+quotes, a missing space (`cdforest`, `cd..`, `ls-l`), Windows commands (`cls`, `del`, `copy`; not `dir`, which coreutils also ships).
 At most one note per line, after any task or boss `near` note (AUTHORING section 2). Notes appear
 as `note` chunks with tone `coach`. The simulator keeps only notes that explain where the
 simulation differs from real Linux (a pager that prints instead of paging).
@@ -110,6 +116,9 @@ const map = createMap(canvas, { reducedMotion, onPick });  // onPick({ kind: 'do
 map.show(obs);                  // draw the room at obs.cwd now
 await map.play(effects, obs);   // animate, then settle on obs
 map.say(text, who);             // speech bubble
+map.banner(title, sub);         // a chapter or realm banner
+map.picks();                    // every door, item and the exit in the room on show, for keyboard play
+map.focus(name | null);         // ring one entry (the intro uses it)
 map.destroy();
 ```
 

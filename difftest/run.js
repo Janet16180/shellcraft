@@ -4,21 +4,26 @@
  *
  * Usage: node difftest/run.js [NAME_FILTER] [--jobs N] [--verbose]
  * Exit status: 0 all cases pass, 1 some case differs, 2 skipped (no Docker).
+ * Each case runs once. The simulator runs after the container, at the clock
+ * the container had for each line (see clock.js).
  */
 
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
-import { materialize } from './materialize.js';
+import { materialize, loginRecord } from './materialize.js';
+import { lineClocks, crossedMinute } from './clock.js';
 import { inputScript, splitOutput } from './protocol.js';
 import { runSim } from './sim.js';
 import { WORLDS } from './worlds.js';
+import { TERMINAL } from '../src/shell/system.js';
 
 const HERE = import.meta.dirname;
 const ROOT = path.resolve(HERE, '..');
 const IMAGE = 'shellcraft-difftest';
 const ALIASES = { ll: 'ls -alF', la: 'ls -A' };
 const TIMEOUT_MS = 60_000;
+const LATEST_START_SECOND = 45;
 const ENV = [
   'HOME=/home/hero', 'USER=hero', 'LOGNAME=hero', 'SHELL=/bin/bash',
   'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
@@ -26,6 +31,7 @@ const ENV = [
 ];
 const RUN_SH = `bash /case/setup.sh
 cd /home/hero 2>/dev/null || cd /
+while [ "$(date +%-S)" -ge ${LATEST_START_SECOND} ]; do sleep 0.5; done
 exec script -qec "stty -onlcr cols 80 rows 24; exec setpriv --reuid=1000 --regid=1000 --init-groups env -i ${ENV.join(' ')} bash --norc --noprofile --noediting -i < /case/input.sh 2>/out/err" /dev/null < /dev/null
 `;
 
@@ -57,7 +63,7 @@ async function runReal(c, index, world, worldTime, lines) {
   const name = `${IMAGE}-${process.pid}-${index}`;
   const { script, cds } = materialize(world, worldTime);
   mkdirSync(path.join(dir, 'out'));
-  writeFileSync(path.join(dir, 'setup.sh'), script);
+  writeFileSync(path.join(dir, 'setup.sh'), script + loginRecord('hero', TERMINAL, worldTime));
   writeFileSync(path.join(dir, 'input.sh'), inputScript(lines, { cds, aliases: ALIASES }));
   writeFileSync(path.join(dir, 'run.sh'), RUN_SH);
   const timer = setTimeout(() => spawnSync('docker', ['rm', '-f', name], { stdio: 'ignore' }), TIMEOUT_MS);
@@ -80,18 +86,19 @@ async function runCase(c, index) {
   const world = WORLDS[c.world]();
   const worldTime = worldTimeOf(c);
   const intended = new Map((c.intended ?? []).map(x => [x.line, x]));
-  const realLines = c.lines.filter(l => intended.get(l)?.real !== false);
-  const [sim, real] = await Promise.all([runSim(world, c.lines, worldTime), runReal(c, index, world, worldTime, realLines)]);
+  const runsReal = line => intended.get(line)?.real !== false;
+  const real = await runReal(c, index, world, worldTime, c.lines.filter(runsReal));
   let k = 0;
+  const paired = c.lines.map(line => (runsReal(line) ? real[k++] : null));
+  const sim = await runSim(world, c.lines, worldTime, lineClocks(paired, Math.floor(Date.now() / 1000)));
   const lines = c.lines.map((line, i) => {
-    const runsReal = intended.get(line)?.real !== false;
-    const r = runsReal ? real[k++] : null;
+    const r = paired[i];
     const same = r !== null && r.out === sim[i].out && r.err === sim[i].err && r.status === sim[i].status;
     let verdict = same ? 'same' : 'differ';
     if (intended.has(line)) verdict = 'intended';
     return { line, verdict, real: r, sim: sim[i], reason: intended.get(line)?.reason };
   });
-  return { case: c, lines };
+  return { case: c, lines, crossed: crossedMinute(real) };
 }
 
 async function pool(items, jobs, fn) {
@@ -108,17 +115,20 @@ async function pool(items, jobs, fn) {
 }
 
 const show = s => JSON.stringify(s);
+const timeOf = seconds => new Date(seconds * 1000).toISOString().slice(11, 19);
 
 function report(results, verbose) {
   const counts = { passed: 0, intendedCases: 0, failed: 0, same: 0, intended: 0, differ: 0 };
-  for (const { case: c, lines } of results) {
+  for (const { case: c, lines, crossed } of results) {
     const differ = lines.filter(l => l.verdict === 'differ');
     const intended = lines.filter(l => l.verdict === 'intended');
+    const failed = differ.length > 0 || crossed !== null;
     for (const l of lines) counts[l.verdict]++;
-    if (differ.length) counts.failed++;
+    if (failed) counts.failed++;
     else if (intended.length) counts.intendedCases++;
     else counts.passed++;
-    console.log(`${differ.length ? 'FAIL' : 'ok  '}  ${c.file}: ${c.name}${intended.length ? ` (${intended.length} intended)` : ''}`);
+    console.log(`${failed ? 'FAIL' : 'ok  '}  ${c.file}: ${c.name}${intended.length ? ` (${intended.length} intended)` : ''}`);
+    if (crossed) console.log(`      ran from ${timeOf(crossed.from)} to ${timeOf(crossed.to)}, across a minute: file times cannot match`);
     for (const l of differ) {
       console.log(`      $ ${l.line}`);
       for (const k of ['out', 'err', 'status']) {
