@@ -98,6 +98,9 @@
  * @property {(line: string) => Promise<{line: string, candidates: string[]}>} complete
  *   Tab completion: the completed line, plus the candidates to list when the
  *   completion is ambiguous.
+ * @property {(columns: number) => Promise<void>} resize Tell the shell how many
+ *   character columns the terminal shows, as a real terminal resize does (ls lays out
+ *   its columns for this width). Raises for anything but a positive integer.
  */
 
 export {};
