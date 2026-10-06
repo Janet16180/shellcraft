@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ROSTER, picksHTML } from '../../src/ui/roster.js';
+import { roster, picksHTML } from '../../src/ui/roster.js';
 import { KEY_KINDS } from '../../src/map/map.js';
+
+const ROSTER = roster('/home/hero');
 
 test('every picture in the map key is one the map can draw', () => {
   for (const { kind } of ROSTER) assert.ok(KEY_KINDS.includes(kind), kind);
@@ -18,6 +20,13 @@ test('every map key entry has a name and a plain explanation, marked up only wit
 test('commands in the map key are set as code, so they show in the terminal face', () => {
   const door = ROSTER.find(r => r.kind === 'door').what;
   assert.match(door, /<code>cd NAME<\/code>/);
+});
+
+test('the map key names the player\'s own home and its parent, never a fixed one', () => {
+  const text = roster('/srv/ada').map(r => r.what).join(' ');
+  assert.match(text, /<code>\/srv\/ada<\/code>/);
+  assert.match(text, /<code>\/srv<\/code>/);
+  assert.doesNotMatch(text, /hero|\/home/);
 });
 
 test('the room picks list doors with a slash, then items, then the way back', () => {
