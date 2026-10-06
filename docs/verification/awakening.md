@@ -23,7 +23,7 @@ Man pages from the Ubuntu 24.04 host.
 | `cat readme.txt` prints the file on the screen | `cat(1)`: "concatenate files and print on the standard output"; R2 printed the readme |
 | `clear` wipes the screen; Ctrl+L clears it too | `clear(1)`: "clear the terminal screen"; `bash(1)` readline `clear-screen (C-l)`: "Clear the screen, then redraw the current line". Wording avoids "the same": `clear` also erases the scrollback (E3), Ctrl+L does not |
 | `man ls` opens the manual page; on a real machine in a viewer, arrow keys scroll, `q` quits | `man(1)` `-P`: "By default, man uses pager"; on Ubuntu `/usr/bin/pager` resolves to `/usr/bin/less`; `less(1)`: `q` "Exits less" |
-| Many commands print a short summary with `--help` (two dashes): `ls --help` | D: `ls --help`, `cat --help`, `whoami --help` print `Usage: ...`, status 0 (GNU coreutils). Bash builtins print help on stdout but exit 2 (`pwd --help`: `pwd: pwd [-LP]`, status 2). Not all: `clear --help` is an invalid option, status 1, nothing on stdout. Hence "many". The task counts any command that printed help for `--help` (stdout not empty), so `pwd --help` counts and `clear --help` or `LS --help` do not |
+| Many commands print a short summary with `--help` (two dashes): `ls --help` | D: `ls --help`, `cat --help`, `whoami --help` print `Usage: ...`, status 0 (GNU coreutils). Bash builtins print help on stdout but exit 2 (`pwd --help`: `pwd: pwd [-LP]`, status 2). Not all: `clear --help` is an invalid option, status 1, nothing on stdout. Hence "many". The task counts any command that printed help for `--help` (stdout not empty), so `pwd --help` counts and `clear --help` or `LS --help` do not. `echo --help` does not count either: bash's echo prints `--help` back (D, factcheck 2026-10-06: output `--help`, status 0), which the check passed until the factcheck review |
 | A word after a command is an argument | `bash(1)` Simple Commands: "The first word specifies the command to be executed ... The remaining words are passed as arguments" |
 | `ls forest` lists the forest without walking into it | R2: `ls forest` printed `cave clearing river`, the next `pwd` was still `/home/hero` |
 
@@ -40,7 +40,7 @@ Man pages from the Ubuntu 24.04 host.
 | Hint: add `--help` after the command name | D (above) |
 | Hint: the command is the plain English word clear | `clear(1)` |
 | Near-misses fail for the right reason on real bash: `Whoami`, `PWD`, `cls` are unknown commands; `ls -help` is an invalid option; `help ls` finds no help topic | D: `bash: Whoami: command not found`; `bash: cls: command not found`; `ls: invalid option -- 'e'` status 2; `help: no help topics match 'ls'` status 1 |
-| Checks: each task has a near-miss that does not pass and a line that does | SIM: 14 near-miss tests (e.g. `LS --help` fails, `cat .bashrc` reads the wrong file). Each check survived mutation testing: removing any one condition makes a test fail |
+| Checks: each task has a near-miss that does not pass and a line that does | SIM: 15 near-miss tests (e.g. `LS --help` fails, `cat .bashrc` reads the wrong file). Each check survived mutation testing: removing any one condition makes a test fail |
 
 ## Boss: The Forged Letters
 
@@ -69,5 +69,14 @@ Man pages from the Ubuntu 24.04 host.
 - Since shell's bdbffc2 the simulator matches real bash for `pwd --help` (help, status 2),
   `clear --help` (invalid option, status 1) and `man cd` (no entry, status 16). `ls`, `cat` and
   `whoami --help` print a shorter usage than coreutils' full text (an intended difference).
-  The quick-help task accepts any command that answers `--help` with status 0, so on real bash
-  `ls --help`, `cat --help` or `whoami --help` complete it.
+  The quick-help task accepts any command except `echo` that prints something on stdout for
+  `--help`, whatever its status, so on real bash `ls --help`, `cat --help`, `whoami --help` or
+  `pwd --help` (status 2) complete it. (Was "with status 0", which contradicted the check and the
+  lesson row above; corrected by the factcheck review.)
+- Factcheck 2026-10-06, still differing from real bash in chapter 1 (sent to shell): `whoami -help`
+  prints "extra operand" (real: `whoami: invalid option -- 'h'`, status 1); `whoami --version`,
+  `cat --version`, `ls --version` fail (real: version text, status 0); `pwd -help` prints the path
+  (real: `bash: pwd: -h: invalid option`, `pwd: usage: pwd [-LP]`, status 2); `man -k WORD` and
+  `man 1 ls` print "No manual entry for -k" / "for 1"; `who am i` is "command not found" (real:
+  `/usr/bin/who`, coreutils). The `whoami` and `pwd` pages show synopses `whoami` and `pwd`
+  (real: `whoami [OPTION]...`, `pwd [OPTION]...`).

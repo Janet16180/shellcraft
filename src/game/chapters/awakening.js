@@ -157,7 +157,8 @@ export default {
         'Add `--help` after the command name: two dashes, then help.',
         'ls --help',
       ],
-      done: ctx => ctx.commands.some(record => record.args.includes('--help') && record.stdout !== ''),
+      // bash's echo prints --help back instead of answering it.
+      done: ctx => ctx.commands.some(record => record.name !== 'echo' && record.args.includes('--help') && record.stdout !== ''),
     },
     {
       goal: 'Wipe the screen clean',
