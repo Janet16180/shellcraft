@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell } from './helpers.js';
+import { put, file } from '../../src/backend/spec.js';
 
 test('a first word completes to a command name', async () => {
   const b = await shell();
@@ -30,4 +31,19 @@ test('nothing matches, nothing changes', async () => {
   const b = await shell();
   assert.deepEqual(await b.complete('cat zzz'), { line: 'cat zzz', candidates: [] });
   assert.deepEqual(await b.complete('ls /root/'), { line: 'ls /root/', candidates: [] });
+});
+
+test('a name with a space completes with the space escaped, and an escaped word keeps completing', async () => {
+  const b = await shell([put('/home/hero/my notes.txt', file('', { owner: 'hero' }))]);
+  assert.deepEqual(await b.complete('cat my'), { line: 'cat my\\ notes.txt ', candidates: [] });
+  assert.deepEqual(await b.complete('cat my\\ n'), { line: 'cat my\\ notes.txt ', candidates: [] });
+});
+
+test('candidates come in C.UTF-8 byte order, capitals first', async () => {
+  const b = await shell([put('/home/hero/Zed', file('', { owner: 'hero' })), put('/home/hero/apple', file('', { owner: 'hero' }))]);
+  assert.deepEqual((await b.complete('cat ')).candidates, ['Zed', 'apple', 'forest/', 'readme.txt']);
+});
+
+test('a directory the user cannot search completes to nothing', async () => {
+  assert.deepEqual(await (await shell()).complete('cat /root/s'), { line: 'cat /root/s', candidates: [] });
 });

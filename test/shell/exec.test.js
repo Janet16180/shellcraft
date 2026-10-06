@@ -148,3 +148,9 @@ test('a script run with 2>/dev/null hides its errors', async () => {
   const b = await shell([put('/home/hero/s.sh', file('nosuchcmd\n', { owner: 'hero', mode: 0o755 }))]);
   assert.equal((await run(b, './s.sh 2>/dev/null')).err, '');
 });
+
+test('an arithmetic error stops the rest of the line with status 1', async () => {
+  const b = await shell();
+  const r = await run(b, 'echo $((1/0)); echo after');
+  assert.deepEqual([r.out, r.err, r.status], ['', 'bash: 1/0: division by 0 (error token is "0")\n', 1]);
+});

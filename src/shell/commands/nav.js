@@ -83,6 +83,11 @@ function treeWalk(node, prefix, level, opts, acc) {
   });
 }
 
+function treeSummary({ dirs, files }, dirsOnly) {
+  const counted = `\n${dirs} director${dirs === 1 ? 'y' : 'ies'}`;
+  return `${counted}${dirsOnly ? '' : `, ${files} file${files === 1 ? '' : 's'}`}\n`;
+}
+
 function tree(args, { sys }) {
   const o = parseOptions('tree', args, 'ad', 'L');
   if (o.err) return result('', o.err, 1);
@@ -92,9 +97,8 @@ function tree(args, { sys }) {
   const opts = { all: o.flags.has('a'), dirsOnly: o.flags.has('d'), maxLevel: o.vals.L ? parseInt(o.vals.L, 10) : Infinity };
   const acc = { text: [], html: [], dirs: opened ? 1 : 0, files: !opened && !r.error ? 1 : 0 };
   if (opened) treeWalk(r.node, '', 1, opts, acc);
-  const { dirs, files } = acc;
   const head = opened ? top : `${top}  [error opening dir]`;
-  const summary = `\n${dirs} director${dirs === 1 ? 'y' : 'ies'}${opts.dirsOnly ? '' : `, ${files} file${files === 1 ? '' : 's'}`}\n`;
+  const summary = treeSummary(acc, opts.dirsOnly);
   const text = [head, ...acc.text].join('\n');
   const html = [opened ? span('c-dir', top) : esc(head), ...acc.html].join('\n');
   const res = result(`${text}\n${summary}`, '', r.error ? 2 : 0, `${html}\n${summary}`);

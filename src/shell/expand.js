@@ -4,11 +4,13 @@
  * bash's order.
  *
  * The environment `env` gives `sys` (for globbing), `lookupVar(name)`,
- * `homeOf(user)` (null if unknown) and `substitute(line)` (the output of a
- * command substitution).
+ * `homeOf(user)` (null if unknown), `substitute(line)` (the output of a
+ * command substitution) and `fail(message)` (an expansion error, such as a
+ * division by zero, that stops the command).
  */
 
 import { hasGlob, expandPattern } from './glob.js';
+import { evaluate } from './arith.js';
 
 const GLOB_CHARS = /[*?[\]\\]/g;
 const BLANKS = /[ \t\n]+/;
@@ -38,10 +40,18 @@ function appendSplit(fields, value) {
   });
 }
 
+function arithmetic(expr, env) {
+  const text = expr.replace(/\$\{?([A-Za-z_][A-Za-z0-9_]*|[?$#])\}?/g, (_, name) => env.lookupVar(name));
+  const r = evaluate(text, env.lookupVar);
+  if (r.error) env.fail(`bash: ${r.error}`);
+  return r.error ? '' : String(r.value);
+}
+
 function partValue(part, env) {
   let value = '';
   if ('var' in part) value = env.lookupVar(part.var);
   else if ('cmd' in part) value = env.substitute(part.cmd).replace(/\n+$/, '');
+  else if ('arith' in part) value = arithmetic(part.arith, env);
   return value;
 }
 

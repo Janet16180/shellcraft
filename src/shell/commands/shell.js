@@ -9,6 +9,7 @@ import { can } from '../perms.js';
 import { manText, hasManPage } from '../man.js';
 import { result, withNote } from '../result.js';
 import { varValue, setVar, exportedVars } from '../vars.js';
+import { compareNames } from '../collate.js';
 
 /**
  * Find a command's program the way PATH lookup does.
@@ -63,7 +64,14 @@ function alias(args, { sys }) {
   return r;
 }
 
+function declareLine(name, value) {
+  return `declare -x ${name}="${value.replace(/["\\$`]/g, '\\$&')}"\n`;
+}
+
 function exportVars(args, { sys }) {
+  const listing = !args.length || (args.length === 1 && args[0] === '-p');
+  const exported = exportedVars(sys);
+  if (listing) return result(Object.keys(exported).sort(compareNames).map(k => declareLine(k, exported[k])).join(''));
   for (const x of args) {
     const i = x.indexOf('=');
     if (i > 0) setVar(sys, x.slice(0, i), x.slice(i + 1), true);
@@ -81,6 +89,11 @@ function printenv(args, ctx) {
   const all = { ...exportedVars(ctx.sys), ...ctx.env };
   const found = args.filter(a => a in all);
   return args.length ? result(found.map(a => `${all[a]}\n`).join(''), '', found.length === args.length ? 0 : 1) : env(args, ctx);
+}
+
+function unset(args, { sys }) {
+  for (const name of args.filter(a => a !== '-v')) delete sys.vars[name];
+  return result();
 }
 
 function unalias(args, { sys }) {
@@ -133,6 +146,7 @@ export default {
   type,
   alias,
   unalias,
+  unset,
   export: exportVars,
   env,
   printenv,

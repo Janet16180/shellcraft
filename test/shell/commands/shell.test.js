@@ -12,11 +12,6 @@ test('man prints a page with a note about the pager, and errors like man-db', as
   assert.equal((await run(b, 'man')).status, 1);
 });
 
-test('history numbers the lines typed so far', async () => {
-  const r = await runAll(await shell(), ['pwd', 'ls', 'history']);
-  assert.equal(r.out, '    1  pwd\n    2  ls\n    3  history\n');
-});
-
 test('which finds programs in PATH; builtins without a program are not found', async () => {
   const b = await shell();
   assert.equal((await run(b, 'which ls')).out, '/usr/bin/ls\n');
@@ -65,4 +60,36 @@ test('help lists the simulated commands without game helpers', async () => {
   const r = await run(await shell(), 'help');
   assert.match(r.out, /grep/);
   assert.doesNotMatch(r.out, /hint|quest/);
+});
+
+test('type says a program is hashed after it has run', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'type ls')).out, 'ls is /usr/bin/ls\n');
+  await run(b, 'ls > /dev/null');
+  assert.equal((await run(b, 'type ls')).out, 'ls is hashed (/usr/bin/ls)\n');
+});
+
+test('unalias removes an alias', async () => {
+  const b = await shell();
+  await run(b, 'unalias ll');
+  assert.equal((await run(b, 'll')).status, 127);
+  assert.equal((await run(b, 'unalias zz')).err, 'bash: unalias: zz: not found\n');
+});
+
+test('printenv fails with no output for an unset variable', async () => {
+  const r = await run(await shell(), 'printenv NOPE');
+  assert.deepEqual([r.out, r.status], ['', 1]);
+});
+
+test('history skips lines that start with a space and repeated lines, like Ubuntu', async () => {
+  const r = await runAll(await shell(), ['pwd', 'pwd', ' echo secret', 'ls', 'history']);
+  assert.equal(r.out, '    1  pwd\n    2  ls\n    3  history\n');
+});
+
+test('export alone lists the environment as declare -x lines; unset removes a variable', async () => {
+  const b = await shell();
+  await run(b, 'export SPELL=\'say "hi"\'');
+  assert.match((await run(b, 'export')).out, /^declare -x SPELL="say \\"hi\\""$/m);
+  await run(b, 'unset SPELL');
+  assert.equal((await run(b, 'echo "[$SPELL]"')).out, '[]\n');
 });

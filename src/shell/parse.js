@@ -15,6 +15,27 @@ function describe(token) {
   return token.type === 'word' ? token.raw : token.op;
 }
 
+function endCommand(st, op) {
+  st.pipeline.push(st.cmd);
+  st.cmd = newCommand();
+  if (op === '|') return;
+  st.list.push({ pipeline: st.pipeline, next: op });
+  st.pipeline = [];
+}
+
+function consume(tokens, k, st) {
+  const t = tokens[k];
+  let used = 1;
+  if (t.type === 'word') st.cmd.words.push(t);
+  else if (t.type === 'redir' && tokens[k + 1]?.type === 'word') {
+    st.cmd.redirs.push({ op: t.op, fd: t.fd, target: tokens[k + 1] });
+    used = 2;
+  } else if (t.type === 'redir') st.error = syntaxError(describe(tokens[k + 1]));
+  else if (isEmpty(st.cmd) || ['(', ')', ';;'].includes(t.op)) st.error = syntaxError(t.op);
+  else endCommand(st, t.op);
+  return used;
+}
+
 /**
  * Parse tokens into pipelines.
  *
@@ -24,35 +45,10 @@ function describe(token) {
  *   ended where bash would wait for more input.
  */
 export function parse(tokens) {
-  const list = [];
-  let pipeline = [];
-  let cmd = newCommand();
-  let error = null;
-  let incomplete = false;
-  for (let k = 0; k < tokens.length && !error; k++) {
-    const t = tokens[k];
-    if (t.type === 'word') cmd.words.push(t);
-    else if (t.type === 'redir') {
-      const target = tokens[k + 1];
-      if (target?.type === 'word') cmd.redirs.push({ op: t.op, fd: t.fd, target });
-      else error = syntaxError(describe(target));
-      k++;
-    } else if (isEmpty(cmd) || t.op === '(' || t.op === ')' || t.op === ';;') error = syntaxError(t.op);
-    else if (t.op === '|') {
-      pipeline.push(cmd);
-      cmd = newCommand();
-    } else {
-      pipeline.push(cmd);
-      list.push({ pipeline, next: t.op });
-      pipeline = [];
-      cmd = newCommand();
-    }
-  }
-  const dangling = !error && isEmpty(cmd) && (pipeline.length || ['&&', '||'].includes(list.at(-1)?.next));
-  if (dangling) {
-    error = END_OF_FILE;
-    incomplete = true;
-  }
-  if (!error && !isEmpty(cmd)) list.push({ pipeline: [...pipeline, cmd], next: null });
-  return { list: error ? [] : list, error, incomplete };
+  const st = { list: [], pipeline: [], cmd: newCommand(), error: null };
+  for (let k = 0; k < tokens.length && !st.error;) k += consume(tokens, k, st);
+  const dangling = !st.error && isEmpty(st.cmd) && (st.pipeline.length > 0 || ['&&', '||'].includes(st.list.at(-1)?.next));
+  if (dangling) st.error = END_OF_FILE;
+  if (!st.error && !isEmpty(st.cmd)) st.list.push({ pipeline: [...st.pipeline, st.cmd], next: null });
+  return { list: st.error ? [] : st.list, error: st.error, incomplete: dangling };
 }

@@ -145,23 +145,26 @@ function killArgs(args) {
   return { sig, pids: args.slice(start), error };
 }
 
+function killOne(sys, x, sig, block) {
+  const numeric = /^\d+$/.test(x);
+  const proc = numeric ? sys.procs.find(p => p.pid === Number(x)) : null;
+  const sent = proc ? deliver(sys, proc, sig, block) : { denied: false, note: null };
+  let error = null;
+  if (!numeric) error = `bash: kill: ${x}: arguments must be process or job IDs`;
+  else if (!proc) error = `bash: kill: (${x}) - No such process`;
+  else if (sent.denied) error = `bash: kill: (${x}) - Operation not permitted`;
+  return { error, note: sent.note };
+}
+
 function kill(args, { sys, block }) {
   if (!args.length) return result('', KILL_USAGE, 2);
   if (args[0] === '-l' || args[0] === '-L') return listSignals(args.slice(1));
   const { sig, pids, error } = killArgs(args);
   if (error) return result('', error, 1);
   if (!pids.length) return result('', KILL_USAGE, 2);
-  const errs = [];
-  const notes = [];
-  for (const x of pids) {
-    const proc = /^\d+$/.test(x) ? sys.procs.find(p => p.pid === parseInt(x, 10)) : null;
-    const sent = proc ? deliver(sys, proc, sig, block) : null;
-    if (!/^\d+$/.test(x)) errs.push(`bash: kill: ${x}: arguments must be process or job IDs`);
-    else if (!proc) errs.push(`bash: kill: (${x}) - No such process`);
-    else if (sent.denied) errs.push(`bash: kill: (${x}) - Operation not permitted`);
-    if (sent?.note) notes.push(sent.note);
-  }
-  return withNote(result('', errs.join('\n'), errs.length ? 1 : 0), notes[0] ?? null);
+  const sent = pids.map(x => killOne(sys, x, sig, block));
+  const errs = sent.filter(r => r.error).map(r => r.error);
+  return withNote(result('', errs.join('\n'), errs.length ? 1 : 0), sent.find(r => r.note)?.note ?? null);
 }
 
 function killByName(name, args, { sys, block }, exact) {

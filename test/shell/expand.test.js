@@ -10,6 +10,7 @@ const env = () => ({
   lookupVar: name => ({ HOME: '/home/hero', X: 'a  b', E: '', S: ' lead trail ', G: '*.txt' })[name] ?? '',
   homeOf: user => ({ root: '/root', hero: '/home/hero' })[user] ?? null,
   substitute: line => `out of ${line}\n\n`,
+  fail: () => {},
 });
 const words = line => tokenize(line).tokens;
 const expand = line => expandWords(words(line), env());
@@ -47,4 +48,15 @@ test('a redirection target expands to one word or is ambiguous', () => {
 
 test('an assignment value expands without splitting or globbing', () => {
   assert.equal(expandAssignment(words('V=$X*')[0], env()), 'a  b*');
+});
+
+test('arithmetic expansion computes with variables', () => {
+  const e = { ...env(), lookupVar: name => ({ N: '4' })[name] ?? '' };
+  assert.deepEqual(expandWords(words('echo $((N*2+1)) "$(( $N - 1 ))"'), e), ['echo', '9', '3']);
+});
+
+test('an arithmetic error is reported through fail', () => {
+  const failures = [];
+  expandWords(words('echo $((1/0))'), { ...env(), fail: m => failures.push(m) });
+  assert.deepEqual(failures, ['bash: 1/0: division by 0 (error token is "0")']);
 });

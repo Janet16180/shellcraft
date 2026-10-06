@@ -17,6 +17,8 @@ export function initialVars({ user, home, host }) {
   for (const [name, value] of Object.entries(exported)) vars[name] = { value, exported: true };
   vars.HOSTNAME = { value: host, exported: false };
   vars.HISTCONTROL = { value: 'ignoreboth', exported: false };
+  vars.COLUMNS = { value: '80', exported: false };
+  vars.LINES = { value: '24', exported: false };
   return vars;
 }
 

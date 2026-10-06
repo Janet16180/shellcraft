@@ -36,29 +36,36 @@ function openRead(sys, path) {
   return { input: error ? null : r.node.content, error };
 }
 
+function applyDup(fd, target, streams) {
+  const source = target === '1' ? streams.out : streams.err;
+  if (fd === 1) streams.out = source;
+  if (fd === 2) streams.err = source;
+  return { error: null, record: null };
+}
+
+function applyRead(sys, target, streams) {
+  const read = openRead(sys, target);
+  streams.stdin = read.input;
+  return { error: read.error, record: null };
+}
+
+function applyWrite(sys, redir, fd, streams) {
+  const { op, target } = redir;
+  const opened = openWrite(sys, target, op.endsWith('>>'));
+  const both = op.startsWith('&') || op === '>&';
+  if (!opened.error && (both || fd === 1)) streams.out = opened.target;
+  if (!opened.error && (both || fd === 2)) streams.err = opened.target;
+  return { error: opened.error, record: { op: both ? op : `${redir.fd ?? ''}${op === '>|' ? '>' : op}`, target: opened.abs } };
+}
+
 function applyOne(sys, redir, streams) {
   const { op, target } = redir;
   const fd = redir.fd ?? (op.startsWith('<') ? 0 : 1);
-  const dup = (op === '>&' || op === '<&') && /^\d$/.test(target);
-  let error = null;
-  let record = null;
-  if (dup) {
-    const source = target === '1' ? streams.out : streams.err;
-    if (fd === 1) streams.out = source;
-    else if (fd === 2) streams.err = source;
-  } else if (op === '<') {
-    const read = openRead(sys, target);
-    error = read.error;
-    streams.stdin = read.input;
-  } else {
-    const opened = openWrite(sys, target, op.endsWith('>>'));
-    error = opened.error;
-    const both = op.startsWith('&') || op === '>&';
-    if (!error && (both || fd === 1)) streams.out = opened.target;
-    if (!error && (both || fd === 2)) streams.err = opened.target;
-    record = { op: both ? op : `${redir.fd ?? ''}${op === '>|' ? '>' : op}`, target: opened.abs };
-  }
-  return { error: error ? `bash: ${target}: ${error}` : null, record };
+  let applied;
+  if ((op === '>&' || op === '<&') && /^\d$/.test(target)) applied = applyDup(fd, target, streams);
+  else if (op === '<') applied = applyRead(sys, target, streams);
+  else applied = applyWrite(sys, redir, fd, streams);
+  return { error: applied.error ? `bash: ${target}: ${applied.error}` : null, record: applied.record };
 }
 
 /**
