@@ -13,7 +13,7 @@
  * - focus: for the prompt steps, the piece of the prompt being explained.
  * - parts: the typed line split into its words, each with its role.
  * - keys: key names and what they do.
- * - light: whether the room is lit (it stays dark until ls looks around).
+ * - complete: a line to type and then complete with Tab (not run).
  * - scroll: show the file the line printed as an unrolled scroll.
  * - say: a speech bubble for the hero.
  * - ring: the door or item the line is about ('..' for the way back), ringed on the map.
@@ -58,9 +58,8 @@ export const STEPS = [
     title: 'This is a terminal',
     text: [
       'You type a command, press <kbd>Enter</kbd>, and the computer answers in text.',
-      'The map shows the directory you are in. In this tour it stays dark until you look around.',
+      'The map shows the directory you are in: doors are directories, items are files. This tour uses a small practice room; the game\'s rooms hold more.',
     ],
-    light: false,
   },
   {
     id: 'prompt-user',
@@ -70,7 +69,6 @@ export const STEPS = [
       'The line the terminal waits on is the <b>prompt</b>. Its first word, <code>hero</code>, is your user name.',
       'Every file and every running program on Linux belongs to a user.',
     ],
-    light: false,
   },
   {
     id: 'prompt-host',
@@ -80,7 +78,6 @@ export const STEPS = [
       'After the <code>@</code> comes <code>kernelia</code>, the name of the machine you are logged in to (its hostname).',
       'It matters when you work on several machines at once: the prompt tells you which one you are typing into.',
     ],
-    light: false,
   },
   {
     id: 'prompt-cwd',
@@ -90,7 +87,6 @@ export const STEPS = [
       'After the colon comes the directory you are in. <code>~</code> (a tilde) is short for your home directory, <code>/home/hero</code>.',
       'When you move, this part of the prompt changes with you.',
     ],
-    light: false,
   },
   {
     id: 'prompt-sigil',
@@ -100,17 +96,15 @@ export const STEPS = [
       'The <code>$</code> at the end means you are a regular user. When root, the administrator, uses the shell, the prompt ends with <code>#</code> instead.',
       'Your commands go after it.',
     ],
-    light: false,
   },
   {
     id: 'ls',
     title: 'Look around with <code>ls</code>',
     type: 'ls',
     text: [
-      '<code>ls</code> lists the files and directories where you are (names that start with a dot stay hidden unless you ask). The room lights up: each <b>door</b> is a directory and each <b>item</b> is a file.',
+      '<code>ls</code> lists the files and directories where you are. On the map, each <b>door</b> is a directory and each <b>item</b> is a file.',
       'Here <code>forest</code> is a directory and <code>readme.txt</code> is a file.',
     ],
-    light: true,
   },
   {
     id: 'cd-forest',
@@ -122,7 +116,6 @@ export const STEPS = [
       '<code>cd</code> changes directory. You walked through the door into <code>forest</code>, and the prompt now shows <code>~/forest</code>.',
       'When <code>cd forest</code> works it prints nothing. Silence means success for many Linux commands.',
     ],
-    light: true,
   },
   {
     id: 'cd-up',
@@ -132,7 +125,6 @@ export const STEPS = [
     text: [
       '<code>..</code> (two dots) is the parent directory: the one this directory sits in. The parent of <code>~/forest</code> is your home, so you are back where you started.',
     ],
-    light: true,
   },
   {
     id: 'cat',
@@ -143,7 +135,6 @@ export const STEPS = [
     text: [
       '<code>cat</code> prints the contents of a file in the terminal. The name comes from concatenate: give it several files and it prints them one after another.',
     ],
-    light: true,
   },
   {
     id: 'anatomy',
@@ -153,13 +144,13 @@ export const STEPS = [
     text: [
       'Spaces split a line into words. The first word is the <b>command</b>.',
       'An <b>option</b> usually starts with a dash and changes how the command works. <code>-l</code> asks <code>ls</code> for its long format: one line per entry, with its permissions, owner, size and the date it was last modified.',
-      'An <b>argument</b> tells the command what to work on. Here <code>ls</code> lists <code>forest</code> instead of the directory you are in.',
+      'An <b>argument</b> tells the command what to work on. Here <code>ls</code> lists <code>forest</code> instead of the directory you are in. You will learn to read the long format\'s columns in chapter 3.',
     ],
-    light: true,
   },
   {
     id: 'keys',
     title: 'Keys that save typing',
+    complete: 'cd fo',
     keys: [
       ['Enter', 'runs the line you typed.'],
       ['Tab', 'completes a name. Type <code>cd fo</code> and press Tab: bash fills in <code>forest/</code>.'],
@@ -170,7 +161,6 @@ export const STEPS = [
     text: [
       'A few keys and commands do most of the work. You do not need to remember them now: the Spellbook keeps every command you learn.',
     ],
-    light: true,
   },
   {
     id: 'your-turn',
@@ -179,7 +169,7 @@ export const STEPS = [
     text: [
       'The real terminal is yours now. Type <code>whoami</code> and press <kbd>Enter</kbd>: it prints your user name.',
       'Then read the Quest panel. It tells you what to do next.',
+      'The three hearts at the top: a few dangerous commands cost one. Lose all three and the Guardian sets the chapter up again; you never lose XP.',
     ],
-    light: true,
   },
 ];

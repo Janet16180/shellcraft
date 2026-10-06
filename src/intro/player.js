@@ -129,6 +129,17 @@ async function runStep(it, step, backend, before, live) {
   if (live() && step.say) it.map.say(step.say, 'player');
 }
 
+// Type the start of a name, then show Tab finishing it, as bash does; the line is not run.
+async function completeStep(it, typed, backend, live) {
+  await typeLine(it, typed, live);
+  const { line } = await backend.complete(typed);
+  if (!live()) return;
+  const now = it.$('introScreen').querySelector('.now');
+  now.querySelector('.typed').textContent = line;
+  now.querySelector('.cursor').insertAdjacentHTML('afterend', '<kbd class="tabpress">Tab</kbd>');
+  it.sound.play('key');
+}
+
 async function showStep(it, index) {
   const token = ++it.token;
   const live = () => token === it.token;
@@ -139,11 +150,10 @@ async function showStep(it, index) {
   if (!live()) return;
   it.map.show(before);
   it.map.focus(step.ring ?? null);
-  it.$('introStage').classList.toggle('dark', !(STEPS[index - 1]?.light ?? false));
   it.$('introScreen').innerHTML = transcriptHTML(history) + waitingLineHTML(before);
   scrollScreen(it);
   if (step.type) await runStep(it, step, backend, before, live);
-  if (live()) it.$('introStage').classList.toggle('dark', !step.light);
+  if (step.complete) await completeStep(it, step.complete, backend, live);
 }
 
 function close(it, line) {
