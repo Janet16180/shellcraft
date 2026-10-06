@@ -71,7 +71,8 @@
  * @property {number} cpu Percent.
  * @property {number} mem Percent.
  * @property {string} cmd Full command line.
- * @property {string} [key] The key a patch started it under, if any.
+ * @property {string} [key] The key a patch started it under, if any. The player's own
+ *   interactive shell has the key 'shell', so the game can recognise it.
  */
 
 /**
@@ -80,6 +81,7 @@
  *
  * @typedef {object} Observation
  * @property {string} user
+ * @property {string[]} groups The groups the user belongs to (for access.js).
  * @property {string} host
  * @property {string} home Absolute path of the player's home.
  * @property {string} cwd Absolute working directory.

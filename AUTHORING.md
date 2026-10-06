@@ -37,7 +37,7 @@ export default {
   title: 'The Whispering Forest',
   // Patch applied when the chapter starts, on top of the base world from world.js.
   // It must work on a fresh world and on a world the player changed in earlier chapters.
-  setup: random => [ /* patch ops */ ],
+  setup: (random, { home, user }) => [ /* patch ops */ ],
   lesson: `<p>...</p>`,                 // trusted HTML shown in the Quest panel
   tasks: [
     {
@@ -50,12 +50,13 @@ export default {
   boss: {
     title: 'Lost in the Dungeon',
     briefing: `<p>...</p>`,
-    setup: random => ({ patch: [ /* ops */ ], secret: { /* what done() compares against */ } }),
-    hints: ['nudge', 'technique', 'the exact line'],
+    setup: (random, { home, user }) => ({ patch: [ /* ops */ ], secret: { /* what done() compares against */ } }),
+    hints: ['nudge', 'technique', secret => `cd ${secret.target}`],  // an entry may be a function of the secret
     done: (ctx, secret) => boolean,
     solve: obs => ['lines'],            // derived from the observation like a player would, never from the secret
   },
   recap: [['cd dir', 'enter a directory']],
+  why: `<p>...</p>`,                   // trusted HTML for the adventure log: why the system works this way
   field: [['cd -', 'jump back to the previous directory on a real machine']],
   spells: [{ name: 'cd', summary: 'Change directory.', examples: [['cd forest', 'relative path']] }],
 };
@@ -69,6 +70,10 @@ The check context `ctx` (implemented in `src/game/checks.js`) sees only the port
 - `ctx.flag(record, letter)`: a short option letter was given (`-la` has `l` and `a`).
 - `ctx.hasPath(record, absPath)`: one of its non-option arguments resolves to `absPath`.
 - `ctx.read(absPath)`: a reading command (cat, less, more, head, tail) succeeded on that file.
+- `ctx.paths(record)`: its non-option arguments as absolute paths.
+- `ctx.completions`: the Tab presses since the previous line, `[{ line, completed }]`. They come
+  from the page's own terminal; a real terminal (termlab) would handle Tab inside bash and report
+  none, so only use this where losing the task in that mode is acceptable (today: forest's Tab task).
 
 A task is checked after every line until it passes once; tasks complete in any order but the
 panel highlights the first unfinished one.

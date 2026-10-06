@@ -15,7 +15,7 @@ Read this first when resuming, then `docs/DESIGN.md` and `AUTHORING.md`.
 
 | Name | Job | State |
 |---|---|---|
-| shell | simulator port (M1), then fixes + difftest (M2) | launched |
+| shell | simulator port (M1), then fixes + difftest (M2) | launched 2026-10-06 |
 | engine | session, checks, progress, effects, rng, save | launched |
 | author | world.js, chapters awakening + forest, boss rooms, verification logs | launched |
 | art | map renderer: overworld + dungeon, transitions, effects | launched |
@@ -35,3 +35,10 @@ real simulator, then ui wiring, then the lead's preview.
 
 Feature branches, small commits, no trailers, never push. Ask the user before deleting
 branches, before replacing the original artifact, and before any change to `~/learning/termlab`.
+
+## Briefs
+
+Each teammate's brief is the DESIGN.md section 8 row plus: read DESIGN, AUTHORING, port.js,
+spec.js and the matching part of `original/shellcraft-v1.html`; milestones (shell M1 fast, then
+M2 difftest; art milestone A static rooms then B animation); message `main` at each milestone;
+final report under 400 words. Relaunch with the same scope if a session ends mid-flight.
