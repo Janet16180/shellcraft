@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SIGNAL_LIST, signalName, parseSignal, defaultAction, endsInteractiveShell, requestedSignal } from '../../src/backend/signals.js';
+import { SIGNAL_LIST, signalName, parseSignal, defaultAction, endsInteractiveShell, requestedSignal, pkillPrescan } from '../../src/backend/signals.js';
 
 test('the list holds the 62 Linux signals as kill -l numbers them', () => {
   assert.equal(SIGNAL_LIST.length, 62);
@@ -82,4 +82,14 @@ test('killall reads uppercase names and numbers, as psmisc does', () => {
 
 test('only kill, pkill and killall send signals', () => {
   assert.throws(() => requestedSignal('ls', []), /does not send signals/);
+});
+
+test('pkill takes out the first argument that names a signal, wherever it is', () => {
+  assert.deepEqual(pkillPrescan(['sleep', '-IO', '-9']), { spec: 'IO', rest: ['sleep', '-9'] });
+  assert.deepEqual(pkillPrescan(['-u', 'hero']), { spec: null, rest: ['-u', 'hero'] });
+});
+
+test('killall options that take a value are not usage errors', () => {
+  assert.deepEqual(requestedSignal('killall', ['-9', '-u', 'hero']), { status: 'send', signal: 9, spec: '9', operands: [] });
+  assert.equal(requestedSignal('killall', ['-uhero', 'sleep']).status, 'send');
 });

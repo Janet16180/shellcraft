@@ -6,7 +6,8 @@
  * `{kind: 'null'}` (/dev/null) or `{kind: 'file', node}`.
  */
 
-import { newFile, baseName, addChild } from './fs.js';
+import { newFile, addChild } from './fs.js';
+import { baseName } from '../backend/tree.js';
 import { resolve, errorText } from './paths.js';
 import { can, canChangeEntries } from './perms.js';
 

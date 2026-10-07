@@ -6,6 +6,7 @@
 
 import { put, dir, file } from '../src/backend/spec.js';
 import { baseWorld } from '../src/game/world.js';
+import { PLAYER } from '../src/backend/player.js';
 
 const mine = { owner: 'hero' };
 const scroll = Array.from({ length: 30 }, (_, i) => `Line ${i + 1} of the scroll${i === 22 ? ': a dragon sleeps' : ''}`).join('\n') + '\n';
@@ -53,5 +54,5 @@ const names = () => put('/home/hero/names', dir({
 export const WORLDS = {
   home: () => [home(), ...system()],
   names: () => [home(), names(), ...system()],
-  game: () => baseWorld({ user: 'hero', home: '/home/hero' }),
+  game: () => baseWorld(PLAYER),
 };

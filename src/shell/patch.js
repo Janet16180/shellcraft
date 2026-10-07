@@ -3,7 +3,8 @@
  */
 
 import { validatePatch } from '../backend/spec.js';
-import { lookup, fromSpec, insert, detach, parentOf } from './fs.js';
+import { lookup, fromSpec, insert, detach, depthOf, heightOf, MAX_TREE_DEPTH } from './fs.js';
+import { parentOf } from '../backend/tree.js';
 import { allocPid, makeProc, TERMINAL } from './system.js';
 import { parseSignal, signalName } from '../backend/signals.js';
 
@@ -29,13 +30,18 @@ function startProc(sys, spec) {
   }));
 }
 
+function putNode(sys, path, spec) {
+  if (depthOf(path) + heightOf(spec) - 1 > MAX_TREE_DEPTH) throw new Error(`put ${path}: the tree would grow deeper than ${MAX_TREE_DEPTH} levels`);
+  insert(sys.root, path, fromSpec(spec, sys.now()));
+}
+
 function applyOp(sys, op) {
   if ((op.op === 'put' || op.op === 'remove') && touchesSystem(op.path)) {
     throw new Error(`${op.op} ${op.path}: /usr/bin and /dev belong to the backend`);
   }
   const target = op.op === 'cd' ? lookup(sys.root, op.path) : null;
   if (op.op === 'cd' && (!target || target.type !== 'dir')) throw new Error(`cd ${op.path}: not a directory`);
-  if (op.op === 'put') insert(sys.root, op.path, fromSpec(op.node, sys.now()));
+  if (op.op === 'put') putNode(sys, op.path, op.node);
   if (op.op === 'remove') detach(sys.root, op.path, sys.now());
   if (op.op === 'proc') startProc(sys, op.proc);
   if (op.op === 'stop') sys.procs = sys.procs.filter(p => p.key !== op.key);
@@ -53,7 +59,8 @@ function applyOp(sys, op) {
  * @param {object[]} patch Operations built with src/backend/spec.js.
  * @returns {void}
  * @throws {Error} If the patch is malformed, a parent is missing, a cd target
- *   is not a directory, a signal name is unknown, or an operation touches /usr/bin or /dev.
+ *   is not a directory, a signal name is unknown, an operation touches /usr/bin
+ *   or /dev, or a put would make the tree deeper than MAX_TREE_DEPTH.
  */
 export function applyPatch(sys, patch) {
   validatePatch(patch).forEach(op => applyOp(sys, op));

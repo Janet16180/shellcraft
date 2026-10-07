@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalize, lookup, parentOf, baseName, joinPath, joinDisp, splitLines, byteLength, sizeOf, newDir, newFile, cloneNode, fromSpec, snapshot, insert, detach, addChild, removeChild } from '../../src/shell/fs.js';
+import { normalize, lookup, joinDisp, splitLines, byteLength, sizeOf, newDir, newFile, cloneNode, fromSpec, snapshot, insert, detach, addChild, removeChild, heightOf, MAX_TREE_DEPTH } from '../../src/shell/fs.js';
 import { dir, file } from '../../src/backend/spec.js';
 import { nameTable } from '../../src/shell/table.js';
 
@@ -21,12 +21,7 @@ test('lookup finds nodes and returns null through files or missing names', () =>
   assert.equal(lookup(root, '/nope'), null);
 });
 
-test('path helpers split and join paths', () => {
-  assert.equal(parentOf('/home/hero'), '/home');
-  assert.equal(parentOf('/home'), '/');
-  assert.equal(baseName('/home/hero'), 'hero');
-  assert.equal(joinPath('/', 'etc'), '/etc');
-  assert.equal(joinPath('/etc', 'passwd'), '/etc/passwd');
+test('joinDisp joins a typed path and a name for display', () => {
   assert.equal(joinDisp('', 'a'), 'a');
   assert.equal(joinDisp('dir/', 'a'), 'dir/a');
   assert.equal(joinDisp('dir', 'a'), 'dir/a');
@@ -106,4 +101,13 @@ test('entries named like object members are ordinary entries', () => {
 test('byteLength counts UTF-8 bytes for every width of character', () => {
   const encoded = text => new TextEncoder().encode(text).length;
   for (const text of ['', 'abc', 'é', 'ü€', '\u{1F600}', 'a\u{1F600}b€é', '߿ࠀ￿']) assert.equal(byteLength(text), encoded(text), text);
+});
+
+test('heightOf counts the levels of a subtree without recursion', () => {
+  assert.equal(heightOf(newFile('', meta)), 1);
+  assert.equal(heightOf(newDir({}, meta)), 1);
+  let deep = newFile('', meta);
+  for (let i = 0; i < 50000; i++) deep = newDir({ d: deep }, meta);
+  assert.equal(heightOf(deep), 50001);
+  assert.equal(MAX_TREE_DEPTH, 256);
 });

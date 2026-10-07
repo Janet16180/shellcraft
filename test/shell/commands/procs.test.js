@@ -119,3 +119,77 @@ test('signals that end an interactive bash are blocked; ignored ones only get a 
   const winch = await b.run(`kill -WINCH ${pid}`);
   assert.deepEqual([winch.blocked, winch.output], [[], []]);
 });
+
+test('kill 0 and minus the shell PID reach the shell itself', async () => {
+  const b = await withProcs();
+  const pid = await pidOf(b, 'shell');
+  assert.equal((await b.run('kill -9 0')).blocked.length, 1);
+  assert.equal((await b.run(`kill -9 -${pid}`)).blocked.length, 1);
+  const term = await run(b, 'kill 0');
+  assert.deepEqual([term.result.blocked, term.status], [[], 0]);
+  assert.match(term.note, /Interactive bash ignores SIGTERM/);
+});
+
+test('kill -1 signals every other process of the user, which the shell survives', async () => {
+  const b = await withProcs();
+  const r = await b.run('kill -9 -1');
+  assert.deepEqual([r.status, r.blocked], [0, []]);
+  const keys = (await b.observe()).procs.map(p => p.key);
+  assert.equal(keys.includes('sleeper') || keys.includes('daemon'), false);
+  assert.ok(keys.includes('shell'));
+  const alone = await run(b, 'kill -9 -1');
+  assert.deepEqual([alone.err, alone.status], ['bash: kill: (-1) - No such process\n', 1]);
+});
+
+test('kill -N signals the process group led by N', async () => {
+  const b = await withProcs();
+  await run(b, `kill -9 -${await pidOf(b, 'sleeper')}`);
+  assert.equal((await b.observe()).procs.some(p => p.key === 'sleeper'), false);
+  const missing = await run(b, 'kill -15 -99999');
+  assert.deepEqual([missing.err, missing.status], ['bash: kill: (-99999) - No such process\n', 1]);
+});
+
+test('pgrep matches an extended regular expression, a user and a terminal', async () => {
+  const b = await withProcs();
+  const sleeper = await pidOf(b, 'sleeper');
+  const shellPid = await pidOf(b, 'shell');
+  assert.equal((await run(b, "pgrep '^sl'")).out, `${sleeper}\n`);
+  assert.equal((await run(b, "pgrep 'b.sh$'")).out, `${shellPid}\n`);
+  assert.deepEqual(await run(b, 'pgrep -x sle').then(r => [r.out, r.status]), ['', 1]);
+  assert.equal((await run(b, 'pgrep -t pts/0')).out, [shellPid, sleeper].sort((x, y) => x - y).map(p => `${p}\n`).join(''));
+  assert.equal((await run(b, 'pgrep -u root -x cron')).status, 0);
+});
+
+test('pgrep and pkill complain the way procps does', async () => {
+  const b = await withProcs();
+  assert.equal((await run(b, 'pgrep a b')).err, "pgrep: only one pattern can be provided\nTry `pgrep --help' for more information.\n");
+  assert.equal((await run(b, 'pgrep')).err, "pgrep: no matching criteria specified\nTry `pgrep --help' for more information.\n");
+  assert.equal((await run(b, "pgrep '('")).err, 'pgrep: regex error: Unmatched ( or \\(\n');
+  assert.equal((await run(b, 'pgrep -u nobodyzz x')).err, 'pgrep: invalid user name: nobodyzz\n');
+  assert.match((await run(b, 'pgrep -k x')).err, /^pgrep: invalid option -- 'k'\n\nUsage:\n pgrep \[options\] <pattern>\n/);
+  assert.match((await run(b, 'pkill -u')).err, /^pkill: option requires an argument -- 'u'\n\nUsage:\n pkill /);
+  assert.equal((await run(b, 'pgrep -n sleep')).note, 'pgrep -n is a real option, but this game does not simulate it.');
+});
+
+test('pkill by pattern, user or terminal reaches the shell like the real one', async () => {
+  const b = await withProcs();
+  assert.equal((await b.run("pkill -HUP '^ba'")).blocked.length, 1);
+  assert.equal((await b.run('pkill -9 -t pts/0')).blocked.length, 1);
+  const all = await b.run('pkill -KILL -u hero');
+  assert.equal(all.blocked.length, 1);
+  const keys = (await b.observe()).procs.map(p => p.key);
+  assert.equal(keys.includes('sleeper') || keys.includes('daemon'), false);
+  assert.deepEqual((await b.run('pkill -9 -u hero cron')).blocked, []);
+});
+
+test('killall takes whole names, -u and -r', async () => {
+  const b = await withProcs();
+  assert.equal((await run(b, 'killall -9 sha')).err, 'sha: no process found\n');
+  assert.equal((await run(b, 'killall -u nobodyzz')).err, 'Cannot find user nobodyzz\n');
+  assert.equal((await run(b, 'killall -g sleep')).note, 'killall -g is a real option, but this game does not simulate it.');
+  await run(b, "killall -r '^sha'");
+  assert.equal((await b.observe()).procs.some(p => p.key === 'daemon'), true);
+  await run(b, "killall -9 -r '^sha'");
+  assert.equal((await b.observe()).procs.some(p => p.key === 'daemon'), false);
+  assert.equal((await b.run('killall -9 -u hero')).blocked.length, 1);
+});

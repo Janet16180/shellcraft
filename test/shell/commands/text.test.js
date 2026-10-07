@@ -67,3 +67,11 @@ test('sort uses byte order, so capitals come first; -f folds case and -n compare
   assert.equal((await run(b, 'sort -n mix.txt')).out, 'Apple\nbanana\ncherry\n9 y\n10 x\n');
   assert.equal((await run(b, 'sort nope')).err, 'sort: cannot read: nope: No such file or directory\n');
 });
+
+test('sort -k and other real options the game does not simulate get a note', async () => {
+  const b = await shell();
+  const key = await run(b, 'sort -k 2 readme.txt');
+  assert.deepEqual([key.out, key.err, key.status, key.note], ['', '', 2, 'sort -k is a real option, but this game does not simulate it.']);
+  assert.equal((await run(b, 'uniq -w 3 readme.txt')).note, 'uniq -w is a real option, but this game does not simulate it.');
+  assert.equal((await run(b, 'head --zero-terminated readme.txt')).note, 'head --zero-terminated is a real option, but this game does not simulate it.');
+});

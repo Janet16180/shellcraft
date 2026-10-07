@@ -35,3 +35,9 @@ test('a malformed patch raises before anything changes', () => {
   const sys = make();
   assert.throws(() => applyPatch(sys, [put('relative', dir())]), /absolute/);
 });
+
+test('a world deeper than the tree limit is an authoring bug', () => {
+  let deep = file('x');
+  for (let i = 0; i < 300; i++) deep = dir({ d: deep });
+  assert.throws(() => applyPatch(make(), [put('/home/hero/deep', deep)]), /deeper than 256 levels/);
+});

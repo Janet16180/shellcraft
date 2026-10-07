@@ -5,7 +5,7 @@
  */
 
 import { can } from './perms.js';
-import { byteLength } from './fs.js';
+import { byteLength, MAX_TREE_DEPTH } from './fs.js';
 
 const MESSAGES = {
   ENOENT: 'No such file or directory', ENOTDIR: 'Not a directory', EACCES: 'Permission denied', ENAMETOOLONG: 'File name too long',
@@ -33,6 +33,7 @@ function walk(sys, parts, startStack) {
     else if (!can(sys, dir, 'x')) error = 'EACCES';
     else if (part === '..') { if (stack.length > 1) stack.pop(); }
     else if (part === '.') return;
+    else if (stack.length > MAX_TREE_DEPTH) error = 'ENAMETOOLONG';
     else if (dir.children[part]) stack.push({ name: part, node: dir.children[part] });
     else {
       error = 'ENOENT';

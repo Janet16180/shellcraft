@@ -8,8 +8,8 @@ import { joinDisp, splitLines } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
 import { compareNames } from '../../backend/tree.js';
 import { can } from '../perms.js';
-import { compilePosix } from '../regex.js';
-import { parseOptions, mapLongOptions } from '../options.js';
+import { compilePosix } from '../../backend/regex.js';
+import { parseOptions, mapLongOptions, optionFailure } from '../options.js';
 import { shellQuote } from '../quote.js';
 import { result, needInput } from '../result.js';
 import { esc, span } from '../html.js';
@@ -25,12 +25,13 @@ const STDIN = '(standard input)';
 
 function parseGrep(args) {
   const long = mapLongOptions('grep', args, LONG);
-  const o = long.err ? { err: long.err } : parseOptions('grep', long.args, 'EFGiyvnclLhHrRsqwxozZ', 'em');
-  const operands = o.rest ?? [];
+  const stoppedEarly = long.err || long.unsimulated;
+  const o = stoppedEarly ? { ...long, rest: [], lists: {}, vals: {}, flags: new Set() } : parseOptions('grep', long.args, 'EFGiyvnclLhHrRsqwxozZ', 'em');
+  const operands = o.rest;
   let error = o.err?.replace(/\nTry 'grep --help'.*$/, `\n${USAGE}`) ?? null;
-  if (!error && !o.lists.e && !operands.length) error = USAGE;
+  if (!error && !o.unsimulated && !o.lists.e && !operands.length) error = USAGE;
   const patterns = o.lists?.e ?? (operands.length ? [operands.shift()] : []);
-  return { error, flags: o.flags, max: o.vals?.m === undefined ? Infinity : Number(o.vals.m), operands, patterns: patterns.flatMap(p => p.split('\n')) };
+  return { error, unsimulated: o.unsimulated, flags: o.flags, max: o.vals?.m === undefined ? Infinity : Number(o.vals.m), operands, patterns: patterns.flatMap(p => p.split('\n')) };
 }
 
 function walk(sys, node, label, acc) {
@@ -136,7 +137,8 @@ function compileFor({ patterns, flags: f }) {
 
 function grep(args, { sys, stdin }) {
   const o = parseGrep(args);
-  if (o.error) return result('', o.error, 2);
+  const failed = optionFailure('grep', { err: o.error, unsimulated: o.unsimulated }, 2);
+  if (failed) return failed;
   const f = o.flags;
   const recursive = f.has('r') || f.has('R');
   if (!o.operands.length && !recursive && stdin == null) return needInput('grep');

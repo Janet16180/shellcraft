@@ -284,6 +284,9 @@ const HOSTILE = [
   "echo './y.sh' > y.sh; chmod +x y.sh; ./y.sh",
   "alias a='b'; alias b='a'; a",
   `x=${'$x'.repeat(5000)}; echo \${#x}`,
+  `find / -maxdepth 0 ${'! '.repeat(20000)}-false`,
+  `find / -maxdepth 0 ${'\\( '.repeat(20000)}-true ${'\\) '.repeat(20000)}`,
+  `find / -maxdepth 0 ${'-true -o '.repeat(20000)}-true`,
   `touch ${'a'.repeat(200)}; ls ${'*'.repeat(40)}zz; ls ${'*a'.repeat(30)}b; find . -name '${'*a'.repeat(30)}b'`,
 ];
 
@@ -303,4 +306,27 @@ test('hostile nesting gets the messages bash would print', async () => {
   assert.match((await run(b, `cd ${'a/'.repeat(3000)}`)).err, /^bash: cd: (a\/)+: File name too long\n$/);
   assert.match((await run(b, `echo ${'$(echo '.repeat(100)}hi${')'.repeat(100)}`)).err, /^bash: command substitution: maximum nesting level exceeded\n$/);
   assert.equal((await run(b, "echo 'bash x.sh' > x.sh; bash x.sh")).err.split('\n')[0], 'x.sh: line 1: x.sh: maximum nesting level exceeded');
+});
+
+test('a tree as deep as path limits allow still observes, copies, searches and removes', async () => {
+  const b = await shell();
+  const step = 'd/'.repeat(300);
+  const deep = await run(b, `mkdir -p ${step}`);
+  assert.match(deep.err, /^mkdir: cannot create directory ‘(d\/)+’: File name too long\n$/);
+  await b.observe();
+  for (const line of ['cp -r d e', 'find . -name zz', 'grep -r zz .', 'tree -d d', 'rm -r d e']) {
+    assert.equal(typeof (await b.run(line)).status, 'number', line);
+  }
+  await b.observe();
+});
+
+test('cp and mv refuse to grow the tree past its depth limit', async () => {
+  const b = await shell();
+  const path = Array(200).fill('d').join('/');
+  await run(b, `mkdir -p ${path} ${Array(100).fill('e').join('/')}`);
+  const copied = await run(b, `cp -r e ${path}/copy`);
+  assert.equal(copied.err, `cp: cannot create directory '${path}/copy': File name too long\n`);
+  const moved = await run(b, `mv e ${path}/x`);
+  assert.equal(moved.err, `mv: cannot move 'e' to '${path}/x': File name too long\n`);
+  assert.equal((await run(b, `cp -r e ${Array(100).fill('d').join('/')}/copy`)).status, 0);
 });

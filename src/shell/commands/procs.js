@@ -2,15 +2,57 @@
  * Processes and signals: ps, kill, pkill, killall, pgrep, top, htop.
  */
 
-import { allocPid, TERMINAL } from '../system.js';
+import { allocPid, TERMINAL, knownUsers } from '../system.js';
 import { result, withNote } from '../result.js';
 import { SIGNAL_LIST, signalName, parseSignal, defaultAction, endsInteractiveShell, requestedSignal } from '../../backend/signals.js';
+import { processName, readSelection, selectedBy, killSelects } from '../../backend/process.js';
+import { REAL_OPTIONS } from '../real-options.js';
+import { optionFailure } from '../options.js';
 
 const KILL = parseSignal('KILL');
 const STOP = parseSignal('STOP');
 const UNCATCHABLE = new Set([KILL, STOP]);
 const KILL_USAGE = 'kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]';
 const SIGNAL_TABLE = SIGNAL_LIST.map(([n, name], i) => `${String(n).padStart(2)}) SIG${name}${(i + 1) % 5 === 0 ? '\n' : '\t'}`).join('') + '\n';
+const PGREP_USAGE = `Usage:
+ pgrep [options] <pattern>
+
+Options:
+ -d, --delimiter <string>  specify output delimiter
+ -l, --list-name           list PID and process name
+ -a, --list-full           list PID and full command line
+ -v, --inverse             negates the matching
+ -w, --lightweight         list all TID
+ -c, --count               count of matching processes
+ -f, --full                use full process name to match
+ -g, --pgroup <PGID,...>   match listed process group IDs
+ -G, --group <GID,...>     match real group IDs
+ -i, --ignore-case         match case insensitively
+ -n, --newest              select most recently started
+ -o, --oldest              select least recently started
+ -O, --older <seconds>     select where older than seconds
+ -P, --parent <PPID,...>   match only child processes of the given parent
+ -s, --session <SID,...>   match session IDs
+     --signal <sig>        signal to send (either number or name)
+ -t, --terminal <tty,...>  match by controlling terminal
+ -u, --euid <ID,...>       match by effective IDs
+ -U, --uid <ID,...>        match by real IDs
+ -x, --exact               match exactly with the command name
+ -F, --pidfile <file>      read PIDs from file
+ -L, --logpidfile          fail if PID file is not locked
+ -r, --runstates <state>   match runstates [D,S,Z,...]
+ -A, --ignore-ancestors    exclude our ancestors from results
+ --cgroup <grp,...>        match by cgroup v2 names
+ --ns <PID>                match the processes that belong to the same
+                           namespace as <pid>
+ --nslist <ns,...>         list which namespaces will be considered for
+                           the --ns option.
+                           Available namespaces: ipc, mnt, net, pid, user, uts
+
+ -h, --help     display this help and exit
+ -V, --version  output version information and exit
+
+For more details see pgrep(1).`;
 const PKILL_USAGE = `Usage:
  pkill [options] <pattern>
 
@@ -82,11 +124,6 @@ function clockTime(t) {
   return [Math.floor(m / 60), m % 60, s].map(x => String(x).padStart(2, '0')).join(':');
 }
 
-function shortCmd(cmd) {
-  const first = cmd.split(' ')[0].replace(/^-/, '');
-  return first.startsWith('[') ? cmd : first.slice(first.lastIndexOf('/') + 1);
-}
-
 function signalShell(sys, sig, block) {
   const harmful = ['terminate', 'stop'].includes(defaultAction(sig));
   let note = null;
@@ -132,7 +169,7 @@ function psRows(list, { user, full }) {
       rows.push(`${p.user.padEnd(8)} ${String(p.pid).padStart(7)} ${String(p.ppid).padStart(7)} ${p.cpu > 50 ? '99' : ' 0'} 09:00 ${p.tty.padEnd(8)} ${clockTime(p.time)} ${p.cmd}`);
     }
   } else {
-    rows = ['    PID TTY          TIME CMD', ...list.map(p => `${String(p.pid).padStart(7)} ${p.tty.padEnd(8)} ${clockTime(p.time)} ${shortCmd(p.cmd)}`)];
+    rows = ['    PID TTY          TIME CMD', ...list.map(p => `${String(p.pid).padStart(7)} ${p.tty.padEnd(8)} ${clockTime(p.time)} ${processName(p.cmd)}`)];
   }
   return rows;
 }
@@ -170,15 +207,17 @@ const KILL_ERRORS = {
   invalid: spec => `bash: kill: ${spec}: invalid signal specification`,
 };
 
+// kill -1 reaches every process the user owns but the shell. kill(2) skips
+// init and other users' processes without an error.
 function killOne(sys, x, sig, block) {
-  const numeric = /^\d+$/.test(x);
-  const proc = numeric ? sys.procs.find(p => p.pid === Number(x)) : null;
-  const sent = proc ? deliver(sys, proc, sig, block) : { denied: false, note: null };
+  const pid = /^-?\d+$/.test(x) ? Number(x) : null;
+  const reached = sys.procs.filter(p => killSelects(x, p, { shellPid: sys.shellPid }) && (pid !== -1 || p.user === sys.user));
+  const sent = reached.map(p => deliver(sys, p, sig, block));
   let error = null;
-  if (!numeric) error = `bash: kill: ${x}: arguments must be process or job IDs`;
-  else if (!proc) error = `bash: kill: (${x}) - No such process`;
-  else if (sent.denied) error = `bash: kill: (${x}) - Operation not permitted`;
-  return { error, note: sent.note };
+  if (pid === null) error = `bash: kill: ${x}: arguments must be process or job IDs`;
+  else if (!sent.length) error = `bash: kill: (${x}) - No such process`;
+  else if (sent.every(r => r.denied)) error = `bash: kill: (${x}) - Operation not permitted`;
+  return { error, note: sent.find(r => r.note)?.note ?? null };
 }
 
 function kill(args, { sys, block }) {
@@ -192,45 +231,91 @@ function kill(args, { sys, block }) {
   return withNote(result('', errs.join('\n'), errs.length ? 1 : 0), sent.find(r => r.note)?.note ?? null);
 }
 
-const PKILL_ERRORS = {
+const PROCPS_USAGE = { pkill: PKILL_USAGE, pgrep: PGREP_USAGE };
+const PKILL_SIGNAL_ERRORS = {
   invalid: spec => `Unknown signal "${spec}".\n${PKILL_USAGE}`,
-  missing: spec => `pkill: option '${spec}' requires an argument\n\n${PKILL_USAGE}`,
+  missing: spec => `${getoptMessage('pkill', spec, true)}\n\n${PKILL_USAGE}`,
 };
+const isReal = (name, option) => Object.hasOwn(REAL_OPTIONS, name) && (option.startsWith('--') ? REAL_OPTIONS[name].long.includes(option) : REAL_OPTIONS[name].short.includes(option[1]));
+const notSimulated = (name, option, status) => optionFailure(name, { err: null, unsimulated: option }, status);
 
-function refusal(name, asked) {
-  let r = result('', "pkill: no matching criteria specified\nTry `pkill --help' for more information.", 2);
-  if (name === 'pkill' && asked.status !== 'send') r = result('', PKILL_ERRORS[asked.status](asked.spec), 2);
-  else if (name === 'killall' && asked.status === 'list') r = result(KILLALL_LIST);
-  else if (name === 'killall' && asked.status === 'invalid') r = result('', `${asked.spec}: unknown signal; killall -l lists signals.`, 1);
-  else if (name === 'killall') r = result('', KILLALL_USAGE, 1);
+function getoptMessage(name, option, missing) {
+  let text = option.startsWith('--') ? `${name}: unrecognized option '${option}'` : `${name}: invalid option -- '${option[1]}'`;
+  if (missing) text = option.startsWith('--') ? `${name}: option '${option}' requires an argument` : `${name}: option requires an argument -- '${option[1]}'`;
+  return text;
+}
+
+// The complaints pkill and pgrep make before matching anything, in their order.
+function procpsFailure(name, sel, sys) {
+  const usage = PROCPS_USAGE[name];
+  const unknownUser = sel.users.find(u => !knownUsers(sys).has(u));
+  let r = null;
+  if (sel.missing) r = result('', `${getoptMessage(name, sel.missing, true)}\n\n${usage}`, 2);
+  else if (sel.unknown && isReal(name, sel.unknown)) r = notSimulated(name, sel.unknown, 2);
+  else if (sel.unknown) r = result('', `${getoptMessage(name, sel.unknown, false)}\n\n${usage}`, 2);
+  else if (sel.error?.startsWith('regex error')) r = result('', `${name}: ${sel.error}`, 2);
+  else if (sel.error) r = result('', `${name}: ${sel.error}\nTry \`${name} --help' for more information.`, 2);
+  else if (unknownUser) r = result('', `${name}: invalid user name: ${unknownUser}`, 2);
   return r;
 }
 
-function killByName(name, args, { sys, block }, exact) {
-  const asked = requestedSignal(name, args);
-  const patterns = asked.operands;
-  if (asked.status !== 'send' || !patterns.length) return refusal(name, asked);
-  const sig = asked.signal;
+function killallFailure(asked, sel, sys) {
+  const unknownUser = sel.users.find(u => !knownUsers(sys).has(u));
+  let r = null;
+  if (asked.status === 'list') r = result(KILLALL_LIST);
+  else if (asked.status === 'invalid') r = result('', `${asked.spec}: unknown signal; killall -l lists signals.`, 1);
+  else if (sel.unknown && isReal('killall', sel.unknown)) r = notSimulated('killall', sel.unknown, 1);
+  else if (asked.status !== 'send' || sel.missing || sel.unknown || sel.error) r = result('', KILLALL_USAGE, 1);
+  else if (unknownUser) r = result('', `Cannot find user ${unknownUser}`, 1);
+  return r;
+}
+
+function signalAll(sys, procs, sig, block, denied) {
   const errs = [];
   const notes = [];
-  let matched = 0;
-  for (const pat of patterns) {
-    const hits = sys.procs.filter(p => (exact ? shortCmd(p.cmd) === pat : shortCmd(p.cmd).includes(pat)));
-    matched += hits.length;
-    if (!hits.length && exact) errs.push(`${pat}: no process found`);
-    for (const p of hits) {
-      const sent = deliver(sys, p, sig, block);
-      if (sent.denied) errs.push(exact ? `${name}: ${shortCmd(p.cmd)}(${p.pid}): Operation not permitted` : `${name}: killing pid ${p.pid} failed: Operation not permitted`);
-      if (sent.note) notes.push(sent.note);
-    }
+  for (const p of procs) {
+    const sent = deliver(sys, p, sig, block);
+    if (sent.denied) errs.push(denied(p));
+    if (sent.note) notes.push(sent.note);
   }
-  return withNote(result('', errs.join('\n'), matched ? 0 : 1), notes[0] ?? null);
+  return { errs, note: notes[0] ?? null };
+}
+
+function pkill(args, { sys, block }) {
+  const asked = requestedSignal('pkill', args);
+  const sel = readSelection('pkill', args);
+  const failed = asked.status === 'send' ? procpsFailure('pkill', sel, sys) : result('', PKILL_SIGNAL_ERRORS[asked.status](asked.spec), 2);
+  if (failed) return failed;
+  const hits = sys.procs.filter(p => selectedBy(sel, p));
+  const sent = signalAll(sys, hits, asked.signal, block, p => `pkill: killing pid ${p.pid} failed: Operation not permitted`);
+  return withNote(result('', sent.errs.join('\n'), hits.length ? 0 : 1), sent.note);
+}
+
+function killall(args, { sys, block }) {
+  const asked = requestedSignal('killall', args);
+  const sel = readSelection('killall', args);
+  const failed = killallFailure(asked, sel, sys);
+  if (failed) return failed;
+  const groups = sel.patterns.length ? sel.patterns.map(name => ({ name, sel: { ...sel, patterns: [name] } })) : [{ name: null, sel }];
+  const errs = [];
+  let note = null;
+  let missed = false;
+  for (const group of groups) {
+    const hits = sys.procs.filter(p => selectedBy(group.sel, p));
+    if (!hits.length && group.name) errs.push(`${group.name}: no process found`);
+    missed ||= !hits.length;
+    const sent = signalAll(sys, hits, asked.signal, block, p => `killall: ${processName(p.cmd)}(${p.pid}): Operation not permitted`);
+    errs.push(...sent.errs);
+    note ??= sent.note;
+  }
+  return withNote(result('', errs.join('\n'), missed ? 1 : 0), note);
 }
 
 function pgrep(args, { sys }) {
-  const pat = args.filter(x => !x.startsWith('-'))[0];
-  if (!pat) return result('', 'pgrep: no matching criteria specified', 2);
-  const hits = sys.procs.filter(p => shortCmd(p.cmd).includes(pat));
+  const sel = readSelection('pgrep', args);
+  const failed = procpsFailure('pgrep', sel, sys);
+  if (failed) return failed;
+  const hits = sys.procs.filter(p => selectedBy(sel, p)).sort((a, b) => a.pid - b.pid);
   return result(hits.map(p => `${p.pid}\n`).join(''), '', hits.length ? 0 : 1);
 }
 
@@ -248,7 +333,7 @@ function top(_args, { sys }) {
     `%Cpu(s): ${cpu.toFixed(1).padStart(4)} us,  0.2 sy,  0.0 ni, ${(99.8 - cpu).toFixed(1).padStart(4)} id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st`,
     '',
     '    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND',
-    ...list.map(x => `${String(x.pid).padStart(7)} ${x.user.padEnd(8)}  20   0 ${String(Math.round(8000 + x.mem * 160000)).padStart(7)} ${String(Math.round(1200 + x.mem * 40000)).padStart(6)}   2048 ${x.stat[0]} ${x.cpu.toFixed(1).padStart(5)} ${x.mem.toFixed(1).padStart(5)} ${x.time.padStart(9)} ${shortCmd(x.cmd)}`),
+    ...list.map(x => `${String(x.pid).padStart(7)} ${x.user.padEnd(8)}  20   0 ${String(Math.round(8000 + x.mem * 160000)).padStart(7)} ${String(Math.round(1200 + x.mem * 40000)).padStart(6)}   2048 ${x.stat[0]} ${x.cpu.toFixed(1).padStart(5)} ${x.mem.toFixed(1).padStart(5)} ${x.time.padStart(9)} ${processName(x.cmd)}`),
   ];
   return withNote(result(`${rows.join('\n')}\n`), 'Real top refreshes every few seconds until you press q. The game shows one snapshot.');
 }
@@ -256,8 +341,8 @@ function top(_args, { sys }) {
 export default {
   ps,
   kill,
-  pkill: (args, ctx) => killByName('pkill', args, ctx, false),
-  killall: (args, ctx) => killByName('killall', args, ctx, true),
+  pkill,
+  killall,
   pgrep,
   top,
   htop: (args, ctx) => withNote(top(args, ctx), 'htop is a friendlier top, often installed separately (sudo apt install htop). Here is a top snapshot instead.'),

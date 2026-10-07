@@ -114,3 +114,15 @@ test('a path through a file or a locked directory gives the matching error', asy
   assert.equal((await run(b, 'touch readme.txt/x')).err, "touch: cannot touch 'readme.txt/x': Not a directory\n");
   assert.equal((await run(b, 'cat /root/secret.txt')).err, 'cat: /root/secret.txt: Permission denied\n');
 });
+
+test('cat options beyond -n, and touch -c, rm -d and mkdir -m, get a note', async () => {
+  const b = await shell();
+  for (const [line, option] of [['cat -A readme.txt', '-A'], ['cat -E readme.txt', '-E'], ['cat -T readme.txt', '-T'], ['cat -v readme.txt', '-v'], ['cat --show-ends readme.txt', '--show-ends']]) {
+    const r = await run(b, line);
+    assert.deepEqual([r.out, r.status, r.note], ['', 1, `cat ${option} is a real option, but this game does not simulate it.`], line);
+  }
+  assert.equal((await run(b, 'touch -c nofile')).note, 'touch -c is a real option, but this game does not simulate it.');
+  assert.equal((await run(b, 'ls nofile')).status, 2);
+  assert.equal((await run(b, 'rm -d forest')).note, 'rm -d is a real option, but this game does not simulate it.');
+  assert.equal((await run(b, 'mkdir -m 700 d')).note, 'mkdir -m is a real option, but this game does not simulate it.');
+});

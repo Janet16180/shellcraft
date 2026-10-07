@@ -4,7 +4,7 @@
 
 import { compareNames } from '../../backend/tree.js';
 import { can } from '../perms.js';
-import { parseOptions } from '../options.js';
+import { parseOptions, optionFailure } from '../options.js';
 import { result, withNote } from '../result.js';
 import { esc, span } from '../html.js';
 import { setVar, varValue } from '../vars.js';
@@ -94,7 +94,8 @@ function treeSummary({ dirs, files }, dirsOnly) {
 
 function tree(args, { sys }) {
   const o = parseOptions('tree', args, 'ad', 'L');
-  if (o.err) return result('', o.err, 1);
+  const failed = optionFailure('tree', o, 1);
+  if (failed) return failed;
   const top = o.rest[0] || '.';
   const r = resolve(sys, top);
   const opened = !r.error && r.node.type === 'dir' && can(sys, r.node, 'r') && can(sys, r.node, 'x');

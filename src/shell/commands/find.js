@@ -13,11 +13,58 @@ import { compareNames } from '../../backend/tree.js';
 import { can } from '../perms.js';
 import { compileGlob } from '../glob.js';
 import { localeQuote } from '../quote.js';
-import { result } from '../result.js';
+import { result, withNote } from '../result.js';
 import { nameTable } from '../table.js';
+import { knownUsers } from '../system.js';
+import { versionText } from '../versions.js';
 
 const UNITS = { c: 1, w: 2, b: 512, k: 1024, M: 1024 ** 2, G: 1024 ** 3 };
-const SYSTEM_USERS = ['root', 'daemon', 'bin', 'sys', 'nobody'];
+const FIND_HELP = `Usage: find [-H] [-L] [-P] [-Olevel] [-D debugopts] [path...] [expression]
+
+Default path is the current directory; default expression is -print.
+Expression may consist of: operators, options, tests, and actions.
+
+Operators (decreasing precedence; -and is implicit where no others are given):
+      ( EXPR )   ! EXPR   -not EXPR   EXPR1 -a EXPR2   EXPR1 -and EXPR2
+      EXPR1 -o EXPR2   EXPR1 -or EXPR2   EXPR1 , EXPR2
+
+Positional options (always true):
+      -daystart -follow -nowarn -regextype -warn
+
+Normal options (always true, specified before other expressions):
+      -depth -files0-from FILE -maxdepth LEVELS -mindepth LEVELS
+       -mount -noleaf -xdev -ignore_readdir_race -noignore_readdir_race
+
+Tests (N can be +N or -N or N):
+      -amin N -anewer FILE -atime N -cmin N -cnewer FILE -context CONTEXT
+      -ctime N -empty -false -fstype TYPE -gid N -group NAME -ilname PATTERN
+      -iname PATTERN -inum N -iwholename PATTERN -iregex PATTERN
+      -links N -lname PATTERN -mmin N -mtime N -name PATTERN -newer FILE
+      -nouser -nogroup -path PATTERN -perm [-/]MODE -regex PATTERN
+      -readable -writable -executable
+      -wholename PATTERN -size N[bcwkMG] -true -type [bcdpflsD] -uid N
+      -used N -user NAME -xtype [bcdpfls]
+
+Actions:
+      -delete -print0 -printf FORMAT -fprintf FILE FORMAT -print 
+      -fprint0 FILE -fprint FILE -ls -fls FILE -prune -quit
+      -exec COMMAND ; -exec COMMAND {} + -ok COMMAND ;
+      -execdir COMMAND ; -execdir COMMAND {} + -okdir COMMAND ;
+
+Other common options:
+      --help                   display this help and exit
+      --version                output version information and exit
+
+Valid arguments for -D:
+exec, opt, rates, search, stat, time, tree, all, help
+Use '-D help' for a description of the options, or see find(1)
+
+Please see also the documentation at https://www.gnu.org/software/findutils/.
+You can report (and track progress on fixing) bugs in the "find"
+program via the GNU findutils bug-reporting page at
+https://savannah.gnu.org/bugs/?group=findutils or, if
+you have no web access, by sending email to <bug-findutils@gnu.org>.`;
+const INFO = new Map([['-help', 'help'], ['--help', 'help'], ['-version', 'version'], ['--version', 'version']]);
 const WITH_VALUE = new Set(['-name', '-iname', '-type', '-size', '-user', '-group', '-perm', '-maxdepth', '-mindepth']);
 
 function compare(spec, value) {
@@ -79,50 +126,77 @@ function primary(t, tokens, i, ctx) {
   return { ...p, used };
 }
 
+const MAX_GROUPS = 256;
+const endsAnd = t => t === undefined || t === '-o' || t === '-or' || t === ')';
+const done = st => st.error !== null || st.info !== null || st.tooDeep;
+
+function fail(st, message) {
+  if (!st.tooDeep) st.error ??= message;
+  return () => false;
+}
+
+function group(st) {
+  st.groups++;
+  if (st.groups > MAX_GROUPS) st.tooDeep = true;
+  const inner = st.tooDeep ? () => false : or(st);
+  st.groups--;
+  const closed = st.tokens[st.i] === ')';
+  if (closed) st.i++;
+  return closed || done(st) ? inner : fail(st, "find: invalid expression; I was expecting to find a ')' somewhere but did not see one.");
+}
+
+// Like GNU find, -help and -version act as soon as the parser reaches them.
+function operand(st) {
+  const t = st.tokens[st.i++];
+  let test;
+  if (t === '(') test = group(st);
+  else if (INFO.has(t)) {
+    st.info = INFO.get(t);
+    test = () => false;
+  } else {
+    const p = primary(t, st.tokens, st.i, st.ctx);
+    st.i += p.used;
+    st.prints ||= Boolean(p.prints);
+    test = p.error ? fail(st, p.error) : p.test;
+  }
+  return test;
+}
+
+function unary(st) {
+  let negated = false;
+  while (st.tokens[st.i] === '!' || st.tokens[st.i] === '-not') {
+    negated = !negated;
+    st.i++;
+  }
+  const test = operand(st);
+  return negated ? e => !test(e) : test;
+}
+
+// Chains of -a and -o are kept as flat lists, so a long chain evaluates
+// without one call nested inside another for each operator.
+function and(st) {
+  const tests = [unary(st)];
+  while (!endsAnd(st.tokens[st.i]) && !done(st)) {
+    if (st.tokens[st.i] === '-a' || st.tokens[st.i] === '-and') st.i++;
+    tests.push(unary(st));
+  }
+  return tests.length === 1 ? tests[0] : e => tests.every(test => test(e));
+}
+
+function or(st) {
+  const tests = [and(st)];
+  while ((st.tokens[st.i] === '-o' || st.tokens[st.i] === '-or') && !done(st)) {
+    st.i++;
+    tests.push(and(st));
+  }
+  return tests.length === 1 ? tests[0] : e => tests.some(test => test(e));
+}
+
 function parseExpression(tokens, ctx) {
-  let i = 0;
-  let error = null;
-  let prints = false;
-  const fail = message => {
-    error ??= message;
-    return () => false;
-  };
-  const group = () => {
-    const inner = or();
-    return tokens[i++] === ')' ? inner : fail("find: invalid expression; I was expecting to find a ')' somewhere but did not see one.");
-  };
-  const unary = () => {
-    const t = tokens[i++];
-    if (t === '!' || t === '-not') { const inner = unary(); return e => !inner(e); }
-    if (t === '(') return group();
-    const p = primary(t, tokens, i, ctx);
-    i += p.used;
-    prints ||= Boolean(p.prints);
-    return p.error ? fail(p.error) : p.test;
-  };
-  const and = () => {
-    let left = unary();
-    while (i < tokens.length && tokens[i] !== '-o' && tokens[i] !== '-or' && tokens[i] !== ')' && !error) {
-      if (tokens[i] === '-a' || tokens[i] === '-and') i++;
-      const l = left;
-      const r = unary();
-      left = e => l(e) && r(e);
-    }
-    return left;
-  };
-  const or = () => {
-    let left = and();
-    while ((tokens[i] === '-o' || tokens[i] === '-or') && !error) {
-      i++;
-      const l = left;
-      const r = and();
-      left = e => l(e) || r(e);
-    }
-    return left;
-  };
-  const test = tokens.length ? or() : () => true;
-  if (!error && i < tokens.length) error = `find: unknown predicate \`${tokens[i]}'`;
-  return { test, prints, error };
+  const st = { tokens, ctx, i: 0, error: null, info: null, tooDeep: false, prints: false, groups: 0 };
+  const test = tokens.length ? or(st) : () => true;
+  if (!done(st) && st.i < tokens.length) st.error = `find: unknown predicate \`${tokens[st.i]}'`;
+  return { test, prints: st.prints, error: st.error, info: st.info, tooDeep: st.tooDeep };
 }
 
 function visit(sys, entry, depth, ctx) {
@@ -139,10 +213,12 @@ function find(args, { sys }) {
   let k = 0;
   while (k < args.length && !args[k].startsWith('-') && args[k] !== '!' && args[k] !== '(') k++;
   const starts = k ? args.slice(0, k) : ['.'];
-  const users = new Set([...SYSTEM_USERS, sys.user]);
+  const users = knownUsers(sys);
   const ctx = { out: [], errs: [], maxDepth: Infinity, minDepth: 0, users };
   const parsed = parseExpression(args.slice(k), ctx);
+  if (parsed.tooDeep) return withNote(result('', '', 1), `Real find accepts deeper nesting, but the game stops at ${MAX_GROUPS} levels of parentheses.`);
   if (parsed.error) return result('', parsed.error, 1);
+  if (parsed.info) return result(parsed.info === 'help' ? `${FIND_HELP}\n` : versionText('find'));
   Object.assign(ctx, { test: parsed.test, prints: parsed.prints });
   for (const start of starts) {
     const r = resolve(sys, start);

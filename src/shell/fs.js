@@ -5,13 +5,43 @@
  * (a directory) or `content` (a file). Paths are absolute strings; every
  * function here works on a root node and plain paths, never on shell state.
  *
- * Invariant: a directory's `children` object has no prototype, so any name the
- * player types, even `constructor` or `__proto__`, is an ordinary entry.
+ * Invariants: a directory's `children` object has no prototype, so any name
+ * the player types, even `constructor` or `__proto__`, is an ordinary entry;
+ * and no node lies more than MAX_TREE_DEPTH levels below the root, so every
+ * walk over the tree, here and in the layers that read snapshots, stays
+ * shallow. Linux itself has no such limit.
  */
 
 import { nameTable } from './table.js';
+import { parentOf, baseName } from '../backend/tree.js';
 
 const DIR_SIZE = 4096;
+
+/** How many levels below the root the simulated tree may grow. */
+export const MAX_TREE_DEPTH = 256;
+
+/**
+ * @param {string} abs Absolute path.
+ * @returns {number} How many levels below the root it is (0 for '/').
+ */
+export const depthOf = abs => abs.split('/').filter(Boolean).length;
+
+/**
+ * Count the levels of a subtree, the node itself included, without recursion.
+ *
+ * @param {{type: string, children?: Record<string, object>}} node A filesystem node or a spec node.
+ * @returns {number} 1 for a file or an empty directory, more for a deeper tree.
+ */
+export function heightOf(node) {
+  let height = 0;
+  const stack = [[node, 1]];
+  while (stack.length) {
+    const [current, level] = stack.pop();
+    height = Math.max(height, level);
+    if (current.type === 'dir') for (const child of Object.values(current.children)) stack.push([child, level + 1]);
+  }
+  return height;
+}
 
 /**
  * Resolve a path against a working directory, removing `.`, `..` and repeated slashes.
@@ -44,28 +74,6 @@ export function lookup(root, abs) {
   }
   return node;
 }
-
-/**
- * @param {string} abs Absolute path.
- * @returns {string} Its parent directory ('/' for top-level entries and for '/').
- */
-export const parentOf = abs => {
-  const i = abs.lastIndexOf('/');
-  return i <= 0 ? '/' : abs.slice(0, i);
-};
-
-/**
- * @param {string} abs Absolute path.
- * @returns {string} The last component ('' for '/').
- */
-export const baseName = abs => abs.slice(abs.lastIndexOf('/') + 1);
-
-/**
- * @param {string} parent Absolute directory path.
- * @param {string} name Entry name.
- * @returns {string} The absolute path of the entry.
- */
-export const joinPath = (parent, name) => (parent === '/' ? `/${name}` : `${parent}/${name}`);
 
 /**
  * Join a path as the user typed it with an entry name, for display.

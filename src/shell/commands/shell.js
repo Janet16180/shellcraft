@@ -3,16 +3,25 @@
  * export, env, printenv, sudo, editors, exit, bash, help.
  */
 
-import { lookup, normalize, joinPath } from '../fs.js';
+import { lookup, normalize } from '../fs.js';
+import { joinPath } from '../../backend/tree.js';
 import { BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from '../builtins.js';
 import { can } from '../perms.js';
-import { manText, hasManPage, manEntries } from '../man.js';
-import { compilePosix } from '../regex.js';
+import { manText, hasManPage, manEntries, shortHelpNote } from '../man.js';
+import { versionText } from '../versions.js';
+import { compilePosix } from '../../backend/regex.js';
 import { result, withNote } from '../result.js';
 import { varValue, setVar, exportedVars } from '../vars.js';
 import { compareNames } from '../../backend/tree.js';
-import { parseOptions } from '../options.js';
+import { parseOptions, optionFailure } from '../options.js';
 import { nameTable } from '../table.js';
+
+function programsInPath(sys, name) {
+  return varValue(sys, 'PATH').split(':').filter(Boolean).map(d => joinPath(d, name)).filter(p => {
+    const node = lookup(sys.root, p);
+    return node && node.type === 'file' && can(sys, node, 'x');
+  });
+}
 
 /**
  * Find a command's program the way PATH lookup does.
@@ -21,13 +30,7 @@ import { nameTable } from '../table.js';
  * @param {string} name A command name.
  * @returns {string|null} The absolute path of the first executable file found, or null.
  */
-export function findInPath(sys, name) {
-  const hit = varValue(sys, 'PATH').split(':').filter(Boolean).map(d => joinPath(d, name)).find(p => {
-    const node = lookup(sys.root, p);
-    return node && node.type === 'file' && can(sys, node, 'x');
-  });
-  return hit ?? null;
-}
+export const findInPath = (sys, name) => programsInPath(sys, name)[0] ?? null;
 
 const SECTION = /^[1-9]$/;
 const SMALL_MANUAL = "This game's manual holds only the pages of the commands it simulates, so a real search finds many more.";
@@ -60,7 +63,7 @@ function searchCommand(mode) {
   return (args, ctx) => {
     const o = parseOptions(name, args, '');
     const error = o.err && `${o.err.split('\n')[0]}\nTry '${name} --help' or '${name} --usage' for more information.`;
-    return error ? result('', error, 1) : searchPages(mode, o.rest, ctx);
+    return optionFailure(name, { err: error, unsimulated: o.unsimulated }, 1) ?? searchPages(mode, o.rest, ctx);
   };
 }
 
@@ -78,20 +81,58 @@ function missingPage(section) {
   return result('', `${ask}\nFor example, try 'man man'.`, 1);
 }
 
+// man-db's short options. getopt reads a cluster like -help letter by letter,
+// so its first letter decides: -h is help, -v is no option at all.
+const MAN_LETTERS = 'CdDfkKlwWcRLmMSseiIauPr7EptTHXZ?Vh';
+
+function manOption(word) {
+  const letter = word[1];
+  let r = null;
+  if (letter === 'h' || letter === '?') r = withNote(result(manText('man', true)), shortHelpNote('man'));
+  else if (letter === 'V') r = result(versionText('man'));
+  else if (!MAN_LETTERS.includes(letter)) r = result('', `man: invalid option -- '${letter}'\nTry 'man --help' or 'man --usage' for more information.`, 1);
+  return r;
+}
+
 function man(args, ctx) {
   const mode = Object.hasOwn(SEARCHERS, args[0]) ? args[0] : null;
   const section = !mode && SECTION.test(args[0] ?? '') ? args[0] : null;
   const pages = args.slice(mode || section ? 1 : 0);
+  const option = !mode && /^-[^-]/.test(args[0] ?? '') ? manOption(args[0]) : null;
   let r;
-  if (mode) r = searchPages(mode, pages, ctx);
+  if (option) r = option;
+  else if (mode) r = searchPages(mode, pages, ctx);
   else if (!pages.length) r = missingPage(section);
   else r = manPage(pages[0], section);
   return r;
 }
 
+const WHICH_USAGE = 'Usage: /usr/bin/which [-as] args';
+
+// debianutils which is a script around getopts "as": options end at the first
+// operand or at --, and any other letter, the dash of --help included, is illegal.
+function whichOptions(args) {
+  const opts = { all: false, silent: false, illegal: null, operands: args };
+  let i = 0;
+  while (i < args.length && /^-./.test(args[i]) && args[i] !== '--' && opts.illegal === null) {
+    for (const letter of args[i].slice(1)) {
+      if (letter === 'a') opts.all = true;
+      else if (letter === 's') opts.silent = true;
+      else opts.illegal ??= letter;
+    }
+    i++;
+  }
+  opts.operands = args.slice(args[i] === '--' ? i + 1 : i);
+  return opts;
+}
+
 function which(args, { sys }) {
-  const hits = args.map(x => findInPath(sys, x)).filter(Boolean);
-  return result(hits.map(h => `${h}\n`).join(''), '', hits.length === args.length && args.length ? 0 : 1);
+  const opts = whichOptions(args);
+  const found = opts.operands.map(name => (opts.all ? programsInPath(sys, name) : programsInPath(sys, name).slice(0, 1)));
+  const shown = opts.silent ? [] : found.flat();
+  let r = result(shown.map(h => `${h}\n`).join(''), '', opts.operands.length && found.every(hits => hits.length) ? 0 : 1);
+  if (opts.illegal) r = result(`${WHICH_USAGE}\n`, `Illegal option -${opts.illegal}`, 2);
+  return r;
 }
 
 function type(args, { sys }) {

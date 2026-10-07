@@ -101,16 +101,24 @@ async function runCase(c, index) {
   return { case: c, lines, crossed: crossedMinute(real) };
 }
 
+// After a failure no new case starts, and the ones already running finish
+// and remove their containers and directories before the error is raised.
 async function pool(items, jobs, fn) {
   const results = new Array(items.length);
   let next = 0;
+  let failure = null;
   const worker = async () => {
-    while (next < items.length) {
+    while (next < items.length && !failure) {
       const i = next++;
-      results[i] = await fn(items[i], i);
+      try {
+        results[i] = await fn(items[i], i);
+      } catch (error) {
+        failure ??= error;
+      }
     }
   };
   await Promise.all(Array.from({ length: Math.min(jobs, items.length) }, worker));
+  if (failure) throw failure;
   return results;
 }
 

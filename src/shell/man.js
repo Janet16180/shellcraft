@@ -40,6 +40,28 @@ const PAGES = {
   uname: ['print system information', 'uname [OPTION]...', 'Print certain system information. With no option, same as -s.', [['-a', 'print all information'], ['-r', 'print the kernel release']]],
 };
 
+// The usage that the real --help starts with, where it differs from the SYNOPSIS.
+const USAGES = {
+  cp: 'Usage: cp [OPTION]... [-T] SOURCE DEST',
+  mv: 'Usage: mv [OPTION]... [-T] SOURCE DEST',
+  chmod: 'Usage: chmod [OPTION]... MODE[,MODE]... FILE...',
+  date: 'Usage: date [OPTION]... [+FORMAT]',
+  ps: '\nUsage:\n ps [options]',
+  pkill: '\nUsage:\n pkill [options] <pattern>',
+  top: '\nUsage:\n top [options]',
+  man: 'Usage: man [OPTION...] [SECTION] PAGE...',
+  apropos: 'Usage: apropos [OPTION...] KEYWORD...',
+  whatis: 'Usage: whatis [OPTION...] KEYWORD...',
+  which: 'Usage: /usr/bin/which [-as] args',
+  tree: 'usage: tree [-acdfghilnpqrstuvxACDFJQNSUX] [-L level [-R]] [-H  baseHREF]\n\t[-T title] [-o filename] [-P pattern] [-I pattern] [--gitignore]\n\t[--gitfile[=]file] [--matchdirs] [--metafirst] [--ignore-case]\n\t[--nolinks] [--hintro[=]file] [--houtro[=]file] [--inodes] [--device]\n\t[--sort[=]<name>] [--dirsfirst] [--filesfirst] [--filelimit #] [--si]\n\t[--du] [--prune] [--charset[=]X] [--timefmt[=]format] [--fromfile]\n\t[--fromtabfile] [--fflinks] [--info] [--infofile[=]file] [--noreport]\n\t[--version] [--help] [--] [directory ...]',
+};
+
+/**
+ * @param {string} name A command with a page.
+ * @returns {string} The note shown with its short `--help`.
+ */
+export const shortHelpNote = name => `Real ${name} --help prints a longer list of options.`;
+
 /**
  * @param {string} name A command name.
  * @returns {boolean} Whether the simulator has a page for it.
@@ -64,7 +86,8 @@ export function manText(name, short) {
   const [desc, synopsis, body, opts] = PAGES[name];
   let text;
   if (short) {
-    text = `Usage: ${synopsis}\n${body}\n${opts.map(([f, t]) => `  ${f.padEnd(14)} ${t}\n`).join('')}`;
+    const usage = Object.hasOwn(USAGES, name) ? USAGES[name] : `Usage: ${synopsis}`;
+    text = `${usage}\n${body}\n${opts.map(([f, t]) => `  ${f.padEnd(14)} ${t}\n`).join('')}`;
   } else {
     text = `${name.toUpperCase()}(1)                User Commands\n\nNAME\n       ${name} - ${desc}\n\nSYNOPSIS\n       ${synopsis}\n\nDESCRIPTION\n       ${body}\n`;
     if (opts.length) text += `\nOPTIONS\n${opts.map(([f, t]) => `       ${f}\n              ${t}\n`).join('')}`;
