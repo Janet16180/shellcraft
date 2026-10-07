@@ -125,6 +125,12 @@ that `near` note first, else a generic note from `src/game/coach.js`.
 8. In task goals, hints 1 and 2, spell notes and recap/field meanings, wrap every name the player
    might type in backticks (`` `cd ..` ``). The page renders them in the mono font; the terminal strips
    them, because in bash backticks run a command. Level-3 hints and `solve` lines never use backticks.
+9. **Missions are simple; the player recalls the command.** The player is learning, so a task
+   gives plenty of clues: its goal names the target (a path, a file, a place), like "Jump to the
+   river with an absolute path `~/forest/river`", but not the command to type. Knowing that `cd`
+   plus that path does it is the player's part. A goal names a command or syntax only when it is
+   the new thing being taught (`..`, `cd -`, `clear`). The full command line waits for hint 3.
+   This matters most in chapter 1, where everything is new (the user, 2026-10-07).
 
 ## 4. Chapter tests (`test/game/chapters/<id>.test.js`)
 

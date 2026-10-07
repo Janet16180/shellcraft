@@ -37,7 +37,7 @@ Vertical words in chapters 1 and 2 were checked against this bridge. "Up" appear
 | Hint: the shell remembers the previous directory; a dash after cd goes back | `bash(1)` cd: OLDPWD |
 | Hint: cd with nothing after it takes you home | `bash(1)` cd |
 | Hints: Tab finishes a name from its first letters when only one name matches; type cd fo, press Tab, then Enter | R3 (unique match completed), R5 (two matches: bell, then a list) |
-| `cd ~/forest/river` counts as an absolute path (2026-10-07: the river task's goal now shows this command, its tip says `~` is `/home/hero`) | bash expands `~` before cd runs (Tilde Expansion), so cd receives `/home/hero/forest/river`; the CommandRecord shows the same |
+| `cd ~/forest/river` counts as an absolute path (2026-10-07: the river task's goal now shows this path, its tip says `~` is `/home/hero`) | bash expands `~` before cd runs (Tilde Expansion), so cd receives `/home/hero/forest/river`; the CommandRecord shows the same |
 | `cd -` counts whenever it succeeds, even when the previous directory was the same room (it still did its job: teaching review 2a dead end) | `bash(1)` cd: `-` is converted to $OLDPWD; SIM test with `cd .` then `cd -` |
 | "Shortest command" home is `cd` alone; `cd ~` and `cd /home/hero` do not pass that task | by design; the lesson says `cd ~` also goes home, the goal asks for the shortest |
 | Checks: each task has a near-miss that does not pass and a line that does | SIM: 16 near-miss tests (e.g. `cd ../river` is relative; `cd ../cave` from the river is not from deep; `cd forest` typed in full uses no Tab; Tab while already in the forest is not walking in). Each check also survived mutation testing: removing any one condition makes a test fail |
@@ -61,7 +61,7 @@ Vertical words in chapters 1 and 2 were checked against this bridge. "Up" appear
 | Deep and river: `cd forest/cave/deep` typed inside the forest, and `cd /forest/...`, are left to the generic coach (`src/game/coach.js`), which says "You are already in forest ... From here the path is cave/deep" and "A path that starts with / starts at the root, not at your home". The tests check that the coach answers these lines |
 | Factcheck 2026-10-06 on the coach's repeated-cwd note: `cd forest/` typed inside the forest prints "From here the path is ." (an empty path read as a dot); it should stop after "You are already in forest (the prompt shows ~/forest)." (sent to engine for `coach.js`) | real bash: `cd forest/` in `~/forest` fails with `No such file or directory`; the path from the forest to itself is empty, so there is nothing to suggest |
 | `..`: "You reached the cave, but without .. this time. Go back into deep and type cd .. to step back out." | game text; `..` is the parent (`path_resolution(7)`) |
-| River: "You reached the river with a relative path. This task wants an absolute one, starting with ~ or /: cd ~/forest/river." | `path_resolution(7)` Step 1; `~` counts, see the line on tilde expansion above |
+| River: "You reached the river with a relative path. This task wants an absolute one, starting with ~ or /, like ~/forest/river." | `path_resolution(7)` Step 1; `~` counts, see the line on tilde expansion above |
 | Home: "That works, but there is a shorter way home: cd on its own." | `bash(1)` cd: with no dir, HOME is the default |
 | Tab: "You typed the whole name. Try cd fo and press Tab." | R3 |
 
