@@ -10,7 +10,7 @@ import { tokenize } from './lexer.js';
 import { parse } from './parse.js';
 import { expandWords, expandTarget, expandAssignment } from './expand.js';
 import { openRedirects, writeTo } from './redirect.js';
-import { resolve, errorText } from './paths.js';
+import { resolve, errorText, pathFiles } from './paths.js';
 import { can } from './perms.js';
 import { result, withNote } from './result.js';
 import { manText, hasManPage, shortHelpNote } from './man.js';
@@ -98,6 +98,13 @@ function runFile(sh, name, args, ctx) {
   return res;
 }
 
+// Like bash: the first executable file in PATH, else the first file at all,
+// which then fails with Permission denied.
+function searchPath(sys, name) {
+  const files = pathFiles(sys, name);
+  return (files.find(f => can(sys, f.node, 'x')) ?? files[0])?.path ?? null;
+}
+
 function commandNotFound(name) {
   const hint = UNSIMULATED.has(name) ? `${name} is a real command on Ubuntu, but this game does not simulate it.` : null;
   return withNote(result('', `bash: ${name}: command not found`, 127), hint);
@@ -126,14 +133,19 @@ function dispatch(sh, argv, streams, overlay) {
     runScript: (node, scriptName) => runScriptText(sh, node.content, scriptName),
   };
   const standard = name.includes('/') ? null : standardOption(name, args);
+  const found = name.includes('/') || sh.commands[name] || BASH_BUILTINS.has(name) ? null : searchPath(sys, name);
   let r;
   if (name.includes('/')) r = runFile(sh, name, args, ctx);
   else if (args[0] === '--help' && name in BUILTIN_HELP) r = withNote(result(builtinHelp(name), '', 2), helpNote(name));
   else if (standard) r = standard;
   else if (!sh.commands[name] && BASH_BUILTINS.has(name)) r = unsimulatedBuiltin(name);
-  else if (!sh.commands[name]) r = commandNotFound(name);
+  else if (found) {
+    sys.hashed.set(name, found);
+    r = runFile(sh, found, args, ctx);
+  } else if (!sh.commands[name]) r = commandNotFound(name);
   else {
-    if (!BUILTINS.has(name)) sys.hashed.add(name);
+    const program = BUILTINS.has(name) ? null : searchPath(sys, name);
+    if (program) sys.hashed.set(name, program);
     r = sh.commands[name](args, ctx);
   }
   return r;

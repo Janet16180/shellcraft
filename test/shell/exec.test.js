@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run, runAll } from './helpers.js';
-import { put, file } from '../../src/backend/spec.js';
+import { put, dir, file } from '../../src/backend/spec.js';
 
 test('&& runs the next pipeline only after success, || only after failure', async () => {
   const b = await shell();
@@ -193,4 +193,27 @@ test('a command substitution writes its errors to the terminal and sets $? for a
   assert.equal((await run(b, 'x=$(true); echo $?')).out, '0\n');
   assert.equal((await run(b, '$(false); echo $?')).out, '1\n');
   assert.equal((await run(b, 'echo $(false); echo $?')).out, '\n0\n');
+});
+
+const localBin = (mode, content = '#!/bin/bash\necho hi\n') => [
+  put('/usr/local', dir({ bin: dir({ glimmer: file(content, { mode }) }) })),
+];
+
+test('a script in a PATH directory runs by its name, like ./script', async () => {
+  const b = await shell(localBin(0o755));
+  assert.equal((await run(b, 'which glimmer')).out, '/usr/local/bin/glimmer\n');
+  const r = await run(b, 'glimmer');
+  assert.deepEqual([r.out, r.err, r.status], ['hi\n', '', 0]);
+  assert.equal(r.result.commands[0].name, 'glimmer');
+  assert.equal((await run(b, 'type glimmer')).out, 'glimmer is hashed (/usr/local/bin/glimmer)\n');
+});
+
+test('a script in PATH without the execute bit is found but refused with 126', async () => {
+  const r = await run(await shell(localBin(0o644)), 'glimmer');
+  assert.deepEqual([r.out, r.err, r.status], ['', 'bash: /usr/local/bin/glimmer: Permission denied\n', 126]);
+});
+
+test('errors inside a script found in PATH name its full path', async () => {
+  const r = await run(await shell(localBin(0o755, 'nosuch\n')), 'glimmer');
+  assert.equal(r.err, '/usr/local/bin/glimmer: line 1: nosuch: command not found\n');
 });

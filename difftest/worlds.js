@@ -50,9 +50,15 @@ const names = () => put('/home/hero/names', dir({
   "it's": file('', mine), 'a$b': file('', mine), 'tab\tx': file('', mine),
 }, mine));
 
+const localBin = () => put('/usr/local', dir({ bin: dir({
+  glimmer: file('#!/bin/bash\necho "glimmer runs"\nnosuch\n', { mode: 0o755 }),
+  dim: file('#!/bin/bash\necho dim\n'),
+}) }));
+
 /** @type {Record<string, () => object[]>} */
 export const WORLDS = {
   home: () => [home(), ...system()],
   names: () => [home(), names(), ...system()],
   game: () => baseWorld(PLAYER),
+  scripts: () => [home(), ...system(), localBin()],
 };

@@ -1,0 +1,3 @@
+[
+  { "name": "scripts found through PATH", "world": "scripts", "lines": ["which glimmer", "type glimmer", "glimmer", "echo $?", "type glimmer", "glimmer 2>/dev/null", "dim", "echo $?", "which dim; echo $?", "type dim", "/usr/local/bin/glimmer", "ls /usr/local/bin"] }
+]

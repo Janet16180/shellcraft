@@ -4,9 +4,9 @@
  */
 
 import { lookup, normalize } from '../fs.js';
-import { joinPath } from '../../backend/tree.js';
 import { BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from '../builtins.js';
 import { can } from '../perms.js';
+import { pathFiles } from '../paths.js';
 import { manText, hasManPage, manEntries, shortHelpNote } from '../man.js';
 import { versionText } from '../versions.js';
 import { compilePosix } from '../../backend/regex.js';
@@ -17,10 +17,7 @@ import { parseOptions, optionFailure } from '../options.js';
 import { nameTable } from '../table.js';
 
 function programsInPath(sys, name) {
-  return varValue(sys, 'PATH').split(':').filter(Boolean).map(d => joinPath(d, name)).filter(p => {
-    const node = lookup(sys.root, p);
-    return node && node.type === 'file' && can(sys, node, 'x');
-  });
+  return pathFiles(sys, name).filter(f => can(sys, f.node, 'x')).map(f => f.path);
 }
 
 /**
@@ -142,7 +139,7 @@ function type(args, { sys }) {
     const path = findInPath(sys, x);
     if (sys.aliases[x]) out.push(`${x} is aliased to \`${sys.aliases[x]}'`);
     else if (BASH_BUILTINS.has(x)) out.push(`${x} is a shell builtin`);
-    else if (path && sys.hashed.has(x)) out.push(`${x} is hashed (${path})`);
+    else if (sys.hashed.has(x)) out.push(`${x} is hashed (${sys.hashed.get(x)})`);
     else if (path) out.push(`${x} is ${path}`);
     else errs.push(`bash: type: ${x}: not found`);
   }
