@@ -106,7 +106,11 @@ function renderCrumbs(doc, { cwd, home }) {
     return `<button type="button" data-cd="${esc(path)}">${esc(part)}</button>`;
   });
   const area = `<span class="area">${esc(biomeFor(cwd, home).name)}</span>`;
-  doc.getElementById('crumbs').innerHTML = `<button type="button" data-cd="/" aria-label="the root directory, /">/</button>${buttons.join('/')}${area}`;
+  const crumbs = doc.getElementById('crumbs');
+  crumbs.innerHTML = `<span class="path"><button type="button" data-cd="/" aria-label="the root directory, /">/</button>${buttons.join('/')}</span>${area}`;
+  // A deep path scrolls inside its line; show its end, where the player is.
+  const path = crumbs.querySelector('.path');
+  path.scrollLeft = path.scrollWidth;
 }
 
 function createToastLine(doc) {

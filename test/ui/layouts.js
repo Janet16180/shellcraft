@@ -135,7 +135,7 @@ async function check(browser, base, out, [width, height], layout) {
   problems.push(...problemsOf(`${tag} /usr/bin`, bin, { wide }));
   if (bin.picks < 40) problems.push(`${tag}: /usr/bin shows only ${bin.picks} room buttons`);
   await page.screenshot({ path: join(out, `${name}-usrbin.png`) });
-  problems.push(...await hudProblems(page, tag, width <= 760 || height < 700));
+  problems.push(...await hudProblems(page, tag, width <= 760 || height < 800));
   problems.push(...await restartProblems(page, tag));
   if (wide) {
     await page.reload();

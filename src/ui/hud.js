@@ -51,7 +51,7 @@ export function layoutButton(layout) {
 }
 
 /** The windows where the HUD starts collapsed to one slim bar. */
-export const SMALL_WINDOW = '(max-width: 760px), (max-height: 699px)';
+export const SMALL_WINDOW = '(max-width: 760px), (max-height: 799px)';
 
 /**
  * Whether the HUD shows its buttons: the player's last choice, else open unless the window is small.

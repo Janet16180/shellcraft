@@ -30,8 +30,13 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
     record), so restarting does not farm XP.
   - Collapsible HUD: a "Menu / Hide menu" toggle. Collapsed, the HUD is one slim bar (logo,
     chapter name, XP, hearts; no logo at 480px or less). It starts collapsed on small windows
-    (`SMALL_WINDOW` in `src/ui/hud.js`: 760px wide or less, or under 700px tall) and follows the
+    (`SMALL_WINDOW` in `src/ui/hud.js`: 760px wide or less, or under 800px tall, so 1366x768
+    laptops get it) and follows the
     window until the player toggles it; that choice lasts the visit and is not saved.
+  - More room for the map: the path and room name moved from their own line above the map into
+    the start of the room-button row (a two-line block), and the "In this room" label and the
+    key link became a `?` button at the row's end. Map height at 1366x768: 223px before, 322px
+    after; at 1280x720 195px to 293px.
 
 ## State at the end of 2026-10-06
 

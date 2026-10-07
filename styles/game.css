@@ -396,20 +396,30 @@ kbd {
 }
 
 .crumbs {
+  flex: none;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px;
-  min-height: 26px;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 40%;
+  line-height: 1.25;
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 13.5px;
   color: var(--muted);
 }
 
+.crumbs .path {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
 .crumbs button {
+  flex: none;
   background: none;
   border: 0;
-  padding: 1px 4px;
+  padding: 1px 3px;
   color: var(--term-path);
   font-family: var(--font-mono);
 }
@@ -419,11 +429,14 @@ kbd {
 }
 
 .crumbs .area {
-  margin-left: auto;
+  padding-left: 3px;
   font-family: var(--font-title);
-  font-size: 16px;
+  font-size: 14px;
   color: var(--accent);
   letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stage {
@@ -468,42 +481,30 @@ kbd {
   opacity: 1;
 }
 
-/* The label and the key link on one line, the room's buttons in one row below that scrolls
-   sideways, so a crowded room like /usr/bin never pushes the rest of the page down. */
+/* The room's buttons in one row that scrolls sideways, so a crowded room like /usr/bin never
+   pushes the rest of the page down; the map key's ? button stays at the end of the row. */
 .picks {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 2px 14px;
+  display: flex;
   align-items: center;
+  gap: 12px;
   font-size: 14px;
   color: var(--muted);
 }
 
 .keylink {
-  grid-column: 2;
-  grid-row: 1;
-  border: 0;
-  padding: 2px 0;
-  background: none;
-  font-size: 14px;
-  color: var(--term-path);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.keylink:hover {
-  color: var(--text);
+  flex: none;
+  min-width: 34px;
 }
 
 .picklist {
-  grid-column: 1 / -1;
-  grid-row: 2;
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   gap: 12px;
   overflow-x: auto;
   /* Room for the buttons' frames and focus ring inside the scrolling box. */
   padding: 8px 10px 12px;
-  margin: 0 -10px;
+  margin: 0 0 0 -10px;
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
 }
@@ -1261,6 +1262,21 @@ kbd {
     width: min(100%, 620px);
     align-self: center;
   }
+
+  /* No room beside the buttons: the path and room name get their own line. */
+  .picks {
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+
+  .crumbs {
+    flex: 1 1 100%;
+    max-width: none;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1280,11 +1296,6 @@ kbd {
 
   .app[data-hud="collapsed"] .brand {
     display: none;
-  }
-
-  .crumbs .area {
-    margin-left: 0;
-    width: 100%;
   }
 
   .panel {

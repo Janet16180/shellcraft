@@ -30,12 +30,11 @@
     <div class="side">
       <div class="mapcol">
         <section class="mapwrap" aria-label="Map">
-          <nav class="crumbs" id="crumbs" aria-label="Where you are"></nav>
           <div class="stage window">
             <canvas id="map" width="640" height="400" role="img" aria-label="Map of the directory you are in"></canvas>
             <div class="toast" id="toast" aria-hidden="true"></div>
           </div>
-          <div class="picks"><span id="picksLabel">In this room:</span><div class="picklist" id="picks" role="group" aria-labelledby="picksLabel"></div><button class="keylink" id="keyBtn" type="button" aria-controls="roster">What do these pictures mean?</button></div>
+          <div class="picks"><nav class="crumbs" id="crumbs" aria-label="Where you are"></nav><span class="sr-only" id="picksLabel">In this room:</span><div class="picklist" id="picks" role="group" aria-labelledby="picksLabel"></div><button class="px-btn small ghost keylink" id="keyBtn" type="button" aria-controls="roster" aria-label="What do these pictures mean?" title="What do these pictures mean?">?</button></div>
           <p class="sr-only" id="roomText" aria-live="polite"></p>
         </section>
 

@@ -38,6 +38,6 @@ test('the HUD toggle names what it does and reports whether the HUD is open', ()
   assert.deepEqual(hudToggle(false), { text: 'Menu', expanded: 'false' });
 });
 
-test('a small window is 760px wide or less, or less than 700px tall', () => {
-  assert.equal(SMALL_WINDOW, '(max-width: 760px), (max-height: 699px)');
+test('a small window is 760px wide or less, or less than 800px tall, like a 1366x768 laptop', () => {
+  assert.equal(SMALL_WINDOW, '(max-width: 760px), (max-height: 799px)');
 });
