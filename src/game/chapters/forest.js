@@ -123,16 +123,16 @@ export default {
         ? 'You reached the cave, but without .. this time. Go back into deep and type cd .. to step back out.' : null),
     },
     {
-      goal: 'Jump to the river with an absolute path',
-      tip: 'An absolute path starts at the root with `/`, like `/home/hero/forest/river`.',
+      goal: 'Jump to the river with an absolute path: `cd ~/forest/river`',
+      tip: '`~` is your home\'s absolute path, `/home/hero`, so `~/forest/river` is the same as `/home/hero/forest/river` and works from anywhere.',
       hints: [
-        'An absolute path works from anywhere, because it starts at the root of the tree, `/`.',
-        'Start the path with `/` and name every directory on the way: home, hero, forest, river.',
-        'cd /home/hero/forest/river',
+        'An absolute path works from anywhere, because it starts at the root of the tree, `/`. `~` is short for `/home/hero`.',
+        'Start the path with `~` and name every directory on the way: forest, then river.',
+        'cd ~/forest/river',
       ],
       done: ctx => ctx.cwd === riverOf(ctx)
         && ctx.ran('cd', record => isAbsolute(record) && ctx.hasPath(record, riverOf(ctx))),
-      near: ctx => (reachedRiverRelatively(ctx) ? 'You reached the river with a relative path. This task wants an absolute one, starting with /.' : null),
+      near: ctx => (reachedRiverRelatively(ctx) ? 'You reached the river with a relative path. This task wants an absolute one, starting with ~ or /: cd ~/forest/river.' : null),
     },
     {
       goal: 'Jump back to where you were with `cd -`',
