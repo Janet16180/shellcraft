@@ -205,3 +205,15 @@ test('which reads only -a and -s, and rejects anything else as debianutils does'
   assert.deepEqual(await run(b, 'which ls -a').then(r => [r.out, r.status]), ['/usr/bin/ls\n', 1]);
   assert.deepEqual(await run(b, 'which').then(r => [r.out, r.err, r.status]), ['', '', 1]);
 });
+
+test('bash -c runs a command line in a child shell, with a name and arguments after it', async () => {
+  const b = await shell();
+  assert.equal((await run(b, "bash -c 'echo $0 $# $1'")).out, 'bash 0\n');
+  assert.equal((await run(b, "bash -c 'echo $0 $# $1' spell fire")).out, 'spell 1 fire\n');
+  assert.equal((await run(b, "V=1 bash -c 'cd /tmp; echo [$V]'; pwd")).out, '[1]\n/home/hero\n');
+  const missing = await run(b, "bash -c 'nosuch'");
+  assert.deepEqual([missing.err, missing.status], ['bash: line 1: nosuch: command not found\n', 127]);
+  assert.equal((await run(b, "bash -c nosuch spell")).err, 'spell: line 1: nosuch: command not found\n');
+  const bare = await run(b, 'bash -c');
+  assert.deepEqual([bare.err, bare.status], ['bash: -c: option requires an argument\n', 2]);
+});

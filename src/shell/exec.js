@@ -135,7 +135,7 @@ function dispatch(sh, argv, streams, overlay) {
   const ctx = {
     sys, stdin: streams.stdin, piped: streams.out.kind !== 'terminal', commands: sh.commands, env: overlay,
     block: reason => sh.run.blocked.push(reason),
-    runScript: (node, scriptName, scriptArgs) => runScriptText(sh, node.content, scriptName, scriptArgs, overlay),
+    runScript: (text, zero, scriptArgs) => runScriptText(sh, text, zero, scriptArgs, overlay),
   };
   const standard = name.includes('/') ? null : standardOption(name, args);
   const found = name.includes('/') || sh.commands[name] || BASH_BUILTINS.has(name) ? null : searchPath(sys, name);

@@ -214,12 +214,13 @@ const exit = () => withNote(result(), 'In a real terminal, exit closes the shell
 
 function bash(args, { sys, runScript }) {
   if (!args.length) return withNote(result(), 'Nested shells are not simulated. In real Linux, bash starts a new shell inside this one (exit leaves it).');
+  if (args[0] === '-c') return args.length < 2 ? result('', 'bash: -c: option requires an argument', 2) : runScript(args[1], args[2] ?? 'bash', args.slice(3));
   const node = lookup(sys.root, normalize(args[0], sys.cwd));
   let r;
   if (!node) r = result('', `bash: ${args[0]}: No such file or directory`, 127);
   else if (node.type === 'dir') r = result('', `bash: ${args[0]}: Is a directory`, 126);
   else if (!can(sys, node, 'r')) r = result('', `bash: ${args[0]}: Permission denied`, 126);
-  else r = runScript(node, args[0], args.slice(1));
+  else r = runScript(node.content, args[0], args.slice(1));
   return r;
 }
 

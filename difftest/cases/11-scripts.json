@@ -1,5 +1,6 @@
 [
   {"name": "scripts found through PATH", "world": "scripts", "lines": ["which glimmer", "type glimmer", "glimmer", "echo $?", "type glimmer", "glimmer 2>/dev/null", "dim", "echo $?", "which dim; echo $?", "type dim", "/usr/local/bin/glimmer", "ls /usr/local/bin"]},
   {"name": "script arguments", "world": "scripts", "lines": ["cd spells", "./args.sh Tux", "echo $?", "./args.sh 'a  b' c", "ls", "bash args.sh x 'y  z'", "sh args.sh one", "ls", "echo $0 $# [$1] [$@]"]},
-  {"name": "scripts run in a child shell", "world": "scripts", "lines": ["spell=x; echo 'echo [$spell] [$V] $SHLVL $- $HOSTNAME [$COLUMNS] $0' > t.sh; bash t.sh", "export spell; bash t.sh", "V=1 bash t.sh; echo \"[$V]\"", "chmod +x t.sh; V=2 ./t.sh", "echo 'cd /tmp; z=1; alias zz=ls; pwd' > c.sh; bash c.sh; pwd; echo \"[$z]\"; type zz", "echo ll > l.sh; bash l.sh", "echo 'env | grep -c spell' > e.sh; bash e.sh"]}
+  {"name": "scripts run in a child shell", "world": "scripts", "lines": ["spell=x; echo 'echo [$spell] [$V] $SHLVL $- $HOSTNAME [$COLUMNS] $0' > t.sh; bash t.sh", "export spell; bash t.sh", "V=1 bash t.sh; echo \"[$V]\"", "chmod +x t.sh; V=2 ./t.sh", "echo 'cd /tmp; z=1; alias zz=ls; pwd' > c.sh; bash c.sh; pwd; echo \"[$z]\"; type zz", "echo ll > l.sh; bash l.sh", "echo 'env | grep -c spell' > e.sh; bash e.sh"]},
+  {"name": "bash -c", "world": "scripts", "lines": ["bash -c 'echo $0 $# $1'", "bash -c 'echo $0 $# $1' spell fire", "V=1 bash -c 'cd /tmp; echo \"[$V]\"'; pwd", "bash -c nosuch", "bash -c nosuch spell", "bash -c; echo $?", "bash -c 'ls | wc -l; false'"]}
 ]
