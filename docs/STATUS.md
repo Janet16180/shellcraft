@@ -16,24 +16,35 @@ Read this first when resuming, then `docs/DESIGN.md` and `AUTHORING.md`.
 main is at the merge of slice/shell 8b30c81: 1031 tests pass, lint is clean. The user played
 chapter 1 locally (`npm run serve`, http://localhost:8765) and is giving feedback as they go.
 
-1. **The user's layout decision (feedback 1):** on wide screens, the map and the quest panel sit
-   side by side in the top row, and the terminal spans the full width below. The room buttons
+1. **The user's layout decision (feedback 1, refined at the end of the day):** a new wide-screen
+   layout where the map and the quest panel sit side by side in the top row and the terminal
+   spans the full width below, AND the current layout (map and quest on the left, terminal on the
+   right) kept as an option the player can switch to; the choice is remembered. The room buttons
    ("In this room") become one horizontally scrolling row, and the sticky map goes away. The
    problem it fixes: at 1400x1100 the sticky map area was 634px tall, the quest panel scrolled
    under it with its frame peeking out, and in /usr/bin the 52 room buttons were 221px tall.
    Owner: ui (CSS/layout), with art if the canvas must fit a height-bound box. Check 1400x900,
    1280x720, 1536x864, 1024x768 and 360.
-2. engine: switch dangers.js and the fake backend to src/backend/process.js selectsProcess
+2. **Chapter 1's boss room goes (feedback 2):** the user found The Forged Letters confusing
+   because of its wording (the riddle "the spell that prints your user name", forged
+   signatures). Replace it with a simpler challenge in plain words and no riddles, e.g. find the
+   one file in the room that names the command to run. Owner: author, then factcheck and a
+   teaching read. Lesson for every future chapter: AUTHORING.md content rules get "plain words,
+   no riddles; a challenge tests the commands, not the reading".
+3. engine: switch dangers.js and the fake backend to src/backend/process.js selectsProcess
    (merged), tests first: kill -HUP 0, kill -9 -$$, pkill -KILL -u hero, pkill -9 -t pts/0 and
    killall -9 -u hero cost a heart; kill -9 -1, pkill -9 -u root, pkill -9 -u hero cron and
    pkill -9 -x ba don't. Delete engine's own processName.
-3. factcheck: verify 6bb4c32's process selection against Ubuntu (approved, not started).
-4. Ask the user for the rest of their playtest feedback, fix it, then republish the preview:
+4. factcheck: verify 6bb4c32's process selection against Ubuntu (approved, not started).
+5. Ask the user for the rest of their playtest feedback, fix it, then republish the preview:
    `npm run bundle`, `node test/ui/shots.js OUT --published`, publish dist/index.html to
    https://claude.ai/artifact/Nqt9UZqv6MPiaci46Q3vi3 and remove the 98 old files (null in `files`).
    Read every changed file before publishing.
-5. .scratch/wt/play is a detached snapshot worktree used for the user's local play; serve it
+6. .scratch/wt/play is a detached snapshot worktree used for the user's local play; serve it
    again or drop it (ask before deleting).
+7. Then chapters 3 to 14 in batches (3-5, then 6-9 with the simulator work for 12 and 13, then
+   10-14), each author paired with a fact-checker; the user plays each batch. Still open: the
+   user's yes or no on the extra chapters (Archive Vault, Scribe's Desk, Signposts).
 
 ## In flight: slice round 3, code health (2026-10-06)
 
