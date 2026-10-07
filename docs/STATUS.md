@@ -1,6 +1,6 @@
 # Shellcraft 2: status and handoff
 
-**A fresh session starts here.** Read this file, then `docs/WORKLIST.md` (every task left),
+**A fresh session starts here.** Read this file, `docs/APPROVED.md` (chapters the user approved), then `docs/WORKLIST.md` (every task left),
 `docs/DESIGN.md` (plan and architecture) and `AUTHORING.md` (code and content rules). Nothing
 from earlier conversations is needed.
 
@@ -13,6 +13,11 @@ home, Ring Zero's Pixel Dungeon style outside it. Each chapter is lesson, guided
 adventure log. 14 chapters are planned (DESIGN.md section 4).
 
 ## State at 2026-10-07 (chapters 5 to 9, dev mode)
+
+- The user approved chapters 1 to 6 (`docs/APPROVED.md`). Their notes on 5 and 6: plain words for
+  actions, game things named in backticks (AUTHORING rule 10); sounds for discoveries (`ls -a`
+  showing hidden entries, `ls` finding a boss room's hidden things), creating and removing
+  (`src/ui/turnsounds.js`).
 
 - Branch `slice/ch5-9` (from main 035230a), not merged: chapters 5 The Cursed Junkyard (`rm`,
   `rmdir`, `rm -r`), 6 Hall of Mirrors (`*`, `?`, `[ ]`, quotes; new area `~/mirrors` made by its
