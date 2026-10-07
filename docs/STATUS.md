@@ -36,7 +36,13 @@ chapter 1 locally (`npm run serve`, http://localhost:8765) and is giving feedbac
    jump only counts from the dungeon", worked around by hint 3's `cd /tmp; cd ...`), and a
    later tool makes it trivial. Redesign in plain words, testing paths directly.
    **Process for both:** show the user the two new briefings (plain text) for approval BEFORE
-   author builds them, since wording was the problem both times. Lesson for every future chapter: AUTHORING.md content rules get "plain words,
+   author builds them, since wording was the problem both times.
+   **The user's direction for bosses (end of 2026-10-06):** maybe no boss at all, or a boss that
+   is really similar to what the chapter just taught, a little bit different, not complex. Bring
+   both options side by side: (a) no boss; (b) a short final check that repeats the chapter's
+   tasks with one small twist, e.g. ch1 "a new note's name starts with `note_`: find it with ls,
+   read it with cat"; ch2 "the lantern is in `~/forest/river/lantern_XXX`: reach it with one cd,
+   then come home with one command". Lesson for every future chapter: AUTHORING.md content rules get "plain words,
    no riddles; a challenge tests the commands, not the reading".
 3. engine: switch dangers.js and the fake backend to src/backend/process.js selectsProcess
    (merged), tests first: kill -HUP 0, kill -9 -$$, pkill -KILL -u hero, pkill -9 -t pts/0 and

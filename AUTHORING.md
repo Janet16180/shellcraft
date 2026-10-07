@@ -119,7 +119,9 @@ that `near` note first, else a generic note from `src/game/coach.js`.
    and what to do once found. The user found chapter 1's first boss (forged letters whose real one
    asked for "the manual page of the spell that prints your user name") confusing because of its
    wording, and it was removed (2026-10-06). Ask "could a beginner misread this?" for every
-   briefing, and have the teaching reviewer answer it too.
+   briefing, and have the teaching reviewer answer it too. A boss is the chapter's own tasks
+   again with one small twist (an unknown name to find, a random target), never a puzzle and
+   never an arbitrary rule; the user approves each boss briefing before it is built.
 8. In task goals, hints 1 and 2, spell notes and recap/field meanings, wrap every name the player
    might type in backticks (`` `cd ..` ``). The page renders them in the mono font; the terminal strips
    them, because in bash backticks run a command. Level-3 hints and `solve` lines never use backticks.
