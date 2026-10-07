@@ -40,21 +40,21 @@ test('the setup puts the readme back, clears an old note and brings the player h
 });
 
 const NEAR_MISSES = [
-  ['Ask the terminal who you are', [], 'Whoami', 'whoami'],
-  ['Find out where you are standing', [], 'PWD', 'pwd'],
-  ['Look around your home', [], 'ls forest', 'ls'],
-  ['Look around your home', ['cd /tmp'], 'ls', 'ls ~'],
-  ['Read the letter left for you', [], 'ls readme.txt', 'cat readme.txt'],
-  ['Read the letter left for you', [], 'cat readme', 'cat readme.txt'],
-  ['Read the letter left for you', [], 'cat .bashrc', 'cat ~/readme.txt'],
-  ['Open the manual page of a command', [], 'man', 'man ls'],
-  ['Open the manual page of a command', [], 'man lss', 'man cat'],
-  ['Ask a command for its quick help', [], 'ls -help', 'ls --help'],
-  ['Ask a command for its quick help', [], 'help ls', 'cat --help'],
-  ['Ask a command for its quick help', [], 'LS --help', 'whoami --help'],
-  ['Ask a command for its quick help', [], 'clear --help', 'pwd --help'],
-  ['Ask a command for its quick help', [], 'echo --help', 'ls --help'],
-  ['Wipe the screen clean', [], 'cls', 'clear'],
+  ['Ask the terminal who you are (`whoami`)', [], 'Whoami', 'whoami'],
+  ['Find out where you are standing (`pwd`)', [], 'PWD', 'pwd'],
+  ['Look around your home (`ls`)', [], 'ls forest', 'ls'],
+  ['Look around your home (`ls`)', ['cd /tmp'], 'ls', 'ls ~'],
+  ['Read the letter left for you (`cat`)', [], 'ls readme.txt', 'cat readme.txt'],
+  ['Read the letter left for you (`cat`)', [], 'cat readme', 'cat readme.txt'],
+  ['Read the letter left for you (`cat`)', [], 'cat .bashrc', 'cat ~/readme.txt'],
+  ['Open the manual page of a command (`man`)', [], 'man', 'man ls'],
+  ['Open the manual page of a command (`man`)', [], 'man lss', 'man cat'],
+  ['Ask a command for its quick help (`--help`)', [], 'ls -help', 'ls --help'],
+  ['Ask a command for its quick help (`--help`)', [], 'help ls', 'cat --help'],
+  ['Ask a command for its quick help (`--help`)', [], 'LS --help', 'whoami --help'],
+  ['Ask a command for its quick help (`--help`)', [], 'clear --help', 'pwd --help'],
+  ['Ask a command for its quick help (`--help`)', [], 'echo --help', 'ls --help'],
+  ['Wipe the screen clean (`clear`)', [], 'cls', 'clear'],
 ];
 
 for (const [goal, prefix, miss, hit] of NEAR_MISSES) {
@@ -65,15 +65,15 @@ for (const [goal, prefix, miss, hit] of NEAR_MISSES) {
 }
 
 const NEAR_NOTES = [
-  ['Look around your home', [], 'ls forest', /nothing after it/],
-  ['Look around your home', [], 'ls', null],
-  ['Read the letter left for you', [], 'ls readme.txt', /cat/],
-  ['Read the letter left for you', [], 'cat .bashrc', /readme\.txt/],
-  ['Read the letter left for you', [], 'cat readme.txt', null],
-  ['Ask a command for its quick help', [], 'ls -help', { coach: /two dashes/ }],
-  ['Ask a command for its quick help', [], 'echo --help', /echo/],
-  ['Ask a command for its quick help', [], 'ls --help', null],
-  ['Ask a command for its quick help', [], 'pwd', null],
+  ['Look around your home (`ls`)', [], 'ls forest', /nothing after it/],
+  ['Look around your home (`ls`)', [], 'ls', null],
+  ['Read the letter left for you (`cat`)', [], 'ls readme.txt', /cat/],
+  ['Read the letter left for you (`cat`)', [], 'cat .bashrc', /readme\.txt/],
+  ['Read the letter left for you (`cat`)', [], 'cat readme.txt', null],
+  ['Ask a command for its quick help (`--help`)', [], 'ls -help', { coach: /two dashes/ }],
+  ['Ask a command for its quick help (`--help`)', [], 'echo --help', /echo/],
+  ['Ask a command for its quick help (`--help`)', [], 'ls --help', null],
+  ['Ask a command for its quick help (`--help`)', [], 'pwd', null],
 ];
 
 for (const [goal, prefix, line, note] of NEAR_NOTES) {
@@ -85,10 +85,14 @@ for (const [goal, prefix, line, note] of NEAR_NOTES) {
   });
 }
 
-test('the clear task\'s tip asks for the clear command, since the page handles Ctrl+L itself, and its goal leaves the command out', () => {
+test('the clear task names the clear command, since the page handles Ctrl+L itself', () => {
   const task = chapter.tasks.at(-1);
+  assert.match(task.goal, /\(`clear`\)/);
   assert.match(task.tip, /`clear`.*Ctrl\+L.*wants the command/);
-  assert.doesNotMatch(task.goal, /clear`|`clear/);
+});
+
+test('every chapter 1 goal shows its command in parentheses, because chapter 1 is practice', () => {
+  for (const task of chapter.tasks) assert.match(task.goal, / \(`[^`]+`\)$/, task.goal);
 });
 
 test('the boss room leaves one note named note_ and three letters in the home, and brings the player home', async () => {

@@ -75,7 +75,7 @@ export default {
 <p>A word after a command is an <b>argument</b>: it tells the command what to work on. <code>ls forest</code> lists the forest without walking into it, and <code>man ls</code> asks for the manual of <code>ls</code>.</p>`,
   tasks: [
     {
-      goal: 'Ask the terminal who you are',
+      goal: 'Ask the terminal who you are (`whoami`)',
       tip: '`whoami` prints your user name, the name before the @ in the prompt.',
       hints: [
         'Your name is in the prompt, but a command can tell you too.',
@@ -85,7 +85,7 @@ export default {
       done: ctx => ctx.ran('whoami'),
     },
     {
-      goal: 'Find out where you are standing',
+      goal: 'Find out where you are standing (`pwd`)',
       tip: '`pwd` prints the full path of the directory you are in.',
       hints: [
         'The prompt shows `~`, a short name. Ask for the full path.',
@@ -95,7 +95,7 @@ export default {
       done: ctx => ctx.ran('pwd'),
     },
     {
-      goal: 'Look around your home',
+      goal: 'Look around your home (`ls`)',
       tip: '`ls` on its own lists the directory you are in.',
       hints: [
         'What is in this room? Ask for a list.',
@@ -106,7 +106,7 @@ export default {
       near: ctx => (ctx.ran('ls', record => !listsHome(ctx, record)) ? 'That listed another directory. To look around your home, run ls in your home with nothing after it.' : null),
     },
     {
-      goal: 'Read the letter left for you',
+      goal: 'Read the letter left for you (`cat`)',
       tip: '`cat` followed by a file name prints that file on the screen.',
       hints: [
         'There is a `.txt` file in your home. Print it on the screen.',
@@ -117,7 +117,7 @@ export default {
       near: readNear,
     },
     {
-      goal: 'Open the manual page of a command',
+      goal: 'Open the manual page of a command (`man`)',
       tip: '`man` followed by a command name, like `man ls`, opens its manual page.',
       hints: [
         'Most commands come with a manual. One command opens it.',
@@ -127,7 +127,7 @@ export default {
       done: ctx => ctx.ran('man'),
     },
     {
-      goal: 'Ask a command for its quick help',
+      goal: 'Ask a command for its quick help (`--help`)',
       tip: 'Many commands print a short summary when you add `--help`, with two dashes.',
       hints: [
         'Many commands explain themselves if you ask with an option.',
@@ -140,7 +140,7 @@ export default {
         ? 'echo prints its words back, even --help. Ask another command, like ls --help.' : null),
     },
     {
-      goal: 'Wipe the screen clean',
+      goal: 'Wipe the screen clean (`clear`)',
       tip: '`clear` wipes the screen; Ctrl+L does too, but this task wants the command.',
       hints: [
         'The screen is getting full. Start again with an empty one.',
