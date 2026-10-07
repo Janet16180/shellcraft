@@ -8,9 +8,10 @@ import { PLAYER, startChapter, type, play, startBoss, notFound, codeSnippets, ne
 const HOME = PLAYER.home;
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const GOAL = Object.fromEntries(chapter.tasks.map((task, i) => [task.goal, i]));
-const [REVEAL, MAP, FIND, READ, LONG, BOTH, SIZE] = chapter.tasks.map(task => task.goal);
+const [REVEAL, MAP, LONG, FIND, ENTER, SIZE] = chapter.tasks.map(task => task.goal);
 const CAVE = `${HOME}/forest/cave`;
-const FAIRY = `${HOME}/forest/clearing/.fairy_ring.txt`;
+const LIBRARY = `${HOME}/library`;
+const PASSAGE = `${LIBRARY}/.secret_passage`;
 
 async function passes(goal, prefix, line) {
   assert.ok(goal in GOAL, `no task named ${goal}`);
@@ -20,15 +21,18 @@ async function passes(goal, prefix, line) {
   return chapter.tasks[GOAL[goal]].done(ctx);
 }
 
+const textOf = result => result.output.map(c => c.text).join('');
+
 test('the chapter follows the authoring contract', () => {
   assertChapter(chapter);
 });
 
-test('the chapter has seven tasks, in the order of the design', () => {
-  assert.equal(chapter.tasks.length, 7);
+test('the chapter has six tasks: new options get a clue, and the secret entrance goal leaves the place to the map', () => {
+  assert.equal(chapter.tasks.length, 6);
   assert.match(REVEAL, /`ls` with `-a`/);
   assert.match(LONG, /`ls` with `-l`/);
-  assert.match(BOTH, /`-la`/);
+  assert.match(FIND, /secret entrance.*map.*`-la`/);
+  assert.doesNotMatch(FIND, /library/, 'the secret map names the place');
 });
 
 test('the solve finishes every task on the base world without an error', async () => {
@@ -38,22 +42,23 @@ test('the solve finishes every task on the base world without an error', async (
   assert.deepEqual(errors, []);
 });
 
-test('the setup restores the forest and the secret map, hides a fairy ring in the clearing and brings the player home', async () => {
+test('the setup restores the library, the forest and the secret map and brings the player home', async () => {
   const backend = await startChapter(chapter);
-  await type(backend, 'rm -r forest .secret_map');
+  await type(backend, 'rm -r forest library .secret_map');
   await type(backend, 'cd /etc');
   await backend.load(chapter.setup(Math.random, PLAYER));
   const obs = await backend.observe();
   assert.equal(obs.cwd, HOME);
   assert.equal(nodeAt(obs.tree, `${HOME}/.secret_map`).type, 'file');
-  assert.equal(nodeAt(obs.tree, FAIRY).type, 'file');
+  assert.equal(nodeAt(obs.tree, PASSAGE).type, 'dir');
   assert.equal(nodeAt(obs.tree, `${CAVE}/deep/ancient_key.txt`).type, 'file');
 });
 
-test('plain ls in the clearing does not show the fairy ring, and ls -a does', async () => {
+test('the secret map points to the library, where plain ls misses the passage and ls -la shows it as a directory', async () => {
   const backend = await startChapter(chapter);
-  assert.doesNotMatch((await type(backend, 'ls ~/forest/clearing')).result.output.map(c => c.text).join(''), /fairy/);
-  assert.match((await type(backend, 'ls -a ~/forest/clearing')).result.output.map(c => c.text).join(''), /\.fairy_ring\.txt/);
+  assert.match(textOf((await type(backend, 'cat .secret_map')).result), /~\/library\s+a secret entrance/);
+  assert.doesNotMatch(textOf((await type(backend, 'ls ~/library')).result), /secret/);
+  assert.match(textOf((await type(backend, 'ls -la ~/library')).result), /^d.* \.secret_passage$/m);
 });
 
 const NEAR_MISSES = [
@@ -62,18 +67,16 @@ const NEAR_MISSES = [
   [REVEAL, ['cd forest'], 'ls -a', 'ls -a ~'],
   [MAP, [], 'cat secret_map', 'cat .secret_map'],
   [MAP, [], 'ls -a', 'cat ~/.secret_map'],
-  [FIND, [], 'ls forest/clearing', 'ls -a forest/clearing'],
-  [FIND, [], 'ls -a forest', 'ls -a ~/forest/clearing'],
-  [FIND, ['cd forest/clearing'], 'ls', 'ls -a'],
-  [READ, [], 'cat forest/clearing/fairy_ring.txt', 'cat forest/clearing/.fairy_ring.txt'],
-  [READ, ['cd forest/clearing'], 'cat mushroom.txt', 'cat .fairy_ring.txt'],
   [LONG, [], 'ls', 'ls -l'],
   [LONG, [], 'ls -l forest', 'ls -l ~'],
-  [BOTH, [], 'ls -l', 'ls -la'],
-  [BOTH, [], 'ls -a', 'ls -l -a'],
-  [SIZE, [], 'cat forest/cave/deep/ancient_key.txt', 'ls -l forest/cave/deep/ancient_key.txt'],
-  [SIZE, [], 'ls -l forest/cave', 'ls -l ~/forest/cave/deep'],
-  [SIZE, [], 'ls forest/cave/deep', 'ls -la forest/cave/deep'],
+  [FIND, [], 'ls -a library', 'ls -la library'],
+  [FIND, [], 'ls -la forest', 'ls -l -a ~/library'],
+  [FIND, ['cd library'], 'ls -l', 'ls -la'],
+  [ENTER, [], 'cd library/secret_passage', 'cd library/.secret_passage'],
+  [ENTER, ['cd library'], 'ls -la .secret_passage', 'cd .secret_passage'],
+  [SIZE, [], 'cat library/scroll_of_ages.txt', 'ls -l library/scroll_of_ages.txt'],
+  [SIZE, [], 'ls -l forest', 'ls -l ~/library'],
+  [SIZE, [], 'ls library', 'ls -la library'],
 ];
 
 for (const [goal, prefix, miss, hit] of NEAR_MISSES) {
@@ -89,13 +92,16 @@ const NEAR_NOTES = [
   [REVEAL, [], 'ls forest', null],
   [MAP, [], 'cat secret_map', /dot.*\.secret_map/],
   [MAP, [], 'cat .secret_map', null],
-  [FIND, [], 'ls forest/clearing', /-a/],
-  [FIND, ['cd forest/clearing'], 'ls', /-a/],
+  [FIND, [], 'ls library', /ls -la/],
+  [FIND, [], 'ls -a library', /-l.*d/],
+  [FIND, ['cd library'], 'ls', /ls -la/],
   [FIND, [], 'ls forest', null],
-  [READ, [], 'cat forest/clearing/fairy_ring.txt', /dot.*\.fairy_ring\.txt/],
-  [READ, [], 'cat forest/clearing/.fairy_ring.txt', null],
-  [SIZE, [], 'cat forest/cave/deep/ancient_key.txt', /ls -l/],
-  [SIZE, [], 'ls -l forest/cave/deep/ancient_key.txt', null],
+  [FIND, [], 'ls -la library', null],
+  [ENTER, [], 'cd library/secret_passage', /dot.*\.secret_passage/],
+  [ENTER, ['cd library'], 'cd secret_passage', /dot.*\.secret_passage/],
+  [ENTER, [], 'cd library/.secret_passage', null],
+  [SIZE, [], 'cat library/scroll_of_ages.txt', /ls -l/],
+  [SIZE, [], 'ls -l library/scroll_of_ages.txt', null],
 ];
 
 for (const [goal, prefix, line, note] of NEAR_NOTES) {

@@ -12,22 +12,16 @@ import { nodeAt } from '../../backend/tree.js';
 
 const TUNNEL = '.tunnel_';
 const TREASURE = 'treasure.txt';
-const FAIRY_RING = '.fairy_ring.txt';
-
-const FAIRY_TEXT = `A ring of tiny mushrooms, hidden in the grass.
-A fairy whispers: "My name starts with a dot, so plain ls walks past me.
-You found me with ls -a. Well done, you see what others miss."
-`;
 
 const TREASURE_TEXT = `A pouch of 300 gold coins, and a scrap of paper:
 "Whoever reads this knows the secret: a name that starts with a dot
 hides from plain ls, and ls -a shows it."
 `;
 
-const clearingOf = ctx => `${ctx.home}/forest/clearing`;
+const libraryOf = ctx => `${ctx.home}/library`;
+const passageOf = ctx => `${ctx.home}/library/.secret_passage`;
+const scrollOf = ctx => `${ctx.home}/library/scroll_of_ages.txt`;
 const caveOf = ctx => `${ctx.home}/forest/cave`;
-const keyOf = ctx => `${ctx.home}/forest/cave/deep/ancient_key.txt`;
-const fairyOf = ctx => `${clearingOf(ctx)}/${FAIRY_RING}`;
 const mapOf = ctx => `${ctx.home}/.secret_map`;
 
 const listed = (ctx, record) => {
@@ -35,13 +29,16 @@ const listed = (ctx, record) => {
   return operands.length > 0 ? operands : [record.cwd];
 };
 const showedHidden = (ctx, path) => revealedDirs(ctx).includes(path);
+const listsLongAll = (ctx, path) => ctx.ran('ls', record => ctx.flag(record, 'l') && showsAll(ctx, record) && listed(ctx, record).includes(path));
 const listedPlainly = (ctx, path) => ctx.ran('ls', record => !ctx.flag(record, 'a') && !ctx.flag(record, 'A') && listed(ctx, record).includes(path));
 const listedLong = (ctx, pred) => ctx.ran('ls', record => ctx.flag(record, 'l') && pred(record));
-const showsAll = (ctx, record) => ctx.flag(record, 'a') || ctx.flag(record, 'A');
+function showsAll(ctx, record) {
+  return ctx.flag(record, 'a') || ctx.flag(record, 'A');
+}
 
 // "secret_map" for ".secret_map": the player left out the dot.
 const withoutDot = path => path.replace(/\/\.([^/]+)$/, '/$1');
-const missedDot = (ctx, path) => ctx.tried('cat', record => ctx.paths(record).includes(withoutDot(path)));
+const missedDot = (ctx, name, path) => ctx.tried(name, record => ctx.paths(record).includes(withoutDot(path)));
 
 function setupBoss(random, { home, user }) {
   const target = `${home}/forest/cave/${TUNNEL}${token(random, 3)}`;
@@ -72,12 +69,12 @@ export default {
   title: 'Things Unseen',
   setup: (_random, player) => [
     ...restore('forest', player),
+    ...restore('library', player),
     ...restore('.secret_map', player),
-    put(`${player.home}/forest/clearing/${FAIRY_RING}`, file(FAIRY_TEXT, { owner: player.user })),
     cd(player.home),
   ],
   lesson: `<p>Some names start with a dot, like <code>.secret_map</code>. These are <b>hidden files</b>. They are ordinary files: <code>ls</code> just skips them, so the settings they usually hold stay out of your way.</p>
-<p><code>ls -a</code> (all) lists every name, hidden ones too. You will also see two names that every directory has: <code>.</code>, the directory itself, and <code>..</code>, its parent. A hidden file reads like any other, as long as you type the dot: <code>cat .secret_map</code>.</p>
+<p><code>ls -a</code> (all) lists every name, hidden ones too. You will also see two names that every directory has: <code>.</code>, the directory itself, and <code>..</code>, its parent. A hidden file reads like any other, as long as you type the dot: <code>cat .secret_map</code>. Directories can be hidden the same way, and <code>cd</code> enters them like any other.</p>
 <p><code>ls -l</code> (long) shows one name per line, with details. Read a line from left to right:</p>
 <ul>
 <li>The first letter is the type: <code>d</code> for a directory, <code>-</code> for a regular file.</li>
@@ -107,29 +104,7 @@ export default {
         'cat ~/.secret_map',
       ],
       done: ctx => ctx.read(mapOf(ctx)),
-      near: ctx => (missedDot(ctx, mapOf(ctx)) ? 'The dot is part of the name: .secret_map.' : null),
-    },
-    {
-      goal: 'Find the hidden file in the fairy clearing `~/forest/clearing`',
-      tip: '`ls -a` works with a path too, so you can look into the clearing from anywhere.',
-      hints: [
-        'Plain `ls` will not show it. You need the option that shows all names.',
-        'Give `ls -a` the clearing\'s path, or walk into the clearing and run `ls -a` there.',
-        'ls -a ~/forest/clearing',
-      ],
-      done: ctx => showedHidden(ctx, clearingOf(ctx)),
-      near: ctx => (listedPlainly(ctx, clearingOf(ctx)) ? 'Plain ls skips the hidden file. Add -a.' : null),
-    },
-    {
-      goal: 'Read the hidden file you found in the clearing',
-      tip: 'Its name starts with a dot, and the dot is part of the name.',
-      hints: [
-        'Use the full name that `ls -a` showed you, dot included.',
-        '`cat` and the path to the file: the clearing, then the hidden name.',
-        'cat ~/forest/clearing/.fairy_ring.txt',
-      ],
-      done: ctx => ctx.read(fairyOf(ctx)),
-      near: ctx => (missedDot(ctx, fairyOf(ctx)) ? 'The dot is part of the name: .fairy_ring.txt.' : null),
+      near: ctx => (missedDot(ctx, 'cat', mapOf(ctx)) ? 'The dot is part of the name: .secret_map.' : null),
     },
     {
       goal: 'Look at your home in detail (`ls` with `-l`, for long)',
@@ -142,28 +117,45 @@ export default {
       done: ctx => listedLong(ctx, record => listed(ctx, record).includes(ctx.home)),
     },
     {
-      goal: 'See the hidden files in detail too (join both options: `-la`)',
-      tip: 'Options can share one dash: `ls -la` is the same as `ls -l -a`.',
+      goal: 'Find the secret entrance the map marks (join both options: `-la`)',
+      tip: 'Options can share one dash, and in a long listing a `d` at the start of a line marks a directory.',
       hints: [
-        'You know one option for details and one for hidden names. Use both at once.',
-        'Write both letters after one dash, or give each its own dash.',
-        'ls -la ~',
+        'The secret map names the place. Hidden names need `-a`, and details need `-l`.',
+        'Give `ls -la` the path that the map names.',
+        'ls -la ~/library',
       ],
-      done: ctx => listedLong(ctx, record => showsAll(ctx, record)),
+      done: ctx => listsLongAll(ctx, libraryOf(ctx)),
+      near: ctx => {
+        let note = null;
+        if (listedPlainly(ctx, libraryOf(ctx))) note = 'Plain ls skips the hidden entrance. Use ls -la.';
+        else if (showedHidden(ctx, libraryOf(ctx)) && !listsLongAll(ctx, libraryOf(ctx))) note = 'There it is. Now add -l too (ls -la), and see the d that marks it as a directory.';
+        return note;
+      },
     },
     {
-      goal: 'Find the size of the ancient key `~/forest/cave/deep/ancient_key.txt`',
+      goal: 'Step through the secret entrance you found',
+      tip: 'A hidden directory is entered like any other, as long as you type the dot.',
+      hints: [
+        'Use the full name that `ls -la` showed you, dot included.',
+        '`cd` and the path: the library, then the hidden name.',
+        'cd ~/library/.secret_passage',
+      ],
+      done: ctx => ctx.cwd === passageOf(ctx),
+      near: ctx => (missedDot(ctx, 'cd', passageOf(ctx)) ? 'The dot is part of the name: .secret_passage.' : null),
+    },
+    {
+      goal: 'Find the size of the Scroll of Ages `~/library/scroll_of_ages.txt`',
       tip: 'In a long listing, the number just before the date is the size in bytes.',
       hints: [
-        '`cat` shows what is inside a file, not how big it is.',
-        'Give `ls -l` the path to the key, or to the directory that holds it.',
-        'ls -l ~/forest/cave/deep/ancient_key.txt',
+        '`cat` would print the whole long scroll. You only want its size.',
+        'Give `ls -l` the path to the scroll, or to the directory that holds it.',
+        'ls -l ~/library/scroll_of_ages.txt',
       ],
-      done: ctx => listedLong(ctx, record => listed(ctx, record).some(path => path === keyOf(ctx) || path === `${caveOf(ctx)}/deep`)),
-      near: ctx => (ctx.read(keyOf(ctx)) ? 'cat shows what is inside the key. Its size is in the long listing: ls -l with the key\'s path.' : null),
+      done: ctx => listedLong(ctx, record => listed(ctx, record).some(path => path === scrollOf(ctx) || path === libraryOf(ctx))),
+      near: ctx => (ctx.read(scrollOf(ctx)) ? 'cat shows what is inside the scroll. Its size is in the long listing: ls -l with the scroll\'s path.' : null),
     },
   ],
-  solve: ['ls -a', 'cat .secret_map', 'ls -a forest/clearing', 'cat forest/clearing/.fairy_ring.txt', 'ls -l', 'ls -la', 'ls -l forest/cave/deep/ancient_key.txt'],
+  solve: ['ls -a', 'cat .secret_map', 'ls -l', 'ls -l library/scroll_of_ages.txt', 'ls -la library', 'cd library/.secret_passage'],
   boss: {
     title: 'The Hidden Tunnel',
     briefing: `<p>Something is hidden in the cave: a directory whose name starts with <code>.tunnel_</code>, inside <code>~/forest/cave</code>. Find its full name, walk into it with <code>cd</code>, and read <code>treasure.txt</code> there.</p>`,
