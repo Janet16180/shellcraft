@@ -10,7 +10,7 @@ engine, the simulator or checking levels and not on web design. Before taking on
 - Read first: `docs/DESIGN.md` (the plan and the architecture), `AUTHORING.md` (code and content
   rules, the chapter contract), `docs/STATUS.md` (where things stand), and the user's rules in
   `~/.claude/CLAUDE.md` (simple code, single responsibility, layers depend downward only, DRY,
-  test-driven, design by contract, NumPy-style thinking applied to JS: JSDoc on every export).
+  test-driven, design by contract, and JSDoc on every exported function).
 - Work on your own branch, `slice/<your-name>`, in a worktree under `.scratch/wt/<your-name>`.
   Small commits with short plain messages, no `Co-Authored-By` or other trailers. Never push.
 - Tests first: a failing test, then the code. `npm test` and `npm run lint` must pass before every
