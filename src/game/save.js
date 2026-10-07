@@ -12,6 +12,8 @@
  * @property {number} xp Total XP, a non-negative integer.
  * @property {boolean} sound Whether sound is on.
  * @property {boolean} introSeen Whether the intro was watched or skipped.
+ * @property {'stacked'|'side'} layout How the page is laid out: 'stacked' puts the map and the
+ *   quest panel side by side above a full-width terminal; 'side' puts the terminal on the right.
  * @property {Progress|null} progress Where the player is inside the chapter they
  *   are playing; null between chapters.
  *
@@ -31,6 +33,9 @@ export const V1_SAVE_KEY = 'shellcraft-save-v1';
 /** Shellcraft 1 stored the chapter as an index into this order. */
 const V1_IDS = ['awakening', 'forest', 'unseen', 'camp', 'junkyard', 'library', 'tower', 'market', 'gate', 'daemon'];
 
+/** The page layouts a save can choose, the default first. */
+export const LAYOUTS = Object.freeze(['stacked', 'side']);
+
 const isRecord = x => typeof x === 'object' && x !== null && !Array.isArray(x);
 const isCount = x => Number.isInteger(x) && x >= 0;
 const isV1Index = x => Number.isInteger(x) && x >= 0 && x < V1_IDS.length;
@@ -39,10 +44,10 @@ const isHintCount = x => Number.isInteger(x) && x >= 0 && x <= HINT_LEVELS;
 /**
  * Progress for a new player.
  *
- * @returns {Save} No chapter chosen, nothing cleared, no XP, sound off, intro not seen.
+ * @returns {Save} No chapter chosen, nothing cleared, no XP, sound off, intro not seen, the default layout.
  */
 export function freshSave() {
-  return { chapter: null, cleared: [], xp: 0, sound: false, introSeen: false, progress: null };
+  return { chapter: null, cleared: [], xp: 0, sound: false, introSeen: false, layout: LAYOUTS[0], progress: null };
 }
 
 function parseJSON(text) {
@@ -76,9 +81,11 @@ function fromV2(data) {
   return valid ? readV2(data) : null;
 }
 
-function readV2({ chapter, cleared, xp, sound, introSeen, progress = null }) {
+// Saves from before the layout choice have no layout; an unknown one is not worth losing progress over.
+function readV2({ chapter, cleared, xp, sound, introSeen, layout, progress = null }) {
   const kept = progress && { chapter: progress.chapter, phase: progress.phase, tasks: progress.tasks, hints: progress.hints, bossHints: progress.bossHints };
-  return { chapter, cleared: [...new Set(cleared)], xp, sound, introSeen, progress: kept };
+  const shape = LAYOUTS.includes(layout) ? layout : LAYOUTS[0];
+  return { chapter, cleared: [...new Set(cleared)], xp, sound, introSeen, layout: shape, progress: kept };
 }
 
 function fromV1(data) {
@@ -119,6 +126,6 @@ export function parseSave({ v2, v1 }) {
  * @param {Save} save The progress to store.
  * @returns {string} JSON text with the format version.
  */
-export function serializeSave({ chapter, cleared, xp, sound, introSeen, progress }) {
-  return JSON.stringify({ version: 2, chapter, cleared, xp, sound, introSeen, progress });
+export function serializeSave({ chapter, cleared, xp, sound, introSeen, layout, progress }) {
+  return JSON.stringify({ version: 2, chapter, cleared, xp, sound, introSeen, layout, progress });
 }

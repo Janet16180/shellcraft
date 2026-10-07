@@ -75,7 +75,7 @@ session.hint();                       // -> { level: 1..3, text, cost } | null  
 session.view();                       // -> View
 await session.complete(line);         // -> { line, candidates }   (backend.complete)
 session.observation();                // the latest Observation (sync), for map.show()
-session.setSound(on); session.markIntroSeen(); await session.reset();
+session.setSound(on); session.setLayout('stacked' | 'side'); session.markIntroSeen(); await session.reset();
 ```
 
 `store` is the localStorage subset `{ getItem(key): string|null, setItem(key, text) }`. The UI
@@ -92,7 +92,7 @@ random boss, hints kept).
 
 `View` holds everything the page draws: the chapter (id, number, total, act, title, phase
 `quest|boss|done`, lesson HTML, tasks with done/next, boss title and briefing), XP, rank (title,
-floor, next), hearts, sound, the chapter list with a status each (`playing|open|cleared|locked|soon`),
+floor, next), hearts, sound, the layout (`stacked|side`), the chapter list with a status each (`playing|open|cleared|locked|soon`),
 the spellbook with an `unlocked` flag per spell, and the prompt (user, host, cwd, home).
 
 ### 2.3 Effects (`src/game/effects.js`)

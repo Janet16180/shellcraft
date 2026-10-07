@@ -57,10 +57,10 @@ test('booting with no save starts the first chapter on a fresh world', async () 
 });
 
 test('booting resumes the saved chapter and progress', async () => {
-  const { view } = await booted({ stored: v2({ chapter: 'forest', cleared: ['awakening'], xp: 70, sound: true, introSeen: true }) });
+  const { view } = await booted({ stored: v2({ chapter: 'forest', cleared: ['awakening'], xp: 70, sound: true, introSeen: true, layout: 'side' }) });
   assert.equal(view.boot, 'resumed');
   assert.equal(view.chapter.id, 'forest');
-  assert.deepEqual([view.xp, view.sound, view.introSeen], [70, true, true]);
+  assert.deepEqual([view.xp, view.sound, view.introSeen, view.layout], [70, true, true, 'side']);
   assert.deepEqual(view.chapters.map(c => c.status), ['cleared', 'playing', 'soon']);
 });
 
@@ -163,7 +163,7 @@ test('solving the boss clears the chapter, pays the boss and the bonus, and open
   assert.equal(turn.view.chapter.phase, 'done');
   assert.equal(turn.view.xp, 70);
   assert.deepEqual(turn.view.chapters.map(c => [c.status, c.current]), [['cleared', true], ['open', false], ['soon', false]]);
-  assert.deepEqual(saved(store), { version: 2, chapter: 'forest', cleared: ['awakening'], xp: 70, sound: false, introSeen: false, progress: null });
+  assert.deepEqual(saved(store), { version: 2, chapter: 'forest', cleared: ['awakening'], xp: 70, sound: false, introSeen: false, layout: 'stacked', progress: null });
 });
 
 test('a cleared chapter can be started again while it is the current one', async () => {
@@ -547,20 +547,35 @@ test('sound and the intro flag are saved', async () => {
   assert.deepEqual([saved(store).sound, saved(store).introSeen], [true, true]);
 });
 
+test('the layout choice is saved and shown in the view', async () => {
+  const { session, store, view } = await booted();
+  assert.equal(view.layout, 'stacked');
+  assert.equal(session.setLayout('side').layout, 'side');
+  assert.equal(saved(store).layout, 'side');
+  assert.equal(session.setLayout('stacked').layout, 'stacked');
+  assert.equal(saved(store).layout, 'stacked');
+});
+
+test('setting an unknown layout raises', async () => {
+  const { session } = await booted();
+  for (const layout of ['wide', '', undefined, 1]) assert.throws(() => session.setLayout(layout), /layout must be one of stacked, side/);
+});
+
 test('setting sound to something other than a boolean raises', async () => {
   const { session } = await booted();
   assert.throws(() => session.setSound('on'), /boolean/);
 });
 
-test('reset erases progress but keeps sound and the intro flag', async () => {
+test('reset erases progress but keeps sound, the intro flag and the layout', async () => {
   const { session, store, backend } = await booted();
   await clearAwakening(session);
   session.setSound(true);
   session.markIntroSeen();
+  session.setLayout('side');
   const view = await session.reset();
   assert.deepEqual([view.chapter.id, view.xp, view.chapter.replay], ['awakening', 0, false]);
   assert.deepEqual(saved(store), {
-    version: 2, chapter: 'awakening', cleared: [], xp: 0, sound: true, introSeen: true,
+    version: 2, chapter: 'awakening', cleared: [], xp: 0, sound: true, introSeen: true, layout: 'side',
     progress: { chapter: 'awakening', phase: 'quest', tasks: [false, false], hints: [0, 0], bossHints: 0 },
   });
   assert.equal(exists(await backend.observe(), `${HOME}/sign.txt`), false);

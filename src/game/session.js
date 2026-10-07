@@ -29,7 +29,7 @@ import { hintNote, questNote, terminalText } from './commands.js';
 import { lineEffects, worldEffects } from './effects.js';
 import { dangers } from './dangers.js';
 import { XP, MAX_HEARTS, HINT_LEVELS, payout, nextHint, rankFor, loseHeart, chapterStatuses, canStart, resumeChapter } from './progress.js';
-import { SAVE_KEY, V1_SAVE_KEY, freshSave, parseSave, serializeSave } from './save.js';
+import { LAYOUTS, SAVE_KEY, V1_SAVE_KEY, freshSave, parseSave, serializeSave } from './save.js';
 
 /**
  * Create a session.
@@ -67,6 +67,7 @@ export function createSession({ backend, chapters, baseWorld, store, random }) {
     reset: () => exclusive(s, () => reset(s)),
     hint: idle(() => hint(s)),
     setSound: idle(on => setSound(s, on)),
+    setLayout: idle(layout => setLayout(s, layout)),
     markIntroSeen: idle(() => updateSave(s, { introSeen: true })),
     view: () => view(s),
     observation: () => {
@@ -328,6 +329,11 @@ function setSound(s, on) {
   return updateSave(s, { sound: on });
 }
 
+function setLayout(s, layout) {
+  if (!LAYOUTS.includes(layout)) throw new Error(`layout must be one of ${LAYOUTS.join(', ')}, got ${layout}`);
+  return updateSave(s, { layout });
+}
+
 function updateSave(s, fields) {
   requireBooted(s);
   Object.assign(s.save, fields);
@@ -380,6 +386,7 @@ function view(s) {
     hearts: { left: s.hearts, max: MAX_HEARTS },
     sound: s.save.sound,
     introSeen: s.save.introSeen,
+    layout: s.save.layout,
     chapters: s.chapters.map((c, i) => ({ id: c.id, number: i + 1, act: c.act, title: c.title, status: status[i], current: i === s.index })),
     spellbook: s.chapters.flatMap((c, i) => (c.spells ?? []).map(spell => ({ ...spell, chapter: c.id, unlocked: canStart(status[i]) }))),
     prompt: { user, host, cwd, home },
