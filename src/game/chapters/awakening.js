@@ -48,6 +48,9 @@ function bossNear(ctx, { note }) {
     : 'That was another file. The new note\'s name starts with note_: ls shows it.';
 }
 
+// The map shows the note only once ls has found it, so the player has to look.
+const hiddenNote = ({ note }) => [note];
+
 function solveBoss(obs) {
   const name = Object.keys(nodeAt(obs.tree, obs.home).children).find(child => child.startsWith('note_'));
   return ['ls', `cat ${name}`];
@@ -162,6 +165,7 @@ export default {
     ],
     done: (ctx, { note }) => ctx.read(note),
     near: bossNear,
+    hidden: hiddenNote,
     solve: solveBoss,
   },
   recap: [

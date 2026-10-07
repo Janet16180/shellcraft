@@ -12,7 +12,9 @@
  * panel out of view, windows that overlap, a room list that wraps, and a
  * layout that is not remembered after a reload. It also does the first task
  * and restarts the chapter with the HUD button (two clicks), and reports a
- * restart that does not bring back task 1 and the home directory.
+ * restart that does not bring back task 1 and the home directory. Last, at one
+ * size, it plays chapter 1 into the boss room and reports a new note that the
+ * room buttons show before ls, or not after it.
  *
  * Stops the server and the browser it starts.
  */
@@ -21,6 +23,7 @@ import { mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright-core';
 import { startServer } from '../../scripts/serve.js';
+import awakening from '../../src/game/chapters/awakening.js';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const SIZES = [[1400, 900], [1280, 720], [1536, 864], [1024, 768], [1280, 650], [360, 740]];
@@ -147,6 +150,29 @@ async function check(browser, base, out, [width, height], layout) {
   return { problems, sizes: bin.sizes };
 }
 
+async function hiddenNoteProblems(browser, base, out) {
+  const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+  const page = await context.newPage();
+  const problems = [];
+  page.on('pageerror', error => problems.push(`boss room: ${error}`));
+  await page.goto(`${base}/index.html`);
+  await page.click('#goBtn');
+  await page.click('#introSkip');
+  await page.waitForTimeout(600);
+  for (const line of awakening.solve) await type(page, line);
+  await page.click('#bossGo');
+  await page.waitForTimeout(600);
+  const notes = () => page.$$eval('#picks button', buttons => buttons.map(b => b.textContent).filter(t => t.includes('note_')));
+  if ((await notes()).length > 0) problems.push('boss room: the room buttons show the note before ls');
+  await page.screenshot({ path: join(out, 'boss-before-ls.png') });
+  await type(page, 'ls');
+  await page.waitForTimeout(600);
+  if ((await notes()).length !== 1) problems.push('boss room: the room buttons do not show the note after ls');
+  await page.screenshot({ path: join(out, 'boss-after-ls.png') });
+  await context.close();
+  return problems;
+}
+
 const out = process.argv[2];
 if (!out) throw new Error('usage: node test/ui/layouts.js OUT_DIR');
 await mkdir(out, { recursive: true });
@@ -161,6 +187,7 @@ try {
       problems.push(...result.problems);
     }
   }
+  problems.push(...await hiddenNoteProblems(browser, base, out));
 } finally {
   await browser.close();
   server.close();

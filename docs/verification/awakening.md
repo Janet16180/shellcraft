@@ -69,6 +69,7 @@ Man pages from the Ubuntu 24.04 host.
 | Claim | Evidence |
 |---|---|
 | `ls` in the home shows the new note's name next to the other entries | R (2026-10-07): `ls` in a home holding `forest/` and `note_k7m` printed both names |
+| The map hides the note until `ls` lists the home (game choice: the player has to look) | game behaviour (SIM session tests, browser check in `test/ui/layouts.js`) |
 | `cat` and the name prints the note | R: `cat note_k7m` printed its text |
 | The note's name starts with `note_` and ends with a few random letters | SIM: the name is one of the fixed `NOTES` list (`note_` plus three letters from the safe token alphabet), picked by the seed; the awakening and forest setups remove every name on the list |
 | Hint 3 `cat note_XXX` solves it from the home | SIM: the boss solve over 10 seeds |

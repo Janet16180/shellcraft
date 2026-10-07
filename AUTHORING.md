@@ -59,6 +59,7 @@ export default {
     hints: ['nudge', 'technique', secret => `cd ${secret.target}`],  // an entry may be a function of the secret
     done: (ctx, secret) => boolean,
     near: (ctx, secret) => null,        // optional, like a task's near
+    hidden: secret => ['/abs/path'],    // optional: kept off the map until an ls lists their directory
     solve: obs => ['lines'],            // derived from the observation like a player would, never from the secret
   },
   recap: [['cd dir', 'enter a directory']],

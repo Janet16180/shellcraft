@@ -108,6 +108,13 @@ test('the boss room leaves one note named note_ and three letters in the home, a
   assert.ok(names.size >= 3, [...names].join(', '));
 });
 
+test('the boss hides its note from the map until ls finds it', async () => {
+  for (const seed of SEEDS) {
+    const { secret } = await startBoss(chapter, seed);
+    assert.deepEqual(chapter.boss.hidden(secret), [secret.note], `seed ${seed}`);
+  }
+});
+
 test('the boss is beaten by ls, then cat on the note, found from the observation', async () => {
   for (const seed of SEEDS) {
     const { backend, secret, obs } = await startBoss(chapter, seed);

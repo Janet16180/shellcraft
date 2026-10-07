@@ -15,6 +15,7 @@ import { bootText, restoredText } from './messages.js';
 import { createSound } from './sound.js';
 import { renderRoster, picksHTML } from './roster.js';
 import { createQueue } from './queue.js';
+import { conceal, concealEffects } from './conceal.js';
 import { createToasts } from './toasts.js';
 import { logoSVG } from './logo.js';
 import { playIntro } from '../intro/player.js';
@@ -83,7 +84,7 @@ function show(ui, view) {
 
 // Through the queue, so an animation still waiting from an earlier line cannot draw over the new room.
 function showRoom(ui) {
-  const obs = ui.session.observation();
+  const obs = conceal(ui.session.observation(), ui.session.view().concealed);
   afterMap(ui, () => {
     ui.map.show(obs);
     roomSettled(ui);
@@ -190,7 +191,8 @@ function applyTurn(ui, turn) {
   if (turn.result.output.some(chunk => chunk.stream === 'err')) ui.sound.play('err');
   if (turn.effects.some(e => e.kind === 'travel')) ui.sound.play('step');
   afterMap(ui, async () => {
-    await ui.map.play(turn.effects, turn.obs);
+    const hidden = turn.view.concealed;
+    await ui.map.play(concealEffects(turn.effects, hidden), conceal(turn.obs, hidden));
     roomSettled(ui);
   });
   show(ui, turn.view);

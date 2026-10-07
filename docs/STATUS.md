@@ -37,6 +37,10 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
     the start of the room-button row (a two-line block), and the "In this room" label and the
     key link became a `?` button at the row's end. Map height at 1366x768: 223px before, 322px
     after; at 1280x720 195px to 293px.
+  - Chapter 1 boss: the new note stays off the map and the room buttons until the player runs
+    `ls` in the home (or `ls ~` from elsewhere); then it sparkles in. A boss may declare
+    `hidden: secret => [paths]`; the View carries `concealed` and the UI drops those paths from
+    the observation it draws (`src/ui/conceal.js`). The shell and the checks see the real world.
 
 ## State at the end of 2026-10-06
 

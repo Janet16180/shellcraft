@@ -58,6 +58,11 @@ function assertBoss(boss, where) {
   assert.ok(room && Array.isArray(room.patch) && 'secret' in room, `${where} boss: setup must return { patch, secret }`);
   validatePatch(room.patch);
   assertHints(boss.hints, `${where} boss`, hint => (isFunction(hint) ? hint(room.secret) : hint));
+  assert.ok(isOptionalFunction(boss.hidden), `${where} boss: hidden must be a function when present`);
+  if (boss.hidden) {
+    const paths = boss.hidden(room.secret);
+    assert.ok(Array.isArray(paths) && paths.every(p => typeof p === 'string' && p.startsWith('/')), `${where} boss: hidden must return absolute paths`);
+  }
 }
 
 function assertSpells(spells, where) {

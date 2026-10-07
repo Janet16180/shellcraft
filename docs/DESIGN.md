@@ -93,7 +93,8 @@ random boss, hints kept).
 `View` holds everything the page draws: the chapter (id, number, total, act, title, phase
 `quest|boss|done`, lesson HTML, tasks with done/next, boss title and briefing), XP, rank (title,
 floor, next), hearts, sound, the layout (`stacked|side`), the chapter list with a status each (`playing|open|cleared|locked|soon`),
-the spellbook with an `unlocked` flag per spell, and the prompt (user, host, cwd, home).
+the spellbook with an `unlocked` flag per spell, the prompt (user, host, cwd, home), and
+`concealed`: the paths of the boss's `hidden` list not yet found with `ls`, which the map leaves out.
 
 ### 2.3 Effects (`src/game/effects.js`)
 

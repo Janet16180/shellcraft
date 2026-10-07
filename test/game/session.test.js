@@ -367,6 +367,52 @@ test('a dangerous line costs a heart with the game\'s reason, and the guard\'s r
   assert.equal(turn.view.hearts.left, 2);
 });
 
+function hidingSign() {
+  const chapters = fixtureChapters();
+  chapters[0].boss.hidden = () => [`${HOME}/sign.txt`];
+  return chapters;
+}
+
+test('a boss hides its hidden paths in the view until an ls lists their directory', async () => {
+  const { session } = await booted({ chapters: hidingSign() });
+  assert.deepEqual(session.view().concealed, []);
+  const start = await reachBoss(session);
+  assert.deepEqual(start.view.concealed, [`${HOME}/sign.txt`]);
+  assert.ok(!start.effects.some(e => e.path === `${HOME}/sign.txt`), 'the boss room does not sparkle the hidden file');
+  assert.deepEqual((await session.submit('ls forest')).view.concealed, [`${HOME}/sign.txt`]);
+  assert.deepEqual((await session.submit('ls -d ~')).view.concealed, [`${HOME}/sign.txt`]);
+  assert.deepEqual((await session.submit('ls --help')).view.concealed, [`${HOME}/sign.txt`]);
+  const listed = await session.submit('ls');
+  assert.deepEqual(listed.view.concealed, []);
+  assert.ok(listed.effects.some(e => e.kind === 'created' && e.path === `${HOME}/sign.txt`), 'the file sparkles in when found');
+});
+
+test('an ls that opens the boss room does not reveal what the room hides', async () => {
+  const chapters = hidingSign();
+  chapters[0].tasks[1].done = ctx => ctx.ran('ls');
+  const { session } = await booted({ chapters });
+  await session.submit('pwd');
+  const start = await session.submit('ls');
+  assert.deepEqual(kinds(start.events).at(-1), 'boss-start');
+  assert.deepEqual(start.view.concealed, [`${HOME}/sign.txt`]);
+});
+
+test('ls with the directory as an argument from elsewhere reveals too', async () => {
+  const { session } = await booted({ chapters: hidingSign() });
+  await reachBoss(session);
+  await session.submit('cd forest');
+  assert.deepEqual((await session.submit('ls ~')).view.concealed, []);
+});
+
+test('the hidden paths come back when the boss room is set up again, and are gone after a restart', async () => {
+  const { session, store } = await booted({ chapters: hidingSign() });
+  await reachBoss(session);
+  await session.submit('ls');
+  const reloaded = makeSession({ chapters: hidingSign(), stored: Object.fromEntries(store.items) }).session;
+  assert.deepEqual((await reloaded.boot()).concealed, [`${HOME}/sign.txt`]);
+  assert.deepEqual((await reloaded.startChapter('awakening')).concealed, []);
+});
+
 function withBlocked(backend, change) {
   return { ...backend, run: async line => {
     const result = await backend.run(line);

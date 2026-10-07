@@ -52,7 +52,7 @@ export function createSession({ backend, chapters, baseWorld, store, random }) {
 
   const s = {
     backend, chapters, baseWorld, store, random,
-    save: null, boot: null, obs: null, index: null, completions: [], busy: false,
+    save: null, boot: null, obs: null, index: null, completions: [], busy: false, concealed: [],
     phase: 'quest', tasksDone: [], hints: [], bossHints: 0, secret: undefined, hearts: MAX_HEARTS, replay: false,
   };
   const idle = work => (...args) => {
@@ -155,6 +155,7 @@ async function start(s, id, fresh) {
     hints: chapter.tasks.map(() => 0),
     bossHints: 0,
     secret: undefined,
+    concealed: [],
     hearts: MAX_HEARTS,
     replay: s.save.cleared.includes(id),
   });
@@ -185,14 +186,33 @@ async function shellTurn(s, line, completions) {
   s.obs = after;
   const ctx = makeContext({ commands: result.commands, before, obs: after, completions });
   const effects = [...lineEffects(ctx, result.blocked), ...(current(s).effects?.(ctx) ?? [])];
+  const inBossRoom = s.phase === 'boss';
   const events = await advance(s, ctx);
+  if (inBossRoom) effects.push(...uncover(s, ctx));
   const completed = events.some(e => e.kind === 'task' || e.kind === 'boss');
   const note = (completed ? null : nearNote(s, ctx)) ?? coachNote(ctx);
   const output = note === null ? result.output : [...result.output, { stream: 'note', tone: 'coach', text: terminalText(note) }];
   const [danger] = dangers(ctx);
   if (danger !== undefined) events.push(...await hurt(s, danger));
-  if (s.obs !== after) effects.push(...worldEffects(after, s.obs));
+  if (s.obs !== after) effects.push(...worldEffects(after, s.obs).filter(e => !s.concealed.includes(e.path)));
   return { result: { ...result, output }, obs: s.obs, effects, events, view: view(s) };
+}
+
+const parentOf = path => path.slice(0, path.lastIndexOf('/')) || '/';
+
+// A successful ls of a hidden path's directory (or of the path) lets the map show it.
+function lists(ctx, path) {
+  return ctx.commands.some(r => {
+    if (r.name !== 'ls' || r.status !== 0 || ctx.flag(r, 'd') || r.args.includes('--help')) return false;
+    const operands = ctx.paths(r);
+    return operands.length === 0 ? r.cwd === parentOf(path) : operands.includes(parentOf(path)) || operands.includes(path);
+  });
+}
+
+function uncover(s, ctx) {
+  const found = s.concealed.filter(path => lists(ctx, path));
+  s.concealed = s.concealed.filter(path => !found.includes(path));
+  return found.map(path => ({ kind: 'created', path, type: ctx.node(path)?.type ?? 'file' }));
 }
 
 function nearNote(s, ctx) {
@@ -245,6 +265,7 @@ async function openBossRoom(s) {
   await s.backend.load(room.patch);
   s.obs = await s.backend.observe();
   s.secret = room.secret;
+  s.concealed = current(s).boss.hidden?.(room.secret) ?? [];
   s.phase = 'boss';
 }
 
@@ -255,6 +276,7 @@ function clearChapter(s) {
   s.save.xp += bossXp + clearXp;
   if (!s.save.cleared.includes(chapter.id)) s.save.cleared.push(chapter.id);
   s.phase = 'done';
+  s.concealed = [];
 
   const following = s.chapters[s.index + 1];
   const next = following && canStart(statuses(s)[s.index + 1]) ? following.id : null;
@@ -400,6 +422,7 @@ function view(s) {
     chapters: s.chapters.map((c, i) => ({ id: c.id, number: i + 1, act: c.act, title: c.title, status: status[i], current: i === s.index })),
     spellbook: s.chapters.flatMap((c, i) => (c.spells ?? []).map(spell => ({ ...spell, chapter: c.id, unlocked: canStart(status[i]) }))),
     prompt: { user, host, cwd, home },
+    concealed: s.concealed,
     boot: s.boot,
   };
 }
