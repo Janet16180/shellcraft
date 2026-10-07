@@ -40,6 +40,7 @@ export const LABEL = {
   hidden: '#c8c2e6',
   locked: '#ff8a94',
   more: '#ffd348',
+  creature: '#ffab8a',
   hover: '#ffd348',
 };
 

@@ -88,6 +88,25 @@ export function drawLabels(g, view, layout, ringed) {
 }
 
 /**
+ * Label every creature with "PID name" under its feet, kept inside the picture.
+ *
+ * @param {CanvasRenderingContext2D} g The screen canvas.
+ * @param {View} view The mapping.
+ * @param {{label: string, x: number, y: number}[]} creatures The creatures, with their current centres.
+ */
+export function drawCreatureLabels(g, view, creatures) {
+  g.font = `${view.font}px ${MONO}`;
+  const pad = Math.round(view.font * 0.3);
+  const left = sx(view, 0);
+  const right = sx(view, 320);
+  for (const { label, x, y } of creatures) {
+    const half = Math.ceil(g.measureText(label).width) / 2 + pad;
+    const cx = Math.max(left + half, Math.min(right - half, sx(view, x)));
+    tag(g, view, label, cx, sy(view, y + 15), { colour: LABEL.creature });
+  }
+}
+
+/**
  * Draw speech bubbles over their speakers.
  *
  * @param {CanvasRenderingContext2D} g The screen canvas.
@@ -101,7 +120,7 @@ export function drawBubbles(g, view, bubbles, anchors) {
   g.textBaseline = 'middle';
   for (const { text, who } of bubbles) {
     const at = anchors[who] ?? anchors.player;
-    const dark = who === 'daemon';
+    const dark = who !== 'player' && who in anchors;
     const w = Math.min(view.width - 12 * view.dpr, g.measureText(text).width + view.font * 1.4);
     const h = Math.round(view.font * 1.9);
     const left = Math.max(6 * view.dpr, Math.min(view.width - 6 * view.dpr - w, sx(view, at.x) - w / 2));

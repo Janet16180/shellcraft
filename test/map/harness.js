@@ -41,6 +41,8 @@ const shell = imp(100, '-bash', 'shell');
 const impsAndStubborn = [shell, imp(412, 'imp', 'imp'), imp(413, 'imp', 'imp2'), imp(420, './greedy_imp --eat', 'greedy', 88.1), imp(431, 'stubborn_imp', 'stubborn')];
 const disguised = [shell, imp(512, 'imp', 'imp'), imp(519, 'ghostly_imp', 'imp2'), imp(533, 'nibbler', 'daemon', 97.2), imp(540, 'imp', 'imp3')];
 
+const crowd = [...impsAndStubborn, imp(4242, './shadow_daemon', 'daemon', 99.7), imp(450, 'imp', 'imp9'), imp(451, 'imp', 'imp10')];
+
 const daemon = [{ pid: 4242, ppid: 1, user: 'hero', tty: '?', stat: 'R', cpu: 99.7, mem: 12.4, cmd: './shadow_daemon', key: 'daemon' }];
 
 const CASES = {
@@ -58,6 +60,7 @@ const CASES = {
   well: () => ({ obs: observe('/home/hero/well', { tree: actTwoTree() }) }),
   den: () => ({ obs: observe('/home/hero/den', { tree: actTwoTree() }), procs: impsAndStubborn }),
   disguised: () => ({ obs: observe('/home/hero/den', { tree: actTwoTree() }), procs: disguised }),
+  crowd: () => ({ obs: observe('/home/hero', { tree: busyTree() }), procs: crowd }),
   forge: () => ({ obs: observe('/home/hero/forge', { tree: actTwoTree() }) }),
   ore: () => ({ obs: observe('/home/hero/forge/ore', { tree: actTwoTree() }) }),
   guild: () => ({ obs: observe('/usr/local/bin', { tree: actTwoTree() }) }),

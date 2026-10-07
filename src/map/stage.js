@@ -10,8 +10,9 @@ import { layoutRoom, ART, STAND } from './layout.js';
 import { describeRoom } from './describe.js';
 import { createMotion } from './motion.js';
 import { makeCanvas } from './paint.js';
+import { placeCreatures, vanished, hover } from './creatures.js';
+import { CREATURE_BURST } from './creatureart.js';
 
-const DAEMON_KEY = 'daemon';
 const NARROW_CSS = 560;
 const BUBBLE_MS = 2600;
 const SHAKE_MS = 360;
@@ -49,7 +50,7 @@ export function createStage(canvas, reducedMotion) {
     view: { scale: 1, ox: 0, oy: 0, dpr: 1, font: 12, width: 0, height: 0, narrow: false },
     state: {
       obs: null, scene: null, bgKey: '', revealed: new Set(),
-      player: { ...STAND, walking: false }, daemon: { x: 262, y: 70, flashUntil: 0 },
+      player: { ...STAND, walking: false }, creatures: [], fallen: [],
       fade: 0, flashUntil: 0, shakeUntil: 0, banner: null, bubbles: [], trip: null, hover: null, focus: null,
       gateOpen: false, token: 0,
     },
@@ -73,9 +74,20 @@ export function settle(stage, obs) {
     path: obs.cwd,
     home: obs.home,
     gateOpen: state.gateOpen,
-    daemon: obs.procs.some(p => p.key === DAEMON_KEY),
   };
+  settleCreatures(stage, obs.procs);
   canvas.setAttribute('aria-label', describeRoom(obs, { revealed: state.revealed }));
+}
+
+function settleCreatures(stage, procs) {
+  const { state } = stage;
+  const placed = placeCreatures(procs, state.creatures);
+  state.fallen = vanished(state.creatures, placed);
+  for (const gone of state.fallen) stage.motion.burst(gone.x, gone.y, CREATURE_BURST[gone.kind], 28);
+  state.creatures = placed.map(c => {
+    const before = state.creatures.find(b => b.pid === c.pid);
+    return { ...c, ...hover(c, 0), flashUntil: 0, ...(before && { x: before.x, y: before.y, flashUntil: before.flashUntil }) };
+  });
 }
 
 /**
@@ -145,6 +157,19 @@ export function shake(stage) {
  */
 export function flash(stage) {
   stage.state.flashUntil = performance.now() + FLASH_MS;
+}
+
+/**
+ * The creatures for a process key: those on show, else those that just vanished.
+ *
+ * @param {Stage} stage The stage.
+ * @param {string} key The process key.
+ * @returns {object[]} The creatures (with their last position), maybe none.
+ */
+export function creaturesWithKey(stage, key) {
+  const { creatures, fallen } = stage.state;
+  const live = creatures.filter(c => c.key === key);
+  return live.length ? live : fallen.filter(c => c.key === key);
 }
 
 /**
