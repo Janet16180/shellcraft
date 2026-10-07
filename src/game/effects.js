@@ -43,12 +43,23 @@ function listsHidden(ctx, record) {
   return record.name === 'ls' && record.status === 0 && all && !ctx.flag(record, 'd');
 }
 
-function reveals(ctx) {
+/**
+ * The directories whose hidden entries this line listed: `ls -a` or `ls -A`
+ * (without `-d`) of each directory operand, or of the cwd when there is none.
+ *
+ * @param {object} ctx The check context of the line.
+ * @returns {string[]} Absolute paths of directories, each once, in the order listed.
+ */
+export function revealedDirs(ctx) {
   const paths = ctx.commands.filter(r => listsHidden(ctx, r)).flatMap(r => {
     const operands = ctx.paths(r);
     return operands.length > 0 ? operands : [r.cwd];
   });
-  return [...new Set(paths)].filter(path => ctx.node(path)?.type === 'dir').map(path => ({ kind: 'reveal', path }));
+  return [...new Set(paths)].filter(path => ctx.node(path)?.type === 'dir');
+}
+
+function reveals(ctx) {
+  return revealedDirs(ctx).map(path => ({ kind: 'reveal', path }));
 }
 
 /**

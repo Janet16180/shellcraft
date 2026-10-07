@@ -12,6 +12,27 @@ map draws the working directory as a room: the original outdoor 8-bit style insi
 home, Ring Zero's Pixel Dungeon style outside it. Each chapter is lesson, guided quest, boss,
 adventure log. 14 chapters are planned (DESIGN.md section 4).
 
+## State at 2026-10-07 (chapters 3 and 4)
+
+- Branch `slice/ch3-4` (from main a97e409), merged into main: chapters 3 Things Unseen (`ls -a`,
+  `ls -l`, joined options) and 4 Build a Camp (`mkdir`, `touch`, `echo >`, `cp`, `mv`) are
+  playable. The user approved the task lists and both bosses: ch3 "The Hidden Tunnel" (`ls -a
+  ~/forest/cave`, `cd` into `.tunnel_XXX`, `cat treasure.txt` there); ch4 "The Fire Pit" (find
+  `flint_XXX.txt` by the river, `mkdir ~/camp/firepit`, `mv` the flint in, `echo lit >` fire.txt;
+  the flint stays off the map until listed).
+- Chapter 3 tasks (the user's rework): the secret map names only `~/library`, where the base world
+  hides a directory `.secret_passage`; the player finds it with `ls -la`, `cd`s in, then reads the
+  Scroll of Ages' size with `ls -l`. The boss's hidden tunnel repeats this without the map's help.
+- Guidance rule (AUTHORING content rule 9, the user): a command new in the chapter gets a clue in
+  its first goal (`ls` with `-a`; `mkdir` makes directories); a complex line is shown in full the
+  first time (`echo wood > ~/camp/supplies.txt`, the `cp` line); later goals name only the target.
+- `src/game/effects.js` exports `revealedDirs(ctx)` (the directories whose hidden entries a line
+  listed), shared by the map's reveal effect and chapter 3's checks.
+- Fact-checked against real bash 5.2.21 and coreutils 9.4: `docs/verification/unseen.md` and
+  `camp.md`. Not yet done: a blind playtest by a second reader (WORKLIST D) and the user's play.
+- 1131 tests pass, lint is clean; `node test/ui/layouts.js OUT` (now also checks both new boss
+  rooms) reports no problems.
+
 ## State at 2026-10-07
 
 - Branch `slice/layout` (from main 240dd93) was merged into main with `--no-ff` at 585b794 after
@@ -93,13 +114,13 @@ node test/ui/layouts.js OUT_DIR        # both layouts at five window sizes, plus
 
 ## First steps of the next session
 
-1. `slice/layout` is merged (A1 to A3, G1, G2, G4 done; A4 not needed). Ask the user for more
-   playtest notes.
+1. The user plays chapters 3 and 4 on `slice/ch3-4` (`npm run serve`); fix their notes, then
+   ask before merging. (`slice/layout` is merged: A1 to A3, G1, G2, G4 done.)
 2. G3: keyboard and screen reader pass of both layouts.
 3. engine: B1, hearts from `selectsProcess` (cases listed in WORKLIST B1).
 4. factcheck: verify `src/backend/process.js` (commit 6bb4c32) against Ubuntu.
 5. The user plays again; collect their feedback.
-6. Chapters 3 to 5, each author paired with a fact-checker (WORKLIST D).
+6. Chapter 5 (The Cursed Junkyard), with the guidance rule above (WORKLIST D).
 
 ## The team
 

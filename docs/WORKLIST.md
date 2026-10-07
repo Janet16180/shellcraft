@@ -66,6 +66,9 @@ Each chapter is written by an author and checked by a fact-checker who did not w
 Gate, 12 Well of Echoes, 13 The Shadow Daemon, 14 Forge Your Own Spell. Order: 3-5, then 6-9,
 then 10-14 (12, 13 and 14 wait for C2, C3 and C1). The user plays each batch before the next.
 
+**Written:** 3 Things Unseen and 4 Build a Camp (branch `slice/ch3-4`, merged 2026-10-07; fact-checked,
+waiting for the user's play and a blind playtest). Next: 5 The Cursed Junkyard.
+
 **Checking a level** suits the **helper** well. For each new chapter:
 
 1. **Blind playtest** before reading the code: play it from a fresh save at

@@ -133,6 +133,11 @@ that `near` note first, else a generic note from `src/game/coach.js`.
      "Jump to the river with an absolute path `~/forest/river`". Knowing that `cd` plus that path
      does it is the player's part. The tip under the goal may name the command. The one exception
      so far is `cd -`, whose goal names it because a dash as a place is too odd to guess.
+   - **A command or option new in the chapter** gets a clue in its first goal, in parentheses: a
+     hint, not the whole line, like "Reveal the hidden files in your home (`ls` with `-a`, for
+     all)" or "(`mkdir` makes directories)". A complex line (a redirection, two paths) may be shown
+     in full the first time: "(`echo wood > ~/camp/supplies.txt`)". Later goals of the chapter
+     that use it again name only the target (the user, 2026-10-07).
    - The full command line waits for hint 3.
 
 ## 4. Chapter tests (`test/game/chapters/<id>.test.js`)

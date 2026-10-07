@@ -111,7 +111,7 @@ test('a reload after the first chapter resumes at the forest on a fresh world, a
   const { turns, last } = await playChapter(second.session, FOREST);
   assert.deepEqual(unexpectedErrors(turns), []);
   assert.deepEqual(kinds(last.events), ['boss', 'chapter']);
-  assert.equal(last.events[1].next, null);
+  assert.equal(last.events[1].next, 'unseen');
   assert.deepEqual(savedIn(store).cleared, ['awakening', 'forest']);
 });
 

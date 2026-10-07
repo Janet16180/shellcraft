@@ -14,7 +14,9 @@
  * and restarts the chapter with the HUD button (two clicks), and reports a
  * restart that does not bring back task 1 and the home directory. Last, at one
  * size, it plays chapter 1 into the boss room and reports a new note that the
- * room buttons show before ls, or not after it.
+ * room buttons show before ls, or not after it. Then, from a save at chapters
+ * 3 and 4, it plays each into its boss room and reports a tunnel or flint the
+ * room buttons show before the player lists its directory.
  *
  * Stops the server and the browser it starts.
  */
@@ -24,6 +26,9 @@ import { join, resolve } from 'node:path';
 import { chromium } from 'playwright-core';
 import { startServer } from '../../scripts/serve.js';
 import awakening from '../../src/game/chapters/awakening.js';
+import unseen from '../../src/game/chapters/unseen.js';
+import camp from '../../src/game/chapters/camp.js';
+import { SAVE_KEY, freshSave, serializeSave } from '../../src/game/save.js';
 
 const ROOT = resolve(import.meta.dirname, '../..');
 const SIZES = [[1400, 900], [1280, 720], [1536, 864], [1024, 768], [1280, 650], [360, 740]];
@@ -173,6 +178,32 @@ async function hiddenNoteProblems(browser, base, out) {
   return problems;
 }
 
+// A boss item must stay off the room buttons in its room until the listing that names it.
+async function bossItemProblems(browser, base, out, { chapter, cleared, walk, landmark, list, prefix }) {
+  const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+  const save = serializeSave({ ...freshSave(), chapter: chapter.id, cleared });
+  await context.addInitScript(([key, value]) => window.localStorage.setItem(key, value), [SAVE_KEY, save]);
+  const page = await context.newPage();
+  const problems = [];
+  page.on('pageerror', error => problems.push(`${chapter.id} boss: ${error}`));
+  await page.goto(`${base}/index.html`);
+  await page.waitForTimeout(800);
+  for (const line of chapter.solve) await type(page, line);
+  await page.click('#bossGo');
+  await page.waitForTimeout(600);
+  await type(page, walk);
+  await page.waitForFunction(seen => [...document.querySelectorAll('#picks button')].some(b => b.textContent.includes(seen)), landmark);
+  const items = () => page.$$eval('#picks button', (buttons, p) => buttons.map(b => b.textContent).filter(t => t.includes(p)), prefix);
+  if ((await items()).length > 0) problems.push(`${chapter.id} boss: the room buttons show ${prefix} before it is listed`);
+  await page.screenshot({ path: join(out, `${chapter.id}-boss-before.png`) });
+  await type(page, list);
+  await page.waitForTimeout(600);
+  if ((await items()).length !== 1) problems.push(`${chapter.id} boss: the room buttons do not show ${prefix} after ${list}`);
+  await page.screenshot({ path: join(out, `${chapter.id}-boss-after.png`) });
+  await context.close();
+  return problems;
+}
+
 const out = process.argv[2];
 if (!out) throw new Error('usage: node test/ui/layouts.js OUT_DIR');
 await mkdir(out, { recursive: true });
@@ -188,6 +219,8 @@ try {
     }
   }
   problems.push(...await hiddenNoteProblems(browser, base, out));
+  problems.push(...await bossItemProblems(browser, base, out, { chapter: unseen, cleared: ['awakening', 'forest'], walk: 'cd ~/forest/cave', landmark: 'bat.txt', list: 'ls -a', prefix: '.tunnel_' }));
+  problems.push(...await bossItemProblems(browser, base, out, { chapter: camp, cleared: ['awakening', 'forest', 'unseen'], walk: 'cd ~/forest/river', landmark: 'fish.txt', list: 'ls', prefix: 'flint_' }));
 } finally {
   await browser.close();
   server.close();
