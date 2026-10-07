@@ -61,7 +61,7 @@ Man pages from the Ubuntu 24.04 host.
 | Quick help: `ls -help` is left to the generic coach (`src/game/coach.js`: "One dash starts short options... Long options take two dashes: --help."); a test checks the coach answers it |
 | Factcheck 2026-10-06 on the coach's `-help` note: "One dash starts short options" does not hold for every command, so it should read "For most commands, one dash starts short options, ..." (sent to engine for `coach.js`) | D: `ls -help` -> `ls: invalid option -- 'e'` (read letter by letter); but GNU `find -help` prints find's usage, status 0 (`find(1)`: "-help, --help"), and find's tests are one-dash words (`-name`), taught in a later chapter. `man -help` on man-db 2.12 prints man's help, status 0, because `-h` is man's short help option |
 | Quick help: "echo prints its words back, even --help." | D: `echo --help` prints `--help`, status 0 (`echo` is a shell builtin with no `--help`) |
-| Clear task goal says "with the `clear` command" | Ctrl+L is handled by the page's terminal, so the session cannot see it; the lesson keeps "Ctrl+L clears it too" (true, see above) |
+| Clear task goal says only "Wipe the screen clean" (2026-10-07, content rule 9); its tip names `clear` and says Ctrl+L does not count for the task | Ctrl+L is handled by the page's terminal, so the session cannot see it; the lesson keeps "Ctrl+L clears it too" (true, see above) |
 | Boss: a `cat` of a name that does not exist gets "There is no file by that name. Run ls and copy the full name that starts with note_."; a `cat` of another file gets "That was another file. The new note's name starts with note_: ls shows it." | game text (SIM tests) |
 
 ## Boss: A New Note

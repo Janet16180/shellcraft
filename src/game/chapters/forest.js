@@ -111,7 +111,7 @@ export default {
       done: ctx => ctx.read(`${deepOf(ctx)}/ancient_key.txt`),
     },
     {
-      goal: 'From deep, step back out into the cave with `..`',
+      goal: 'From deep, step back out to its parent, the cave',
       tip: '`..` is the parent directory, so `cd ..` from deep steps back out into the cave.',
       hints: [
         'deep is inside the cave, so the cave is its parent.',

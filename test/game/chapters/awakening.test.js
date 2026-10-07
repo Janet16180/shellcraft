@@ -54,7 +54,7 @@ const NEAR_MISSES = [
   ['Ask a command for its quick help', [], 'LS --help', 'whoami --help'],
   ['Ask a command for its quick help', [], 'clear --help', 'pwd --help'],
   ['Ask a command for its quick help', [], 'echo --help', 'ls --help'],
-  ['Wipe the screen clean with the `clear` command', [], 'cls', 'clear'],
+  ['Wipe the screen clean', [], 'cls', 'clear'],
 ];
 
 for (const [goal, prefix, miss, hit] of NEAR_MISSES) {
@@ -85,8 +85,10 @@ for (const [goal, prefix, line, note] of NEAR_NOTES) {
   });
 }
 
-test('the clear task asks for the clear command, since the page handles Ctrl+L itself', () => {
-  assert.match(chapter.tasks.at(-1).goal, /`clear` command/);
+test('the clear task\'s tip asks for the clear command, since the page handles Ctrl+L itself, and its goal leaves the command out', () => {
+  const task = chapter.tasks.at(-1);
+  assert.match(task.tip, /`clear`.*Ctrl\+L.*wants the command/);
+  assert.doesNotMatch(task.goal, /clear`|`clear/);
 });
 
 test('the boss room leaves one note named note_ and three letters in the home, and brings the player home', async () => {

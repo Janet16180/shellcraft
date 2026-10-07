@@ -140,7 +140,7 @@ export default {
         ? 'echo prints its words back, even --help. Ask another command, like ls --help.' : null),
     },
     {
-      goal: 'Wipe the screen clean with the `clear` command',
+      goal: 'Wipe the screen clean',
       tip: '`clear` wipes the screen; Ctrl+L does too, but this task wants the command.',
       hints: [
         'The screen is getting full. Start again with an empty one.',
