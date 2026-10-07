@@ -302,6 +302,17 @@ kbd {
   font-variant-numeric: tabular-nums;
 }
 
+.dev-badge {
+  padding: 0 6px;
+  font-weight: 700;
+  color: var(--bg, #000);
+  background: var(--accent);
+}
+
+.dev-badge[hidden] {
+  display: none;
+}
+
 .rank {
   font-weight: 700;
   color: var(--magic);

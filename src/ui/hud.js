@@ -77,10 +77,11 @@ export function hudToggle(open) {
  * Draw the HUD from the View.
  *
  * @param {Document} doc The page.
- * @param {{chapter: object, xp: number, rank: object, hearts: {left: number, max: number}, sound: boolean, layout: 'stacked'|'side'}} view The session View.
+ * @param {{chapter: object, xp: number, rank: object, hearts: {left: number, max: number}, sound: boolean, layout: 'stacked'|'side', dev: boolean}} view The session View.
  * @returns {void}
  */
-export function renderHUD(doc, { chapter, xp, rank, hearts, sound, layout }) {
+export function renderHUD(doc, { chapter, xp, rank, hearts, sound, layout, dev }) {
+  doc.getElementById('devBadge').hidden = !dev;
   const percent = xpPercent(xp, rank);
   doc.getElementById('chapNum').textContent = chapterLabel(chapter);
   doc.getElementById('chapName').textContent = chapter.title;

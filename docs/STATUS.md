@@ -81,6 +81,8 @@ cd ~/learning/shellcraft
 npm test            # all tests
 npm run lint        # ESLint, also enforces the layer rules
 npm run serve       # play at http://localhost:8765 (Ctrl+C stops it)
+                    # dev mode: http://localhost:8765/?dev (own save, every chapter open,
+                    # terminal commands dev skip / dev boss / dev solve)
 npm run difftest    # simulator vs real bash in Docker (ubuntu:24.04); needs Docker
 node test/ui/shots.js OUT_DIR          # screenshot run of the page (Chrome via playwright-core)
 node test/ui/layouts.js OUT_DIR        # both layouts at five window sizes, plus the restart button

@@ -41,17 +41,19 @@ import { LAYOUTS, SAVE_KEY, V1_SAVE_KEY, freshSave, parseSave, serializeSave } f
  * @param {{getItem: (key: string) => string|null, setItem: (key: string, text: string) => void}} deps.store
  *   Where the save lives, such as window.localStorage. Errors it throws propagate.
  * @param {() => number} deps.random Random numbers in [0, 1) for chapter setups.
+ * @param {boolean} [deps.dev] Dev mode: its own save, every written chapter open, and
+ *   the `dev` terminal commands that skip tasks and print answers. For testing chapters.
  * @returns {object} The session API (DESIGN.md section 2.2). Its methods raise
  *   when called before boot(), or while another state-changing call is running.
  * @throws {Error} If the chapter list is empty or repeats an id.
  */
-export function createSession({ backend, chapters, baseWorld, store, random }) {
+export function createSession({ backend, chapters, baseWorld, store, random, dev = false }) {
   const ids = chapters.map(c => c.id);
   if (ids.length === 0) throw new Error('the chapter list is empty');
   if (new Set(ids).size !== ids.length) throw new Error(`chapter ids must be unique: ${ids.join(', ')}`);
 
   const s = {
-    backend, chapters, baseWorld, store, random,
+    backend, chapters, baseWorld, store, random, dev, saveKey: dev ? `${SAVE_KEY}.dev` : SAVE_KEY,
     save: null, boot: null, obs: null, index: null, completions: [], busy: false, concealed: [],
     phase: 'quest', tasksDone: [], hints: [], bossHints: 0, secret: undefined, hearts: MAX_HEARTS, replay: false,
   };
@@ -97,8 +99,11 @@ async function exclusive(s, work) {
 
 const current = s => s.chapters[s.index];
 const who = s => ({ home: s.obs.home, user: s.obs.user, host: s.obs.host });
-const statuses = s => chapterStatuses(s.chapters, { current: current(s)?.id ?? null, cleared: s.save.cleared });
-const persist = s => s.store.setItem(SAVE_KEY, serializeSave({ ...s.save, progress: progressOf(s) }));
+function statuses(s) {
+  const status = chapterStatuses(s.chapters, { current: current(s)?.id ?? null, cleared: s.save.cleared });
+  return s.dev ? status.map(st => (st === 'locked' ? 'open' : st)) : status;
+}
+const persist = s => s.store.setItem(s.saveKey, serializeSave({ ...s.save, progress: progressOf(s) }));
 
 function progressOf(s) {
   const { phase, tasksDone, hints, bossHints } = s;
@@ -106,7 +111,7 @@ function progressOf(s) {
 }
 
 async function boot(s) {
-  const { save, status } = parseSave({ v2: s.store.getItem(SAVE_KEY), v1: s.store.getItem(V1_SAVE_KEY) });
+  const { save, status } = parseSave({ v2: s.store.getItem(s.saveKey), v1: s.dev ? null : s.store.getItem(V1_SAVE_KEY) });
   const { progress, ...kept } = save;
   const known = new Set(s.chapters.map(c => c.id));
   s.save = { ...kept, cleared: kept.cleared.filter(id => known.has(id)) };
@@ -175,6 +180,8 @@ async function submit(s, line) {
   requireBooted(s);
   const completions = s.completions;
   s.completions = [];
+  const words = line.trim().split(/\s+/);
+  if (s.dev && words[0] === 'dev') return devTurn(s, words[1]);
   const answer = GAME_COMMANDS.get(line.trim());
   return answer ? gameTurn(s, answer(s)) : shellTurn(s, line, completions);
 }
@@ -269,10 +276,10 @@ async function openBossRoom(s) {
   s.phase = 'boss';
 }
 
-function clearChapter(s) {
+function clearChapter(s, { free = s.replay } = {}) {
   const chapter = current(s);
-  const bossXp = payout(XP.boss, s.bossHints, s.replay);
-  const clearXp = s.replay ? 0 : XP.clear;
+  const bossXp = payout(XP.boss, s.bossHints, free);
+  const clearXp = free ? 0 : XP.clear;
   s.save.xp += bossXp + clearXp;
   if (!s.save.cleared.includes(chapter.id)) s.save.cleared.push(chapter.id);
   s.phase = 'done';
@@ -351,9 +358,53 @@ function hintCommand(s) {
 /** Game commands typed in the terminal; they are not Linux and never reach the backend. */
 const GAME_COMMANDS = new Map([['hint', hintCommand], ['quest', s => questNote(chapterView(s))]]);
 
-function gameTurn(s, text) {
+function gameTurn(s, text, { events = [], effects = [] } = {}) {
   const result = { output: [{ stream: 'note', text: terminalText(text) }], status: 0, commands: [], blocked: [] };
-  return { result, obs: s.obs, effects: [], events: [], view: view(s) };
+  return { result, obs: s.obs, effects, events, view: view(s) };
+}
+
+const DEV_HELP = `Dev commands:
+  dev skip   finish the next task, or the boss, without checking it
+  dev boss   finish every task and open the boss room
+  dev solve  print the answer lines for the tasks, or for the boss`;
+
+// Skipped parts pay no XP, so dev runs never look like real progress.
+function devSkipTasks(s, count) {
+  const { tasks } = current(s);
+  return s.tasksDone.flatMap((done, index) => {
+    if (done || count-- <= 0) return [];
+    s.tasksDone[index] = true;
+    return [{ kind: 'task', index, goal: tasks[index].goal, xp: 0 }];
+  });
+}
+
+function devSolve(s) {
+  const chapter = current(s);
+  if (s.phase === 'done') return 'This chapter is cleared.';
+  return (s.phase === 'boss' ? chapter.boss.solve(s.obs) : chapter.solve).join('\n');
+}
+
+async function devSkip(s, command) {
+  if (s.phase === 'done') return { text: 'This chapter is cleared: open the next one from Chapters.', events: [] };
+  if (s.phase === 'boss' && command === 'skip') {
+    return { text: 'Dev: boss skipped.', events: clearChapter(s, { free: true }) };
+  }
+  const events = devSkipTasks(s, command === 'skip' ? 1 : Infinity);
+  if (s.tasksDone.every(Boolean) && s.phase === 'quest') {
+    await openBossRoom(s);
+    events.push({ kind: 'boss-start', title: current(s).boss.title });
+  }
+  return { text: `Dev: ${command === 'skip' ? 'task' : 'tasks'} skipped.`, events };
+}
+
+async function devTurn(s, command) {
+  const before = s.obs;
+  let result = { text: DEV_HELP, events: [] };
+  if (command === 'solve') result = { text: devSolve(s), events: [] };
+  else if (command === 'skip' || command === 'boss') result = await devSkip(s, command);
+  if (result.events.length > 0) persist(s);
+  const effects = s.obs === before ? [] : worldEffects(before, s.obs).filter(e => !s.concealed.includes(e.path));
+  return gameTurn(s, result.text, { events: result.events, effects });
 }
 
 function setSound(s, on) {
@@ -424,5 +475,6 @@ function view(s) {
     prompt: { user, host, cwd, home },
     concealed: s.concealed,
     boot: s.boot,
+    dev: s.dev,
   };
 }
