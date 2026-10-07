@@ -142,6 +142,11 @@ that `near` note first, else a generic note from `src/game/coach.js`.
 
 ## 4. Chapter tests (`test/game/chapters/<id>.test.js`)
 
+To play a new chapter by hand, open the game with `?dev` (http://localhost:8765/?dev). Dev mode keeps
+its own save (the player's is untouched), opens every written chapter in Chapters, and adds terminal
+commands: `dev skip` finishes the next task (or the boss), `dev boss` jumps to the boss room, `dev
+solve` prints the chapter's `solve` lines or `boss.solve`. Skipped parts pay no XP.
+
 Each chapter test file runs against the real simulator (`createSimBackend`) and checks:
 1. The module passes the shared contract check (`assertChapter` from `test/helpers/`).
 2. Base world + `setup`, then `solve` line by line: every task completes, no line errors unexpectedly.

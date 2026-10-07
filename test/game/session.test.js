@@ -755,3 +755,76 @@ test('a chapter list with repeated ids raises', () => {
   const [a] = fixtureChapters();
   assert.throws(() => makeSession({ chapters: [a, { ...a }] }), /unique/);
 });
+
+// Dev mode (?dev): a separate save, every written chapter open, and dev commands.
+async function devSession(options = {}) {
+  const store = createMemoryStore(options.stored ?? {});
+  const session = createSession({ backend: createFakeBackend(), chapters: fixtureChapters(), baseWorld: fixtureWorld, store, random: createRandom(1), dev: true });
+  const view = await session.boot();
+  return { store, session, view };
+}
+const noteOf = turn => turn.result.output.map(c => c.text).join('\n');
+
+test('dev mode keeps its own save and leaves the player\'s save alone', async () => {
+  const { store, session, view } = await devSession({ stored: v2({ xp: 70, cleared: ['awakening'], chapter: 'forest' }) });
+  assert.equal(view.dev, true);
+  assert.equal(view.xp, 0, 'the dev save starts fresh');
+  await session.submit('dev skip');
+  assert.equal(JSON.parse(store.items.get(SAVE_KEY)).xp, 70);
+  assert.ok(store.items.has(`${SAVE_KEY}.dev`));
+});
+
+test('dev mode opens every written chapter but not the placeholders', async () => {
+  const { session, view } = await devSession();
+  assert.deepEqual(view.chapters.map(c => c.status), ['playing', 'open', 'soon']);
+  assert.equal((await session.startChapter('forest')).chapter.id, 'forest');
+});
+
+test('dev skip finishes the next task, then opens the boss room, then clears the chapter', async () => {
+  const { session } = await devSession();
+  const tasks = fixtureChapters()[0].tasks.length;
+  for (let i = 0; i < tasks - 1; i++) {
+    const turn = await session.submit('dev skip');
+    assert.deepEqual(turn.events.map(e => [e.kind, e.index, e.xp]), [['task', i, 0]]);
+  }
+  const last = await session.submit('dev skip');
+  assert.deepEqual(kinds(last.events), ['task', 'boss-start']);
+  assert.equal(last.view.chapter.phase, 'boss');
+  const boss = await session.submit('dev skip');
+  assert.deepEqual(kinds(boss.events), ['boss', 'chapter']);
+  assert.equal(boss.events[1].next, 'forest');
+  assert.equal(boss.view.xp, 0, 'skipping pays nothing');
+  assert.match(noteOf(await session.submit('dev skip')), /cleared/);
+});
+
+test('dev boss skips every task and opens the boss room', async () => {
+  const { session } = await devSession();
+  const turn = await session.submit('dev boss');
+  assert.deepEqual(kinds(turn.events), [...fixtureChapters()[0].tasks.map(() => 'task'), 'boss-start']);
+  assert.equal(turn.view.chapter.phase, 'boss');
+  assert.ok(turn.view.chapter.tasks.every(t => t.done));
+});
+
+test('dev solve prints the answer lines for the tasks, then for the boss', async () => {
+  const { session } = await devSession();
+  assert.match(noteOf(await session.submit('dev solve')), new RegExp(fixtureChapters()[0].solve.join('\n')));
+  const turn = await session.submit('dev boss');
+  const lines = fixtureChapters()[0].boss.solve(turn.obs);
+  assert.match(noteOf(await session.submit('dev solve')), new RegExp(lines[0]));
+});
+
+test('dev with no command, or an unknown one, lists the dev commands', async () => {
+  const { session } = await devSession();
+  for (const line of ['dev', 'dev nope']) {
+    const note = noteOf(await session.submit(line));
+    for (const name of ['dev skip', 'dev boss', 'dev solve']) assert.ok(note.includes(name), `${line}: ${name}`);
+  }
+});
+
+test('outside dev mode, dev is not a game command and nothing is skipped', async () => {
+  const { session, view } = await booted();
+  assert.equal(view.dev, false);
+  const turn = await session.submit('dev skip');
+  assert.deepEqual(turn.events, []);
+  assert.ok(turn.view.chapter.tasks.every(t => !t.done));
+});

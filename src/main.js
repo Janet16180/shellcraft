@@ -19,6 +19,7 @@ const session = createSession({
   baseWorld,
   store: createStore(() => window.localStorage),
   random: Math.random,
+  dev: new URLSearchParams(window.location.search).has('dev'),
 });
 
 startApp({
