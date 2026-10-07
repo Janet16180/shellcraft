@@ -12,6 +12,31 @@ map draws the working directory as a room: the original outdoor 8-bit style insi
 home, Ring Zero's Pixel Dungeon style outside it. Each chapter is lesson, guided quest, boss,
 adventure log. 14 chapters are planned (DESIGN.md section 4).
 
+## State at 2026-10-07 (chapters 5 to 9, dev mode)
+
+- Branch `slice/ch5-9` (from main 035230a), not merged: chapters 5 The Cursed Junkyard (`rm`,
+  `rmdir`, `rm -r`), 6 Hall of Mirrors (`*`, `?`, `[ ]`, quotes; new area `~/mirrors` made by its
+  setup), 7 The Great Library (`head`, `tail`, `-n`, `wc -l`), 8 The Tower of Echoes (`grep`, `-i`,
+  `-r`, `find -name`) and 9 The Market of Pipes (`sort`, `|`, `uniq`, `uniq -c`, `>>`) are playable,
+  so all of act I is.
+- The user delegated the design of these chapters ("you don't need my approval"; they play and give
+  feedback). Design notes, the principles (fading clues, one idea per task, look before rm, bosses
+  that prove the skill) and the teaching review's changes: session file `ch5-9-design.md`; the
+  bosses' briefings are in each module.
+- Teaching review changes: bosses must prove the skill (ch7 boss needs `tail -n 1` on the tome, ch8
+  boss `grep` on the found `.scale` file, ch9 boss one `sort | uniq >` line); the lessons say that
+  bash expands patterns before the command runs and that `uniq` joins only neighbouring lines.
+- less/more and `rm -i` are lesson and field only: the simulator prints the file / answers yes.
+- Each chapter is fact-checked against local bash 5.2.21 and coreutils 9.4 (`docs/verification/`,
+  log R8), not the difftest Docker image. Simulator gaps found: `tee` and `find -mtime` missing,
+  `--lines` not simulated, `<` input not recorded on the command, `grep -r WORD FILE` prefixes the
+  file name (real grep does not, for one file), find's "paths must precede expression" wording.
+- Dev mode (merged to main): http://localhost:8765/?dev keeps its own save, opens every written
+  chapter, and adds `dev skip`, `dev boss`, `dev solve` (AUTHORING section 4).
+- The session playthrough plays all nine chapters in a row (3 seeds); a browser smoke run played
+  chapters 5-9 and their bosses in Chrome through dev mode; `node test/ui/layouts.js` reports no
+  problems. 1452 tests pass, lint is clean.
+
 ## State at 2026-10-07 (chapters 3 and 4)
 
 - Branch `slice/ch3-4` (from main a97e409), merged into main: chapters 3 Things Unseen (`ls -a`,
@@ -116,13 +141,14 @@ node test/ui/layouts.js OUT_DIR        # both layouts at five window sizes, plus
 
 ## First steps of the next session
 
-1. The user plays chapters 3 and 4 on `slice/ch3-4` (`npm run serve`); fix their notes, then
+1. The user plays chapters 5 to 9 on `slice/ch5-9` (`npm run serve`, `?dev` to jump); fix their
+   notes, then merge. Earlier: the user plays chapters 3 and 4; fix their notes, then
    ask before merging. (`slice/layout` is merged: A1 to A3, G1, G2, G4 done.)
 2. G3: keyboard and screen reader pass of both layouts.
 3. engine: B1, hearts from `selectsProcess` (cases listed in WORKLIST B1).
 4. factcheck: verify `src/backend/process.js` (commit 6bb4c32) against Ubuntu.
 5. The user plays again; collect their feedback.
-6. Chapter 5 (The Cursed Junkyard), with the guidance rule above (WORKLIST D).
+6. Chapters 10 to 14 (act II), with the guidance rule (WORKLIST D); fill the simulator gaps above.
 
 ## The team
 
