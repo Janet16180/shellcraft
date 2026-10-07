@@ -14,6 +14,8 @@
  * @property {boolean} introSeen Whether the intro was watched or skipped.
  * @property {'stacked'|'side'} layout How the page is laid out: 'stacked' puts the map and the
  *   quest panel side by side above a full-width terminal; 'side' puts the terminal on the right.
+ * @property {Object<string, number[]>} paid Per chapter id, the indices of the tasks that already
+ *   paid their XP, so restarting or replaying a chapter does not pay them again.
  * @property {Progress|null} progress Where the player is inside the chapter they
  *   are playing; null between chapters.
  *
@@ -40,14 +42,15 @@ const isRecord = x => typeof x === 'object' && x !== null && !Array.isArray(x);
 const isCount = x => Number.isInteger(x) && x >= 0;
 const isV1Index = x => Number.isInteger(x) && x >= 0 && x < V1_IDS.length;
 const isHintCount = x => Number.isInteger(x) && x >= 0 && x <= HINT_LEVELS;
+const isPaid = x => isRecord(x) && Object.values(x).every(list => Array.isArray(list) && list.every(isCount));
 
 /**
  * Progress for a new player.
  *
- * @returns {Save} No chapter chosen, nothing cleared, no XP, sound off, intro not seen, the default layout.
+ * @returns {Save} No chapter chosen, nothing cleared, no XP, sound off, intro not seen, the default layout, no task paid.
  */
 export function freshSave() {
-  return { chapter: null, cleared: [], xp: 0, sound: false, introSeen: false, layout: LAYOUTS[0], progress: null };
+  return { chapter: null, cleared: [], xp: 0, sound: false, introSeen: false, layout: LAYOUTS[0], paid: {}, progress: null };
 }
 
 function parseJSON(text) {
@@ -81,11 +84,12 @@ function fromV2(data) {
   return valid ? readV2(data) : null;
 }
 
-// Saves from before the layout choice have no layout; an unknown one is not worth losing progress over.
-function readV2({ chapter, cleared, xp, sound, introSeen, layout, progress = null }) {
+// Saves from before the layout choice or the paid record lack them; a broken one is not worth losing progress over.
+function readV2({ chapter, cleared, xp, sound, introSeen, layout, paid, progress = null }) {
   const kept = progress && { chapter: progress.chapter, phase: progress.phase, tasks: progress.tasks, hints: progress.hints, bossHints: progress.bossHints };
   const shape = LAYOUTS.includes(layout) ? layout : LAYOUTS[0];
-  return { chapter, cleared: [...new Set(cleared)], xp, sound, introSeen, layout: shape, progress: kept };
+  const tasks = isPaid(paid) ? Object.fromEntries(Object.entries(paid).map(([id, list]) => [id, [...new Set(list)]])) : {};
+  return { chapter, cleared: [...new Set(cleared)], xp, sound, introSeen, layout: shape, paid: tasks, progress: kept };
 }
 
 function fromV1(data) {
@@ -126,6 +130,6 @@ export function parseSave({ v2, v1 }) {
  * @param {Save} save The progress to store.
  * @returns {string} JSON text with the format version.
  */
-export function serializeSave({ chapter, cleared, xp, sound, introSeen, layout, progress }) {
-  return JSON.stringify({ version: 2, chapter, cleared, xp, sound, introSeen, layout, progress });
+export function serializeSave({ chapter, cleared, xp, sound, introSeen, layout, paid, progress }) {
+  return JSON.stringify({ version: 2, chapter, cleared, xp, sound, introSeen, layout, paid, progress });
 }

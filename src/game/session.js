@@ -218,8 +218,10 @@ async function advanceQuest(s, ctx) {
   const { tasks, boss } = current(s);
   const newly = tasks.flatMap((task, index) => (!s.tasksDone[index] && task.done(ctx) ? [index] : []));
   const events = newly.map(index => {
-    const xp = payout(XP.task, s.hints[index], s.replay);
+    const free = taskIsFree(s, index);
+    const xp = payout(XP.task, s.hints[index], free);
     s.tasksDone[index] = true;
+    if (!free) markPaid(s, index);
     s.save.xp += xp;
     return { kind: 'task', index, goal: tasks[index].goal, xp };
   });
@@ -228,6 +230,14 @@ async function advanceQuest(s, ctx) {
     events.push({ kind: 'boss-start', title: boss.title });
   }
   return events;
+}
+
+// A task pays once: not on a replay of a cleared chapter, nor again after a restart.
+const taskIsFree = (s, index) => s.replay || (s.save.paid[current(s).id] ?? []).includes(index);
+
+function markPaid(s, index) {
+  const id = current(s).id;
+  s.save.paid[id] = [...(s.save.paid[id] ?? []), index];
 }
 
 async function openBossRoom(s) {
@@ -280,9 +290,9 @@ function hintTarget(s) {
   const index = s.tasksDone.indexOf(false);
   let target = null;
   if (s.phase === 'quest') {
-    target = { base: XP.task, used: s.hints[index], hints: chapter.tasks[index].hints, use: () => { s.hints[index] += 1; } };
+    target = { base: XP.task, used: s.hints[index], free: taskIsFree(s, index), hints: chapter.tasks[index].hints, use: () => { s.hints[index] += 1; } };
   } else if (s.phase === 'boss') {
-    target = { base: XP.boss, used: s.bossHints, hints: chapter.boss.hints, use: () => { s.bossHints += 1; } };
+    target = { base: XP.boss, used: s.bossHints, free: s.replay, hints: chapter.boss.hints, use: () => { s.bossHints += 1; } };
   }
   return target;
 }
@@ -290,8 +300,8 @@ function hintTarget(s) {
 // A boss hint may be a function of the secret, so it can name the random target.
 const resolveHint = (s, hint) => (typeof hint === 'function' ? hint(s.secret) : hint);
 
-function revealed(s, hints, used, base) {
-  return hints.slice(0, used).map((hint, i) => ({ level: i + 1, text: resolveHint(s, hint), cost: nextHint(base, i, s.replay).cost }));
+function revealed(s, hints, used, base, free) {
+  return hints.slice(0, used).map((hint, i) => ({ level: i + 1, text: resolveHint(s, hint), cost: nextHint(base, i, free).cost }));
 }
 
 function hint(s) {
@@ -299,7 +309,7 @@ function hint(s) {
   const target = hintTarget(s);
   let shown = null;
   if (target) {
-    const next = nextHint(target.base, target.used, s.replay);
+    const next = nextHint(target.base, target.used, target.free);
     if (next) {
       target.use();
       persist(s);
@@ -313,7 +323,7 @@ function hint(s) {
 function hintCommand(s) {
   const shown = hint(s);
   const target = hintTarget(s);
-  return hintNote(shown, target && nextHint(target.base, target.used, s.replay));
+  return hintNote(shown, target && nextHint(target.base, target.used, target.free));
 }
 
 /** Game commands typed in the terminal; they are not Linux and never reach the backend. */
@@ -343,8 +353,8 @@ function updateSave(s, fields) {
 
 async function reset(s) {
   requireBooted(s);
-  const { chapter, cleared, xp } = freshSave();
-  s.save = { ...s.save, chapter, cleared, xp };
+  const { chapter, cleared, xp, paid } = freshSave();
+  s.save = { ...s.save, chapter, cleared, xp, paid };
   return start(s, resumeChapter(s.chapters, { saved: null, cleared: [] }), true);
 }
 
@@ -365,9 +375,9 @@ function chapterView(s) {
       tip: task.tip,
       done: s.tasksDone[i],
       next: i === next,
-      hints: revealed(s, task.hints, s.hints[i], XP.task),
+      hints: revealed(s, task.hints, s.hints[i], XP.task, taskIsFree(s, i)),
     })),
-    boss: { title: chapter.boss.title, briefing: chapter.boss.briefing, hints: revealed(s, chapter.boss.hints, s.bossHints, XP.boss) },
+    boss: { title: chapter.boss.title, briefing: chapter.boss.briefing, hints: revealed(s, chapter.boss.hints, s.bossHints, XP.boss, s.replay) },
   };
 }
 
@@ -378,7 +388,7 @@ function view(s) {
   const { user, host, cwd, home } = s.obs;
   return {
     chapter: chapterView(s),
-    hint: target ? nextHint(target.base, target.used, s.replay) : null,
+    hint: target ? nextHint(target.base, target.used, target.free) : null,
     hintLevels: HINT_LEVELS,
     xp: s.save.xp,
     started: s.save.xp > 0 || s.save.cleared.length > 0 || s.index > 0,

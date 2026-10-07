@@ -26,8 +26,8 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
     `note_XXX` file); ch2 "The Lost Lantern" (`ls ~/forest/river`, `cd` into `lantern_XXX`, then
     home with one command).
   - Restart chapter: a HUD button (click twice to confirm) that rebuilds the chapter's world and
-    resets its tasks, hints and hearts; XP and other chapters are kept. Known quirk, unchanged:
-    replaying an uncleared chapter pays its task XP again, so restarting can repeat XP.
+    resets its tasks, hints and hearts; XP and other chapters are kept. A task pays XP only once (the save's `paid`
+    record), so restarting does not farm XP.
 
 ## State at the end of 2026-10-06
 

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { LAYOUTS, SAVE_KEY, V1_SAVE_KEY, freshSave, parseSave, serializeSave } from '../../src/game/save.js';
 
-const FRESH = { chapter: null, cleared: [], xp: 0, sound: false, introSeen: false, layout: 'stacked', progress: null };
+const FRESH = { chapter: null, cleared: [], xp: 0, sound: false, introSeen: false, layout: 'stacked', paid: {}, progress: null };
 const PROGRESS = { chapter: 'forest', phase: 'quest', tasks: [true, false], hints: [3, 1], bossHints: 0 };
 const v2 = fields => JSON.stringify({ version: 2, chapter: 'forest', cleared: ['awakening'], xp: 40, sound: true, introSeen: true, layout: 'side', ...fields });
 
@@ -22,13 +22,13 @@ test('with nothing stored the player starts fresh', () => {
 
 test('a valid v2 save is resumed as stored', () => {
   assert.deepEqual(parseSave({ v2: v2(), v1: null }), {
-    save: { chapter: 'forest', cleared: ['awakening'], xp: 40, sound: true, introSeen: true, layout: 'side', progress: null },
+    save: { chapter: 'forest', cleared: ['awakening'], xp: 40, sound: true, introSeen: true, layout: 'side', paid: {}, progress: null },
     status: 'resumed',
   });
 });
 
 test('a v2 save written by serializeSave reads back the same', () => {
-  const save = { chapter: 'awakening', cleared: [], xp: 10, sound: false, introSeen: true, layout: 'side', progress: null };
+  const save = { chapter: 'awakening', cleared: [], xp: 10, sound: false, introSeen: true, layout: 'side', paid: { awakening: [0, 2] }, progress: null };
   assert.deepEqual(parseSave({ v2: serializeSave(save), v1: null }).save, save);
   const playing = { ...save, chapter: 'forest', progress: PROGRESS };
   assert.deepEqual(parseSave({ v2: serializeSave(playing), v1: null }).save, playing);
@@ -45,6 +45,17 @@ test('a save from before the layout choice, or with an unknown layout, gets the 
     const { save, status } = parseSave({ v2: v2({ layout }), v1: null });
     assert.deepEqual([save.layout, save.xp, status], ['stacked', 40, 'resumed'], String(layout));
   }
+});
+
+test('a save from before paid tasks were recorded, or with a broken record, has none paid and keeps its progress', () => {
+  for (const paid of [undefined, null, [], 'all', { awakening: 'all' }, { awakening: [-1] }, { awakening: [1.5] }]) {
+    const { save, status } = parseSave({ v2: v2({ paid }), v1: null });
+    assert.deepEqual([save.paid, save.xp, status], [{}, 40, 'resumed'], JSON.stringify(paid));
+  }
+});
+
+test('paid task indices are kept per chapter without duplicates', () => {
+  assert.deepEqual(parseSave({ v2: v2({ paid: { forest: [1, 0, 1] } }), v1: null }).save.paid, { forest: [1, 0] });
 });
 
 test('LAYOUTS lists the two layouts, the default first', () => {
@@ -87,6 +98,7 @@ test('a v1 save is migrated: chapter indexes become ids and earlier chapters cou
       sound: true,
       introSeen: false,
       layout: 'stacked',
+      paid: {},
       progress: null,
     },
     status: 'migrated',

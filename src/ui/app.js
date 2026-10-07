@@ -427,6 +427,6 @@ function wireReset(ui) {
   wireConfirm(ui.doc.getElementById('restartBtn'), {
     label: 'Restart chapter',
     confirm: 'Click again to restart',
-    run: () => startChapter(ui, ui.view.chapter.id, true, 'You restarted this chapter: its world is set up fresh and its tasks start over.'),
+    run: () => startChapter(ui, ui.view.chapter.id, true, 'You restarted this chapter: its world is set up fresh and its tasks start over. Tasks you already finished pay no XP again.'),
   });
 }

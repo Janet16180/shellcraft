@@ -177,7 +177,7 @@ save). Chapters 3 to 14 appear in the chapter list as `soon`.
 
 ## 5. Progress rules (`src/game/progress.js`)
 
-- A task pays 10 XP, a boss 30, clearing a chapter 20 more. Replaying a cleared chapter pays nothing.
+- A task pays 10 XP, a boss 30, clearing a chapter 20 more. Replaying a cleared chapter pays nothing, and a task pays only once: restarting a chapter (the HUD button) does not pay its finished tasks again, and their hints are free. The save records the paid tasks per chapter (`paid`).
 - Hints come in three levels: a nudge (free), the technique (costs 3), the exact command
   (costs 5). Costs come off that task's payout, never below 2.
 - Hearts: 3. A refusal by the guard (`blocked`) costs one. At zero, the Guardian restores you:

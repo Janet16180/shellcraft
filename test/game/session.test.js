@@ -163,7 +163,7 @@ test('solving the boss clears the chapter, pays the boss and the bonus, and open
   assert.equal(turn.view.chapter.phase, 'done');
   assert.equal(turn.view.xp, 70);
   assert.deepEqual(turn.view.chapters.map(c => [c.status, c.current]), [['cleared', true], ['open', false], ['soon', false]]);
-  assert.deepEqual(saved(store), { version: 2, chapter: 'forest', cleared: ['awakening'], xp: 70, sound: false, introSeen: false, layout: 'stacked', progress: null });
+  assert.deepEqual(saved(store), { version: 2, chapter: 'forest', cleared: ['awakening'], xp: 70, sound: false, introSeen: false, layout: 'stacked', paid: { awakening: [0, 1] }, progress: null });
 });
 
 test('a cleared chapter can be started again while it is the current one', async () => {
@@ -520,6 +520,34 @@ test('restarting the chapter being played clears its tasks and hearts, rebuilds 
   assert.equal(exists(await backend.observe(), `${HOME}/stone`), false);
 });
 
+test('a task pays XP once: after a restart it pays nothing and its hints are free', async () => {
+  const { session, store } = await booted();
+  session.hint();
+  session.hint();
+  const first = await session.submit('pwd');
+  assert.deepEqual([first.events[0].xp, first.view.xp], [7, 7]);
+  assert.deepEqual(saved(store).paid, { awakening: [0] });
+  await session.startChapter('awakening', { fresh: true });
+  session.hint();
+  assert.equal(session.hint().cost, 0);
+  assert.equal(session.view().hint.cost, 0);
+  const again = await session.submit('pwd');
+  assert.deepEqual([again.events[0].xp, again.view.xp], [0, 7]);
+  session.hint();
+  assert.equal(session.view().hint.cost, 3);
+  const second = await session.submit('cat letter.txt');
+  assert.deepEqual([second.events[0].xp, second.view.xp], [10, 17]);
+  assert.deepEqual(saved(store).paid, { awakening: [0, 1] });
+});
+
+test('reset forgets which tasks were paid', async () => {
+  const { session, store } = await booted();
+  await session.submit('pwd');
+  await session.reset();
+  assert.deepEqual(saved(store).paid, {});
+  assert.equal((await session.submit('pwd')).events[0].xp, 10);
+});
+
 test('an unknown, soon or locked chapter cannot start', async () => {
   const { session } = await booted();
   await assert.rejects(session.startChapter('nowhere'), /unknown chapter/);
@@ -588,7 +616,7 @@ test('reset erases progress but keeps sound, the intro flag and the layout', asy
   const view = await session.reset();
   assert.deepEqual([view.chapter.id, view.xp, view.chapter.replay], ['awakening', 0, false]);
   assert.deepEqual(saved(store), {
-    version: 2, chapter: 'awakening', cleared: [], xp: 0, sound: true, introSeen: true, layout: 'side',
+    version: 2, chapter: 'awakening', cleared: [], xp: 0, sound: true, introSeen: true, layout: 'side', paid: {},
     progress: { chapter: 'awakening', phase: 'quest', tasks: [false, false], hints: [0, 0], bossHints: 0 },
   });
   assert.equal(exists(await backend.observe(), `${HOME}/sign.txt`), false);
