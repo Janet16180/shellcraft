@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { dir, file } from '../../src/backend/spec.js';
 import { makeContext } from '../../src/game/checks.js';
-import { worldEffects, lineEffects } from '../../src/game/effects.js';
+import { worldEffects, lineEffects, revealedDirs } from '../../src/game/effects.js';
 import { HOME, observation, record, sampleTree } from '../helpers/records.js';
 
 const withHome = changes => {
@@ -85,4 +85,10 @@ test('each refusal by the guard is a guardian effect', () => {
 test('line effects include the world changes before the per-command ones', () => {
   const ctx = context([record('cd', ['forest']), record('ls', ['-a'], { cwd: `${HOME}/forest` })], { cwd: `${HOME}/forest` });
   assert.deepEqual(kinds(lineEffects(ctx, ['x'])), ['travel', 'reveal', 'guardian']);
+});
+
+test('revealedDirs names the directories whose hidden entries the line listed, the same ones the reveal effects name', () => {
+  const ctx = context([record('ls', ['-a']), record('ls', ['-la', 'forest']), record('ls', ['forest'])]);
+  assert.deepEqual(revealedDirs(ctx), [HOME, `${HOME}/forest`]);
+  assert.deepEqual(revealedDirs(context([record('ls', ['-l'])])), []);
 });
