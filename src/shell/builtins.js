@@ -12,8 +12,9 @@ export const BASH_BUILTINS = new Set(['.', ':', '[', 'alias', 'bg', 'bind', 'bre
   'help', 'history', 'jobs', 'kill', 'let', 'local', 'logout', 'mapfile', 'popd', 'printf', 'pushd', 'pwd', 'read', 'readarray', 'readonly',
   'return', 'set', 'shift', 'shopt', 'source', 'suspend', 'test', 'times', 'trap', 'true', 'type', 'typeset', 'ulimit', 'umask', 'unalias',
   'unset', 'wait']);
-export const BUILTINS = new Set(['cd', 'history', 'alias', 'export', 'exit', 'logout', 'type', 'echo', 'pwd', 'kill', 'true', 'false', 'help', 'unalias', 'unset', 'source', '.']);
-export const NO_BINARY = new Set(['cd', 'history', 'alias', 'export', 'exit', 'logout', 'type', 'help', 'unalias', 'unset', 'source', '.']);
+export const BUILTINS = new Set(['cd', 'history', 'alias', 'export', 'exit', 'logout', 'type', 'echo', 'pwd', 'kill', 'true', 'false', 'help', 'unalias', 'unset', 'source', '.', 'break', 'continue']);
+export const NO_BINARY = new Set(['cd', 'history', 'alias', 'export', 'exit', 'logout', 'type', 'help', 'unalias', 'unset', 'source', '.',
+  'break', 'continue']);
 
 /**
  * The usage line and one-line summary bash prints for `NAME --help` and `help NAME`.
@@ -21,7 +22,9 @@ export const NO_BINARY = new Set(['cd', 'history', 'alias', 'export', 'exit', 'l
 export const BUILTIN_HELP = nameTable({
   '.': ['. filename [arguments]', 'Execute commands from a file in the current shell.'],
   alias: ['alias [-p] [name[=value] ... ]', 'Define or display aliases.'],
+  break: ['break [n]', 'Exit for, while, or until loops.'],
   cd: ['cd [-L|[-P [-e]] [-@]] [dir]', 'Change the shell working directory.'],
+  continue: ['continue [n]', 'Resume for, while, or until loops.'],
   exit: ['exit [n]', 'Exit the shell.'],
   export: ['export [-fn] [name[=value] ...] or export -p', 'Set export attribute for shell variables.'],
   help: ['help [-dms] [pattern ...]', 'Display information about builtin commands.'],

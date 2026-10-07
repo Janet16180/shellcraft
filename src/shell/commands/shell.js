@@ -210,11 +210,41 @@ function sudo(args, { sys }) {
 const editor = (name, quit) => () => withNote(result('', '', 1),
   `${name} is an interactive editor and is not simulated here. ${quit} Here, write files with echo "text" > file or echo "text" >> file.`);
 
-const exit = () => withNote(result(), 'In a real terminal, exit closes the shell (Ctrl+D does the same). Here the shell stays open.');
+const exitNote = () => withNote(result(), 'In a real terminal, exit closes the shell (Ctrl+D does the same). Here the shell stays open.');
+const INTEGER = /^[-+]?\d+$/;
+
+// In a script or a subshell, exit ends it with N, or with the last status.
+function exit(args, { sys, leave, subshell }) {
+  const [n] = args;
+  const prompt = sys.flags.includes('i') && !subshell;
+  let r;
+  if (prompt) r = exitNote();
+  else if (n !== undefined && !INTEGER.test(n)) r = result('', `bash: exit: ${n}: numeric argument required`, 2);
+  else if (args.length > 1) r = result('', 'bash: exit: too many arguments', 1);
+  else r = result('', '', n === undefined ? sys.lastStatus : ((Number.parseInt(n, 10) % 256) + 256) % 256);
+  if (!prompt && args.length < 2) leave(r.status);
+  return r;
+}
+
+const LOOP_ONLY = "only meaningful in a `for', `while', or `until' loop";
+
+// break and continue. A count past the loops there are means all of them;
+// a bad count stops the line, or the whole script.
+const loopControl = kind => (args, { sys, loops, jump, leave }) => {
+  const [n] = args;
+  let r = result();
+  if (!loops) r = result('', `bash: ${kind}: ${LOOP_ONLY}`, 0);
+  else if (n !== undefined && !INTEGER.test(n)) r = { ...result('', `bash: ${kind}: ${n}: numeric argument required`, 128), abort: true };
+  else if (args.length > 1) r = { ...result('', `bash: ${kind}: too many arguments`, 1), abort: true };
+  else if (n !== undefined && Number(n) < 1) r = result('', `bash: ${kind}: ${n}: loop count out of range`, 1);
+  if (r.abort && r.status === 128 && !sys.flags.includes('i')) leave(128);
+  if (loops && !r.abort) jump(r.status ? 'break' : kind, r.status ? loops : Math.min(Number(n ?? 1), loops));
+  return r;
+};
 
 function bash(args, { sys, runScript }) {
   if (!args.length) return withNote(result(), 'Nested shells are not simulated. In real Linux, bash starts a new shell inside this one (exit leaves it).');
-  if (args[0] === '-c') return args.length < 2 ? result('', 'bash: -c: option requires an argument', 2) : runScript(args[1], args[2] ?? 'bash', args.slice(3));
+  if (args[0] === '-c') return args.length < 2 ? result('', 'bash: -c: option requires an argument', 2) : runScript(args[1], args[2] ?? 'bash', args.slice(3), true);
   const node = lookup(sys.root, normalize(args[0], sys.cwd));
   let r;
   if (!node) r = result('', `bash: ${args[0]}: No such file or directory`, 127);
@@ -280,7 +310,9 @@ export default {
   vim: editor('vim', 'Real vim tip: press Esc, type :wq and Enter to save and quit, or :q! to quit without saving.'),
   vi: editor('vi', 'Real vi tip: press Esc, type :wq and Enter to save and quit, or :q! to quit without saving.'),
   exit,
-  logout: exit,
+  logout: exitNote,
+  break: loopControl('break'),
+  continue: loopControl('continue'),
   bash,
   sh: bash,
   source: source('source'),

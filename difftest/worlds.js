@@ -59,10 +59,29 @@ const spells = () => put('/home/hero/spells', dir({
   'args.sh': file('#!/bin/bash\necho arg=$1 n=$# 0=$0 ${2}\necho "$*" $@\ntouch "$@"\n', { owner: 'hero', mode: 0o755 }),
 }, mine));
 
+const exe = { owner: 'hero', mode: 0o755 };
+
+const loops = () => put('/home/hero/loops', dir({
+  'loop.sh': file('#!/bin/bash\n# one line each\necho start\nfor x in a b\ndo\n  echo "x=$x"\n  nosuch\ndone\nfor f in ~/forest/*; do echo $f; done | sort -r\necho end\n', exe),
+  'lines.sh': file('nosuch \\\n  arg\necho \\\n "$(nosuch2)"\nfor 1 in a\ndo echo\ndone\necho "a # b" a#b # gone\n', exe),
+  'nested.sh': file('for i in 1 2 3; do\n  for j in a b; do\n    if [ $i = 2 ]; then continue 2; fi\n    echo $i$j\n    if [ $i = 3 ]; then break 2; fi\n  done\ndone\nbreak\necho s=$?\nfor i in 1 2; do break 0; echo no; done; echo out=$?\nfor i in 1 2; do continue 1 2; echo no; done\necho after\n', exe),
+  'redir.sh': file('echo one\necho >\necho never\n', exe),
+  'eof.sh': file('echo one\nfor x in a b; do\n  echo $x\n', exe),
+  'quote.sh': file('echo one\necho "abc\necho two\n', exe),
+  'nodo.sh': file('for x in a b\n  echo $x\ndone\n', exe),
+  'stray.sh': file('echo a; fi\n', exe),
+  'exit.sh': file('echo a\nfor i in 1 2; do exit 4; done\necho never\n', exe),
+  'last.sh': file('false\nexit\n', exe),
+  'bad.sh': file('exit abc\necho never\n', exe),
+  'numeric.sh': file('for i in 1 2; do break x; done\necho never\n', exe),
+  'conds.sh': file('for n in 1 5 10; do\n  if [ $n -lt 5 ]; then\n    echo "$n small"\n  elif [ $n -eq 5 ]; then\n    echo "$n five"\n  else\n    echo "$n big"\n  fi\ndone\nif [ -d ~/forest ] && [ ! -e ~/nowhere ]; then echo yes; fi\n', exe),
+}, mine));
+
 /** @type {Record<string, () => object[]>} */
 export const WORLDS = {
   home: () => [home(), ...system()],
   names: () => [home(), names(), ...system()],
   game: () => baseWorld(PLAYER),
   scripts: () => [home(), ...system(), localBin(), spells()],
+  loops: () => [home(), ...system(), loops()],
 };
