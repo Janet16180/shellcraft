@@ -10,7 +10,9 @@
  * and shoots the page. It reports page errors, horizontal overflow, a page
  * that scrolls when the app should fit the window, an input line or a quest
  * panel out of view, windows that overlap, a room list that wraps, and a
- * layout that is not remembered after a reload.
+ * layout that is not remembered after a reload. It also does the first task
+ * and restarts the chapter with the HUD button (two clicks), and reports a
+ * restart that does not bring back task 1 and the home directory.
  *
  * Stops the server and the browser it starts.
  */
@@ -76,6 +78,23 @@ function problemsOf(tag, m, { wide }) {
   return problems;
 }
 
+async function restartProblems(page, tag) {
+  await type(page, 'whoami');
+  const before = await page.textContent('#now');
+  await page.click('#restartBtn');
+  const armed = await page.textContent('#restartBtn');
+  await page.click('#restartBtn');
+  await page.waitForTimeout(800);
+  const after = await page.textContent('#now');
+  const title = await page.textContent('#termTitle');
+  const problems = [];
+  if (!/^Next task 2 /.test(before)) problems.push(`${tag}: whoami did not finish task 1 ("${before}")`);
+  if (armed !== 'Click again to restart') problems.push(`${tag}: the first click on Restart chapter shows "${armed}"`);
+  if (!/^Next task 1 /.test(after)) problems.push(`${tag}: after a restart the task strip says "${after}"`);
+  if (!title.endsWith(': ~')) problems.push(`${tag}: after a restart the terminal title is "${title}"`);
+  return problems;
+}
+
 async function check(browser, base, out, [width, height], layout) {
   const tag = `${width}x${height} ${layout}`;
   const context = await browser.newContext({ viewport: { width, height } });
@@ -97,6 +116,7 @@ async function check(browser, base, out, [width, height], layout) {
   problems.push(...problemsOf(`${tag} /usr/bin`, bin, { wide }));
   if (bin.picks < 40) problems.push(`${tag}: /usr/bin shows only ${bin.picks} room buttons`);
   await page.screenshot({ path: join(out, `${name}-usrbin.png`) });
+  problems.push(...await restartProblems(page, tag));
   if (wide) {
     await page.reload();
     await page.waitForSelector('#goBtn');

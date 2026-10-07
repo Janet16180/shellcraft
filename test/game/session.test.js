@@ -507,6 +507,19 @@ test('starting a chapter fresh rebuilds the base world', async () => {
   assert.equal(exists(await backend.observe(), `${HOME}/stone`), false);
 });
 
+test('restarting the chapter being played clears its tasks and hearts, rebuilds the world and keeps the XP', async () => {
+  const { session, backend } = await booted();
+  await session.submit('pwd');
+  await session.submit('touch stone');
+  await session.submit('rm -r ~');
+  const before = session.view();
+  assert.deepEqual([before.chapter.tasks[0].done, before.hearts.left], [true, 2]);
+  const view = await session.startChapter(before.chapter.id, { fresh: true });
+  assert.deepEqual([view.chapter.id, view.chapter.phase, view.hearts.left, view.xp], ['awakening', 'quest', 3, before.xp]);
+  assert.ok(view.chapter.tasks.every(task => !task.done));
+  assert.equal(exists(await backend.observe(), `${HOME}/stone`), false);
+});
+
 test('an unknown, soon or locked chapter cannot start', async () => {
   const { session } = await booted();
   await assert.rejects(session.startChapter('nowhere'), /unknown chapter/);

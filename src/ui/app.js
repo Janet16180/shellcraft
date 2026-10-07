@@ -261,7 +261,7 @@ function openDebrief(ui) {
   if (next) next.onclick = () => startChapter(ui, next.dataset.ch, false);
 }
 
-async function startChapter(ui, id, fresh) {
+async function startChapter(ui, id, fresh, note = 'You jumped to this chapter, so the world was set up fresh.') {
   hideCard(ui);
   await act(ui, async () => {
     show(ui, await ui.session.startChapter(id, { fresh }));
@@ -269,7 +269,7 @@ async function startChapter(ui, id, fresh) {
   });
   ui.terminal.clear();
   chapterBanner(ui);
-  if (fresh) ui.terminal.printLine('You jumped to this chapter, so the world was set up fresh.', 'sys');
+  if (fresh) ui.terminal.printLine(note, 'sys');
   showTab(ui.doc, 'quest');
   ui.terminal.focus();
 }
@@ -395,23 +395,38 @@ function wirePicks(ui) {
   for (const type of ['focusout', 'mouseleave']) list.addEventListener(type, () => ui.map.focus(null));
 }
 
-function wireReset(ui) {
-  const button = ui.doc.getElementById('resetBtn');
+// A button that acts only on a second click, so one stray click never throws progress away.
+function wireConfirm(button, { label, confirm, run }) {
   let armed = false;
+  const disarm = () => {
+    armed = false;
+    button.textContent = label;
+  };
   button.addEventListener('click', async () => {
     armed = !armed;
-    button.textContent = armed ? 'Click again to erase all progress' : 'Reset progress';
-    if (armed) return;
-    await act(ui, async () => {
-      show(ui, await ui.session.reset());
-      showRoom(ui);
-    });
-    ui.terminal.clear();
-    chapterBanner(ui);
-    showTab(ui.doc, 'quest');
+    button.textContent = armed ? confirm : label;
+    if (!armed) await run();
   });
-  button.addEventListener('blur', () => {
-    armed = false;
-    button.textContent = 'Reset progress';
+  button.addEventListener('blur', disarm);
+}
+
+function wireReset(ui) {
+  wireConfirm(ui.doc.getElementById('resetBtn'), {
+    label: 'Reset progress',
+    confirm: 'Click again to erase all progress',
+    run: async () => {
+      await act(ui, async () => {
+        show(ui, await ui.session.reset());
+        showRoom(ui);
+      });
+      ui.terminal.clear();
+      chapterBanner(ui);
+      showTab(ui.doc, 'quest');
+    },
+  });
+  wireConfirm(ui.doc.getElementById('restartBtn'), {
+    label: 'Restart chapter',
+    confirm: 'Click again to restart',
+    run: () => startChapter(ui, ui.view.chapter.id, true, 'You restarted this chapter: its world is set up fresh and its tasks start over.'),
   });
 }
