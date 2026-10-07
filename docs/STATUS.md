@@ -1,6 +1,7 @@
 # Shellcraft 2: status and handoff
 
-Read this first when resuming, then `docs/DESIGN.md` and `AUTHORING.md`.
+Read this first when resuming, then `docs/DESIGN.md` and `AUTHORING.md`. The task list for
+helpers and teammates is `docs/WORKLIST.md`.
 
 ## RESUME HERE
 
