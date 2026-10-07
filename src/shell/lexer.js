@@ -5,7 +5,7 @@
  * so that `$VAR`, `~` and `$(...)` are expanded when the command runs, after
  * the commands before it on the line:
  *   `{lit, q}`   literal text, q true when quoted (no globbing or splitting)
- *   `{var, q}`   a parameter: a name, or one of `? $ # 0`
+ *   `{var, q}`   a parameter: a name, a number, or one of `? $ # @ * -`
  *   `{cmd, q}`   a command substitution, with the inner line
  *   `{arith, q}` an arithmetic expansion `$(( ))`, with the expression
  *   `{tilde}`    a leading `~` or `~user`
@@ -41,7 +41,7 @@ function closingParen(line, start) {
 
 function scanDollar(line, i, q) {
   const rest = line.slice(i + 1);
-  const braced = /^\{([A-Za-z_][A-Za-z0-9_]*|[?$#0-9])\}/.exec(rest);
+  const braced = /^\{([A-Za-z_][A-Za-z0-9_]*|[0-9]+|[?$#@*-])\}/.exec(rest);
   const name = NAME.exec(rest) ?? SPECIAL.exec(rest);
   let scan = { part: { lit: '$', q }, end: i + 1, error: null };
   const arithClose = rest.startsWith('((') ? closingParen(line, i + 2) : -1;

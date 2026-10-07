@@ -46,6 +46,7 @@ function expansionEnv(sh, sink) {
     sys, errors, substitutionStatus: null,
     fail: message => errors.push(message),
     lookupVar: name => varValue(sys, name),
+    positional: () => sys.positional.args,
     homeOf: user => (user === sys.user ? sys.home : SYSTEM_HOMES[user] ?? null),
     substitute: line => {
       if (sh.run.depth >= MAX_DEPTH) errors.push('bash: command substitution: maximum nesting level exceeded');
@@ -70,8 +71,11 @@ function capture(sh, line, errPrefix = null) {
   return out;
 }
 
-function runScriptText(sh, text, name) {
+function runScriptText(sh, text, name, args) {
   if (sh.run.depth >= MAX_DEPTH) return result('', `bash: ${name}: maximum nesting level exceeded`, 1);
+  const { sys } = sh;
+  const outer = sys.positional;
+  sys.positional = { zero: name, args };
   let out = '';
   let err = '';
   let status = 0;
@@ -83,6 +87,7 @@ function runScriptText(sh, text, name) {
     err += r.err;
     status = r.status;
   });
+  sys.positional = outer;
   return result(out, err.replace(/\n$/, ''), status);
 }
 
@@ -94,7 +99,7 @@ function runFile(sh, name, args, ctx) {
   else if (!can(sh.sys, r.node, 'x')) res = result('', `bash: ${name}: Permission denied`, 126);
   else if (r.node.bin) res = sh.commands[r.node.bin](args, ctx);
   else if (!can(sh.sys, r.node, 'r')) res = result('', `bash: ${name}: Permission denied`, 126);
-  else res = runScriptText(sh, r.node.content, name);
+  else res = runScriptText(sh, r.node.content, name, args);
   return res;
 }
 
@@ -130,7 +135,7 @@ function dispatch(sh, argv, streams, overlay) {
   const ctx = {
     sys, stdin: streams.stdin, piped: streams.out.kind !== 'terminal', commands: sh.commands, env: overlay,
     block: reason => sh.run.blocked.push(reason),
-    runScript: (node, scriptName) => runScriptText(sh, node.content, scriptName),
+    runScript: (node, scriptName, scriptArgs) => runScriptText(sh, node.content, scriptName, scriptArgs),
   };
   const standard = name.includes('/') ? null : standardOption(name, args);
   const found = name.includes('/') || sh.commands[name] || BASH_BUILTINS.has(name) ? null : searchPath(sys, name);

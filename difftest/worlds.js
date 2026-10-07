@@ -55,10 +55,14 @@ const localBin = () => put('/usr/local', dir({ bin: dir({
   dim: file('#!/bin/bash\necho dim\n'),
 }) }));
 
+const spells = () => put('/home/hero/spells', dir({
+  'args.sh': file('#!/bin/bash\necho arg=$1 n=$# 0=$0 ${2}\necho "$*" $@\ntouch "$@"\n', { owner: 'hero', mode: 0o755 }),
+}, mine));
+
 /** @type {Record<string, () => object[]>} */
 export const WORLDS = {
   home: () => [home(), ...system()],
   names: () => [home(), names(), ...system()],
   game: () => baseWorld(PLAYER),
-  scripts: () => [home(), ...system(), localBin()],
+  scripts: () => [home(), ...system(), localBin(), spells()],
 };

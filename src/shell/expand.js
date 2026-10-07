@@ -4,9 +4,10 @@
  * bash's order.
  *
  * The environment `env` gives `sys` (for globbing), `lookupVar(name)`,
- * `homeOf(user)` (null if unknown), `substitute(line)` (the output of a
- * command substitution) and `fail(message)` (an expansion error, such as a
- * division by zero, that stops the command).
+ * `homeOf(user)` (null if unknown), `positional()` (the arguments `$@`
+ * stands for), `substitute(line)` (the output of a command substitution) and
+ * `fail(message)` (an expansion error, such as a division by zero, that stops
+ * the command).
  */
 
 import { hasGlob, expandPattern } from './glob.js';
@@ -40,6 +41,17 @@ function appendSplit(fields, value) {
   });
 }
 
+// "$@" is one word per argument; "$*" joins them; unquoted, both split.
+function appendPositional(fields, part, args) {
+  if (part.q && part.var === '@') {
+    args.forEach((arg, i) => {
+      if (i > 0) fields.push(newField());
+      appendQuoted(fields.at(-1), arg);
+    });
+  } else if (part.q) appendQuoted(fields.at(-1), args.join(' '));
+  else appendSplit(fields, args.join(' '));
+}
+
 function arithmetic(expr, env) {
   const text = expr.replace(/\$\{?([A-Za-z_][A-Za-z0-9_]*|[?$#])\}?/g, (_, name) => env.lookupVar(name));
   const r = evaluate(text, env.lookupVar);
@@ -62,7 +74,8 @@ function expandToFields(word, env) {
     if ('tilde' in part) {
       const home = part.tilde === '' ? env.lookupVar('HOME') : env.homeOf(part.tilde);
       appendQuoted(field, home ?? `~${part.tilde}`);
-    } else if ('lit' in part && part.q) appendQuoted(field, part.lit);
+    } else if (part.var === '@' || part.var === '*') appendPositional(fields, part, env.positional());
+    else if ('lit' in part && part.q) appendQuoted(field, part.lit);
     else if ('lit' in part) appendUnquoted(field, part.lit);
     else if (part.q) appendQuoted(field, partValue(part, env));
     else appendSplit(fields, partValue(part, env));
@@ -104,6 +117,6 @@ export function expandTarget(word, env) {
  * @returns {string} The value.
  */
 export function expandAssignment(word, env) {
-  const text = expandToFields({ parts: word.parts.map(p => ('lit' in p || 'tilde' in p ? p : { ...p, q: true })) }, env).map(f => f.text).join('');
+  const text = expandToFields({ parts: word.parts.map(p => ('lit' in p || 'tilde' in p ? p : { ...p, q: true })) }, env).map(f => f.text).join(' ');
   return text.slice(text.indexOf('=') + 1);
 }

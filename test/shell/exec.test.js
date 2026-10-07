@@ -217,3 +217,17 @@ test('errors inside a script found in PATH name its full path', async () => {
   const r = await run(await shell(localBin(0o755, 'nosuch\n')), 'glimmer');
   assert.equal(r.err, '/usr/local/bin/glimmer: line 1: nosuch: command not found\n');
 });
+
+test('a script gets its arguments as $0, $1 to $9, $# and "$@"', async () => {
+  const b = await shell([put('/home/hero/s.sh', file('echo arg=$1 n=$# 0=$0 ${2}\ntouch "$@"\n', { owner: 'hero', mode: 0o755 }))]);
+  assert.equal((await run(b, './s.sh Tux')).out, 'arg=Tux n=1 0=./s.sh\n');
+  assert.equal((await run(b, 'bash s.sh "a b" c')).out, 'arg=a b n=2 0=s.sh c\n');
+  assert.equal((await run(b, 'ls -1')).out, 'Tux\n\'a b\'\nc\nforest\nreadme.txt\ns.sh\n');
+  assert.equal((await run(b, 'sh s.sh y')).out, 'arg=y n=1 0=s.sh\n');
+});
+
+test('the interactive shell has no arguments, and a script does not change that', async () => {
+  const b = await shell([put('/home/hero/s.sh', file('echo $1\n', { owner: 'hero', mode: 0o755 }))]);
+  await run(b, './s.sh x');
+  assert.equal((await run(b, 'echo $0 $# [$1] [$@]')).out, 'bash 0 [] []\n');
+});

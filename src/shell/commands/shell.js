@@ -219,7 +219,7 @@ function bash(args, { sys, runScript }) {
   if (!node) r = result('', `bash: ${args[0]}: No such file or directory`, 127);
   else if (node.type === 'dir') r = result('', `bash: ${args[0]}: Is a directory`, 126);
   else if (!can(sys, node, 'r')) r = result('', `bash: ${args[0]}: Permission denied`, 126);
-  else r = runScript(node, args[0]);
+  else r = runScript(node, args[0], args.slice(1));
   return r;
 }
 
