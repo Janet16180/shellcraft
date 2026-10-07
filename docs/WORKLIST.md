@@ -1,9 +1,15 @@
 # Shellcraft 2: the work left
 
-Written 2026-10-06, at main `6a6c115`. Every task says what to do, where, how to know it is done,
-and who it suits. Tasks marked **helper** are a good fit for an extra agent that is strong on the
-engine, the simulator or checking levels and not on web design. Before taking one, tell the user
-(or the lead) which task you take, so nobody else starts it.
+Written 2026-10-06. This is every task left: the user's feedback, the engine, the simulator, the
+chapters, and the graphics and page work (section G). Every task says what to do, where, how to
+know it is done, and who it suits:
+- **helper**: a good fit for an extra agent that is strong on the engine, the simulator or checking
+  levels and not on web design.
+- **ui** (the page, layout, panels, intro) and **art** (the map, sprites, animation): web design
+  and graphics.
+- **engine**, **shell**, **author**, **factcheck**: the other teammates.
+
+Before taking a task, tell the user (or the lead) which one, so nobody else starts it.
 
 ## How to work in this repository
 
@@ -72,6 +78,48 @@ then 10-14 (12, 13 and 14 wait for C2, C3 and C1). The user plays each batch bef
 3. **Boss check:** is it the chapter's tasks with one small twist, in plain words, with no riddle
    or arbitrary rule, and not made trivial by a later chapter's tool?
 4. Report findings to the author; do not edit the chapter yourself.
+
+## G. Graphics, the map and the page
+
+The map already draws, for chapters 3 to 14: your cottage, the forest, river and cave, the camp,
+the junkyard, the library, the tower, the market and the gate (outdoor style, inside your home),
+every dungeon room (`/`, `/etc`, `/var/log`, `/tmp`, `/root`, `/usr/bin`, `/dev`, `/home`), the
+Shadow Daemon (with its hit and defeat animations), the gate opening, padlocked doors, chained
+items, runnable potions, hidden-file twinkles, and the scroll, book, gem, key, campfire and void
+sprites. What is missing:
+
+**Page and layout (ui)**
+
+| # | Task | Done when |
+|---|---|---|
+| G1 | The user's new layout and the layout switch (task A1): map and quest side by side on top, terminal full width below; today's layout kept as an option; a clearly labelled control in the HUD to switch; the choice saved (A2). | Both layouts pass the screenshot run at 1400x900, 1280x720, 1536x864, 1024x768 and 360, nothing overlaps, the quest panel is always on screen, and the input line is always visible. |
+| G2 | Room buttons ("In this room") in one row that scrolls sideways, in both layouts, so a room like `/usr/bin` (52 entries) never takes more than one row. | `/usr/bin` at 1400 and 360: the row is one line, every button reachable by keyboard and by scrolling. |
+| G3 | Browser QA pass of both layouts: keyboard only (Tab order, focus visible, Escape on cards, the terminal's Tab completion vs page Tab), screen reader text for the map, `prefers-reduced-motion`, zoom 200%, a fresh save and a resumed one. The worktree `.scratch/wt/qa` is ready. | A report in `docs/reviews/qa-slice.md` with each finding and its screenshot; findings fixed by their owners. |
+| G4 | The boss card and the quest panel follow whatever the user picks in A3 (no boss, or a short final check). With no boss, the chapter goes straight from its last task to the adventure log. | Played through both chapters 1 and 2 at 1400 and 360. |
+
+**Map areas for the new chapters (art; author adds the matching directories to the world)**
+
+| # | Task | For |
+|---|---|---|
+| G5 | Hall of Mirrors: an outdoor-style area for `~/mirrors` (glass walls, reflections, a palette of its own) in `src/map/biomes.js` and `overworld.js`. | ch 6 |
+| G6 | Well of Echoes: an area for `~/well` (a stone well, water that ripples when a command prints). | ch 12 |
+| G7 | The Forge: an area for `~/forge` (anvil, fire, sparks), where scripts the player writes show as potions that glow once `chmod +x` makes them runnable. | ch 14 |
+| G8 | Each new area gets a map key entry if it adds a picture the key does not explain yet, and a check in the map tests that every area is reachable and labelled. | ch 6, 12, 14 |
+
+**Effects that make later chapters readable (engine emits the effect, art animates it)**
+
+| # | Task | For | Priority |
+|---|---|---|---|
+| G9 | Wildcards: when a line expands a glob, the matching items flash on the map before the command runs, so the player sees what `*.txt` meant (and what `rm *` would hit). | ch 6 | high: it is the chapter's lesson |
+| G10 | Pipes: when a line has a pipeline, a short flow animation between the stages (a stream of particles from the first command to the last). | ch 9 | nice to have |
+| G11 | Writing to files: `>` makes the target item flash, `>>` makes it grow a little, and output sent to `/dev/null` falls into the void sprite. | ch 4, 9, 12 | nice to have |
+| G12 | Jobs: a stopped job (Ctrl+Z) shows as a sleeping creature, a background job (`&`) as one that walks off; both visible on the map until `fg` or `kill`. | ch 13 | after C3 |
+| G13 | New sprites the chapters ask for (mirror shard, bucket, hammer, tent for directories the player makes in the camp). Art adds each to `src/map/sprites.js` and to `itemKind` with a test; names stay visible as labels. | ch 4, 6, 12, 14 | as chapters need them |
+
+Graphics rules (DESIGN.md section 7): the outdoor style inside your home and Ring Zero's dungeon
+style outside it; every picture shows the real name of what it stands for; labels in IBM Plex
+Mono; check every new glyph and label for Z/2, 0/O and 1/l/I confusion; everything respects
+reduced motion.
 
 ## E. Delivery
 
