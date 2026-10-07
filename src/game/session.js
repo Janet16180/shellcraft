@@ -191,7 +191,7 @@ async function shellTurn(s, line, completions) {
   const result = await s.backend.run(line);
   const after = await s.backend.observe();
   s.obs = after;
-  const ctx = makeContext({ commands: result.commands, before, obs: after, completions });
+  const ctx = makeContext({ commands: result.commands, before, obs: after, completions, line });
   const effects = [...lineEffects(ctx, result.blocked), ...(current(s).effects?.(ctx) ?? [])];
   const inBossRoom = s.phase === 'boss';
   const events = await advance(s, ctx);

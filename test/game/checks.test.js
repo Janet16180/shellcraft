@@ -22,6 +22,12 @@ test('the context carries the Tab completions since the previous line, none by d
   assert.deepEqual(context([]).completions, []);
 });
 
+test('the context carries the text of the line as typed, empty by default', () => {
+  const before = observation();
+  assert.equal(makeContext({ commands: [], before, obs: before, line: 'wish=gold' }).line, 'wish=gold');
+  assert.equal(makeContext({ commands: [], before, obs: before }).line, '');
+});
+
 test('node finds files and directories by absolute path in the observation after the line', () => {
   const ctx = context([]);
   assert.equal(ctx.node(`${HOME}/readme.txt`).content, 'Welcome, hero.\n');

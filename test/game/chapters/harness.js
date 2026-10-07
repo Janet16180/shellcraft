@@ -48,7 +48,7 @@ export async function type(backend, line) {
     const before = await backend.observe();
     const result = await backend.run(typed);
     const obs = await backend.observe();
-    return { result, ctx: makeContext({ commands: result.commands, before, obs, completions }) };
+    return { result, ctx: makeContext({ commands: result.commands, before, obs, completions, line: typed }) };
   };
   return typeLine(line, { complete, submit });
 }

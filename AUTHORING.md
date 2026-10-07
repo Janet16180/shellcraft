@@ -78,6 +78,8 @@ The check context `ctx` (implemented in `src/game/checks.js`) sees only the port
 - `ctx.hasPath(record, absPath)`: one of its non-option arguments resolves to `absPath`.
 - `ctx.read(absPath)`: a reading command (cat, less, more, head, tail) succeeded on that file.
 - `ctx.paths(record)`: its non-option arguments as absolute paths.
+- `ctx.line`: the line's text as typed. Judge records and state first; use the text only for what
+  leaves no record, like a variable assignment (`wish=gold`) or which `$` name was expanded.
 - `ctx.completions`: the Tab presses since the previous line, `[{ line, completed }]`. They come
   from the page's own terminal; a real terminal (termlab) would handle Tab inside bash and report
   none, so only use this where losing the task in that mode is acceptable (today: forest's Tab task).

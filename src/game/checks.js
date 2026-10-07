@@ -52,12 +52,12 @@ export function operands(args) {
 /**
  * Build the context a chapter's checks receive for one line.
  *
- * @param {{commands: object[], before: object, obs: object, completions?: {line: string, completed: string}[]}} line
- *   The line's CommandRecords, the Observations before and after it, and the
- *   Tab completions made while typing it.
+ * @param {{commands: object[], before: object, obs: object, completions?: {line: string, completed: string}[], line?: string}} line
+ *   The line's CommandRecords, the Observations before and after it, the
+ *   Tab completions made while typing it, and its text as typed.
  * @returns {object} The context described in AUTHORING.md section 2.
  */
-export function makeContext({ commands, before, obs, completions = [] }) {
+export function makeContext({ commands, before, obs, completions = [], line = '' }) {
   const { home } = obs;
   const paths = record => operands(record.args).map(arg => resolvePath(arg, record.cwd, home));
   const hasPath = (record, path) => paths(record).includes(path);
@@ -69,6 +69,7 @@ export function makeContext({ commands, before, obs, completions = [] }) {
     before,
     obs,
     completions,
+    line,
     home,
     cwd: obs.cwd,
     node: path => nodeAt(obs.tree, path),
