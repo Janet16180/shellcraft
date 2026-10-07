@@ -8,6 +8,7 @@ import * as overworld from './overworld.js';
 import * as dungeon from './dungeon.js';
 import { drawItem, drawPlayer, padlockDoor } from './things.js';
 import { makeCanvas } from './paint.js';
+import { drawCreature } from './creatureart.js';
 import { joinPath } from '../backend/tree.js';
 import { PLAYER } from '../backend/player.js';
 
@@ -36,6 +37,9 @@ const KEYS = {
   hidden: { w: 24, h: 22, paint: ctx => drawItem(ctx, { ...ITEM, name: '.secret_map', hidden: true }, 'cottage', 200, 0) },
   'dungeon-door': { w: 28, h: 36, paint: ctx => dungeon.door(ctx, { ...DOOR, x: 3, path: '/etc' }, { home: HOME }) },
   'home-door': { w: 36, h: 50, paint: ctx => dungeon.door(ctx, { ...DOOR, x: 7, path: HOME }, { home: HOME }) },
+  imp: { w: 26, h: 28, paint: ctx => drawCreature(ctx, { kind: 'imp', x: 13, y: 12 }, false) },
+  'armoured-imp': { w: 30, h: 30, paint: ctx => drawCreature(ctx, { kind: 'armoured', x: 15, y: 14 }, false) },
+  daemon: { w: 26, h: 30, paint: ctx => drawCreature(ctx, { kind: 'daemon', x: 13, y: 13 }, false) },
 };
 
 /** The kinds drawKey knows, in a sensible legend order. */
@@ -46,7 +50,8 @@ export const KEY_KINDS = Object.keys(KEYS);
  * Kinds: hero, door, locked (a padlocked door), exit (..), stairs-down (.. from
  * home, into the dungeon), item (a file), chained (a file you may not read),
  * runnable (a file you may run), hidden (a dotfile), dungeon-door (a directory
- * outside your home), home-door (the door back into your home, from /home).
+ * outside your home), home-door (the door back into your home, from /home), imp (a
+ * process), armoured-imp (a process that ignores a polite kill), daemon (the Shadow Daemon).
  *
  * @param {HTMLCanvasElement} canvas The canvas to paint on; its pixel size is used as is.
  * @param {string} kind One of KEY_KINDS.
