@@ -29,7 +29,14 @@ chapter 1 locally (`npm run serve`, http://localhost:8765) and is giving feedbac
    because of its wording (the riddle "the spell that prints your user name", forged
    signatures). Replace it with a simpler challenge in plain words and no riddles, e.g. find the
    one file in the room that names the command to run. Owner: author, then factcheck and a
-   teaching read. Lesson for every future chapter: AUTHORING.md content rules get "plain words,
+   teaching read.
+   **Chapter 2's boss room goes too (feedback 3):** the user disliked The Trapdoor. They solved
+   it with `find` (valid in real life, accepted because the check only looks at the final cd,
+   but find is taught in chapter 8). Its flaws: a chore (ls five rooms), an arbitrary rule ("the
+   jump only counts from the dungeon", worked around by hint 3's `cd /tmp; cd ...`), and a
+   later tool makes it trivial. Redesign in plain words, testing paths directly.
+   **Process for both:** show the user the two new briefings (plain text) for approval BEFORE
+   author builds them, since wording was the problem both times. Lesson for every future chapter: AUTHORING.md content rules get "plain words,
    no riddles; a challenge tests the commands, not the reading".
 3. engine: switch dangers.js and the fake backend to src/backend/process.js selectsProcess
    (merged), tests first: kill -HUP 0, kill -9 -$$, pkill -KILL -u hero, pkill -9 -t pts/0 and
