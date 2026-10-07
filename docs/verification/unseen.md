@@ -14,7 +14,8 @@ temporary home. SIM: `test/game/chapters/unseen.test.js`. Man pages from the Ubu
 | `ls -l` is the long listing: type letter, nine permission letters, link count, owner, group, size in bytes, date of the last change, name | `ls(1)` `-l`: "use a long listing format"; R6: `-rw-r--r-- 1 hero hero 4 Oct  6 22:31 ...ancient_key.txt` (4 bytes for `key\n`); `d` for the directory `forest` |
 | The first line, total, counts disk blocks | coreutils manual, "What information is listed": "'total BLOCKS', where BLOCKS is the file system allocation for all files in that directory" |
 | `ls -la` is the same as `ls -l -a` | R6: `diff <(ls -la) <(ls -l -a)` printed nothing |
-| Options work with a path: `ls -a ~/forest` | R6: `ls -a forest/clearing` listed `.fairy_ring.txt`, plain `ls forest/clearing` did not |
+| Options work with a path: `ls -la ~/library` | R7 (2026-10-07): plain `ls library` printed `scroll_of_ages.txt` only; `ls -la library` added `.secret_passage` |
+| Directories can be hidden too, and `cd` enters them | R7: `ls -la library` printed `drwxr-xr-x ... .secret_passage` (a `d` line); `cd library/.secret_passage` then `pwd` ended in `/library/.secret_passage` |
 | Chapter 11 explains permissions | DESIGN.md section 4 (chapter 11, The Sealed Gate) |
 
 ## Why and field
@@ -32,6 +33,9 @@ temporary home. SIM: `test/game/chapters/unseen.test.js`. Man pages from the Ubu
 | Claim | Evidence |
 |---|---|
 | The dot is part of the name; `cat secret_map` fails | R6, SIM near-note tests |
+| The secret map names only `~/library`; the passage is there in every world | `src/game/world.js` (`SECRET_MAP`, `HOME_ENTRIES.library`); SIM setup test |
+| Options can share one dash, and a `d` at the start of a long line marks a directory | R6 `diff` above; R7 line above |
+| `ls -l` of the library also shows the scroll's size | R6/R7: a long listing gives each file's size |
 | In a long listing the number before the date is the size in bytes | R6 line above |
 | Boss: `ls -a ~/forest/cave` shows `.tunnel_XXX`, plain `ls` does not; `cd` into it and `cat treasure.txt` | SIM boss tests on 12 seeds; same `ls -a` behaviour as R6 |
 | Concealment on the map: hidden entries show only after `ls -a` of that directory | `src/game/effects.js` `revealedDirs`, `src/map/room.js` |

@@ -14,12 +14,15 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
 
 ## State at 2026-10-07 (chapters 3 and 4)
 
-- Branch `slice/ch3-4` (from main a97e409), not merged: chapters 3 Things Unseen (`ls -a`,
+- Branch `slice/ch3-4` (from main a97e409), merged into main: chapters 3 Things Unseen (`ls -a`,
   `ls -l`, joined options) and 4 Build a Camp (`mkdir`, `touch`, `echo >`, `cp`, `mv`) are
   playable. The user approved the task lists and both bosses: ch3 "The Hidden Tunnel" (`ls -a
   ~/forest/cave`, `cd` into `.tunnel_XXX`, `cat treasure.txt` there); ch4 "The Fire Pit" (find
   `flint_XXX.txt` by the river, `mkdir ~/camp/firepit`, `mv` the flint in, `echo lit >` fire.txt;
   the flint stays off the map until listed).
+- Chapter 3 tasks (the user's rework): the secret map names only `~/library`, where the base world
+  hides a directory `.secret_passage`; the player finds it with `ls -la`, `cd`s in, then reads the
+  Scroll of Ages' size with `ls -l`. The boss's hidden tunnel repeats this without the map's help.
 - Guidance rule (AUTHORING content rule 9, the user): a command new in the chapter gets a clue in
   its first goal (`ls` with `-a`; `mkdir` makes directories); a complex line is shown in full the
   first time (`echo wood > ~/camp/supplies.txt`, the `cp` line); later goals name only the target.
@@ -27,7 +30,7 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
   listed), shared by the map's reveal effect and chapter 3's checks.
 - Fact-checked against real bash 5.2.21 and coreutils 9.4: `docs/verification/unseen.md` and
   `camp.md`. Not yet done: a blind playtest by a second reader (WORKLIST D) and the user's play.
-- 1130 tests pass, lint is clean; `node test/ui/layouts.js OUT` (now also checks both new boss
+- 1131 tests pass, lint is clean; `node test/ui/layouts.js OUT` (now also checks both new boss
   rooms) reports no problems.
 
 ## State at 2026-10-07
