@@ -1,118 +1,129 @@
 # Shellcraft 2: status and handoff
 
-Read this first when resuming, then `docs/DESIGN.md` and `AUTHORING.md`. The task list for
-helpers and teammates is `docs/WORKLIST.md`.
+**A fresh session starts here.** Read this file, then `docs/WORKLIST.md` (every task left),
+`docs/DESIGN.md` (plan and architecture) and `AUTHORING.md` (code and content rules). Nothing
+from earlier conversations is needed.
 
-## RESUME HERE
+## What this is
 
-- 2026-10-06: the user approved the redesign plan (decisions in DESIGN.md section 1) and asked
-  for a team of named teammates. Phase: **vertical slice** (DESIGN.md section 4, "Slice scope").
-- `main` has the baseline (the v1 artifact in `original/`), the contracts (`src/backend/`), the
-  docs and the dev tooling (`npm test`, `npm run lint`).
-- The original artifact: https://claude.ai/artifact/M4J2FKo8Q5pDtJQ9Y3Y2dz stays untouched. The user
-  decided (2026-10-06) not to use artifacts any more: the game is played locally.
+Shellcraft 2 is the redesign of the user's browser game that teaches basic Linux (the original is
+`original/shellcraft-v1.html`). Commands run in a simulated bash that matches Ubuntu 24.04; the
+map draws the working directory as a room: the original outdoor 8-bit style inside the player's
+home, Ring Zero's Pixel Dungeon style outside it. Each chapter is lesson, guided quest, boss,
+adventure log. 14 chapters are planned (DESIGN.md section 4).
 
-## Next session starts here (end of 2026-10-06)
+## State at the end of 2026-10-06
 
-main is at the merge of slice/shell 8b30c81: 1031 tests pass, lint is clean. The user played
-chapter 1 locally (`npm run serve`, http://localhost:8765) and is giving feedback as they go.
+- `main` at `dbfb238`, clean. 1031 tests pass, lint is clean, difftest 0 failed (last run by
+  shell: 60 identical, 18 intended differences). Every teammate branch is merged (0 ahead).
+- Done: the vertical slice (animated intro, chapters 1 and 2, the overworld and dungeon map, the
+  simulated bash behind the backend port, hints, XP, ranks, hearts, coach notes, save with
+  chapter progress, sound) and three rounds of review fixes (fact-check, teaching review, code
+  review `docs/reviews/code-slice.md`, all items closed).
+- The user played chapter 1 locally and gave feedback (below). Chapters 3 to 14 are not written.
 
-1. **The user's layout decision (feedback 1, refined at the end of the day):** a new wide-screen
-   layout where the map and the quest panel sit side by side in the top row and the terminal
-   spans the full width below, AND the current layout (map and quest on the left, terminal on the
-   right) kept as an option the player can switch to; the choice is remembered. The room buttons
-   ("In this room") become one horizontally scrolling row, and the sticky map goes away. The
-   problem it fixes: at 1400x1100 the sticky map area was 634px tall, the quest panel scrolled
-   under it with its frame peeking out, and in /usr/bin the 52 room buttons were 221px tall.
-   Owner: ui (CSS/layout), with art if the canvas must fit a height-bound box. Check 1400x900,
-   1280x720, 1536x864, 1024x768 and 360.
-2. **Chapter 1's boss room goes (feedback 2):** the user found The Forged Letters confusing
-   because of its wording (the riddle "the spell that prints your user name", forged
-   signatures). Replace it with a simpler challenge in plain words and no riddles, e.g. find the
-   one file in the room that names the command to run. Owner: author, then factcheck and a
-   teaching read.
-   **Chapter 2's boss room goes too (feedback 3):** the user disliked The Trapdoor. They solved
-   it with `find` (valid in real life, accepted because the check only looks at the final cd,
-   but find is taught in chapter 8). Its flaws: a chore (ls five rooms), an arbitrary rule ("the
-   jump only counts from the dungeon", worked around by hint 3's `cd /tmp; cd ...`), and a
-   later tool makes it trivial. Redesign in plain words, testing paths directly.
-   **Process for both:** show the user the two new briefings (plain text) for approval BEFORE
-   author builds them, since wording was the problem both times.
-   **The user's direction for bosses (end of 2026-10-06):** maybe no boss at all, or a boss that
-   is really similar to what the chapter just taught, a little bit different, not complex. Bring
-   both options side by side: (a) no boss; (b) a short final check that repeats the chapter's
-   tasks with one small twist, e.g. ch1 "a new note's name starts with `note_`: find it with ls,
-   read it with cat"; ch2 "the lantern is in `~/forest/river/lantern_XXX`: reach it with one cd,
-   then come home with one command". Lesson for every future chapter: AUTHORING.md content rules get "plain words,
-   no riddles; a challenge tests the commands, not the reading".
-3. engine: switch dangers.js and the fake backend to src/backend/process.js selectsProcess
-   (merged), tests first: kill -HUP 0, kill -9 -$$, pkill -KILL -u hero, pkill -9 -t pts/0 and
-   killall -9 -u hero cost a heart; kill -9 -1, pkill -9 -u root, pkill -9 -u hero cron and
-   pkill -9 -x ba don't. Delete engine's own processName.
-4. factcheck: verify 6bb4c32's process selection against Ubuntu (approved, not started).
-5. Ask the user for the rest of their playtest feedback and fix it. **No artifacts** (the user's
-   decision, 2026-10-06): the user plays locally with `npm run serve`; do not publish or
-   republish anything to claude.ai.
-6. .scratch/wt/play is a detached snapshot worktree used for the user's local play; serve it
-   again or drop it (ask before deleting).
-7. Then chapters 3 to 14 in batches (3-5, then 6-9 with the simulator work for 12 and 13, then
-   10-14), each author paired with a fact-checker; the user plays each batch. Still open: the
-   user's yes or no on the extra chapters (Archive Vault, Scribe's Desk, Signposts).
+## How to run
 
-## In flight: slice round 3, code health (2026-10-06)
+```
+cd ~/learning/shellcraft
+npm test            # all tests
+npm run lint        # ESLint, also enforces the layer rules
+npm run serve       # play at http://localhost:8765 (Ctrl+C stops it)
+npm run difftest    # simulator vs real bash in Docker (ubuntu:24.04); needs Docker
+node test/ui/shots.js OUT_DIR          # screenshot run of the page (Chrome via playwright-core)
+```
 
-Rounds 1 and 2 are merged. The **private preview** of the slice is published from main d230516:
-https://claude.ai/artifact/Nqt9UZqv6MPiaci46Q3vi3 (the lead read all 99 files first). The user
-plays it next; collect their reactions before chapters 3 to 14.
+## The user's decisions (all still in force)
 
-Round 3 is the code review's list (docs/reviews/code-slice.md), plus two lead findings:
+1. Runtime: reuse the simulated shell, behind a backend port, orthogonal so a real bash through
+   `~/learning/termlab` could replace it later. Ask the user before changing termlab.
+2. Chapters: 14 (Hall of Mirrors, The Descent, Well of Echoes and Forge Your Own Spell added). Extra
+   chapters (Archive Vault, Scribe's Desk, Signposts) wait for the user's yes or no.
+3. Style: overworld = the player's home (`~`), dungeon = everything outside it.
+4. Build order: vertical slice first (done), then chapters in batches the user plays.
+5. **No artifacts.** The game is played locally (`npm run serve`). Do not publish or republish
+   anything to claude.ai. The original Shellcraft artifact
+   (https://claude.ai/artifact/M4J2FKo8Q5pDtJQ9Y3Y2dz) and the dark preview
+   (https://claude.ai/artifact/Nqt9UZqv6MPiaci46Q3vi3) stay untouched; ask before deleting either.
+6. **Layout:** a new wide-screen layout (map and quest panel side by side on top, terminal full
+   width below) AND today's layout (map and quest left, terminal right) kept as a switchable
+   option, remembered in the save. Room buttons in one sideways-scrolling row; no sticky map.
+   Why: at 1400x1100 the sticky map area was 634px tall, the quest panel scrolled under it with
+   its frame peeking out, and `/usr/bin`'s 52 room buttons took 221px.
+7. **Bosses:** chapter 1's The Forged Letters and chapter 2's The Trapdoor are removed. The user
+   found the first confusing because of its wording (a riddle and forged signatures), and the
+   second a chore with an arbitrary rule ("the jump only counts from the dungeon") that `find`, a
+   chapter 8 tool, made trivial. Rule for every boss (AUTHORING.md content rule 7,
+   `~/learning/GAME_METHODOLOGY.md` principle 8): either no boss, or the chapter's own tasks again
+   with one small twist, in plain words, no riddles, no arbitrary rules, not made trivial by a
+   later tool. **Show the user the options and get their approval of the wording before building
+   any boss.**
 
-| Name | Round 3 | Merged so far |
+## First steps of the next session
+
+1. Show the user the boss options for chapters 1 and 2 side by side (WORKLIST A3): (a) no boss;
+   (b) a short final check, e.g. ch1 "a new note's name starts with `note_`: find it with `ls`,
+   read it with `cat`"; ch2 "the lantern is in `~/forest/river/lantern_XXX`: reach it with one
+   `cd`, then come home with one command". Build what they pick (author), then A4 if "no boss".
+2. The layout (WORKLIST A1, A2, G1 to G4): ui builds it, engine (or a helper) adds the saved
+   layout choice. Check both layouts at 1400x900, 1280x720, 1536x864, 1024x768 and 360.
+3. engine: B1, hearts from `selectsProcess` (cases listed in WORKLIST B1).
+4. factcheck: verify `src/backend/process.js` (commit 6bb4c32) against Ubuntu.
+5. The user plays again; collect their feedback.
+6. Chapters 3 to 5, each author paired with a fact-checker (WORKLIST D).
+
+## The team
+
+The work is done by named teammates, coordinated by the lead (the main session), which merges and
+verifies. **A fresh session has no teammates: relaunch them** with the Agent tool as named
+teammates (not one-shot subagents), one per role, each with this file, WORKLIST, DESIGN section 8
+(ownership) and AUTHORING as their brief:
+
+| Name | Owns | Worktree, branch |
 |---|---|---|
-| engine | dangers.js part B on shell's signals.js (pkill/killall and every shell-ending signal) | everything else: dangers.js A, M1 overlap guard, L8 chapter progress in the save, L1 L2 L7 L9, one note per line, host in who(), childOf |
-| shell | signals.js, collate and copy on tree.js, L4 hostile nesting, find/man -help, hostname -x usage on stdout, M6, L5, L6, L3 | prototype-named files (13a6539), H2 grep highlighting (2d2da54), round 2 |
-| ui | L11 PLAYER, L1, L9 (use View.started and the event's total), L10 | M1 single queue (bcf3cae), M4 displayPath on tree.isInside |
-| author | one leftover "go up" in the forest recap | tree helpers, baseWorld takes host (36c8e32) |
+| engine | `src/game/` except chapters and world | `.scratch/wt/engine`, `slice/engine` |
+| shell | `src/shell/`, simulator parts of `src/backend/`, `difftest/` | `.scratch/wt/shell`, `slice/shell` |
+| author | `src/game/chapters/`, `src/game/world.js`, `docs/verification/` | `.scratch/wt/author`, `slice/author` |
+| ui | `src/ui/`, `src/intro/`, `styles/`, `index.html`, `test/ui/` | `.scratch/wt/ui`, `slice/ui` |
+| art | `src/map/` | `.scratch/wt/art`, `slice/art` |
+| factcheck | read-only checks against real Ubuntu, reports | `.scratch/wt/factcheck`, `review/factcheck` |
 
-The lead's Chrome run after the M1 merge (main, 2026-10-06): chapters 1 and 2 clear at 1400 and
-360 px with no page errors; same-tick Tab, Hint and Sound clicks behave; a reload mid-chapter
-restores finished tasks and shown hints, and a hint is paid for once.
+The lead owns `src/backend/` contracts (`port.js`, `spec.js`, `tree.js`, `player.js`,
+`access.js`), `scripts/`, `eslint.config.js`, `package.json` and the docs. A helper agent from
+the user can take tasks marked **helper** in WORKLIST; agree which task first.
 
-Then: browser QA (worktree .scratch/wt/qa ready), the lead's replay, republish the preview.
+Every worktree exists and is in step with `main`; each teammate merges `main` before starting.
+`node_modules` is a symlink in each worktree (listed in `.git/info/exclude`).
 
-**Publishing (2026-10-06; not used now, the user plays locally):** the first preview (multi-file, module scripts) was dark for the user:
-the artifact host's frame has an opaque origin, so module scripts fail CORS. Publish only
-`dist/index.html` from `npm run bundle`, after `node test/ui/shots.js OUT_DIR --published`
-passes (it loads the bundle inside `<iframe sandbox="allow-scripts">` at 1400 and 360 and plays
-the first task). When republishing to the preview URL, remove the old
-supporting files (pass them as null in `files`).
+How the team works (lessons from 2026-10-06):
+- Messages reach a busy teammate only when its run ends. Keep tasks small, ask for a note with
+  the commit hash after every commit, and check the branch instead of assuming a message was read.
+- The lead trial-merges each branch into main with `--no-ff`, runs `npm test` and `npm run lint`,
+  and plays the change in Chrome before saying it is done.
+- Changes that must land together (like a guard and the code that respects it) go in the same
+  merge, never one without the other.
 
-## After the slice
+## Housekeeping
 
-1. Fresh reviewers: fact-checker per chapter (blind playtest first), browser QA (3 widths,
-   keyboard, reduced motion), teaching reviewer, a code review against AUTHORING.md section 1.
-2. Collect the user's reactions to the preview.
-3. Chapters 3 to 14 by authors in parallel, each followed by a fact-checker.
-
-## Backlog (after the slice)
-
-- Chapter 12 (Well of Echoes) needs the simulator to read `~/.bashrc` (today `ll` and `la` are
-  built in) and support `source ~/.bashrc`.
-- Real-terminal (termlab) path only: the record-based danger check detects `kill -9` of the
-  player's shell, not HUP, USR1 and the other signals that end it (the simulator refuses those
-  itself). Fix by sharing one signal table from the backend side, not by copying it into src/game.
-- grep -E patterns like `(a*)*b` can backtrack exponentially in the JS regex engine and freeze
-  the tab. Accepted for now (a player can only freeze their own page); a real fix needs a
-  non-backtracking matcher.
+- `.scratch/wt/play`: a detached snapshot worktree used to serve the game while the user played.
+  Not needed now; ask the user before removing it.
+- `slice/engine-host`: a branch whose one change is already on main (cherry-picked as 58309bb).
+  Ask the user before deleting it.
+- `.scratch/wt/qa`, `review`, `teacher`: reviewer worktrees, kept for the next reviews.
 
 ## Rules
 
-Feature branches, small commits, no trailers, never push. Ask the user before deleting
-branches, before replacing the original artifact, and before any change to `~/learning/termlab`.
+Feature branches, small commits, plain messages with no trailers, never push. Tests first. Ask the
+user before deleting branches or worktrees, before anything outward-facing, and before any change
+to `~/learning/termlab`. No emojis. Keep the user's starship prompt (it shows their email) out of
+any terminal screenshot.
 
-## Briefs
+## History and lessons
 
-Each teammate's brief is the DESIGN.md section 8 row plus: read DESIGN, AUTHORING, port.js,
-spec.js and the matching part of `original/shellcraft-v1.html`; milestones (shell M1 fast, then
-M2 difftest; art milestone A static rooms then B animation); message `main` at each milestone;
-final report under 400 words. Relaunch with the same scope if a session ends mid-flight.
+- Reviews: `docs/reviews/code-slice.md`, `docs/reviews/teaching-slice.md`; fact-check logs in
+  `docs/verification/`.
+- 2026-10-06: a module-script artifact rendered dark (the host's opaque-origin frame fails module
+  CORS); `npm run bundle` and `node test/ui/shots.js OUT --published` exist for that case but are
+  unused while the game stays local.
+- Names typed by the player must never index plain objects (`constructor`, `__proto__`): the
+  simulator uses null-prototype tables, and the game reads trees with `tree.js` `childOf`.
