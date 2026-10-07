@@ -1,18 +1,15 @@
 /**
  * Chapter 2, The Whispering Forest: cd, relative and absolute paths, `..`,
- * `~`, `cd -` and Tab. The boss room drops the player into the dungeon; they
- * must find a beacon in the forest with ls and reach it with one absolute cd.
+ * `~`, `cd -` and Tab. The boss room hides a lantern with a random name by the
+ * river: the player finds it with ls, walks into it and goes home in one command.
  */
 import { put, remove, cd, dir, file } from '../../backend/spec.js';
 import { restore } from '../world.js';
-import { LETTERS } from './awakening.js';
-import { pick, token } from '../rng.js';
-import { isInside } from '../../backend/tree.js';
-import { directoriesUnder } from './kit.js';
+import { NOTES } from './awakening.js';
+import { token } from '../rng.js';
+import { isInside, nodeAt } from '../../backend/tree.js';
 
-const DROPS = ['/var/log', '/var/log/apt', '/tmp', '/etc'];
-const SPOTS = ['', '/clearing', '/river', '/cave', '/cave/deep'];
-const BEACON = 'beacon_';
+const LANTERN = 'lantern_';
 
 const forestOf = ctx => `${ctx.home}/forest`;
 const deepOf = ctx => `${ctx.home}/forest/cave/deep`;
@@ -30,35 +27,34 @@ const reachedRiverRelatively = ctx => ctx.cwd === riverOf(ctx)
   && ctx.ran('cd', record => record.args.length > 0 && record.args[0] !== '-' && !isAbsolute(record));
 
 function setupBoss(random, { home, user }) {
-  const target = `${home}/forest${pick(random, SPOTS)}/${BEACON}${token(random, 3)}`;
-  const flame = file('A warm flame burns here: the Guardian\'s beacon.\n', { owner: user });
+  const target = `${home}/forest/river/${LANTERN}${token(random, 3)}`;
+  const light = file('A small lantern glows here. Now find your way home.\n', { owner: user });
   const patch = [
     ...restore('forest', { home, user }),
-    put(target, dir({ 'flame.txt': flame }, { owner: user })),
-    cd(pick(random, DROPS)),
+    put(target, dir({ 'light.txt': light }, { owner: user })),
+    cd(home),
   ];
   return { patch, secret: { target } };
 }
 
-// The line's last cd decides where the player stands, so it is the jump that is judged.
-function jumpedFromDungeon(ctx, target) {
-  const jump = lastCd(ctx);
-  return ctx.cwd === target && jump?.status === 0 && isAbsolute(jump) && !isInside(jump.cwd, ctx.home);
+// The line's last cd decides where the player stands, so it is the step home that is judged.
+function wentHomeFromLantern(ctx, target) {
+  const step = lastCd(ctx);
+  return ctx.cwd === ctx.home && step?.status === 0 && step.cwd === target;
 }
 
 function bossNear(ctx, target) {
-  const jump = lastCd(ctx);
-  if (ctx.cwd !== target || !jump || jumpedFromDungeon(ctx, target)) return null;
-
-  let note = 'You reached the beacon with a relative path. The Guardian wants an absolute one, starting with / or ~. Step out with cd /tmp, then jump again.';
-  if (isInside(jump.cwd, ctx.home)) note = 'You reached the beacon, but from inside your home. The jump only counts from the dungeon: step out with cd /tmp, then jump with one absolute cd.';
-  return note;
+  const step = lastCd(ctx);
+  const cameHome = ctx.cwd === ctx.home && step?.status === 0 && ctx.before.cwd !== ctx.home;
+  return cameHome && !wentHomeFromLantern(ctx, target)
+    ? 'You are home, but the lantern is not found yet. Its name starts with lantern_: ls ~/forest/river shows it.'
+    : null;
 }
 
 function solveBoss(obs) {
-  const beacon = directoriesUnder(obs.tree, `${obs.home}/forest`)
-    .find(path => path.slice(path.lastIndexOf('/') + 1).startsWith(BEACON));
-  return [`cd ${beacon}`];
+  const river = `${obs.home}/forest/river`;
+  const name = Object.keys(nodeAt(obs.tree, river).children).find(child => child.startsWith(LANTERN));
+  return ['ls forest/river', `cd forest/river/${name}`, 'cd'];
 }
 
 export default {
@@ -67,7 +63,7 @@ export default {
   title: 'The Whispering Forest',
   setup: (_random, player) => [
     ...restore('forest', player),
-    ...LETTERS.map(name => remove(`${player.home}/${name}`)),
+    ...NOTES.map(name => remove(`${player.home}/${name}`)),
     cd(player.home),
   ],
   lesson: `<p>Linux keeps everything in one tree of directories. The tree starts at <code>/</code>, the <b>root directory</b>. Your home, <code>/home/hero</code>, is one branch of it. On the map, each room is a directory. Its doors lead into the directories inside it, and the way out leads to its <b>parent</b>, the directory that holds it.</p>
@@ -175,17 +171,16 @@ export default {
   ],
   solve: ['cd forest', 'cd cave/deep', 'cat ancient_key.txt', 'cd ..', 'cd /home/hero/forest/river', 'cd -', 'cd', 'cd fo\t'],
   boss: {
-    title: 'The Trapdoor',
-    briefing: `<p>Crack! A trapdoor opens under your feet. You fall out of your home and land in the dungeon: the part of the system outside <code>~</code>, where most things belong to root. Look at your prompt: it now shows the full path of where you landed.</p>
-<p>The Guardian has lit a beacon somewhere in the forest: a directory whose name starts with <code>beacon_</code>. Find it from where you stand, then reach it with a single <code>cd</code> and an absolute path. The jump only counts if you take it from the dungeon.</p>`,
+    title: 'The Lost Lantern',
+    briefing: `<p>Someone left a lantern by the river. It is a directory inside <code>~/forest/river</code> whose name starts with <code>lantern_</code>. Find its full name with <code>ls</code>, walk into it with one <code>cd</code>, then go home with one command.</p>`,
     setup: setupBoss,
     hints: [
-      '`ls` can look into another directory from where you stand, if you give it a path.',
-      'Search with `ls ~/forest`, then `ls ~/forest/NAME` for each room. Jump with `cd` and a path that starts with `/` or `~`. If you are inside your home, step out first with `cd /tmp`.',
-      secret => `cd /tmp; cd ${secret.target}`,
+      '`ls` can look into a directory without walking into it, if you give it a path.',
+      'Run `ls ~/forest/river`, then `cd ~/forest/river/` followed by the lantern\'s name. From there, `cd` alone takes you home.',
+      ({ target }) => `cd ${target.replace(/^\/home\/[^/]+/, '~')}; cd`,
     ],
-    done: (ctx, secret) => jumpedFromDungeon(ctx, secret.target),
-    near: (ctx, secret) => bossNear(ctx, secret.target),
+    done: (ctx, { target }) => wentHomeFromLantern(ctx, target),
+    near: (ctx, { target }) => bossNear(ctx, target),
     solve: solveBoss,
   },
   recap: [

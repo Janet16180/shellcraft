@@ -134,9 +134,9 @@ test('at zero hearts in the forest boss room the boss is set up again and can st
   await playLines(session, [...FOREST.solve, 'cd ~', 'rm -r ~', 'rm -r ~']);
   const turn = await session.submit('rm -r ~');
   assert.deepEqual(turn.events.map(e => e.phase ?? e.kind), ['heart-lost', 'boss']);
-  assert.ok(!turn.obs.cwd.startsWith(HOME), `the boss room starts in the dungeon, not ${turn.obs.cwd}`);
+  assert.equal(turn.obs.cwd, HOME, 'the boss room starts at home');
 
-  const [last] = await playLines(session, FOREST.boss.solve(session.observation()));
+  const last = (await playLines(session, FOREST.boss.solve(session.observation()))).at(-1);
   assert.deepEqual(kinds(last.events), ['boss', 'chapter']);
 });
 
@@ -203,7 +203,7 @@ test('a reload during the forest boss gives a new room on a fresh world that can
   const second = await bootReal({ store, seed: 2 });
   assert.equal(second.view.chapter.phase, 'boss');
   assert.ok(second.view.chapter.tasks.every(t => t.done));
-  const [last] = await playLines(second.session, FOREST.boss.solve(second.session.observation()));
+  const last = (await playLines(second.session, FOREST.boss.solve(second.session.observation()))).at(-1);
   assert.deepEqual(kinds(last.events), ['boss', 'chapter']);
 });
 

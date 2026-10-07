@@ -1,9 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import chapter, { LETTERS } from '../../../src/game/chapters/awakening.js';
+import chapter, { NOTES } from '../../../src/game/chapters/awakening.js';
 import { assertChapter } from '../../helpers/chapter.js';
 import { nodeAt } from '../../../src/backend/tree.js';
-import { createRandom } from '../../../src/game/rng.js';
 import { PLAYER, startChapter, type, play, startBoss, notFound, codeSnippets, nearTitle, assertNear } from './harness.js';
 
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -28,16 +27,16 @@ test('the solve finishes every task on the base world without an error', async (
   assert.deepEqual(errors, []);
 });
 
-test('the setup puts the readme back, clears old letters and brings the player home', async () => {
+test('the setup puts the readme back, clears an old note and brings the player home', async () => {
   const backend = await startChapter(chapter);
   await type(backend, 'rm readme.txt');
-  await type(backend, 'touch letter2.txt');
+  await type(backend, `touch ${NOTES[1]}`);
   await type(backend, 'cd /tmp');
   await backend.load(chapter.setup(Math.random, PLAYER));
   const obs = await backend.observe();
   assert.equal(obs.cwd, PLAYER.home);
   assert.match(nodeAt(obs.tree, `${PLAYER.home}/readme.txt`).content, /The Guardian of Root/);
-  assert.equal(nodeAt(obs.tree, `${PLAYER.home}/letter2.txt`), null);
+  assert.equal(nodeAt(obs.tree, `${PLAYER.home}/${NOTES[1]}`), null);
 });
 
 const NEAR_MISSES = [
@@ -90,86 +89,54 @@ test('the clear task asks for the clear command, since the page handles Ctrl+L i
   assert.match(chapter.tasks.at(-1).goal, /`clear` command/);
 });
 
-test('the boss room puts four letters in the home, and exactly one is signed by the Guardian of Root', async () => {
+test('the boss room leaves one note named note_ and three letters in the home, and brings the player home', async () => {
+  const names = new Set();
   for (const seed of SEEDS) {
-    const { obs } = await startBoss(chapter, seed);
-    const signed = LETTERS.map(name => nodeAt(obs.tree, `${obs.home}/${name}`).content).filter(isGenuine);
-    assert.equal(signed.length, 1, `seed ${seed}`);
+    const { obs, secret } = await startBoss(chapter, seed);
+    const notes = Object.keys(nodeAt(obs.tree, obs.home).children).filter(name => name.startsWith('note_'));
+    assert.deepEqual(notes.map(name => `${obs.home}/${name}`), [secret.note], `seed ${seed}`);
+    assert.match(notes[0], /^note_[acdefhjkmnprtuvwxy34679]{3}$/);
+    assert.equal(obs.cwd, obs.home);
+    names.add(notes[0]);
   }
+  assert.ok(names.size >= 3, [...names].join(', '));
 });
 
-test('no letter asks pwd or clear for --help, which fail on real bash', () => {
-  for (let seed = 1; seed <= 40; seed++) {
-    const { patch } = chapter.boss.setup(createRandom(seed), PLAYER);
-    for (const { node } of patch) {
-      const text = node.content.replace(/\s+/g, ' ');
-      assert.ok(!(text.includes('quick help') && /full path of the directory|wipes the screen/.test(text)), `seed ${seed}: ${text}`);
-    }
-  }
-});
-
-test('the boss is beaten by doing what the real letter asks, found from the observation', async () => {
+test('the boss is beaten by ls, then cat on the note, found from the observation', async () => {
   for (const seed of SEEDS) {
     const { backend, secret, obs } = await startBoss(chapter, seed);
-    const lines = chapter.boss.solve(obs);
-    let done = false;
-    for (const line of lines) done ||= chapter.boss.done((await type(backend, line)).ctx, secret);
-    assert.ok(done, `seed ${seed}: ${lines.join('; ')}`);
+    const [look, read] = chapter.boss.solve(obs);
+    assert.equal(look, 'ls');
+    assert.equal(chapter.boss.done((await type(backend, look)).ctx, secret), false, `seed ${seed}`);
+    assert.ok(chapter.boss.done((await type(backend, read)).ctx, secret), `seed ${seed}: ${read}`);
   }
 });
 
-const isGenuine = text => text.trimEnd().endsWith('-- The Guardian of Root');
-
-function asIfGenuine(obs, name) {
-  const tree = structuredClone(obs.tree);
-  const home = nodeAt(tree, obs.home);
-  for (const letter of LETTERS) {
-    home.children[letter].content = home.children[letter].content.replace(/-- .*\n$/, letter === name ? '-- The Guardian of Root\n' : '-- Nobody\n');
+test('reading another file, or only listing the note, does not beat the boss', async () => {
+  const { backend, secret } = await startBoss(chapter, 3);
+  const name = secret.note.slice(secret.note.lastIndexOf('/') + 1);
+  for (const line of ['cat readme.txt', `ls ${name}`, 'cat note_']) {
+    assert.equal(chapter.boss.done((await type(backend, line)).ctx, secret), false, line);
   }
-  return { ...obs, tree };
+});
+
+for (const [line, expected] of [
+  ['cat readme.txt', /another file.*note_/],
+  ['cat note_zzz', /no file by that name/],
+  ['ls', null],
+  ['pwd', null],
+]) {
+  test(`in the boss room, ${line} ${nearTitle(expected)}`, async () => {
+    const { backend, secret } = await startBoss(chapter, 2);
+    const { ctx } = await type(backend, line);
+    assertNear(chapter.boss.near(ctx, secret), ctx, expected);
+  });
 }
 
-const forgedLines = obs => LETTERS
-  .filter(name => !isGenuine(nodeAt(obs.tree, `${obs.home}/${name}`).content))
-  .map(name => chapter.boss.solve(asIfGenuine(obs, name))[0]);
-
-test('doing what a forged letter asks does not beat the boss', async () => {
-  for (const seed of SEEDS) {
-    const { backend, secret, obs } = await startBoss(chapter, seed);
-    const forged = forgedLines(obs);
-    assert.equal(forged.length, 3, `seed ${seed}`);
-    assert.ok(!forged.includes(chapter.boss.solve(obs)[0]), `seed ${seed}`);
-    for (const line of forged) assert.equal(chapter.boss.done((await type(backend, line)).ctx, secret), false, `seed ${seed}: ${line}`);
-  }
-});
-
-test('doing a forged letter\'s deed earns a near note that names the forger', async () => {
-  for (const seed of SEEDS.slice(0, 5)) {
-    const { backend, secret, obs } = await startBoss(chapter, seed);
-    for (const line of forgedLines(obs)) {
-      const note = chapter.boss.near((await type(backend, line)).ctx, secret);
-      assert.match(note, /The Guardian of (Boot|Loot|Soot|Rot)/, `seed ${seed}: ${line}`);
-      assert.match(note, /readme\.txt/);
-    }
-  }
-});
-
-test('the right command asked the wrong way earns a near note, and the real deed or looking around earns none', async () => {
-  for (const seed of SEEDS) {
-    const { backend, secret, obs } = await startBoss(chapter, seed);
-    const wrong = secret.how === 'man' ? `${secret.command} --help` : `man ${secret.command}`;
-    assert.match(chapter.boss.near((await type(backend, wrong)).ctx, secret), /letter/, `seed ${seed}: ${wrong}`);
-    assert.equal(chapter.boss.near((await type(backend, 'ls')).ctx, secret), null);
-    assert.equal(chapter.boss.near((await type(backend, chapter.boss.solve(obs)[0])).ctx, secret), null);
-  }
-});
-
-test('the right command asked the wrong way does not beat the boss', async () => {
-  for (const seed of SEEDS) {
-    const { backend, secret } = await startBoss(chapter, seed);
-    const wrong = secret.how === 'man' ? `${secret.command} --help` : `man ${secret.command}`;
-    assert.equal(chapter.boss.done((await type(backend, wrong)).ctx, secret), false, `seed ${seed}: ${wrong}`);
-  }
+test('reading the note gives no near note', async () => {
+  const { backend, secret, obs } = await startBoss(chapter, 4);
+  const { ctx } = await type(backend, chapter.boss.solve(obs)[1]);
+  assert.equal(chapter.boss.near(ctx, secret), null);
 });
 
 test('the exact boss hint is the line that beats the boss', async () => {
@@ -180,12 +147,18 @@ test('the exact boss hint is the line that beats the boss', async () => {
   }
 });
 
+test('every note name the boss can use avoids look-alike characters and is cleared by the setup', () => {
+  for (const name of NOTES) assert.match(name, /^note_[acdefhjkmnprtuvwxy34679]{3}$/);
+  const removed = chapter.setup(() => 0, PLAYER).filter(op => op.op === 'remove').map(op => op.path);
+  for (const name of NOTES) assert.ok(removed.includes(`${PLAYER.home}/${name}`), name);
+});
+
 const NOT_COMMANDS = new Set(['hero@kernelia:~$', '~', '$', '#', 'LS', 'readme.txt', '--help', '/home/hero']);
 
 test('every command the chapter shows runs in the simulator', async () => {
   const lines = [
     ...codeSnippets(chapter.lesson).filter(snippet => !NOT_COMMANDS.has(snippet)),
-    ...codeSnippets(chapter.boss.briefing).filter(snippet => !/^(letter\d|readme)/.test(snippet)),
+    ...codeSnippets(chapter.boss.briefing).filter(snippet => snippet !== 'note_'),
     ...chapter.tasks.map(task => task.hints[2]),
     ...chapter.spells.flatMap(spell => spell.examples.map(([line]) => line)),
     ...chapter.recap.map(([line]) => line),
