@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run, runAll } from '../helpers.js';
-import { put, file } from '../../../src/backend/spec.js';
+import { put, file, dir } from '../../../src/backend/spec.js';
 
 test('man prints a page with a note about the pager, and errors like man-db', async () => {
   const b = await shell();
@@ -216,4 +216,34 @@ test('bash -c runs a command line in a child shell, with a name and arguments af
   assert.equal((await run(b, "bash -c nosuch spell")).err, 'spell: line 1: nosuch: command not found\n');
   const bare = await run(b, 'bash -c');
   assert.deepEqual([bare.err, bare.status], ['bash: -c: option requires an argument\n', 2]);
+});
+
+test('source and . run a file in the current shell, with arguments as positional parameters', async () => {
+  const lines = "cd /tmp\nspell=fire\nalias zap='echo zap'\necho [$1] [$#]\n";
+  const b = await shell([put('/home/hero/s.sh', file(lines, { owner: 'hero' }))]);
+  assert.equal((await run(b, 'source s.sh A B')).out, '[A] [2]\n');
+  const after = await runAll(b, ['echo $#', 'echo $spell; pwd; zap']);
+  assert.equal(after.out, 'fire\n/tmp\nzap\n');
+  assert.equal((await run(b, '. /home/hero/s.sh')).out, '[] [0]\n');
+});
+
+test('source finds a readable file in PATH before the working directory', async () => {
+  const b = await shell([put('/usr/local', dir({ bin: dir({ s: file('echo path\n', { mode: 0o644 }) }) })), put('/home/hero/s', file('echo here\n', { owner: 'hero' }))]);
+  assert.equal((await run(b, 'source s')).out, 'path\n');
+  assert.equal((await run(b, 'source ./s')).out, 'here\n');
+});
+
+test('source fails like bash for a missing file, a directory, an unreadable file and no file', async () => {
+  const b = await shell();
+  const status = async line => run(b, line).then(r => [r.err, r.status]);
+  assert.deepEqual(await status('source nofile'), ['bash: nofile: No such file or directory\n', 1]);
+  assert.deepEqual(await status('source /tmp'), ['bash: source: /tmp: is a directory\n', 1]);
+  assert.deepEqual(await status('. /etc/shadow'), ['bash: /etc/shadow: Permission denied\n', 1]);
+  assert.deepEqual(await status('source'), ['bash: source: filename argument required\nsource: usage: source filename [arguments]\n', 2]);
+  assert.deepEqual(await status('.'), ['bash: .: filename argument required\n.: usage: . filename [arguments]\n', 2]);
+});
+
+test('source returns the status of the last command it ran', async () => {
+  const b = await shell([put('/home/hero/f.sh', file('true\nfalse\n', { owner: 'hero' }))]);
+  assert.equal((await run(b, 'source f.sh')).status, 1);
 });

@@ -1,6 +1,6 @@
 /**
  * The shell's own commands and helpers: man, history, which, type, alias,
- * export, env, printenv, sudo, editors, exit, bash, help.
+ * export, env, printenv, sudo, editors, exit, bash, source, help.
  */
 
 import { lookup, normalize } from '../fs.js';
@@ -224,6 +224,25 @@ function bash(args, { sys, runScript }) {
   return r;
 }
 
+// bash looks for a name without a slash in PATH (any readable file will do),
+// then in the working directory.
+function sourcePath(sys, name) {
+  const inPath = name.includes('/') ? null : pathFiles(sys, name).find(f => can(sys, f.node, 'r'));
+  return inPath?.path ?? name;
+}
+
+const source = builtin => (args, { sys, source: run }) => {
+  if (!args.length) return result('', `bash: ${builtin}: filename argument required\n${builtin}: usage: ${BUILTIN_HELP[builtin][0]}`, 2);
+  const path = sourcePath(sys, args[0]);
+  const node = lookup(sys.root, normalize(path, sys.cwd));
+  let r;
+  if (!node) r = result('', `bash: ${args[0]}: No such file or directory`, 1);
+  else if (node.type === 'dir') r = result('', `bash: ${builtin}: ${args[0]}: is a directory`, 1);
+  else if (!can(sys, node, 'r')) r = result('', `bash: ${args[0]}: Permission denied`, 1);
+  else r = run(node.content, args[0], args.slice(1));
+  return r;
+};
+
 function help(args) {
   const missing = args.find(a => !(a in BUILTIN_HELP));
   let r = withNote(result(`${HELP}\n`), 'In real bash, help lists the shell builtins. Use man COMMAND to learn any real command.');
@@ -264,5 +283,7 @@ export default {
   logout: exit,
   bash,
   sh: bash,
+  source: source('source'),
+  '.': source('.'),
   help,
 };

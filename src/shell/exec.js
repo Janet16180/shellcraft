@@ -72,23 +72,42 @@ function capture(sh, line, errPrefix = null) {
   return out;
 }
 
-function runScriptText(sh, text, name, args, env) {
-  if (sh.run.depth >= MAX_DEPTH) return result('', `bash: ${name}: maximum nesting level exceeded`, 1);
-  const { sys } = sh;
-  const parent = enterChild(sys, { zero: name, args, env });
+// Each line's errors start with `NAME: line N: ` in place of `bash: `, unless
+// the lines run in the interactive shell (source typed at the prompt).
+function runLines(sh, text, name) {
+  const interactive = sh.sys.flags.includes('i');
   let out = '';
   let err = '';
   let status = 0;
   text.split('\n').forEach((raw, i) => {
     const line = raw.trim();
     if (!line || line.startsWith('#')) return;
-    const r = capture(sh, line, `${name}: line ${i + 1}: `);
+    const r = capture(sh, line, interactive ? null : `${name}: line ${i + 1}: `);
     out += r.out;
     err += r.err;
     status = r.status;
   });
-  leaveChild(sys, parent);
   return result(out, err.replace(/\n$/, ''), status);
+}
+
+function runScriptText(sh, text, name, args, env) {
+  if (sh.run.depth >= MAX_DEPTH) return result('', `bash: ${name}: maximum nesting level exceeded`, 1);
+  const parent = enterChild(sh.sys, { zero: name, args, env });
+  const r = runLines(sh, text, name);
+  leaveChild(sh.sys, parent);
+  return r;
+}
+
+// source: the lines run in this shell; arguments, if any, replace the
+// positional parameters until the file ends.
+function sourceText(sh, text, name, args) {
+  const { sys } = sh;
+  if (sh.run.depth >= MAX_DEPTH) return result('', `bash: ${name}: maximum nesting level exceeded`, 1);
+  const saved = sys.positional;
+  if (args.length) sys.positional = { zero: saved.zero, args };
+  const r = runLines(sh, text, name);
+  if (args.length) sys.positional = saved;
+  return r;
 }
 
 function runFile(sh, name, args, ctx) {
@@ -136,6 +155,7 @@ function dispatch(sh, argv, streams, overlay) {
     sys, stdin: streams.stdin, piped: streams.out.kind !== 'terminal', commands: sh.commands, env: overlay,
     block: reason => sh.run.blocked.push(reason),
     runScript: (text, zero, scriptArgs) => runScriptText(sh, text, zero, scriptArgs, overlay),
+    source: (text, name, sourceArgs) => sourceText(sh, text, name, sourceArgs),
   };
   const standard = name.includes('/') ? null : standardOption(name, args);
   const found = name.includes('/') || sh.commands[name] || BASH_BUILTINS.has(name) ? null : searchPath(sys, name);
