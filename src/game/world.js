@@ -70,14 +70,7 @@ manual: man COMMAND, for example man ls.
 
 const SECRET_MAP = `THE SECRET MAP  (plain ls skips this file; ls -a shows it)
 
-  ~/forest   a cave hides an ancient key
-  ~/junk     clean it up, but save the boots
-  ~/library  the Scroll of Ages hides a word of power
-  ~/tower    four gems, and one of them is hidden
-  ~/market   a messy inventory needs sorting
-  ~/gate     sealed until its spell is allowed to execute
-
-The Shadow Daemon lurks in the process table.
+  ~/library  a secret entrance hides behind the shelves
 `;
 
 const BASHRC = `# ~/.bashrc: executed by bash(1) for non-login shells.
@@ -130,6 +123,9 @@ const HOME_ENTRIES = {
   library: ({ d, f }) => d({
     'scroll_of_ages.txt': f(SCROLL),
     'librarian.txt': f('The librarian whispers: "Nobody reads a whole scroll. Use head and tail."\n'),
+    '.secret_passage': d({
+      'whisper.txt': f('A narrow passage behind the shelves, lit by one candle.\nA voice whispers: "Directories can hide too. You found me with ls -la:\nthe d at the start of my line says I am a directory."\n'),
+    }),
   }),
   tower: ({ d, f }) => d({
     floor1: d({
