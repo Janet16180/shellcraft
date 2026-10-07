@@ -59,6 +59,7 @@ export default {
     hints: ['nudge', 'technique', secret => `cd ${secret.target}`],  // an entry may be a function of the secret
     done: (ctx, secret) => boolean,
     near: (ctx, secret) => null,        // optional, like a task's near
+    hidden: secret => ['/abs/path'],    // optional: kept off the map until an ls lists their directory
     solve: obs => ['lines'],            // derived from the observation like a player would, never from the secret
   },
   recap: [['cd dir', 'enter a directory']],
@@ -125,6 +126,14 @@ that `near` note first, else a generic note from `src/game/coach.js`.
 8. In task goals, hints 1 and 2, spell notes and recap/field meanings, wrap every name the player
    might type in backticks (`` `cd ..` ``). The page renders them in the mono font; the terminal strips
    them, because in bash backticks run a command. Level-3 hints and `solve` lines never use backticks.
+9. **Missions are simple, with plenty of clues** (the user, 2026-10-07). The player is learning.
+   - **Chapter 1 is practice:** every goal shows its command in parentheses, like "Look around
+     your home (`ls`)".
+   - **From chapter 2 on**, a goal names the target (a path, a file, a place), not the command:
+     "Jump to the river with an absolute path `~/forest/river`". Knowing that `cd` plus that path
+     does it is the player's part. The tip under the goal may name the command. The one exception
+     so far is `cd -`, whose goal names it because a dash as a place is too odd to guess.
+   - The full command line waits for hint 3.
 
 ## 4. Chapter tests (`test/game/chapters/<id>.test.js`)
 

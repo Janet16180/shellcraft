@@ -57,10 +57,10 @@ test('booting with no save starts the first chapter on a fresh world', async () 
 });
 
 test('booting resumes the saved chapter and progress', async () => {
-  const { view } = await booted({ stored: v2({ chapter: 'forest', cleared: ['awakening'], xp: 70, sound: true, introSeen: true }) });
+  const { view } = await booted({ stored: v2({ chapter: 'forest', cleared: ['awakening'], xp: 70, sound: true, introSeen: true, layout: 'side' }) });
   assert.equal(view.boot, 'resumed');
   assert.equal(view.chapter.id, 'forest');
-  assert.deepEqual([view.xp, view.sound, view.introSeen], [70, true, true]);
+  assert.deepEqual([view.xp, view.sound, view.introSeen, view.layout], [70, true, true, 'side']);
   assert.deepEqual(view.chapters.map(c => c.status), ['cleared', 'playing', 'soon']);
 });
 
@@ -163,7 +163,7 @@ test('solving the boss clears the chapter, pays the boss and the bonus, and open
   assert.equal(turn.view.chapter.phase, 'done');
   assert.equal(turn.view.xp, 70);
   assert.deepEqual(turn.view.chapters.map(c => [c.status, c.current]), [['cleared', true], ['open', false], ['soon', false]]);
-  assert.deepEqual(saved(store), { version: 2, chapter: 'forest', cleared: ['awakening'], xp: 70, sound: false, introSeen: false, progress: null });
+  assert.deepEqual(saved(store), { version: 2, chapter: 'forest', cleared: ['awakening'], xp: 70, sound: false, introSeen: false, layout: 'stacked', paid: { awakening: [0, 1] }, progress: null });
 });
 
 test('a cleared chapter can be started again while it is the current one', async () => {
@@ -367,6 +367,52 @@ test('a dangerous line costs a heart with the game\'s reason, and the guard\'s r
   assert.equal(turn.view.hearts.left, 2);
 });
 
+function hidingSign() {
+  const chapters = fixtureChapters();
+  chapters[0].boss.hidden = () => [`${HOME}/sign.txt`];
+  return chapters;
+}
+
+test('a boss hides its hidden paths in the view until an ls lists their directory', async () => {
+  const { session } = await booted({ chapters: hidingSign() });
+  assert.deepEqual(session.view().concealed, []);
+  const start = await reachBoss(session);
+  assert.deepEqual(start.view.concealed, [`${HOME}/sign.txt`]);
+  assert.ok(!start.effects.some(e => e.path === `${HOME}/sign.txt`), 'the boss room does not sparkle the hidden file');
+  assert.deepEqual((await session.submit('ls forest')).view.concealed, [`${HOME}/sign.txt`]);
+  assert.deepEqual((await session.submit('ls -d ~')).view.concealed, [`${HOME}/sign.txt`]);
+  assert.deepEqual((await session.submit('ls --help')).view.concealed, [`${HOME}/sign.txt`]);
+  const listed = await session.submit('ls');
+  assert.deepEqual(listed.view.concealed, []);
+  assert.ok(listed.effects.some(e => e.kind === 'created' && e.path === `${HOME}/sign.txt`), 'the file sparkles in when found');
+});
+
+test('an ls that opens the boss room does not reveal what the room hides', async () => {
+  const chapters = hidingSign();
+  chapters[0].tasks[1].done = ctx => ctx.ran('ls');
+  const { session } = await booted({ chapters });
+  await session.submit('pwd');
+  const start = await session.submit('ls');
+  assert.deepEqual(kinds(start.events).at(-1), 'boss-start');
+  assert.deepEqual(start.view.concealed, [`${HOME}/sign.txt`]);
+});
+
+test('ls with the directory as an argument from elsewhere reveals too', async () => {
+  const { session } = await booted({ chapters: hidingSign() });
+  await reachBoss(session);
+  await session.submit('cd forest');
+  assert.deepEqual((await session.submit('ls ~')).view.concealed, []);
+});
+
+test('the hidden paths come back when the boss room is set up again, and are gone after a restart', async () => {
+  const { session, store } = await booted({ chapters: hidingSign() });
+  await reachBoss(session);
+  await session.submit('ls');
+  const reloaded = makeSession({ chapters: hidingSign(), stored: Object.fromEntries(store.items) }).session;
+  assert.deepEqual((await reloaded.boot()).concealed, [`${HOME}/sign.txt`]);
+  assert.deepEqual((await reloaded.startChapter('awakening')).concealed, []);
+});
+
 function withBlocked(backend, change) {
   return { ...backend, run: async line => {
     const result = await backend.run(line);
@@ -507,6 +553,47 @@ test('starting a chapter fresh rebuilds the base world', async () => {
   assert.equal(exists(await backend.observe(), `${HOME}/stone`), false);
 });
 
+test('restarting the chapter being played clears its tasks and hearts, rebuilds the world and keeps the XP', async () => {
+  const { session, backend } = await booted();
+  await session.submit('pwd');
+  await session.submit('touch stone');
+  await session.submit('rm -r ~');
+  const before = session.view();
+  assert.deepEqual([before.chapter.tasks[0].done, before.hearts.left], [true, 2]);
+  const view = await session.startChapter(before.chapter.id, { fresh: true });
+  assert.deepEqual([view.chapter.id, view.chapter.phase, view.hearts.left, view.xp], ['awakening', 'quest', 3, before.xp]);
+  assert.ok(view.chapter.tasks.every(task => !task.done));
+  assert.equal(exists(await backend.observe(), `${HOME}/stone`), false);
+});
+
+test('a task pays XP once: after a restart it pays nothing and its hints are free', async () => {
+  const { session, store } = await booted();
+  session.hint();
+  session.hint();
+  const first = await session.submit('pwd');
+  assert.deepEqual([first.events[0].xp, first.view.xp], [7, 7]);
+  assert.deepEqual(saved(store).paid, { awakening: [0] });
+  await session.startChapter('awakening', { fresh: true });
+  session.hint();
+  assert.equal(session.hint().cost, 0);
+  assert.equal(session.view().hint.cost, 0);
+  const again = await session.submit('pwd');
+  assert.deepEqual([again.events[0].xp, again.view.xp], [0, 7]);
+  session.hint();
+  assert.equal(session.view().hint.cost, 3);
+  const second = await session.submit('cat letter.txt');
+  assert.deepEqual([second.events[0].xp, second.view.xp], [10, 17]);
+  assert.deepEqual(saved(store).paid, { awakening: [0, 1] });
+});
+
+test('reset forgets which tasks were paid', async () => {
+  const { session, store } = await booted();
+  await session.submit('pwd');
+  await session.reset();
+  assert.deepEqual(saved(store).paid, {});
+  assert.equal((await session.submit('pwd')).events[0].xp, 10);
+});
+
 test('an unknown, soon or locked chapter cannot start', async () => {
   const { session } = await booted();
   await assert.rejects(session.startChapter('nowhere'), /unknown chapter/);
@@ -547,20 +634,35 @@ test('sound and the intro flag are saved', async () => {
   assert.deepEqual([saved(store).sound, saved(store).introSeen], [true, true]);
 });
 
+test('the layout choice is saved and shown in the view', async () => {
+  const { session, store, view } = await booted();
+  assert.equal(view.layout, 'stacked');
+  assert.equal(session.setLayout('side').layout, 'side');
+  assert.equal(saved(store).layout, 'side');
+  assert.equal(session.setLayout('stacked').layout, 'stacked');
+  assert.equal(saved(store).layout, 'stacked');
+});
+
+test('setting an unknown layout raises', async () => {
+  const { session } = await booted();
+  for (const layout of ['wide', '', undefined, 1]) assert.throws(() => session.setLayout(layout), /layout must be one of stacked, side/);
+});
+
 test('setting sound to something other than a boolean raises', async () => {
   const { session } = await booted();
   assert.throws(() => session.setSound('on'), /boolean/);
 });
 
-test('reset erases progress but keeps sound and the intro flag', async () => {
+test('reset erases progress but keeps sound, the intro flag and the layout', async () => {
   const { session, store, backend } = await booted();
   await clearAwakening(session);
   session.setSound(true);
   session.markIntroSeen();
+  session.setLayout('side');
   const view = await session.reset();
   assert.deepEqual([view.chapter.id, view.xp, view.chapter.replay], ['awakening', 0, false]);
   assert.deepEqual(saved(store), {
-    version: 2, chapter: 'awakening', cleared: [], xp: 0, sound: true, introSeen: true,
+    version: 2, chapter: 'awakening', cleared: [], xp: 0, sound: true, introSeen: true, layout: 'side', paid: {},
     progress: { chapter: 'awakening', phase: 'quest', tasks: [false, false], hints: [0, 0], bossHints: 0 },
   });
   assert.equal(exists(await backend.observe(), `${HOME}/sign.txt`), false);

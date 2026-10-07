@@ -1,70 +1,15 @@
 /**
  * Chapter 1, The Awakening: the prompt, whoami, pwd, ls, cat, clear, man and
- * --help. The boss room hides one true letter from the Guardian among
- * forgeries; its content says which manual to open.
+ * --help. The boss room leaves a note with a random name in the home: the
+ * player finds it with ls and reads it with cat.
  */
 import { put, remove, cd, file } from '../../backend/spec.js';
 import { restore } from '../world.js';
-import { shuffle } from '../rng.js';
+import { pick } from '../rng.js';
 import { nodeAt } from '../../backend/tree.js';
-
-/**
- * The letters the boss room puts in the player's home. Later chapters remove
- * them when they start.
- *
- * @type {string[]}
- */
-export const LETTERS = ['letter1.txt', 'letter2.txt', 'letter3.txt', 'letter4.txt'];
-
-const GUARDIAN = 'The Guardian of Root';
-const FORGERS = ['The Guardian of Boot', 'The Guardian of Loot', 'The Guardian of Soot', 'The Guardian of Rot'];
-
-const RIDDLES = {
-  whoami: 'prints your user name',
-  pwd: 'prints the full path of the directory you are in',
-  ls: 'lists what is in a directory',
-  cat: 'prints a file on the screen',
-  clear: 'wipes the screen',
-};
-
-// GNU coreutils answer --help with status 0; bash builtins print help but exit 2, and clear rejects it.
-const HAS_HELP = ['whoami', 'ls', 'cat'];
-
-const flatten = text => text.replace(/\s+/g, ' ');
-
-function deedText({ command, how }) {
-  return how === 'man'
-    ? `open the manual page of the spell that ${RIDDLES[command]}.`
-    : `ask the spell that ${RIDDLES[command]} for its quick help.`;
-}
-
-function letterText(deed, signature) {
-  return `Dear apprentice,
-
-You are awake at last. Now prove that you can study a spell:
-${deedText(deed)}
-
-    -- ${signature}
-`;
-}
-
-function signature(text) {
-  const last = text.trimEnd().split('\n').at(-1).trim();
-  return last.startsWith('-- ') ? last.slice(3) : '';
-}
-
-function deedIn(text) {
-  const flat = flatten(text);
-  const command = Object.keys(RIDDLES).find(name => flat.includes(`the spell that ${RIDDLES[name]}`));
-  return { command, how: flat.includes('manual page') ? 'man' : 'help' };
-}
 
 const listsHome = (ctx, record) => ctx.hasPath(record, ctx.home)
   || (record.cwd === ctx.home && record.args.every(arg => arg.startsWith('-')));
-
-const didDeed = (ctx, { command, how }) => (how === 'man'
-  ? ctx.ran('man', record => record.args.includes(command))
-  : ctx.ran(command, record => record.args.includes('--help')));
 
 function readNear(ctx) {
   const letter = `${ctx.home}/readme.txt`;
@@ -74,35 +19,41 @@ function readNear(ctx) {
   return note;
 }
 
+/**
+ * The names the boss room can give its note. Each is note_ and three random
+ * letters; the list is fixed so the chapters' setups can clear every one.
+ *
+ * @type {string[]}
+ */
+export const NOTES = ['note_k7m', 'note_w3r', 'note_f9d', 'note_x4t', 'note_h6p', 'note_c3v', 'note_y7e', 'note_j4n'];
 
-function bossNear(ctx, secret) {
-  const forgery = secret.forgeries.find(deed => didDeed(ctx, deed));
-  const otherWay = secret.how === 'man'
-    ? ctx.tried(secret.command, record => record.args.includes('--help'))
-    : ctx.tried('man', record => record.args.includes(secret.command));
-  let note = null;
-  if (forgery) note = `Somewhere, the Shadow Daemon snickers. That letter was signed ${forgery.signer}. Compare the signatures with readme.txt.`;
-  else if (otherWay) note = `Right spell, wrong way. Read the real letter again: it asks for ${secret.how === 'man' ? 'the manual page' : 'the quick help'}.`;
-  return note;
-}
+const NOTE_TEXT = `Well done, apprentice!
+
+You found this note with ls and read it with cat.
+Those two spells will light your way in the forest.
+
+    -- The Guardian of Root
+`;
 
 function setupBoss(random, { home, user }) {
-  const deeds = shuffle(random, Object.keys(RIDDLES)).slice(0, LETTERS.length).map(command => ({
-    command,
-    how: HAS_HELP.includes(command) && random() < 0.5 ? 'help' : 'man',
-  }));
-  const real = Math.floor(random() * LETTERS.length);
-  const signers = shuffle(random, FORGERS).map((forger, i) => (i === real ? GUARDIAN : forger));
-  const patch = LETTERS.map((name, i) => put(`${home}/${name}`, file(letterText(deeds[i], signers[i]), { owner: user })));
-  const forgeries = deeds.map((deed, i) => ({ ...deed, signer: signers[i] })).filter((_, i) => i !== real);
-  return { patch, secret: { ...deeds[real], forgeries } };
+  const note = `${home}/${pick(random, NOTES)}`;
+  return { patch: [put(note, file(NOTE_TEXT, { owner: user })), cd(home)], secret: { note } };
 }
 
+function bossNear(ctx, { note }) {
+  const cats = ctx.commands.filter(record => record.name === 'cat');
+  if (cats.length === 0 || ctx.read(note)) return null;
+  return cats.some(record => record.status !== 0)
+    ? 'There is no file by that name. Run ls and copy the full name that starts with note_.'
+    : 'That was another file. The new note\'s name starts with note_: ls shows it.';
+}
+
+// The map shows the note only once ls has found it, so the player has to look.
+const hiddenNote = ({ note }) => [note];
+
 function solveBoss(obs) {
-  const home = nodeAt(obs.tree, obs.home);
-  const letter = LETTERS.map(name => home.children[name]).find(node => signature(node.content) === GUARDIAN);
-  const { command, how } = deedIn(letter.content);
-  return [how === 'man' ? `man ${command}` : `${command} --help`];
+  const name = Object.keys(nodeAt(obs.tree, obs.home).children).find(child => child.startsWith('note_'));
+  return ['ls', `cat ${name}`];
 }
 
 export default {
@@ -111,7 +62,7 @@ export default {
   title: 'The Awakening',
   setup: (_random, player) => [
     ...restore('readme.txt', player),
-    ...LETTERS.map(name => remove(`${player.home}/${name}`)),
+    ...NOTES.map(name => remove(`${player.home}/${name}`)),
     cd(player.home),
   ],
   lesson: `<p>You met the <b>prompt</b> in the intro, and the <b>Replay intro</b> button shows it again: <code>hero@kernelia:~$</code> names you, the machine and the directory you are in, where <code>~</code> is short for your home, <code>/home/hero</code>. The <code>$</code> means you are a normal user; root, the administrator, gets <code>#</code>. Type a command after the prompt and press <kbd>Enter</kbd>. Commands are case-sensitive: <code>ls</code> works, <code>LS</code> does not.</p>
@@ -127,7 +78,7 @@ export default {
 <p>A word after a command is an <b>argument</b>: it tells the command what to work on. <code>ls forest</code> lists the forest without walking into it, and <code>man ls</code> asks for the manual of <code>ls</code>.</p>`,
   tasks: [
     {
-      goal: 'Ask the terminal who you are',
+      goal: 'Ask the terminal who you are (`whoami`)',
       tip: '`whoami` prints your user name, the name before the @ in the prompt.',
       hints: [
         'Your name is in the prompt, but a command can tell you too.',
@@ -137,7 +88,7 @@ export default {
       done: ctx => ctx.ran('whoami'),
     },
     {
-      goal: 'Find out where you are standing',
+      goal: 'Find out where you are standing (`pwd`)',
       tip: '`pwd` prints the full path of the directory you are in.',
       hints: [
         'The prompt shows `~`, a short name. Ask for the full path.',
@@ -147,7 +98,7 @@ export default {
       done: ctx => ctx.ran('pwd'),
     },
     {
-      goal: 'Look around your home',
+      goal: 'Look around your home (`ls`)',
       tip: '`ls` on its own lists the directory you are in.',
       hints: [
         'What is in this room? Ask for a list.',
@@ -158,7 +109,7 @@ export default {
       near: ctx => (ctx.ran('ls', record => !listsHome(ctx, record)) ? 'That listed another directory. To look around your home, run ls in your home with nothing after it.' : null),
     },
     {
-      goal: 'Read the letter left for you',
+      goal: 'Read the letter left for you (`cat`)',
       tip: '`cat` followed by a file name prints that file on the screen.',
       hints: [
         'There is a `.txt` file in your home. Print it on the screen.',
@@ -169,7 +120,7 @@ export default {
       near: readNear,
     },
     {
-      goal: 'Open the manual page of a command',
+      goal: 'Open the manual page of a command (`man`)',
       tip: '`man` followed by a command name, like `man ls`, opens its manual page.',
       hints: [
         'Most commands come with a manual. One command opens it.',
@@ -179,7 +130,7 @@ export default {
       done: ctx => ctx.ran('man'),
     },
     {
-      goal: 'Ask a command for its quick help',
+      goal: 'Ask a command for its quick help (`--help`)',
       tip: 'Many commands print a short summary when you add `--help`, with two dashes.',
       hints: [
         'Many commands explain themselves if you ask with an option.',
@@ -192,7 +143,7 @@ export default {
         ? 'echo prints its words back, even --help. Ask another command, like ls --help.' : null),
     },
     {
-      goal: 'Wipe the screen clean with the `clear` command',
+      goal: 'Wipe the screen clean (`clear`)',
       tip: '`clear` wipes the screen; Ctrl+L does too, but this task wants the command.',
       hints: [
         'The screen is getting full. Start again with an empty one.',
@@ -204,17 +155,17 @@ export default {
   ],
   solve: ['whoami', 'pwd', 'ls', 'cat readme.txt', 'man ls', 'ls --help', 'clear'],
   boss: {
-    title: 'The Forged Letters',
-    briefing: `<p>While you were reading, four letters slid under your door: <code>letter1.txt</code> to <code>letter4.txt</code>. Only one is truly from the Guardian of Root. The other three are forgeries by the Shadow Daemon, who wants to lead you astray.</p>
-<p>The Guardian signs exactly as in <code>readme.txt</code>. Find the real letter and do what it asks.</p>`,
+    title: 'A New Note',
+    briefing: `<p>A new note just arrived in your home. Its name starts with <code>note_</code> and ends with a few random letters. Find it with <code>ls</code>, then read it with <code>cat</code>.</p>`,
     setup: setupBoss,
     hints: [
-      'Read every letter, then compare each signature with the one at the end of `readme.txt`.',
-      '`ls` shows the letters and `cat` prints them. The real letter asks for a manual page (`man COMMAND`) or for a quick help (`COMMAND --help`).',
-      secret => (secret.how === 'man' ? `man ${secret.command}` : `${secret.command} --help`),
+      'Something new is in your home. `ls` shows everything there.',
+      'Look for the name that starts with `note_` in what `ls` prints, then type `cat` and that name.',
+      ({ note }) => `cat ${note.slice(note.lastIndexOf('/') + 1)}`,
     ],
-    done: didDeed,
+    done: (ctx, { note }) => ctx.read(note),
     near: bossNear,
+    hidden: hiddenNote,
     solve: solveBoss,
   },
   recap: [

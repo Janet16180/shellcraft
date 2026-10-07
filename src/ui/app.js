@@ -5,7 +5,7 @@
  */
 
 import { createTerminal } from './terminal.js';
-import { renderHUD } from './hud.js';
+import { renderHUD, layoutButton, hudOpen, hudToggle, SMALL_WINDOW } from './hud.js';
 import { questHTML, spellsHTML, chaptersHTML, nowHTML } from './panels.js';
 import { titleCardHTML, bossCardHTML, debriefHTML, openCard, closeCard } from './cards.js';
 import { commandForPath, commandForPick } from './picks.js';
@@ -15,6 +15,7 @@ import { bootText, restoredText } from './messages.js';
 import { createSound } from './sound.js';
 import { renderRoster, picksHTML } from './roster.js';
 import { createQueue } from './queue.js';
+import { conceal, concealEffects } from './conceal.js';
 import { createToasts } from './toasts.js';
 import { logoSVG } from './logo.js';
 import { playIntro } from '../intro/player.js';
@@ -83,7 +84,7 @@ function show(ui, view) {
 
 // Through the queue, so an animation still waiting from an earlier line cannot draw over the new room.
 function showRoom(ui) {
-  const obs = ui.session.observation();
+  const obs = conceal(ui.session.observation(), ui.session.view().concealed);
   afterMap(ui, () => {
     ui.map.show(obs);
     roomSettled(ui);
@@ -106,7 +107,11 @@ function renderCrumbs(doc, { cwd, home }) {
     return `<button type="button" data-cd="${esc(path)}">${esc(part)}</button>`;
   });
   const area = `<span class="area">${esc(biomeFor(cwd, home).name)}</span>`;
-  doc.getElementById('crumbs').innerHTML = `<button type="button" data-cd="/" aria-label="the root directory, /">/</button>${buttons.join('/')}${area}`;
+  const crumbs = doc.getElementById('crumbs');
+  crumbs.innerHTML = `<span class="path"><button type="button" data-cd="/" aria-label="the root directory, /">/</button>${buttons.join('/')}</span>${area}`;
+  // A deep path scrolls inside its line; show its end, where the player is.
+  const path = crumbs.querySelector('.path');
+  path.scrollLeft = path.scrollWidth;
 }
 
 function createToastLine(doc) {
@@ -186,7 +191,8 @@ function applyTurn(ui, turn) {
   if (turn.result.output.some(chunk => chunk.stream === 'err')) ui.sound.play('err');
   if (turn.effects.some(e => e.kind === 'travel')) ui.sound.play('step');
   afterMap(ui, async () => {
-    await ui.map.play(turn.effects, turn.obs);
+    const hidden = turn.view.concealed;
+    await ui.map.play(concealEffects(turn.effects, hidden), conceal(turn.obs, hidden));
     roomSettled(ui);
   });
   show(ui, turn.view);
@@ -261,7 +267,7 @@ function openDebrief(ui) {
   if (next) next.onclick = () => startChapter(ui, next.dataset.ch, false);
 }
 
-async function startChapter(ui, id, fresh) {
+async function startChapter(ui, id, fresh, note = 'You jumped to this chapter, so the world was set up fresh.') {
   hideCard(ui);
   await act(ui, async () => {
     show(ui, await ui.session.startChapter(id, { fresh }));
@@ -269,7 +275,7 @@ async function startChapter(ui, id, fresh) {
   });
   ui.terminal.clear();
   chapterBanner(ui);
-  if (fresh) ui.terminal.printLine('You jumped to this chapter, so the world was set up fresh.', 'sys');
+  if (fresh) ui.terminal.printLine(note, 'sys');
   showTab(ui.doc, 'quest');
   ui.terminal.focus();
 }
@@ -367,6 +373,10 @@ function wireControls(ui) {
     show(ui, session.view());
     ui.sound.play('ok');
   }));
+  doc.getElementById('layoutBtn').addEventListener('click', () => act(ui, () => {
+    show(ui, session.setLayout(layoutButton(ui.view.layout).next));
+  }));
+  wireHudToggle(doc);
   doc.getElementById('introBtn').addEventListener('click', () => ui.intro());
   doc.getElementById('keyBtn').addEventListener('click', () => {
     const roster = doc.getElementById('roster');
@@ -374,7 +384,31 @@ function wireControls(ui) {
     roster.scrollIntoView({ block: 'nearest' });
     roster.querySelector('summary').focus({ preventScroll: true });
   });
+  // On a window the app fits, a closed key hides its line, so focus goes back to the link.
+  doc.getElementById('roster').addEventListener('toggle', event => {
+    if (!event.target.open && event.target.contains(doc.activeElement)) doc.getElementById('keyBtn').focus();
+  });
   wireReset(ui);
+}
+
+// The HUD follows the window size until the player opens or hides it; that choice lasts the visit.
+function wireHudToggle(doc) {
+  const small = doc.defaultView.matchMedia(SMALL_WINDOW);
+  const button = doc.getElementById('hudToggle');
+  let chosen = null;
+  const draw = () => {
+    const open = hudOpen({ small: small.matches, chosen });
+    const { text, expanded } = hudToggle(open);
+    button.textContent = text;
+    button.setAttribute('aria-expanded', expanded);
+    doc.getElementById('app').dataset.hud = open ? 'open' : 'collapsed';
+  };
+  button.addEventListener('click', () => {
+    chosen = button.getAttribute('aria-expanded') !== 'true';
+    draw();
+  });
+  small.addEventListener('change', draw);
+  draw();
 }
 
 function wirePicks(ui) {
@@ -388,23 +422,38 @@ function wirePicks(ui) {
   for (const type of ['focusout', 'mouseleave']) list.addEventListener(type, () => ui.map.focus(null));
 }
 
-function wireReset(ui) {
-  const button = ui.doc.getElementById('resetBtn');
+// A button that acts only on a second click, so one stray click never throws progress away.
+function wireConfirm(button, { label, confirm, run }) {
   let armed = false;
+  const disarm = () => {
+    armed = false;
+    button.textContent = label;
+  };
   button.addEventListener('click', async () => {
     armed = !armed;
-    button.textContent = armed ? 'Click again to erase all progress' : 'Reset progress';
-    if (armed) return;
-    await act(ui, async () => {
-      show(ui, await ui.session.reset());
-      showRoom(ui);
-    });
-    ui.terminal.clear();
-    chapterBanner(ui);
-    showTab(ui.doc, 'quest');
+    button.textContent = armed ? confirm : label;
+    if (!armed) await run();
   });
-  button.addEventListener('blur', () => {
-    armed = false;
-    button.textContent = 'Reset progress';
+  button.addEventListener('blur', disarm);
+}
+
+function wireReset(ui) {
+  wireConfirm(ui.doc.getElementById('resetBtn'), {
+    label: 'Reset progress',
+    confirm: 'Click again to erase all progress',
+    run: async () => {
+      await act(ui, async () => {
+        show(ui, await ui.session.reset());
+        showRoom(ui);
+      });
+      ui.terminal.clear();
+      chapterBanner(ui);
+      showTab(ui.doc, 'quest');
+    },
+  });
+  wireConfirm(ui.doc.getElementById('restartBtn'), {
+    label: 'Restart chapter',
+    confirm: 'Click again to restart',
+    run: () => startChapter(ui, ui.view.chapter.id, true, 'You restarted this chapter: its world is set up fresh and its tasks start over. Tasks you already finished pay no XP again.'),
   });
 }

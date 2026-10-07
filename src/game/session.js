@@ -29,7 +29,7 @@ import { hintNote, questNote, terminalText } from './commands.js';
 import { lineEffects, worldEffects } from './effects.js';
 import { dangers } from './dangers.js';
 import { XP, MAX_HEARTS, HINT_LEVELS, payout, nextHint, rankFor, loseHeart, chapterStatuses, canStart, resumeChapter } from './progress.js';
-import { SAVE_KEY, V1_SAVE_KEY, freshSave, parseSave, serializeSave } from './save.js';
+import { LAYOUTS, SAVE_KEY, V1_SAVE_KEY, freshSave, parseSave, serializeSave } from './save.js';
 
 /**
  * Create a session.
@@ -52,7 +52,7 @@ export function createSession({ backend, chapters, baseWorld, store, random }) {
 
   const s = {
     backend, chapters, baseWorld, store, random,
-    save: null, boot: null, obs: null, index: null, completions: [], busy: false,
+    save: null, boot: null, obs: null, index: null, completions: [], busy: false, concealed: [],
     phase: 'quest', tasksDone: [], hints: [], bossHints: 0, secret: undefined, hearts: MAX_HEARTS, replay: false,
   };
   const idle = work => (...args) => {
@@ -67,6 +67,7 @@ export function createSession({ backend, chapters, baseWorld, store, random }) {
     reset: () => exclusive(s, () => reset(s)),
     hint: idle(() => hint(s)),
     setSound: idle(on => setSound(s, on)),
+    setLayout: idle(layout => setLayout(s, layout)),
     markIntroSeen: idle(() => updateSave(s, { introSeen: true })),
     view: () => view(s),
     observation: () => {
@@ -154,6 +155,7 @@ async function start(s, id, fresh) {
     hints: chapter.tasks.map(() => 0),
     bossHints: 0,
     secret: undefined,
+    concealed: [],
     hearts: MAX_HEARTS,
     replay: s.save.cleared.includes(id),
   });
@@ -184,14 +186,33 @@ async function shellTurn(s, line, completions) {
   s.obs = after;
   const ctx = makeContext({ commands: result.commands, before, obs: after, completions });
   const effects = [...lineEffects(ctx, result.blocked), ...(current(s).effects?.(ctx) ?? [])];
+  const inBossRoom = s.phase === 'boss';
   const events = await advance(s, ctx);
+  if (inBossRoom) effects.push(...uncover(s, ctx));
   const completed = events.some(e => e.kind === 'task' || e.kind === 'boss');
   const note = (completed ? null : nearNote(s, ctx)) ?? coachNote(ctx);
   const output = note === null ? result.output : [...result.output, { stream: 'note', tone: 'coach', text: terminalText(note) }];
   const [danger] = dangers(ctx);
   if (danger !== undefined) events.push(...await hurt(s, danger));
-  if (s.obs !== after) effects.push(...worldEffects(after, s.obs));
+  if (s.obs !== after) effects.push(...worldEffects(after, s.obs).filter(e => !s.concealed.includes(e.path)));
   return { result: { ...result, output }, obs: s.obs, effects, events, view: view(s) };
+}
+
+const parentOf = path => path.slice(0, path.lastIndexOf('/')) || '/';
+
+// A successful ls of a hidden path's directory (or of the path) lets the map show it.
+function lists(ctx, path) {
+  return ctx.commands.some(r => {
+    if (r.name !== 'ls' || r.status !== 0 || ctx.flag(r, 'd') || r.args.includes('--help')) return false;
+    const operands = ctx.paths(r);
+    return operands.length === 0 ? r.cwd === parentOf(path) : operands.includes(parentOf(path)) || operands.includes(path);
+  });
+}
+
+function uncover(s, ctx) {
+  const found = s.concealed.filter(path => lists(ctx, path));
+  s.concealed = s.concealed.filter(path => !found.includes(path));
+  return found.map(path => ({ kind: 'created', path, type: ctx.node(path)?.type ?? 'file' }));
 }
 
 function nearNote(s, ctx) {
@@ -217,8 +238,10 @@ async function advanceQuest(s, ctx) {
   const { tasks, boss } = current(s);
   const newly = tasks.flatMap((task, index) => (!s.tasksDone[index] && task.done(ctx) ? [index] : []));
   const events = newly.map(index => {
-    const xp = payout(XP.task, s.hints[index], s.replay);
+    const free = taskIsFree(s, index);
+    const xp = payout(XP.task, s.hints[index], free);
     s.tasksDone[index] = true;
+    if (!free) markPaid(s, index);
     s.save.xp += xp;
     return { kind: 'task', index, goal: tasks[index].goal, xp };
   });
@@ -229,11 +252,20 @@ async function advanceQuest(s, ctx) {
   return events;
 }
 
+// A task pays once: not on a replay of a cleared chapter, nor again after a restart.
+const taskIsFree = (s, index) => s.replay || (s.save.paid[current(s).id] ?? []).includes(index);
+
+function markPaid(s, index) {
+  const id = current(s).id;
+  s.save.paid[id] = [...(s.save.paid[id] ?? []), index];
+}
+
 async function openBossRoom(s) {
   const room = current(s).boss.setup(s.random, who(s));
   await s.backend.load(room.patch);
   s.obs = await s.backend.observe();
   s.secret = room.secret;
+  s.concealed = current(s).boss.hidden?.(room.secret) ?? [];
   s.phase = 'boss';
 }
 
@@ -244,6 +276,7 @@ function clearChapter(s) {
   s.save.xp += bossXp + clearXp;
   if (!s.save.cleared.includes(chapter.id)) s.save.cleared.push(chapter.id);
   s.phase = 'done';
+  s.concealed = [];
 
   const following = s.chapters[s.index + 1];
   const next = following && canStart(statuses(s)[s.index + 1]) ? following.id : null;
@@ -279,9 +312,9 @@ function hintTarget(s) {
   const index = s.tasksDone.indexOf(false);
   let target = null;
   if (s.phase === 'quest') {
-    target = { base: XP.task, used: s.hints[index], hints: chapter.tasks[index].hints, use: () => { s.hints[index] += 1; } };
+    target = { base: XP.task, used: s.hints[index], free: taskIsFree(s, index), hints: chapter.tasks[index].hints, use: () => { s.hints[index] += 1; } };
   } else if (s.phase === 'boss') {
-    target = { base: XP.boss, used: s.bossHints, hints: chapter.boss.hints, use: () => { s.bossHints += 1; } };
+    target = { base: XP.boss, used: s.bossHints, free: s.replay, hints: chapter.boss.hints, use: () => { s.bossHints += 1; } };
   }
   return target;
 }
@@ -289,8 +322,8 @@ function hintTarget(s) {
 // A boss hint may be a function of the secret, so it can name the random target.
 const resolveHint = (s, hint) => (typeof hint === 'function' ? hint(s.secret) : hint);
 
-function revealed(s, hints, used, base) {
-  return hints.slice(0, used).map((hint, i) => ({ level: i + 1, text: resolveHint(s, hint), cost: nextHint(base, i, s.replay).cost }));
+function revealed(s, hints, used, base, free) {
+  return hints.slice(0, used).map((hint, i) => ({ level: i + 1, text: resolveHint(s, hint), cost: nextHint(base, i, free).cost }));
 }
 
 function hint(s) {
@@ -298,7 +331,7 @@ function hint(s) {
   const target = hintTarget(s);
   let shown = null;
   if (target) {
-    const next = nextHint(target.base, target.used, s.replay);
+    const next = nextHint(target.base, target.used, target.free);
     if (next) {
       target.use();
       persist(s);
@@ -312,7 +345,7 @@ function hint(s) {
 function hintCommand(s) {
   const shown = hint(s);
   const target = hintTarget(s);
-  return hintNote(shown, target && nextHint(target.base, target.used, s.replay));
+  return hintNote(shown, target && nextHint(target.base, target.used, target.free));
 }
 
 /** Game commands typed in the terminal; they are not Linux and never reach the backend. */
@@ -328,6 +361,11 @@ function setSound(s, on) {
   return updateSave(s, { sound: on });
 }
 
+function setLayout(s, layout) {
+  if (!LAYOUTS.includes(layout)) throw new Error(`layout must be one of ${LAYOUTS.join(', ')}, got ${layout}`);
+  return updateSave(s, { layout });
+}
+
 function updateSave(s, fields) {
   requireBooted(s);
   Object.assign(s.save, fields);
@@ -337,8 +375,8 @@ function updateSave(s, fields) {
 
 async function reset(s) {
   requireBooted(s);
-  const { chapter, cleared, xp } = freshSave();
-  s.save = { ...s.save, chapter, cleared, xp };
+  const { chapter, cleared, xp, paid } = freshSave();
+  s.save = { ...s.save, chapter, cleared, xp, paid };
   return start(s, resumeChapter(s.chapters, { saved: null, cleared: [] }), true);
 }
 
@@ -359,9 +397,9 @@ function chapterView(s) {
       tip: task.tip,
       done: s.tasksDone[i],
       next: i === next,
-      hints: revealed(s, task.hints, s.hints[i], XP.task),
+      hints: revealed(s, task.hints, s.hints[i], XP.task, taskIsFree(s, i)),
     })),
-    boss: { title: chapter.boss.title, briefing: chapter.boss.briefing, hints: revealed(s, chapter.boss.hints, s.bossHints, XP.boss) },
+    boss: { title: chapter.boss.title, briefing: chapter.boss.briefing, hints: revealed(s, chapter.boss.hints, s.bossHints, XP.boss, s.replay) },
   };
 }
 
@@ -372,7 +410,7 @@ function view(s) {
   const { user, host, cwd, home } = s.obs;
   return {
     chapter: chapterView(s),
-    hint: target ? nextHint(target.base, target.used, s.replay) : null,
+    hint: target ? nextHint(target.base, target.used, target.free) : null,
     hintLevels: HINT_LEVELS,
     xp: s.save.xp,
     started: s.save.xp > 0 || s.save.cleared.length > 0 || s.index > 0,
@@ -380,9 +418,11 @@ function view(s) {
     hearts: { left: s.hearts, max: MAX_HEARTS },
     sound: s.save.sound,
     introSeen: s.save.introSeen,
+    layout: s.save.layout,
     chapters: s.chapters.map((c, i) => ({ id: c.id, number: i + 1, act: c.act, title: c.title, status: status[i], current: i === s.index })),
     spellbook: s.chapters.flatMap((c, i) => (c.spells ?? []).map(spell => ({ ...spell, chapter: c.id, unlocked: canStart(status[i]) }))),
     prompt: { user, host, cwd, home },
+    concealed: s.concealed,
     boot: s.boot,
   };
 }

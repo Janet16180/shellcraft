@@ -137,7 +137,7 @@ async function longPromptProblems(page, width) {
   return problems;
 }
 
-// The boss room may move the player (the trapdoor), so its divider must already sit under the
+// The boss room may move the player (the forest's brings them home), so its divider must already sit under the
 // line that opened it, before any new prompt.
 async function dividerProblems(page, width, id) {
   const last = (await page.locator('#out .ln').last().textContent()).trim();
@@ -192,7 +192,7 @@ async function gameShots(browser, base, out, width) {
   await shot(page, out, `spells-${width}`, true);
   await page.click('#tabbtn-levels');
   await shot(page, out, `chapters-${width}`, true);
-  await page.click('#roster summary');
+  await page.click('#keyBtn');
   await page.locator('#roster').scrollIntoViewIfNeeded();
   await page.locator('#roster').screenshot({ path: join(out, `mapkey-${width}.png`) });
   const wide = await overflow(page);

@@ -77,6 +77,16 @@ test('near is optional for tasks and the boss, but must be a function when prese
   assert.throws(() => assertChapter(boss), /boss: near must be a function/);
 });
 
+test('hidden is optional for the boss, but must be a function of the secret returning paths', () => {
+  const chapter = playable();
+  chapter.boss.hidden = secret => [`/home/hero/${secret.name ?? 'x'}`];
+  assert.doesNotThrow(() => assertChapter(chapter));
+  chapter.boss.hidden = 'note';
+  assert.throws(() => assertChapter(chapter), /boss: hidden must be a function/);
+  chapter.boss.hidden = () => ['relative'];
+  assert.throws(() => assertChapter(chapter), /boss: hidden must return absolute paths/);
+});
+
 test('missing check functions are rejected', () => {
   const chapter = playable();
   chapter.tasks[0].done = true;

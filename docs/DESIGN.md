@@ -75,7 +75,7 @@ session.hint();                       // -> { level: 1..3, text, cost } | null  
 session.view();                       // -> View
 await session.complete(line);         // -> { line, candidates }   (backend.complete)
 session.observation();                // the latest Observation (sync), for map.show()
-session.setSound(on); session.markIntroSeen(); await session.reset();
+session.setSound(on); session.setLayout('stacked' | 'side'); session.markIntroSeen(); await session.reset();
 ```
 
 `store` is the localStorage subset `{ getItem(key): string|null, setItem(key, text) }`. The UI
@@ -92,8 +92,9 @@ random boss, hints kept).
 
 `View` holds everything the page draws: the chapter (id, number, total, act, title, phase
 `quest|boss|done`, lesson HTML, tasks with done/next, boss title and briefing), XP, rank (title,
-floor, next), hearts, sound, the chapter list with a status each (`playing|open|cleared|locked|soon`),
-the spellbook with an `unlocked` flag per spell, and the prompt (user, host, cwd, home).
+floor, next), hearts, sound, the layout (`stacked|side`), the chapter list with a status each (`playing|open|cleared|locked|soon`),
+the spellbook with an `unlocked` flag per spell, the prompt (user, host, cwd, home), and
+`concealed`: the paths of the boss's `hidden` list not yet found with `ls`, which the map leaves out.
 
 ### 2.3 Effects (`src/game/effects.js`)
 
@@ -177,7 +178,7 @@ save). Chapters 3 to 14 appear in the chapter list as `soon`.
 
 ## 5. Progress rules (`src/game/progress.js`)
 
-- A task pays 10 XP, a boss 30, clearing a chapter 20 more. Replaying a cleared chapter pays nothing.
+- A task pays 10 XP, a boss 30, clearing a chapter 20 more. Replaying a cleared chapter pays nothing, and a task pays only once: restarting a chapter (the HUD button) does not pay its finished tasks again, and their hints are free. The save records the paid tasks per chapter (`paid`).
 - Hints come in three levels: a nudge (free), the technique (costs 3), the exact command
   (costs 5). Costs come off that task's payout, never below 2.
 - Hearts: 3. A refusal by the guard (`blocked`) costs one. At zero, the Guardian restores you:

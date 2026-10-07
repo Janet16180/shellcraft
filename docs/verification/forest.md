@@ -24,7 +24,7 @@ the simulator (`test/game/chapters/forest.test.js`). Man pages from the Ubuntu 2
 | Tab: `cd fo` then Tab writes `cd forest/` | R3: the line became `cd forest/`; `bash(1)` readline `mark-directories (On)`: "completed directory names have a slash appended"; SIM test |
 | When several names match, press Tab again to list them | R5: `cd ga` + Tab rang the bell, a second Tab listed `game/ gate/`; `bash(1)` `show-all-if-ambiguous (Off)` |
 
-Vertical words in chapters 1 and 2 were checked against this bridge. "Up" appears only in the lesson sentence that explains Linux's word (the bridge). Goals, tips, hints, spell notes, the recap and the field notes say "deeper" and "back out", matching the map key's "Way out" (teaching review finding 4; a test keeps "up" and "down" out of them). The map's "down" is the stairway from home into the dungeon, and the chapter 2 boss's trapdoor fall follows it.
+Vertical words in chapters 1 and 2 were checked against this bridge. "Up" appears only in the lesson sentence that explains Linux's word (the bridge). Goals, tips, hints, spell notes, the recap and the field notes say "deeper" and "back out", matching the map key's "Way out" (teaching review finding 4; a test keeps "up" and "down" out of them). The map's "down" is the stairway from home into the dungeon.
 
 ## Tasks and hints
 
@@ -37,7 +37,7 @@ Vertical words in chapters 1 and 2 were checked against this bridge. "Up" appear
 | Hint: the shell remembers the previous directory; a dash after cd goes back | `bash(1)` cd: OLDPWD |
 | Hint: cd with nothing after it takes you home | `bash(1)` cd |
 | Hints: Tab finishes a name from its first letters when only one name matches; type cd fo, press Tab, then Enter | R3 (unique match completed), R5 (two matches: bell, then a list) |
-| `cd ~/forest/river` counts as an absolute path | bash expands `~` before cd runs (Tilde Expansion), so cd receives `/home/hero/forest/river`; the CommandRecord shows the same |
+| `cd ~/forest/river` counts as an absolute path (2026-10-07: the river task's goal now shows this path, its tip says `~` is `/home/hero`) | bash expands `~` before cd runs (Tilde Expansion), so cd receives `/home/hero/forest/river`; the CommandRecord shows the same |
 | `cd -` counts whenever it succeeds, even when the previous directory was the same room (it still did its job: teaching review 2a dead end) | `bash(1)` cd: `-` is converted to $OLDPWD; SIM test with `cd .` then `cd -` |
 | "Shortest command" home is `cd` alone; `cd ~` and `cd /home/hero` do not pass that task | by design; the lesson says `cd ~` also goes home, the goal asks for the shortest |
 | Checks: each task has a near-miss that does not pass and a line that does | SIM: 16 near-miss tests (e.g. `cd ../river` is relative; `cd ../cave` from the river is not from deep; `cd forest` typed in full uses no Tab; Tab while already in the forest is not walking in). Each check also survived mutation testing: removing any one condition makes a test fail |
@@ -61,25 +61,22 @@ Vertical words in chapters 1 and 2 were checked against this bridge. "Up" appear
 | Deep and river: `cd forest/cave/deep` typed inside the forest, and `cd /forest/...`, are left to the generic coach (`src/game/coach.js`), which says "You are already in forest ... From here the path is cave/deep" and "A path that starts with / starts at the root, not at your home". The tests check that the coach answers these lines |
 | Factcheck 2026-10-06 on the coach's repeated-cwd note: `cd forest/` typed inside the forest prints "From here the path is ." (an empty path read as a dot); it should stop after "You are already in forest (the prompt shows ~/forest)." (sent to engine for `coach.js`) | real bash: `cd forest/` in `~/forest` fails with `No such file or directory`; the path from the forest to itself is empty, so there is nothing to suggest |
 | `..`: "You reached the cave, but without .. this time. Go back into deep and type cd .. to step back out." | game text; `..` is the parent (`path_resolution(7)`) |
-| River: "You reached the river with a relative path. This task wants an absolute one, starting with /." | `path_resolution(7)` Step 1 |
+| River: "You reached the river with a relative path. This task wants an absolute one, starting with ~ or /, like ~/forest/river." | `path_resolution(7)` Step 1; `~` counts, see the line on tilde expansion above |
 | Home: "That works, but there is a shorter way home: cd on its own." | `bash(1)` cd: with no dir, HOME is the default |
 | Tab: "You typed the whole name. Try cd fo and press Tab." | R3 |
 
-## Boss: The Trapdoor
+## Boss: The Lost Lantern
 
 | Claim | Evidence |
 |---|---|
-| The dungeon is the part of the system outside `~`, where most things belong to root | `world.md` (owners) |
-| Outside home the prompt shows the full path of where you are | R3: `hero@kernelia:/var/log$` |
-| Every drop room is one the player may enter (`/var/log`, `/var/log/apt`, `/tmp`, `/etc`) | R2: `cd /var/log`, `cd /tmp`, `cd /etc` as hero, status 0; R2 `ls -la /var/log`: `apt` is `drwxr-xr-x root root` |
-| ls can look into another directory from where you stand | R2: `ls ~/forest`, `ls ~/forest/river` from `/var/log` |
-| One `cd` with an absolute or `~` path reaches the beacon from the dungeon | R2: `cd ~/forest/river/beacon_k7m` from `/var/log`, status 0 |
-| A relative path also reaches it (`cd ../home/hero/...` from `/tmp`) but does not count | R2: status 0; the briefing asks for an absolute path, SIM near-miss tests |
-| The beacon's place and name change with the seed | SIM: at least 3 different rooms over 12 seeds; names use the safe token alphabet |
-| flame.txt: "A warm flame burns here: the Guardian's beacon." (was "You found your way back with one absolute path", false when the player arrived another way) | game text, makes no claim about how the player arrived |
-| Near note: a relative cd that reaches the beacon is named as relative; the fix is to step out with `cd /tmp` and jump again with a path starting with `/` or `~` | `path_resolution(7)` Step 1; R2: hero can enter `/tmp`; tilde expansion makes `~/...` absolute |
-| Near note: a jump that starts inside the home does not count; step out with `cd /tmp` first | the boss rule (the jump starts in the dungeon); `/tmp` is outside `/home/hero` |
-| Hint 3 `cd /tmp; cd /home/hero/forest/.../beacon_XXX` works from anywhere | `bash(1)` Lists: "Commands separated by a ; are executed sequentially"; the check judges the line's last `cd` (where it started, its path, where it landed); SIM test runs the hint from the dungeon, from home and from the beacon |
+| `ls` can look into a directory without walking into it, if you give it a path | `ls(1)`: "List information about the FILEs (the current directory by default)"; R (2026-10-07): `ls ~/forest/river` from home printed `lantern_k7m` |
+| One `cd` with the full path walks into the lantern | R: `cd ~/forest/river/lantern_k7m` then `pwd` printed `.../forest/river/lantern_k7m` |
+| `cd` alone takes you home | `bash(1)` cd: "The default DIR is the value of the HOME shell variable"; R: `cd` then `pwd` printed the home |
+| "go home with one command": `cd`, `cd ~`, `cd /home/hero` and `cd ../../..` all count | R: `cd ../../..` from the lantern printed the home; SIM tests for each form |
+| The lantern's name changes with the seed and uses the safe token alphabet; the forest setup removes old lanterns | SIM |
+| Near note: coming home without starting in the lantern gets "You are home, but the lantern is not found yet. Its name starts with lantern_: ls ~/forest/river shows it." | game text (SIM test) |
+| Hint 3 `cd ~/forest/river/lantern_XXX; cd` works | `bash(1)` Lists: "Commands separated by a ; are executed sequentially"; SIM: the check judges the line's last `cd`, which starts in the lantern and ends at home |
+| Not enforced: walking in with exactly one `cd` (several steps also work); the briefing asks for one as the simplest way | design choice, no arbitrary rule is checked |
 
 ## Adventure log, spells, recap, field
 
