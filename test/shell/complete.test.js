@@ -6,7 +6,7 @@ import { put, file } from '../../src/backend/spec.js';
 test('a first word completes to a command name', async () => {
   const b = await shell();
   assert.deepEqual(await b.complete('whoa'), { line: 'whoami ', candidates: [] });
-  assert.deepEqual(await b.complete('ls | so'), { line: 'ls | sort ', candidates: [] });
+  assert.deepEqual(await b.complete('ls | sor'), { line: 'ls | sort ', candidates: [] });
 });
 
 test('a later word completes to a path, with a slash after a directory', async () => {

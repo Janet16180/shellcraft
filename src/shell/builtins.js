@@ -12,15 +12,20 @@ export const BASH_BUILTINS = new Set(['.', ':', '[', 'alias', 'bg', 'bind', 'bre
   'help', 'history', 'jobs', 'kill', 'let', 'local', 'logout', 'mapfile', 'popd', 'printf', 'pushd', 'pwd', 'read', 'readarray', 'readonly',
   'return', 'set', 'shift', 'shopt', 'source', 'suspend', 'test', 'times', 'trap', 'true', 'type', 'typeset', 'ulimit', 'umask', 'unalias',
   'unset', 'wait']);
-export const BUILTINS = new Set(['cd', 'history', 'alias', 'export', 'exit', 'logout', 'type', 'echo', 'pwd', 'kill', 'true', 'false', 'help', 'unalias', 'unset']);
-export const NO_BINARY = new Set(['cd', 'history', 'alias', 'export', 'exit', 'logout', 'type', 'help', 'unalias', 'unset']);
+export const BUILTINS = new Set(['cd', 'history', 'alias', 'export', 'exit', 'logout', 'type', 'echo', 'pwd', 'kill', 'true', 'false', 'help', 'unalias', 'unset', 'source', '.', 'break', 'continue', 'test', '[']);
+export const NO_BINARY = new Set(['cd', 'history', 'alias', 'export', 'exit', 'logout', 'type', 'help', 'unalias', 'unset', 'source', '.',
+  'break', 'continue']);
 
 /**
  * The usage line and one-line summary bash prints for `NAME --help` and `help NAME`.
  */
 export const BUILTIN_HELP = nameTable({
+  '.': ['. filename [arguments]', 'Execute commands from a file in the current shell.'],
+  '[': ['[ arg... ]', 'Evaluate conditional expression.'],
   alias: ['alias [-p] [name[=value] ... ]', 'Define or display aliases.'],
+  break: ['break [n]', 'Exit for, while, or until loops.'],
   cd: ['cd [-L|[-P [-e]] [-@]] [dir]', 'Change the shell working directory.'],
+  continue: ['continue [n]', 'Resume for, while, or until loops.'],
   exit: ['exit [n]', 'Exit the shell.'],
   export: ['export [-fn] [name[=value] ...] or export -p', 'Set export attribute for shell variables.'],
   help: ['help [-dms] [pattern ...]', 'Display information about builtin commands.'],
@@ -28,6 +33,8 @@ export const BUILTIN_HELP = nameTable({
   kill: ['kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]', 'Send a signal to a job.'],
   logout: ['logout [n]', 'Exit a login shell.'],
   pwd: ['pwd [-LP]', 'Print the name of the current working directory.'],
+  source: ['source filename [arguments]', 'Execute commands from a file in the current shell.'],
+  test: ['test [expr]', 'Evaluate conditional expression.'],
   type: ['type [-afptP] name [name ...]', 'Display information about command type.'],
   unalias: ['unalias [-a] name [name ...]', 'Remove each NAME from the list of defined aliases.'],
   unset: ['unset [-f] [-v] [-n] [name ...]', 'Unset values and attributes of shell variables and functions.'],

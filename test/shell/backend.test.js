@@ -330,3 +330,18 @@ test('cp and mv refuse to grow the tree past its depth limit', async () => {
   assert.equal(moved.err, `mv: cannot move 'e' to '${path}/x': File name too long\n`);
   assert.equal((await run(b, `cp -r e ${Array(100).fill('d').join('/')}/copy`)).status, 0);
 });
+
+test('the shell starts at the first load and reads ~/.bashrc then, quietly', async () => {
+  const b = createSimBackend({ now: () => NOW });
+  await b.load([put('/home/hero/.bashrc', file("alias ll='ls -alF'\nspell=fire\ncd /home\nnosuch\n", { owner: 'hero' }))]);
+  const r = await run(b, 'type ll; echo $spell; pwd');
+  assert.deepEqual([r.out, r.err], ["ll is aliased to `ls -alF'\nfire\n/home\n", '']);
+  await b.load([put('/home/hero/.bashrc', file('spell=ice\n', { owner: 'hero' }))]);
+  assert.equal((await run(b, 'echo $spell; history')).out, 'fire\n    1  type ll; echo $spell; pwd\n    2  echo $spell; history\n');
+});
+
+test('without a ~/.bashrc the shell has no aliases', async () => {
+  const b = createSimBackend({ now: () => NOW });
+  await b.load([]);
+  assert.equal((await run(b, 'alias')).out, '');
+});

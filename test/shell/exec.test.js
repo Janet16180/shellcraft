@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run, runAll } from './helpers.js';
-import { put, file } from '../../src/backend/spec.js';
+import { put, dir, file } from '../../src/backend/spec.js';
 
 test('&& runs the next pipeline only after success, || only after failure', async () => {
   const b = await shell();
@@ -54,7 +54,7 @@ test('an unknown command fails with 127 and leaves teaching notes to the game', 
 });
 
 test('aliases expand in the first word unless it is quoted', async () => {
-  const b = await shell();
+  const b = await shell([put('/home/hero/.bashrc', file("alias ll='ls -alF'\n"))]);
   const r = await run(b, 'll');
   assert.equal(r.result.commands[0].name, 'ls');
   assert.deepEqual(r.result.commands[0].args, ['-alF']);
@@ -172,7 +172,7 @@ test('a real command the game does not simulate gets a note saying so', async ()
 
 test('a bash builtin the game does not simulate is not reported as missing', async () => {
   const b = await shell();
-  for (const [line, name] of [['printf hi', 'printf'], ['test -e x', 'test'], ['read x', 'read'], ['[ -e x ]', '['], ['source x.sh', 'source']]) {
+  for (const [line, name] of [['printf hi', 'printf'], ['read x', 'read']]) {
     const r = await run(b, line);
     assert.deepEqual([r.out, r.err, r.status], ['', '', 1]);
     assert.equal(r.note, `${name} is built into bash, but this game does not simulate it.`);
@@ -193,4 +193,61 @@ test('a command substitution writes its errors to the terminal and sets $? for a
   assert.equal((await run(b, 'x=$(true); echo $?')).out, '0\n');
   assert.equal((await run(b, '$(false); echo $?')).out, '1\n');
   assert.equal((await run(b, 'echo $(false); echo $?')).out, '\n0\n');
+});
+
+const localBin = (mode, content = '#!/bin/bash\necho hi\n') => [
+  put('/usr/local', dir({ bin: dir({ glimmer: file(content, { mode }) }) })),
+];
+
+test('a script in a PATH directory runs by its name, like ./script', async () => {
+  const b = await shell(localBin(0o755));
+  assert.equal((await run(b, 'which glimmer')).out, '/usr/local/bin/glimmer\n');
+  const r = await run(b, 'glimmer');
+  assert.deepEqual([r.out, r.err, r.status], ['hi\n', '', 0]);
+  assert.equal(r.result.commands[0].name, 'glimmer');
+  assert.equal((await run(b, 'type glimmer')).out, 'glimmer is hashed (/usr/local/bin/glimmer)\n');
+});
+
+test('a script in PATH without the execute bit is found but refused with 126', async () => {
+  const r = await run(await shell(localBin(0o644)), 'glimmer');
+  assert.deepEqual([r.out, r.err, r.status], ['', 'bash: /usr/local/bin/glimmer: Permission denied\n', 126]);
+});
+
+test('errors inside a script found in PATH name its full path', async () => {
+  const r = await run(await shell(localBin(0o755, 'nosuch\n')), 'glimmer');
+  assert.equal(r.err, '/usr/local/bin/glimmer: line 1: nosuch: command not found\n');
+});
+
+test('a script gets its arguments as $0, $1 to $9, $# and "$@"', async () => {
+  const b = await shell([put('/home/hero/s.sh', file('echo arg=$1 n=$# 0=$0 ${2}\ntouch "$@"\n', { owner: 'hero', mode: 0o755 }))]);
+  assert.equal((await run(b, './s.sh Tux')).out, 'arg=Tux n=1 0=./s.sh\n');
+  assert.equal((await run(b, 'bash s.sh "a b" c')).out, 'arg=a b n=2 0=s.sh c\n');
+  assert.equal((await run(b, 'ls -1')).out, 'Tux\n\'a b\'\nc\nforest\nreadme.txt\ns.sh\n');
+  assert.equal((await run(b, 'sh s.sh y')).out, 'arg=y n=1 0=s.sh\n');
+});
+
+test('the interactive shell has no arguments, and a script does not change that', async () => {
+  const b = await shell([put('/home/hero/s.sh', file('echo $1\n', { owner: 'hero', mode: 0o755 }))]);
+  await run(b, './s.sh x');
+  assert.equal((await run(b, 'echo $0 $# [$1] [$@]')).out, 'bash 0 [] []\n');
+});
+
+test('a script sees only exported variables, plus assignments typed before it', async () => {
+  const b = await shell();
+  await run(b, "echo 'echo [$spell] [$V]' > t.sh");
+  assert.equal((await run(b, 'spell=x; bash t.sh')).out, '[] []\n');
+  assert.equal((await run(b, 'export spell; bash t.sh')).out, '[x] []\n');
+  assert.equal((await run(b, 'V=1 bash t.sh; echo "[$V]"')).out, '[x] [1]\n[]\n');
+});
+
+test('what a script changes stays in the script: variables, aliases and cd', async () => {
+  const b = await shell([put('/home/hero/s.sh', file('cd /tmp\nz=1\nalias zz=ls\npwd\n', { owner: 'hero', mode: 0o755 }))]);
+  assert.equal((await run(b, './s.sh')).out, '/tmp\n');
+  const r = await run(b, 'pwd; echo "[$z]"; type zz');
+  assert.deepEqual([r.out, r.err], ['/home/hero\n[]\n', 'bash: type: zz: not found\n']);
+});
+
+test('a script does not see the aliases of the shell that runs it', async () => {
+  const b = await shell([put('/home/hero/s.sh', file('ll\n', { owner: 'hero', mode: 0o755 }))]);
+  assert.equal((await run(b, "alias ll='ls -l'; ./s.sh")).err, './s.sh: line 1: ll: command not found\n');
 });

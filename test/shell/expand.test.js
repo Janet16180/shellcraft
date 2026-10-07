@@ -11,6 +11,7 @@ const env = () => ({
   homeOf: user => ({ root: '/root', hero: '/home/hero' })[user] ?? null,
   substitute: line => `out of ${line}\n\n`,
   fail: () => {},
+  positional: () => ['a  b', 'c'],
 });
 const words = line => tokenize(line).tokens;
 const expand = line => expandWords(words(line), env());
@@ -59,4 +60,14 @@ test('an arithmetic error is reported through fail', () => {
   const failures = [];
   expandWords(words('echo $((1/0))'), { ...env(), fail: m => failures.push(m) });
   assert.deepEqual(failures, ['bash: 1/0: division by 0 (error token is "0")']);
+});
+
+test('"$@" makes one word per argument; $@ and $* split them', () => {
+  assert.deepEqual(expand('echo "$@" "<$@>" $@ "$*"'), ['echo', 'a  b', 'c', '<a  b', 'c>', 'a', 'b', 'c', 'a  b c']);
+  assert.equal(expandAssignment(words('x="$@"')[0], env()), 'a  b c');
+});
+
+test('"$@" with no arguments is no word at all', () => {
+  const none = { ...env(), positional: () => [] };
+  assert.deepEqual(expandWords(words('echo "$@" "x$@"'), none), ['echo', 'x']);
 });

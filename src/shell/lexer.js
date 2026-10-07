@@ -5,21 +5,23 @@
  * so that `$VAR`, `~` and `$(...)` are expanded when the command runs, after
  * the commands before it on the line:
  *   `{lit, q}`   literal text, q true when quoted (no globbing or splitting)
- *   `{var, q}`   a parameter: a name, or one of `? $ # 0`
+ *   `{var, q}`   a parameter: a name, a number, or one of `? $ # @ * -`
  *   `{cmd, q}`   a command substitution, with the inner line
  *   `{arith, q}` an arithmetic expansion `$(( ))`, with the expression
  *   `{tilde}`    a leading `~` or `~user`
- * Operators are `{type: 'op', op}` and redirections `{type: 'redir', op, fd}`.
- * A line with an unclosed quote is an expected mistake, so tokenize returns
+ * Operators are `{type: 'op', op}`, a newline included (op '\n'), and
+ * redirections `{type: 'redir', op, fd}`. Every token has the `line` (from 1)
+ * it starts on, so a script's messages can name it.
+ * Text with an unclosed quote is an expected mistake, so tokenize returns
  * the message bash prints instead of raising.
  */
 
-const OPERATORS = ['&>>', '&>', '||', '|', '&&', '&', ';;', ';', '(', ')'];
+const OPERATORS = ['&>>', '&>', '||', '|', '&&', '&', ';;', ';', '(', ')', '\n'];
 const REDIRECTS = ['>>', '>&', '>|', '<<<', '<<', '<&', '<>', '>', '<'];
-const METACHARS = ' \t|&;()<>';
+const METACHARS = ' \t\n|&;()<>';
 const NAME = /^[A-Za-z_][A-Za-z0-9_]*/;
 const SPECIAL = /^[?$#0-9!@*-]/;
-const unclosed = c => `bash: unexpected EOF while looking for matching \`${c}'`;
+const unclosed = c => `unexpected EOF while looking for matching \`${c}'`;
 
 function closingParen(line, start) {
   let depth = 1;
@@ -41,7 +43,7 @@ function closingParen(line, start) {
 
 function scanDollar(line, i, q) {
   const rest = line.slice(i + 1);
-  const braced = /^\{([A-Za-z_][A-Za-z0-9_]*|[?$#0-9])\}/.exec(rest);
+  const braced = /^\{([A-Za-z_][A-Za-z0-9_]*|[0-9]+|[?$#@*-])\}/.exec(rest);
   const name = NAME.exec(rest) ?? SPECIAL.exec(rest);
   let scan = { part: { lit: '$', q }, end: i + 1, error: null };
   const arithClose = rest.startsWith('((') ? closingParen(line, i + 2) : -1;
@@ -60,19 +62,25 @@ function scanBacktick(line, i, q) {
   return close < 0 ? { error: unclosed('`') } : { part: { cmd: line.slice(i + 1, close), q }, end: close + 1, error: null };
 }
 
+// One part inside double quotes; a backslash before a newline is no part at all.
+function scanQuotedPart(line, i) {
+  const c = line[i];
+  let scan = { part: { lit: c, q: true }, end: i + 1 };
+  if (c === '\\' && line[i + 1] === '\n') scan = { end: i + 2 };
+  else if (c === '\\' && '$`"\\'.includes(line[i + 1] ?? '')) scan = { part: { lit: line[i + 1], q: true }, end: i + 2 };
+  else if (c === '$') scan = scanDollar(line, i, true);
+  else if (c === '`') scan = scanBacktick(line, i, true);
+  return scan;
+}
+
 function scanDouble(line, start) {
   const parts = [];
   let i = start;
   let error = null;
   while (i < line.length && line[i] !== '"' && !error) {
-    const c = line[i];
-    let scan;
-    if (c === '\\' && '$`"\\'.includes(line[i + 1] ?? '')) scan = { part: { lit: line[i + 1], q: true }, end: i + 2 };
-    else if (c === '$') scan = scanDollar(line, i, true);
-    else if (c === '`') scan = scanBacktick(line, i, true);
-    else scan = { part: { lit: c, q: true }, end: i + 1 };
+    const scan = scanQuotedPart(line, i);
     error = scan.error ?? null;
-    if (!error) parts.push(scan.part);
+    if (!error && scan.part) parts.push(scan.part);
     i = scan.end;
   }
   if (!error && i >= line.length) error = unclosed('"');
@@ -95,7 +103,7 @@ function scanTilde(line, i) {
 const SCANNERS = {
   "'": scanSingleQuoted,
   '"': (line, i) => scanDouble(line, i + 1),
-  '\\': (line, i) => (i + 1 < line.length ? { parts: [{ lit: line[i + 1], q: true }], end: i + 2 } : { parts: [], end: i + 1 }),
+  '\\': (line, i) => (i + 1 < line.length && line[i + 1] !== '\n' ? { parts: [{ lit: line[i + 1], q: true }], end: i + 2 } : { parts: [], end: i + 2 }),
   $: (line, i) => single(scanDollar(line, i, false)),
   '`': (line, i) => single(scanBacktick(line, i, false)),
 };
@@ -132,8 +140,17 @@ function operatorToken(line, i, word) {
   return token ? { token, width: token.op.length, takesWord: fd !== null } : null;
 }
 
+// Lines are counted as the tokens go, which only move forward.
+function lineAt(line, index, st) {
+  for (; st.counted < index; st.counted++) if (line[st.counted] === '\n') st.line++;
+  return st.line;
+}
+
+const joinedLines = raw => /^(\\\n)+$/.test(raw);
+
 function finishWord(line, end, st) {
-  if (st.word) st.tokens.push({ type: 'word', parts: mergeLiterals(st.word.parts), raw: line.slice(st.word.start, end) });
+  const raw = st.word ? line.slice(st.word.start, end) : '';
+  if (st.word && !joinedLines(raw)) st.tokens.push({ type: 'word', parts: mergeLiterals(st.word.parts), raw, line: lineAt(line, st.word.start, st) });
   st.word = null;
 }
 
@@ -144,7 +161,7 @@ function step(line, i, st) {
   if (op?.takesWord) st.word = null;
   if (blank || op) {
     finishWord(line, i, st);
-    if (op) st.tokens.push(op.token);
+    if (op) st.tokens.push({ ...op.token, line: lineAt(line, i, st) });
     scan = { end: i + (op ? op.width : 1), error: null };
   } else {
     st.word ??= { parts: [], start: i };
@@ -155,21 +172,27 @@ function step(line, i, st) {
 }
 
 /**
- * Split a line into word, operator and redirection tokens.
+ * Split text (a typed line, or a script of many lines) into word, operator
+ * and redirection tokens. A `#` at the start of a word starts a comment that
+ * runs to the end of its line; a backslash before a newline joins the lines.
  *
- * @param {string} line The typed line.
- * @returns {{tokens: object[], error: string|null}} The tokens, or the error
- *   bash prints when the line ends inside a quote or substitution.
+ * @param {string} line The text.
+ * @returns {{tokens: object[], error: string|null, errorLine: number|null}} The tokens.
+ *   When the text ends inside a quote or substitution: the tokens before the
+ *   word it is in, the message bash prints (without `bash: `) and the line where it began.
  */
 export function tokenize(line) {
-  const st = { tokens: [], word: null };
+  const st = { tokens: [], word: null, line: 1, counted: 0 };
   let error = null;
+  let errorLine = null;
   let i = 0;
-  while (i < line.length && !error && !(line[i] === '#' && !st.word)) {
-    const scan = step(line, i, st);
+  while (i < line.length && !error) {
+    const comment = line[i] === '#' && !st.word;
+    const scan = comment ? { end: line.includes('\n', i) ? line.indexOf('\n', i) : line.length, error: null } : step(line, i, st);
     error = scan.error;
+    if (error) errorLine = lineAt(line, i, st);
     i = scan.end;
   }
   if (!error) finishWord(line, i, st);
-  return { tokens: error ? [] : st.tokens, error };
+  return { tokens: st.tokens, error, errorLine };
 }

@@ -1,12 +1,12 @@
 /**
  * The shell's own commands and helpers: man, history, which, type, alias,
- * export, env, printenv, sudo, editors, exit, bash, help.
+ * export, env, printenv, sudo, editors, exit, bash, source, help.
  */
 
 import { lookup, normalize } from '../fs.js';
-import { joinPath } from '../../backend/tree.js';
 import { BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from '../builtins.js';
 import { can } from '../perms.js';
+import { pathFiles } from '../paths.js';
 import { manText, hasManPage, manEntries, shortHelpNote } from '../man.js';
 import { versionText } from '../versions.js';
 import { compilePosix } from '../../backend/regex.js';
@@ -17,10 +17,7 @@ import { parseOptions, optionFailure } from '../options.js';
 import { nameTable } from '../table.js';
 
 function programsInPath(sys, name) {
-  return varValue(sys, 'PATH').split(':').filter(Boolean).map(d => joinPath(d, name)).filter(p => {
-    const node = lookup(sys.root, p);
-    return node && node.type === 'file' && can(sys, node, 'x');
-  });
+  return pathFiles(sys, name).filter(f => can(sys, f.node, 'x')).map(f => f.path);
 }
 
 /**
@@ -142,7 +139,7 @@ function type(args, { sys }) {
     const path = findInPath(sys, x);
     if (sys.aliases[x]) out.push(`${x} is aliased to \`${sys.aliases[x]}'`);
     else if (BASH_BUILTINS.has(x)) out.push(`${x} is a shell builtin`);
-    else if (path && sys.hashed.has(x)) out.push(`${x} is hashed (${path})`);
+    else if (sys.hashed.has(x)) out.push(`${x} is hashed (${sys.hashed.get(x)})`);
     else if (path) out.push(`${x} is ${path}`);
     else errs.push(`bash: type: ${x}: not found`);
   }
@@ -213,18 +210,68 @@ function sudo(args, { sys }) {
 const editor = (name, quit) => () => withNote(result('', '', 1),
   `${name} is an interactive editor and is not simulated here. ${quit} Here, write files with echo "text" > file or echo "text" >> file.`);
 
-const exit = () => withNote(result(), 'In a real terminal, exit closes the shell (Ctrl+D does the same). Here the shell stays open.');
+const exitNote = () => withNote(result(), 'In a real terminal, exit closes the shell (Ctrl+D does the same). Here the shell stays open.');
+const INTEGER = /^[-+]?\d+$/;
+
+// In a script or a subshell, exit ends it with N, or with the last status.
+function exit(args, { sys, leave, subshell }) {
+  const [n] = args;
+  const prompt = sys.flags.includes('i') && !subshell;
+  let r;
+  if (prompt) r = exitNote();
+  else if (n !== undefined && !INTEGER.test(n)) r = result('', `bash: exit: ${n}: numeric argument required`, 2);
+  else if (args.length > 1) r = result('', 'bash: exit: too many arguments', 1);
+  else r = result('', '', n === undefined ? sys.lastStatus : ((Number.parseInt(n, 10) % 256) + 256) % 256);
+  if (!prompt && args.length < 2) leave(r.status);
+  return r;
+}
+
+const LOOP_ONLY = "only meaningful in a `for', `while', or `until' loop";
+
+// break and continue. A count past the loops there are means all of them;
+// a bad count stops the line, or the whole script.
+const loopControl = kind => (args, { sys, loops, jump, leave }) => {
+  const [n] = args;
+  let r = result();
+  if (!loops) r = result('', `bash: ${kind}: ${LOOP_ONLY}`, 0);
+  else if (n !== undefined && !INTEGER.test(n)) r = { ...result('', `bash: ${kind}: ${n}: numeric argument required`, 128), abort: true };
+  else if (args.length > 1) r = { ...result('', `bash: ${kind}: too many arguments`, 1), abort: true };
+  else if (n !== undefined && Number(n) < 1) r = result('', `bash: ${kind}: ${n}: loop count out of range`, 1);
+  if (r.abort && r.status === 128 && !sys.flags.includes('i')) leave(128);
+  if (loops && !r.abort) jump(r.status ? 'break' : kind, r.status ? loops : Math.min(Number(n ?? 1), loops));
+  return r;
+};
 
 function bash(args, { sys, runScript }) {
   if (!args.length) return withNote(result(), 'Nested shells are not simulated. In real Linux, bash starts a new shell inside this one (exit leaves it).');
+  if (args[0] === '-c') return args.length < 2 ? result('', 'bash: -c: option requires an argument', 2) : runScript(args[1], args[2] ?? 'bash', args.slice(3), true);
   const node = lookup(sys.root, normalize(args[0], sys.cwd));
   let r;
   if (!node) r = result('', `bash: ${args[0]}: No such file or directory`, 127);
   else if (node.type === 'dir') r = result('', `bash: ${args[0]}: Is a directory`, 126);
   else if (!can(sys, node, 'r')) r = result('', `bash: ${args[0]}: Permission denied`, 126);
-  else r = runScript(node, args[0]);
+  else r = runScript(node.content, args[0], args.slice(1));
   return r;
 }
+
+// bash looks for a name without a slash in PATH (any readable file will do),
+// then in the working directory.
+function sourcePath(sys, name) {
+  const inPath = name.includes('/') ? null : pathFiles(sys, name).find(f => can(sys, f.node, 'r'));
+  return inPath?.path ?? name;
+}
+
+const source = builtin => (args, { sys, source: run }) => {
+  if (!args.length) return result('', `bash: ${builtin}: filename argument required\n${builtin}: usage: ${BUILTIN_HELP[builtin][0]}`, 2);
+  const path = sourcePath(sys, args[0]);
+  const node = lookup(sys.root, normalize(path, sys.cwd));
+  let r;
+  if (!node) r = result('', `bash: ${args[0]}: No such file or directory`, 1);
+  else if (node.type === 'dir') r = result('', `bash: ${builtin}: ${args[0]}: is a directory`, 1);
+  else if (!can(sys, node, 'r')) r = result('', `bash: ${args[0]}: Permission denied`, 1);
+  else r = run(node.content, args[0], args.slice(1));
+  return r;
+};
 
 function help(args) {
   const missing = args.find(a => !(a in BUILTIN_HELP));
@@ -263,8 +310,12 @@ export default {
   vim: editor('vim', 'Real vim tip: press Esc, type :wq and Enter to save and quit, or :q! to quit without saving.'),
   vi: editor('vi', 'Real vi tip: press Esc, type :wq and Enter to save and quit, or :q! to quit without saving.'),
   exit,
-  logout: exit,
+  logout: exitNote,
+  break: loopControl('break'),
+  continue: loopControl('continue'),
   bash,
   sh: bash,
+  source: source('source'),
+  '.': source('.'),
   help,
 };

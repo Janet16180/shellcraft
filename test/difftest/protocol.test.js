@@ -4,21 +4,21 @@ import { inputScript, splitOutput } from '../../difftest/protocol.js';
 
 const RS = '\u001e';
 
-test('the input defines aliases and replays cds before the first marker, hidden from history', () => {
-  const text = inputScript(['ls', 'pwd'], { cds: ['/tmp'], aliases: { ll: 'ls -alF' } });
+test('the input reads ~/.bashrc and replays cds before the first marker, hidden from history', () => {
+  const text = inputScript(['ls', 'pwd'], { cds: ['/tmp'] });
   const lines = text.split('\n');
-  assert.equal(lines[0], " alias ll='ls -alF'");
+  assert.equal(lines[0], ' if [ -r ~/.bashrc ]; then . ~/.bashrc; fi');
   assert.equal(lines[1], " cd '/tmp'");
   assert.ok(lines.filter(l => !['ls', 'pwd', ''].includes(l)).every(l => l.startsWith(' ')));
   assert.ok(lines.includes('ls') && lines.includes('pwd'));
 });
 
 test('each line keeps the previous status for $?', () => {
-  assert.match(inputScript(['false', 'echo $?'], { cds: [], aliases: {} }), /\(exit "\$__st"\)\necho \$\?/);
+  assert.match(inputScript(['false', 'echo $?'], { cds: [] }), /\(exit "\$__st"\)\necho \$\?/);
 });
 
 test('each line is stamped with the container clock when it starts and ends', () => {
-  const text = inputScript(['ls'], { cds: [], aliases: {} });
+  const text = inputScript(['ls'], { cds: [] });
   assert.ok(text.includes(`printf '${RS}B0 %(%s)T${RS}' -1`));
   assert.ok(text.includes(`printf '${RS}E%d %(%s)T${RS}' "$__st" -1`));
 });
