@@ -231,3 +231,23 @@ test('the interactive shell has no arguments, and a script does not change that'
   await run(b, './s.sh x');
   assert.equal((await run(b, 'echo $0 $# [$1] [$@]')).out, 'bash 0 [] []\n');
 });
+
+test('a script sees only exported variables, plus assignments typed before it', async () => {
+  const b = await shell();
+  await run(b, "echo 'echo [$spell] [$V]' > t.sh");
+  assert.equal((await run(b, 'spell=x; bash t.sh')).out, '[] []\n');
+  assert.equal((await run(b, 'export spell; bash t.sh')).out, '[x] []\n');
+  assert.equal((await run(b, 'V=1 bash t.sh; echo "[$V]"')).out, '[x] [1]\n[]\n');
+});
+
+test('what a script changes stays in the script: variables, aliases and cd', async () => {
+  const b = await shell([put('/home/hero/s.sh', file('cd /tmp\nz=1\nalias zz=ls\npwd\n', { owner: 'hero', mode: 0o755 }))]);
+  assert.equal((await run(b, './s.sh')).out, '/tmp\n');
+  const r = await run(b, 'pwd; echo "[$z]"; type zz');
+  assert.deepEqual([r.out, r.err], ['/home/hero\n[]\n', 'bash: type: zz: not found\n']);
+});
+
+test('a script does not see the aliases of the shell that runs it', async () => {
+  const b = await shell([put('/home/hero/s.sh', file('ll\n', { owner: 'hero', mode: 0o755 }))]);
+  assert.equal((await run(b, "alias ll='ls -l'; ./s.sh")).err, './s.sh: line 1: ll: command not found\n');
+});

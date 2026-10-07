@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { initialVars, varValue, setVar, exportedVars } from '../../src/shell/vars.js';
 
-const sys = () => ({ home: '/home/hero', user: 'hero', host: 'kernelia', cwd: '/home/hero', vars: initialVars({ user: 'hero', home: '/home/hero', host: 'kernelia' }), shellPid: 733, lastStatus: 2, positional: { zero: 'bash', args: [] } });
+const sys = () => ({ home: '/home/hero', user: 'hero', host: 'kernelia', cwd: '/home/hero', vars: initialVars({ user: 'hero', home: '/home/hero', host: 'kernelia' }), shellPid: 733, lastStatus: 2, positional: { zero: 'bash', args: [] }, flags: 'himBHs' });
 
 test('a login starts with the usual exported variables', () => {
   const s = sys();
