@@ -80,7 +80,7 @@ restores finished tasks and shown hints, and a hint is paid for once.
 
 Then: browser QA (worktree .scratch/wt/qa ready), the lead's replay, republish the preview.
 
-**Publishing (2026-10-06):** the first preview (multi-file, module scripts) was dark for the user:
+**Publishing (2026-10-06; not used now, the user plays locally):** the first preview (multi-file, module scripts) was dark for the user:
 the artifact host's frame has an opaque origin, so module scripts fail CORS. Publish only
 `dist/index.html` from `npm run bundle`, after `node test/ui/shots.js OUT_DIR --published`
 passes (it loads the bundle inside `<iframe sandbox="allow-scripts">` at 1400 and 360 and plays
