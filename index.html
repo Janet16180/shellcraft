@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="styles/cards.css">
 <link rel="stylesheet" href="styles/intro.css">
 
-<div class="app" id="app">
+<div class="app" id="app" data-layout="stacked">
   <header class="hud window">
     <h1 class="brand" id="brand">Shellcraft</h1>
     <div class="chap"><span class="eyebrow" id="chapNum">Chapter 1</span><span class="name" id="chapName">The Awakening</span></div>
@@ -19,21 +19,29 @@
     <div class="hearts" id="hearts" role="img" aria-label="3 of 3 hearts"></div>
     <div class="hud-actions">
       <button class="px-btn small ghost" id="introBtn" type="button">Replay intro</button>
+      <button class="px-btn small ghost" id="layoutBtn" type="button">Terminal: below</button>
       <button class="px-btn small ghost" id="soundBtn" type="button" aria-pressed="false">Sound: off</button>
     </div>
   </header>
 
   <main class="grid">
     <div class="side">
-      <section class="mapwrap" aria-label="Map">
-        <nav class="crumbs" id="crumbs" aria-label="Where you are"></nav>
-        <div class="stage window">
-          <canvas id="map" width="640" height="400" role="img" aria-label="Map of the directory you are in"></canvas>
-          <div class="toast" id="toast" aria-hidden="true"></div>
-        </div>
-        <div class="picks"><span id="picksLabel">In this room:</span><div class="picklist" id="picks" role="group" aria-labelledby="picksLabel"></div><button class="keylink" id="keyBtn" type="button" aria-controls="roster">What do these pictures mean?</button></div>
-        <p class="sr-only" id="roomText" aria-live="polite"></p>
-      </section>
+      <div class="mapcol">
+        <section class="mapwrap" aria-label="Map">
+          <nav class="crumbs" id="crumbs" aria-label="Where you are"></nav>
+          <div class="stage window">
+            <canvas id="map" width="640" height="400" role="img" aria-label="Map of the directory you are in"></canvas>
+            <div class="toast" id="toast" aria-hidden="true"></div>
+          </div>
+          <div class="picks"><span id="picksLabel">In this room:</span><div class="picklist" id="picks" role="group" aria-labelledby="picksLabel"></div><button class="keylink" id="keyBtn" type="button" aria-controls="roster">What do these pictures mean?</button></div>
+          <p class="sr-only" id="roomText" aria-live="polite"></p>
+        </section>
+
+        <details class="roster" id="roster">
+          <summary>Map key: what each picture really is</summary>
+          <ul id="rosterList"></ul>
+        </details>
+      </div>
 
       <section class="panelwrap window" aria-label="Quest, spellbook and chapters">
         <div class="tabs" role="tablist">
@@ -48,11 +56,6 @@
           <button class="px-btn danger small" id="resetBtn" type="button">Reset progress</button>
         </div>
       </section>
-
-      <details class="roster" id="roster">
-        <summary>Map key: what each picture really is</summary>
-        <ul id="rosterList"></ul>
-      </details>
     </div>
 
     <section class="term window" id="term" aria-label="Terminal">

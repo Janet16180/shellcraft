@@ -192,7 +192,7 @@ async function gameShots(browser, base, out, width) {
   await shot(page, out, `spells-${width}`, true);
   await page.click('#tabbtn-levels');
   await shot(page, out, `chapters-${width}`, true);
-  await page.click('#roster summary');
+  await page.click('#keyBtn');
   await page.locator('#roster').scrollIntoViewIfNeeded();
   await page.locator('#roster').screenshot({ path: join(out, `mapkey-${width}.png`) });
   const wide = await overflow(page);

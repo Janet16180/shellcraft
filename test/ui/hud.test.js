@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { xpPercent, chapterLabel, heartsHTML } from '../../src/ui/hud.js';
+import { xpPercent, chapterLabel, heartsHTML, layoutButton } from '../../src/ui/hud.js';
 
 test('the XP bar fills from the current rank floor to the next rank', () => {
   assert.equal(xpPercent(40, { floor: 0, next: 150 }), (40 / 150) * 100);
@@ -19,4 +19,9 @@ test('hearts show filled and lost hearts, lost ones marked', () => {
   const html = heartsHTML({ left: 2, max: 3 });
   assert.equal((html.match(/<svg/g) ?? []).length, 3);
   assert.equal((html.match(/class="lost"/g) ?? []).length, 1);
+});
+
+test('the layout button names where the terminal is and offers the other layout', () => {
+  assert.deepEqual(layoutButton('stacked'), { text: 'Terminal: below', label: 'Terminal below the map. Switch to the terminal on the right', next: 'side' });
+  assert.deepEqual(layoutButton('side'), { text: 'Terminal: right', label: 'Terminal on the right. Switch to the terminal below the map', next: 'stacked' });
 });

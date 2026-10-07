@@ -5,7 +5,7 @@
  */
 
 import { createTerminal } from './terminal.js';
-import { renderHUD } from './hud.js';
+import { renderHUD, layoutButton } from './hud.js';
 import { questHTML, spellsHTML, chaptersHTML, nowHTML } from './panels.js';
 import { titleCardHTML, bossCardHTML, debriefHTML, openCard, closeCard } from './cards.js';
 import { commandForPath, commandForPick } from './picks.js';
@@ -367,12 +367,19 @@ function wireControls(ui) {
     show(ui, session.view());
     ui.sound.play('ok');
   }));
+  doc.getElementById('layoutBtn').addEventListener('click', () => act(ui, () => {
+    show(ui, session.setLayout(layoutButton(ui.view.layout).next));
+  }));
   doc.getElementById('introBtn').addEventListener('click', () => ui.intro());
   doc.getElementById('keyBtn').addEventListener('click', () => {
     const roster = doc.getElementById('roster');
     roster.open = true;
     roster.scrollIntoView({ block: 'nearest' });
     roster.querySelector('summary').focus({ preventScroll: true });
+  });
+  // On a window the app fits, a closed key hides its line, so focus goes back to the link.
+  doc.getElementById('roster').addEventListener('toggle', event => {
+    if (!event.target.open && event.target.contains(doc.activeElement)) doc.getElementById('keyBtn').focus();
   });
   wireReset(ui);
 }

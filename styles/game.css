@@ -203,6 +203,24 @@ kbd {
   min-width: 0;
 }
 
+.mapcol {
+  grid-area: map;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* Stacked layout: the map and the quest panel side by side, the terminal full width below. */
+.app[data-layout="stacked"] .grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas: "map panel" "term term";
+}
+
+.app[data-layout="stacked"] .side {
+  display: contents;
+}
+
 /* ---------- HUD ---------- */
 
 .hud {
@@ -413,17 +431,20 @@ kbd {
   opacity: 1;
 }
 
+/* The label and the key link on one line, the room's buttons in one row below that scrolls
+   sideways, so a crowded room like /usr/bin never pushes the rest of the page down. */
 .picks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 14px;
   align-items: center;
   font-size: 14px;
   color: var(--muted);
 }
 
 .keylink {
-  margin-left: auto;
+  grid-column: 2;
+  grid-row: 1;
   border: 0;
   padding: 2px 0;
   background: none;
@@ -438,12 +459,20 @@ kbd {
 }
 
 .picklist {
+  grid-column: 1 / -1;
+  grid-row: 2;
   display: flex;
-  flex-wrap: wrap;
   gap: 12px;
+  overflow-x: auto;
+  /* Room for the buttons' frames and focus ring inside the scrolling box. */
+  padding: 8px 10px 12px;
+  margin: 0 -10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
 }
 
 .picks button {
+  flex: none;
   font-family: var(--font-mono);
   font-weight: 400;
   font-size: 13.5px;
@@ -1103,33 +1132,83 @@ kbd {
     height: auto;
     min-height: 0;
   }
+
+  /* On a short window the side layout's map leaves room for the quest panel below it; the
+     canvas centres the picture in the shorter box. */
+  .app[data-layout="side"] .stage canvas {
+    max-height: max(240px, 100vh - 400px);
+  }
+
+  /* The map key's own line costs the map height; the "What do these pictures mean?" link opens it. */
+  .roster:not([open]) {
+    display: none;
+  }
 }
 
-/* On a tall window the map also stays in view while the quest panel scrolls under it; on a
-   shorter one the panel needs the whole column to be readable. */
-@media (min-width: 761px) and (min-height: 960px) {
-  .mapwrap {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    margin-top: -10px;
-    padding: 10px 0 16px;
-    background: var(--wall);
+/* Stacked and fitting the window: the top row splits between the map and the quest panel, each
+   scrolling on its own, and the terminal takes the rest. The map shrinks to fit its row; the
+   canvas centres the picture in whatever box it gets. */
+@media (min-width: 761px) and (min-height: 600px) {
+  .app[data-layout="stacked"] .grid {
+    grid-template-rows: minmax(0, 3fr) minmax(200px, 2fr);
+  }
+
+  .app[data-layout="stacked"] .mapcol {
+    overflow-y: auto;
+    padding: 10px 16px 18px 10px;
+    margin: -10px -16px -18px -10px;
+  }
+
+  .app[data-layout="stacked"] .mapcol > * {
+    flex-shrink: 0;
+  }
+
+  .app[data-layout="stacked"] .mapwrap {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .app[data-layout="stacked"] .stage {
+    flex: 0 1 auto;
+    aspect-ratio: 16 / 10;
+    min-height: 150px;
+  }
+
+  .app[data-layout="stacked"] .stage canvas {
+    height: 100%;
+    aspect-ratio: auto;
+  }
+
+  .app[data-layout="stacked"] .panelwrap {
+    min-height: 0;
+  }
+
+  .app[data-layout="stacked"] .panel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
   }
 }
 
 @media (max-width: 760px) {
-  .grid {
+  .side,
+  .mapcol,
+  .app[data-layout="stacked"] .side {
+    display: contents;
+  }
+
+  .app[data-layout] .grid {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "map" "term" "panel" "roster";
   }
 
-  .side {
-    display: contents;
-  }
-
   .roster {
     grid-area: roster;
+  }
+
+  /* Both layouts are one column here, so there is nothing to switch. */
+  #layoutBtn {
+    display: none;
   }
 
   .term {
