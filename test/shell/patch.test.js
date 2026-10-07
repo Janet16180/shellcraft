@@ -20,6 +20,18 @@ test('a proc on the terminal is a child of the shell; others are children of ini
   assert.equal(sys.procs.find(p => p.key === 'b').ppid, 1);
 });
 
+test('a proc may ask for its PID; the next free PIDs come after it', () => {
+  const sys = make();
+  applyPatch(sys, [proc({ key: 'a', user: 'hero', cmd: 'x', pid: 4242 }), proc({ key: 'b', user: 'hero', cmd: 'y' })]);
+  assert.equal(sys.procs.find(p => p.key === 'a').pid, 4242);
+  assert.ok(sys.procs.find(p => p.key === 'b').pid > 4242);
+});
+
+test('a proc that asks for a PID already in use raises', () => {
+  const sys = make();
+  assert.throws(() => applyPatch(sys, [proc({ key: 'a', user: 'hero', cmd: 'x', pid: sys.shellPid })]), /PID .* in use/);
+});
+
 test('an unknown signal name in ignores raises', () => {
   assert.throws(() => applyPatch(make(), [proc({ key: 'a', user: 'hero', cmd: 'x', ignores: ['NOPE'] })]), /unknown signal/);
 });

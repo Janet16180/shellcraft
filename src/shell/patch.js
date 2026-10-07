@@ -22,11 +22,18 @@ function signalNumbers(spec) {
   });
 }
 
+function pidFor(sys, spec) {
+  if (spec.pid === undefined) return allocPid(sys, 400);
+  if (sys.procs.some(p => p.pid === spec.pid)) throw new Error(`proc ${spec.key}: PID ${spec.pid} is in use`);
+  sys.nextPid = Math.max(sys.nextPid, spec.pid);
+  return spec.pid;
+}
+
 function startProc(sys, spec) {
   if (sys.procs.some(p => p.key === spec.key)) return;
   const tty = spec.tty ?? '?';
   sys.procs.push(makeProc({
-    ...spec, tty, pid: allocPid(sys, 400), ppid: tty === TERMINAL ? sys.shellPid : 1, ignores: signalNumbers(spec),
+    ...spec, tty, pid: pidFor(sys, spec), ppid: tty === TERMINAL ? sys.shellPid : 1, ignores: signalNumbers(spec),
   }));
 }
 
