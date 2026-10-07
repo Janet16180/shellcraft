@@ -117,10 +117,10 @@ sprites. What is missing:
 
 | # | Task | For |
 |---|---|---|
-| G5 | Hall of Mirrors: an outdoor-style area for `~/mirrors` (glass walls, reflections, a palette of its own) in `src/map/biomes.js` and `overworld.js`. | ch 6 |
-| G6 | Well of Echoes: an area for `~/well` (a stone well, water that ripples when a command prints). | ch 12 |
-| G7 | The Forge: an area for `~/forge` (anvil, fire, sparks), where scripts the player writes show as potions that glow once `chmod +x` makes them runnable. | ch 14 |
-| G8 | Each new area gets a map key entry if it adds a picture the key does not explain yet, and a check in the map tests that every area is reachable and labelled. | ch 6, 12, 14 |
+| G5 | **Done** (`slice/art`). Hall of Mirrors: an outdoor-style area for `~/mirrors` (glass walls, reflections, a palette of its own) in `src/map/biomes.js` and `overworld.js`. | ch 6 |
+| G6 | **Area done** (`slice/art`, named Wishing Well; the water ripples all the time, not yet on output). Well of Echoes: an area for `~/well` (a stone well, water that ripples when a command prints). | ch 12 |
+| G7 | **Done** (`slice/art`, plus an Ore Pile for `~/forge/ore`). The Forge: an area for `~/forge` (anvil, fire, sparks), where scripts the player writes show as potions that glow once `chmod +x` makes them runnable. | ch 14 |
+| G8 | **Done** for areas and creatures (key entries imp, armoured-imp, daemon). Each new area gets a map key entry if it adds a picture the key does not explain yet, and a check in the map tests that every area is reachable and labelled. | ch 6, 12, 14 |
 
 **Effects that make later chapters readable (engine emits the effect, art animates it)**
 
