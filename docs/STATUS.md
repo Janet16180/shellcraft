@@ -11,6 +11,30 @@ Read this first when resuming, then `docs/DESIGN.md` and `AUTHORING.md`.
 - The original artifact: https://claude.ai/artifact/M4J2FKo8Q5pDtJQ9Y3Y2dz (do not republish it
   until the user approves the new version; previews go to a separate private artifact).
 
+## Next session starts here (end of 2026-10-06)
+
+main is at the merge of slice/shell 8b30c81: 1031 tests pass, lint is clean. The user played
+chapter 1 locally (`npm run serve`, http://localhost:8765) and is giving feedback as they go.
+
+1. **The user's layout decision (feedback 1):** on wide screens, the map and the quest panel sit
+   side by side in the top row, and the terminal spans the full width below. The room buttons
+   ("In this room") become one horizontally scrolling row, and the sticky map goes away. The
+   problem it fixes: at 1400x1100 the sticky map area was 634px tall, the quest panel scrolled
+   under it with its frame peeking out, and in /usr/bin the 52 room buttons were 221px tall.
+   Owner: ui (CSS/layout), with art if the canvas must fit a height-bound box. Check 1400x900,
+   1280x720, 1536x864, 1024x768 and 360.
+2. engine: switch dangers.js and the fake backend to src/backend/process.js selectsProcess
+   (merged), tests first: kill -HUP 0, kill -9 -$$, pkill -KILL -u hero, pkill -9 -t pts/0 and
+   killall -9 -u hero cost a heart; kill -9 -1, pkill -9 -u root, pkill -9 -u hero cron and
+   pkill -9 -x ba don't. Delete engine's own processName.
+3. factcheck: verify 6bb4c32's process selection against Ubuntu (approved, not started).
+4. Ask the user for the rest of their playtest feedback, fix it, then republish the preview:
+   `npm run bundle`, `node test/ui/shots.js OUT --published`, publish dist/index.html to
+   https://claude.ai/artifact/Nqt9UZqv6MPiaci46Q3vi3 and remove the 98 old files (null in `files`).
+   Read every changed file before publishing.
+5. .scratch/wt/play is a detached snapshot worktree used for the user's local play; serve it
+   again or drop it (ask before deleting).
+
 ## In flight: slice round 3, code health (2026-10-06)
 
 Rounds 1 and 2 are merged. The **private preview** of the slice is published from main d230516:
