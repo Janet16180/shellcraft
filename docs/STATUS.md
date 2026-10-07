@@ -14,7 +14,8 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
 
 ## State at the end of 2026-10-06
 
-- `main` at `dbfb238`, clean. 1031 tests pass, lint is clean, difftest 0 failed (last run by
+- `main` is clean. Its last code change is the merge of `slice/shell` at `8b30c81`; later
+  commits are documentation only. 1031 tests pass, lint is clean, difftest 0 failed (last run by
   shell: 60 identical, 18 intended differences). Every teammate branch is merged (0 ahead).
 - Done: the vertical slice (animated intro, chapters 1 and 2, the overworld and dungeon map, the
   simulated bash behind the backend port, hints, XP, ranks, hearts, coach notes, save with
