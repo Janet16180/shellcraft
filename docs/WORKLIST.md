@@ -34,10 +34,10 @@ Before taking a task, tell the user (or the lead) which one, so nobody else star
 
 | # | Task | Where | Who |
 |---|---|---|---|
-| A1 | New layout: map and quest panel side by side on top, terminal full width below. Keep today's layout (map and quest left, terminal right) as an option the player can switch to; remember the choice. Room buttons become one row that scrolls sideways; the map stops being sticky. Check 1400x900, 1280x720, 1536x864, 1024x768 and 360. | `styles/`, `src/ui/`, `index.html` | ui (web design) |
-| A2 | Remember the layout choice in the save, like `sound` and `introSeen`: a `layout` field, validated on load, a `setLayout` session call. Tests first, old saves read as the default layout. | `src/game/save.js`, `src/game/session.js` | **helper** or engine; agree the field name with ui |
-| A3 | Chapter 1 and 2 bosses: the user removed The Forged Letters and The Trapdoor. Show the user two options per chapter and let them choose: (a) no boss; (b) a short final check that repeats the chapter's tasks with one small twist (plain words, no riddles, no arbitrary rules; see AUTHORING.md content rule 7). Build only after the user approves the wording. | `src/game/chapters/awakening.js`, `forest.js` | author; the lead brings the options |
-| A4 | If the user picks "no boss" for any chapter: make `boss` optional in the chapter contract. A chapter without one clears when its last task is done; the save's progress, hints, the View and the debrief XP all handle it. Tests first. | `src/game/session.js`, `progress.js`, `AUTHORING.md` section 2 | **helper** or engine, only after A3's decision |
+| A1 | **Done** on `slice/layout`. New layout: map and quest panel side by side on top, terminal full width below. Keep today's layout (map and quest left, terminal right) as an option the player can switch to; remember the choice. Room buttons become one row that scrolls sideways; the map stops being sticky. Check 1400x900, 1280x720, 1536x864, 1024x768 and 360. | `styles/`, `src/ui/`, `index.html` | ui (web design) |
+| A2 | **Done** on `slice/layout`. Remember the layout choice in the save, like `sound` and `introSeen`: a `layout` field, validated on load, a `setLayout` session call. Tests first, old saves read as the default layout. | `src/game/save.js`, `src/game/session.js` | **helper** or engine; agree the field name with ui |
+| A3 | **Done** on `slice/layout`: the user chose (b), A New Note and The Lost Lantern. Chapter 1 and 2 bosses: the user removed The Forged Letters and The Trapdoor. Show the user two options per chapter and let them choose: (a) no boss; (b) a short final check that repeats the chapter's tasks with one small twist (plain words, no riddles, no arbitrary rules; see AUTHORING.md content rule 7). Build only after the user approves the wording. | `src/game/chapters/awakening.js`, `forest.js` | author; the lead brings the options |
+| A4 | **Not needed** (no chapter has "no boss"). If the user picks "no boss" for any chapter: make `boss` optional in the chapter contract. A chapter without one clears when its last task is done; the save's progress, hints, the View and the debrief XP all handle it. Tests first. | `src/game/session.js`, `progress.js`, `AUTHORING.md` section 2 | **helper** or engine, only after A3's decision |
 
 ## B. Engine and rules
 
@@ -88,7 +88,6 @@ build a single-file `dist/index.html`, but nothing is published from it.
 
 ## F. Waiting on the user
 
-- The new boss style for chapters 1 and 2 (A3).
 - Whether to add the extra chapters: Archive Vault (`tar`, `gzip`, `du`, `df`), Scribe's Desk
   (`nano` basics), Signposts (`ln -s`).
 
@@ -105,10 +104,10 @@ sprites. What is missing:
 
 | # | Task | Done when |
 |---|---|---|
-| G1 | The user's new layout and the layout switch (task A1): map and quest side by side on top, terminal full width below; today's layout kept as an option; a clearly labelled control in the HUD to switch; the choice saved (A2). | Both layouts pass the screenshot run at 1400x900, 1280x720, 1536x864, 1024x768 and 360, nothing overlaps, the quest panel is always on screen, and the input line is always visible. |
-| G2 | Room buttons ("In this room") in one row that scrolls sideways, in both layouts, so a room like `/usr/bin` (52 entries) never takes more than one row. | `/usr/bin` at 1400 and 360: the row is one line, every button reachable by keyboard and by scrolling. |
+| G1 | **Done** on `slice/layout`. The user's new layout and the layout switch (task A1): map and quest side by side on top, terminal full width below; today's layout kept as an option; a clearly labelled control in the HUD to switch; the choice saved (A2). | Both layouts pass the screenshot run at 1400x900, 1280x720, 1536x864, 1024x768 and 360, nothing overlaps, the quest panel is always on screen, and the input line is always visible. |
+| G2 | **Done** on `slice/layout`. Room buttons ("In this room") in one row that scrolls sideways, in both layouts, so a room like `/usr/bin` (52 entries) never takes more than one row. | `/usr/bin` at 1400 and 360: the row is one line, every button reachable by keyboard and by scrolling. |
 | G3 | Browser QA pass of both layouts: keyboard only (Tab order, focus visible, Escape on cards, the terminal's Tab completion vs page Tab), screen reader text for the map, `prefers-reduced-motion`, zoom 200%, a fresh save and a resumed one. The worktree `.scratch/wt/qa` is ready. | A report in `docs/reviews/qa-slice.md` with each finding and its screenshot; findings fixed by their owners. |
-| G4 | The boss card and the quest panel follow whatever the user picks in A3 (no boss, or a short final check). With no boss, the chapter goes straight from its last task to the adventure log. | Played through both chapters 1 and 2 at 1400 and 360. |
+| G4 | **Done**: the boss card shows the new bosses unchanged. The boss card and the quest panel follow whatever the user picks in A3 (no boss, or a short final check). With no boss, the chapter goes straight from its last task to the adventure log. | Played through both chapters 1 and 2 at 1400 and 360. |
 
 **Map areas for the new chapters (art; author adds the matching directories to the world)**
 

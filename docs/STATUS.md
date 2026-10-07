@@ -12,6 +12,23 @@ map draws the working directory as a room: the original outdoor 8-bit style insi
 home, Ring Zero's Pixel Dungeon style outside it. Each chapter is lesson, guided quest, boss,
 adventure log. 14 chapters are planned (DESIGN.md section 4).
 
+## State at 2026-10-07
+
+- Branch `slice/layout` (from main 240dd93, not merged yet; ask the user before merging) holds
+  the user's playtest fixes: the layout switch (A1, A2, G1, G2), the new bosses (A3) and a
+  "Restart chapter" button. 1033 tests pass, lint is clean, `node test/ui/layouts.js OUT` and the
+  full `test/ui/shots.js` run report no problems.
+  - Layout: stacked (map and quest side by side, terminal full width below) is the default; the
+    HUD button "Terminal: below / right" switches to the old layout. The choice is the save's
+    `layout` field (`session.setLayout`); old saves read as stacked. Room buttons are one
+    sideways-scrolling row; the map is no longer sticky.
+  - Bosses (wording approved by the user, option b): ch1 "A New Note" (`ls`, then `cat` the
+    `note_XXX` file); ch2 "The Lost Lantern" (`ls ~/forest/river`, `cd` into `lantern_XXX`, then
+    home with one command).
+  - Restart chapter: a HUD button (click twice to confirm) that rebuilds the chapter's world and
+    resets its tasks, hints and hearts; XP and other chapters are kept. Known quirk, unchanged:
+    replaying an uncleared chapter pays its task XP again, so restarting can repeat XP.
+
 ## State at the end of 2026-10-06
 
 - `main` is clean. Its last code change is the merge of `slice/shell` at `8b30c81`; later
@@ -32,6 +49,7 @@ npm run lint        # ESLint, also enforces the layer rules
 npm run serve       # play at http://localhost:8765 (Ctrl+C stops it)
 npm run difftest    # simulator vs real bash in Docker (ubuntu:24.04); needs Docker
 node test/ui/shots.js OUT_DIR          # screenshot run of the page (Chrome via playwright-core)
+node test/ui/layouts.js OUT_DIR        # both layouts at five window sizes, plus the restart button
 ```
 
 ## The user's decisions (all still in force)
@@ -58,16 +76,13 @@ node test/ui/shots.js OUT_DIR          # screenshot run of the page (Chrome via 
    `~/learning/GAME_METHODOLOGY.md` principle 8): either no boss, or the chapter's own tasks again
    with one small twist, in plain words, no riddles, no arbitrary rules, not made trivial by a
    later tool. **Show the user the options and get their approval of the wording before building
-   any boss.**
+   any boss.** Done 2026-10-07: the user chose (b) for both; see the state above.
 
 ## First steps of the next session
 
-1. Show the user the boss options for chapters 1 and 2 side by side (WORKLIST A3): (a) no boss;
-   (b) a short final check, e.g. ch1 "a new note's name starts with `note_`: find it with `ls`,
-   read it with `cat`"; ch2 "the lantern is in `~/forest/river/lantern_XXX`: reach it with one
-   `cd`, then come home with one command". Build what they pick (author), then A4 if "no boss".
-2. The layout (WORKLIST A1, A2, G1 to G4): ui builds it, engine (or a helper) adds the saved
-   layout choice. Check both layouts at 1400x900, 1280x720, 1536x864, 1024x768 and 360.
+1. Ask the user to play `slice/layout`, then trial-merge it into main with `--no-ff` once they
+   agree. (A1 to A3, G1, G2, G4 are done there; A4 is not needed.)
+2. G3: keyboard and screen reader pass of both layouts.
 3. engine: B1, hearts from `selectsProcess` (cases listed in WORKLIST B1).
 4. factcheck: verify `src/backend/process.js` (commit 6bb4c32) against Ubuntu.
 5. The user plays again; collect their feedback.

@@ -62,18 +62,16 @@ Man pages from the Ubuntu 24.04 host.
 | Factcheck 2026-10-06 on the coach's `-help` note: "One dash starts short options" does not hold for every command, so it should read "For most commands, one dash starts short options, ..." (sent to engine for `coach.js`) | D: `ls -help` -> `ls: invalid option -- 'e'` (read letter by letter); but GNU `find -help` prints find's usage, status 0 (`find(1)`: "-help, --help"), and find's tests are one-dash words (`-name`), taught in a later chapter. `man -help` on man-db 2.12 prints man's help, status 0, because `-h` is man's short help option |
 | Quick help: "echo prints its words back, even --help." | D: `echo --help` prints `--help`, status 0 (`echo` is a shell builtin with no `--help`) |
 | Clear task goal says "with the `clear` command" | Ctrl+L is handled by the page's terminal, so the session cannot see it; the lesson keeps "Ctrl+L clears it too" (true, see above) |
-| Boss: a forged deed gets "Somewhere, the Shadow Daemon snickers. That letter was signed SIGNER. Compare the signatures with readme.txt." | game text; SIGNER is the forged letter's real signature (SIM test) |
-| Boss: the right command asked the other way gets "Right spell, wrong way. Read the real letter again: it asks for the manual page / the quick help." | game text (SIM test over 10 seeds) |
+| Boss: a `cat` of a name that does not exist gets "There is no file by that name. Run ls and copy the full name that starts with note_."; a `cat` of another file gets "That was another file. The new note's name starts with note_: ls shows it." | game text (SIM tests) |
 
-## Boss: The Forged Letters
+## Boss: A New Note
 
 | Claim | Evidence |
 |---|---|
-| Riddles: whoami "prints your user name", pwd "prints the full path of the directory you are in", ls "lists what is in a directory", cat "prints a file on the screen", clear "wipes the screen" | the NAME lines of `whoami(1)`, `pwd(1)`, `ls(1)`, `cat(1)`, `clear(1)` |
-| Every asked manual page exists on Ubuntu | host `man -w` finds whoami, pwd, ls, cat, clear |
-| Quick help is only asked of whoami, ls and cat | D: those exit 0 with `--help`; `pwd --help` exits 2 (bash builtin) and `clear --help` is an invalid option |
-| The real letter is told apart by its signature, the one in readme.txt | SIM: exactly one of the four letters ends with `-- The Guardian of Root` for 10 seeds |
-| Forged deeds, and the right command asked the other way, do not beat the boss | SIM tests |
+| `ls` in the home shows the new note's name next to the other entries | R (2026-10-07): `ls` in a home holding `forest/` and `note_k7m` printed both names |
+| `cat` and the name prints the note | R: `cat note_k7m` printed its text |
+| The note's name starts with `note_` and ends with a few random letters | SIM: the name is one of the fixed `NOTES` list (`note_` plus three letters from the safe token alphabet), picked by the seed; the awakening and forest setups remove every name on the list |
+| Hint 3 `cat note_XXX` solves it from the home | SIM: the boss solve over 10 seeds |
 
 ## Adventure log, spells, recap, field
 
