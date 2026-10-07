@@ -23,8 +23,8 @@ Defaults chosen by the lead (change if the user disagrees):
   pages in a sandboxed frame with an opaque origin, where module scripts fail CORS and the page
   stays dark, so publishing goes through `npm run bundle` (scripts/bundle.js): one
   self-contained `dist/index.html` with the CSS inlined and the modules bundled by esbuild into a
-  classic script. Previews go to a separate private artifact; the original link is replaced only
-  after the user approves.
+  classic script. Since 2026-10-06 the user plays locally (`npm run serve`) and does not want the
+  game published as an artifact at all; the bundle step stays, unused, in case that changes.
 
 ## 2. Architecture
 

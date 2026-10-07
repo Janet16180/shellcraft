@@ -9,8 +9,8 @@ helpers and teammates is `docs/WORKLIST.md`.
   for a team of named teammates. Phase: **vertical slice** (DESIGN.md section 4, "Slice scope").
 - `main` has the baseline (the v1 artifact in `original/`), the contracts (`src/backend/`), the
   docs and the dev tooling (`npm test`, `npm run lint`).
-- The original artifact: https://claude.ai/artifact/M4J2FKo8Q5pDtJQ9Y3Y2dz (do not republish it
-  until the user approves the new version; previews go to a separate private artifact).
+- The original artifact: https://claude.ai/artifact/M4J2FKo8Q5pDtJQ9Y3Y2dz stays untouched. The user
+  decided (2026-10-06) not to use artifacts any more: the game is played locally.
 
 ## Next session starts here (end of 2026-10-06)
 
@@ -50,10 +50,9 @@ chapter 1 locally (`npm run serve`, http://localhost:8765) and is giving feedbac
    killall -9 -u hero cost a heart; kill -9 -1, pkill -9 -u root, pkill -9 -u hero cron and
    pkill -9 -x ba don't. Delete engine's own processName.
 4. factcheck: verify 6bb4c32's process selection against Ubuntu (approved, not started).
-5. Ask the user for the rest of their playtest feedback, fix it, then republish the preview:
-   `npm run bundle`, `node test/ui/shots.js OUT --published`, publish dist/index.html to
-   https://claude.ai/artifact/Nqt9UZqv6MPiaci46Q3vi3 and remove the 98 old files (null in `files`).
-   Read every changed file before publishing.
+5. Ask the user for the rest of their playtest feedback and fix it. **No artifacts** (the user's
+   decision, 2026-10-06): the user plays locally with `npm run serve`; do not publish or
+   republish anything to claude.ai.
 6. .scratch/wt/play is a detached snapshot worktree used for the user's local play; serve it
    again or drop it (ask before deleting).
 7. Then chapters 3 to 14 in batches (3-5, then 6-9 with the simulator work for 12 and 13, then

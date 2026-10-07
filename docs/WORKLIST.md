@@ -73,12 +73,12 @@ then 10-14 (12, 13 and 14 wait for C2, C3 and C1). The user plays each batch bef
    or arbitrary rule, and not made trivial by a later chapter's tool?
 4. Report findings to the author; do not edit the chapter yourself.
 
-## E. Publishing
+## E. Delivery
 
-| # | Task | Who |
-|---|---|---|
-| E1 | Republish the preview after A1-A3: `npm run bundle`, `node test/ui/shots.js OUT --published`, publish `dist/index.html` to https://claude.ai/artifact/Nqt9UZqv6MPiaci46Q3vi3 and remove the 98 old files. | the lead |
-| E2 | Replace the original Shellcraft artifact, only after the user approves. | the lead, with the user |
+The user plays the game locally (`npm run serve`, http://localhost:8765). **Do not publish to a
+claude.ai artifact** (the user's decision, 2026-10-06): no new artifact, no republish of the
+preview, no change to the original Shellcraft artifact. `npm run bundle` stays available to
+build a single-file `dist/index.html`, but nothing is published from it.
 
 ## F. Waiting on the user
 
