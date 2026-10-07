@@ -14,8 +14,8 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
 
 ## State at 2026-10-07
 
-- Branch `slice/layout` (from main 240dd93, not merged yet; ask the user before merging) holds
-  the user's playtest fixes: the layout switch (A1, A2, G1, G2), the new bosses (A3) and a
+- Branch `slice/layout` (from main 240dd93) was merged into main with `--no-ff` at 585b794 after
+  the user approved; 1050 tests pass and lint is clean on main. It holds the user's playtest fixes: the layout switch (A1, A2, G1, G2), the new bosses (A3) and a
   "Restart chapter" button. 1033 tests pass, lint is clean, `node test/ui/layouts.js OUT` and the
   full `test/ui/shots.js` run report no problems.
   - Layout: stacked (map and quest side by side, terminal full width below) is the default; the
@@ -93,8 +93,8 @@ node test/ui/layouts.js OUT_DIR        # both layouts at five window sizes, plus
 
 ## First steps of the next session
 
-1. Ask the user to play `slice/layout`, then trial-merge it into main with `--no-ff` once they
-   agree. (A1 to A3, G1, G2, G4 are done there; A4 is not needed.)
+1. `slice/layout` is merged (A1 to A3, G1, G2, G4 done; A4 not needed). Ask the user for more
+   playtest notes.
 2. G3: keyboard and screen reader pass of both layouts.
 3. engine: B1, hearts from `selectsProcess` (cases listed in WORKLIST B1).
 4. factcheck: verify `src/backend/process.js` (commit 6bb4c32) against Ubuntu.
