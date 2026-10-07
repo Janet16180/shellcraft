@@ -50,6 +50,29 @@ export function layoutButton(layout) {
   return LAYOUT_BUTTON[layout];
 }
 
+/** The windows where the HUD starts collapsed to one slim bar. */
+export const SMALL_WINDOW = '(max-width: 760px), (max-height: 699px)';
+
+/**
+ * Whether the HUD shows its buttons: the player's last choice, else open unless the window is small.
+ *
+ * @param {{small: boolean, chosen: boolean|null}} state Whether SMALL_WINDOW matches, and the player's choice.
+ * @returns {boolean}
+ */
+export function hudOpen({ small, chosen }) {
+  return chosen ?? !small;
+}
+
+/**
+ * The HUD toggle's text and aria-expanded value.
+ *
+ * @param {boolean} open Whether the HUD is open.
+ * @returns {{text: string, expanded: 'true'|'false'}}
+ */
+export function hudToggle(open) {
+  return { text: open ? 'Hide menu' : 'Menu', expanded: String(open) };
+}
+
 /**
  * Draw the HUD from the View.
  *

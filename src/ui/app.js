@@ -5,7 +5,7 @@
  */
 
 import { createTerminal } from './terminal.js';
-import { renderHUD, layoutButton } from './hud.js';
+import { renderHUD, layoutButton, hudOpen, hudToggle, SMALL_WINDOW } from './hud.js';
 import { questHTML, spellsHTML, chaptersHTML, nowHTML } from './panels.js';
 import { titleCardHTML, bossCardHTML, debriefHTML, openCard, closeCard } from './cards.js';
 import { commandForPath, commandForPick } from './picks.js';
@@ -370,6 +370,7 @@ function wireControls(ui) {
   doc.getElementById('layoutBtn').addEventListener('click', () => act(ui, () => {
     show(ui, session.setLayout(layoutButton(ui.view.layout).next));
   }));
+  wireHudToggle(doc);
   doc.getElementById('introBtn').addEventListener('click', () => ui.intro());
   doc.getElementById('keyBtn').addEventListener('click', () => {
     const roster = doc.getElementById('roster');
@@ -382,6 +383,26 @@ function wireControls(ui) {
     if (!event.target.open && event.target.contains(doc.activeElement)) doc.getElementById('keyBtn').focus();
   });
   wireReset(ui);
+}
+
+// The HUD follows the window size until the player opens or hides it; that choice lasts the visit.
+function wireHudToggle(doc) {
+  const small = doc.defaultView.matchMedia(SMALL_WINDOW);
+  const button = doc.getElementById('hudToggle');
+  let chosen = null;
+  const draw = () => {
+    const open = hudOpen({ small: small.matches, chosen });
+    const { text, expanded } = hudToggle(open);
+    button.textContent = text;
+    button.setAttribute('aria-expanded', expanded);
+    doc.getElementById('app').dataset.hud = open ? 'open' : 'collapsed';
+  };
+  button.addEventListener('click', () => {
+    chosen = button.getAttribute('aria-expanded') !== 'true';
+    draw();
+  });
+  small.addEventListener('change', draw);
+  draw();
 }
 
 function wirePicks(ui) {

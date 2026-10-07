@@ -338,6 +338,43 @@ kbd {
   gap: 14px;
 }
 
+/* Collapsed: one slim bar with the logo, the chapter name, XP and hearts; the toggle brings the rest back. */
+.app[data-hud="collapsed"] .hud {
+  flex-wrap: nowrap;
+  gap: 14px;
+  padding: 6px 14px;
+}
+
+.app[data-hud="collapsed"] .hud-actions,
+.app[data-hud="collapsed"] .chap .eyebrow,
+.app[data-hud="collapsed"] .xpbar,
+.app[data-hud="collapsed"] .rank {
+  display: none;
+}
+
+.app[data-hud="collapsed"] .brand .logo {
+  height: 20px;
+}
+
+.app[data-hud="collapsed"] .chap {
+  flex: 1 1 auto;
+}
+
+.app[data-hud="collapsed"] .chap .name {
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app[data-hud="collapsed"] .xp {
+  flex: 0 0 auto;
+}
+
+#hudToggle {
+  margin-left: auto;
+}
+
 .shake {
   animation: shake 0.35s;
 }
@@ -1234,6 +1271,15 @@ kbd {
   .hud {
     gap: 8px 14px;
     padding: 12px 14px;
+  }
+
+  .app[data-hud="collapsed"] .hud {
+    gap: 10px;
+    padding: 6px 10px;
+  }
+
+  .app[data-hud="collapsed"] .brand {
+    display: none;
   }
 
   .crumbs .area {

@@ -28,6 +28,10 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
   - Restart chapter: a HUD button (click twice to confirm) that rebuilds the chapter's world and
     resets its tasks, hints and hearts; XP and other chapters are kept. A task pays XP only once (the save's `paid`
     record), so restarting does not farm XP.
+  - Collapsible HUD: a "Menu / Hide menu" toggle. Collapsed, the HUD is one slim bar (logo,
+    chapter name, XP, hearts; no logo at 480px or less). It starts collapsed on small windows
+    (`SMALL_WINDOW` in `src/ui/hud.js`: 760px wide or less, or under 700px tall) and follows the
+    window until the player toggles it; that choice lasts the visit and is not saved.
 
 ## State at the end of 2026-10-06
 

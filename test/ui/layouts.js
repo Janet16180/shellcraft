@@ -23,7 +23,7 @@ import { chromium } from 'playwright-core';
 import { startServer } from '../../scripts/serve.js';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const SIZES = [[1400, 900], [1280, 720], [1536, 864], [1024, 768], [360, 740]];
+const SIZES = [[1400, 900], [1280, 720], [1536, 864], [1024, 768], [1280, 650], [360, 740]];
 const LAYOUTS = ['stacked', 'side'];
 
 async function type(page, line) {
@@ -35,7 +35,10 @@ async function type(page, line) {
 async function setLayout(page, layout) {
   for (let i = 0; i < LAYOUTS.length; i++) {
     if (await page.getAttribute('#app', 'data-layout') === layout) return;
+    const collapsed = await page.getAttribute('#app', 'data-hud') === 'collapsed';
+    if (collapsed) await page.click('#hudToggle');
     await page.click('#layoutBtn');
+    if (collapsed) await page.click('#hudToggle');
     await page.waitForTimeout(300);
   }
   throw new Error(`could not switch to the ${layout} layout`);
@@ -78,6 +81,22 @@ function problemsOf(tag, m, { wide }) {
   return problems;
 }
 
+// The HUD starts collapsed to one slim bar on small windows; its toggle opens it.
+async function hudProblems(page, tag, small) {
+  const problems = [];
+  const state = await page.getAttribute('#app', 'data-hud');
+  if (state !== (small ? 'collapsed' : 'open')) problems.push(`${tag}: the HUD starts ${state}`);
+  if (small) {
+    const bar = await page.evaluate(() => document.querySelector('.hud').getBoundingClientRect().height);
+    if (bar > 50) problems.push(`${tag}: the collapsed HUD is ${Math.round(bar)}px tall`);
+    if (await page.isVisible('#restartBtn')) problems.push(`${tag}: the collapsed HUD shows its buttons`);
+    await page.click('#hudToggle');
+    if (!await page.isVisible('#restartBtn')) problems.push(`${tag}: the HUD toggle does not show the buttons`);
+    if (await page.getAttribute('#hudToggle', 'aria-expanded') !== 'true') problems.push(`${tag}: the opened HUD toggle is not aria-expanded`);
+  }
+  return problems;
+}
+
 async function restartProblems(page, tag) {
   await type(page, 'whoami');
   const before = await page.textContent('#now');
@@ -116,6 +135,7 @@ async function check(browser, base, out, [width, height], layout) {
   problems.push(...problemsOf(`${tag} /usr/bin`, bin, { wide }));
   if (bin.picks < 40) problems.push(`${tag}: /usr/bin shows only ${bin.picks} room buttons`);
   await page.screenshot({ path: join(out, `${name}-usrbin.png`) });
+  problems.push(...await hudProblems(page, tag, width <= 760 || height < 700));
   problems.push(...await restartProblems(page, tag));
   if (wide) {
     await page.reload();
