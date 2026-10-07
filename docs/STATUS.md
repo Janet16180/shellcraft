@@ -12,6 +12,20 @@ map draws the working directory as a room: the original outdoor 8-bit style insi
 home, Ring Zero's Pixel Dungeon style outside it. Each chapter is lesson, guided quest, boss,
 adventure log. 14 chapters are planned (DESIGN.md section 4).
 
+## State at 2026-10-08 (act II: chapters 10 to 14)
+
+- On `slice/ch5-9`, not merged: 10 The Descent (`/`, `/etc`, `/var/log`, `$PATH`, `which`, `type`),
+  11 The Sealed Gate (`ls -l` modes, `id`, `chmod +x`, `chmod 600`, `/root`), 12 Well of Echoes
+  (variables, quotes, `$?`, `2>`, `/dev/null`, `&&`, `||`), 13 The Shadow Daemon (`ps`, `ps aux`,
+  `pgrep`, `kill`, `kill -9`; no job control) and 14 Forge Your Own Spell (scripts, `$1`, `for`).
+  Design and the teaching review: session file `ch10-14-design.md`.
+- Engine (`slice/shell`, merged): scripts by name on PATH, positional parameters, child shells,
+  `source`, `~/.bashrc`, `for`, `if`, `test`/`[`. Spec: `proc({pid})` fixes a PID (ch13 hints).
+  Checks: `ctx.line`, the typed line, for assignments that leave no record.
+- Art (`slice/art`, merged): areas well, den, forge, ore, mirrors, the `/usr/local` guild wing,
+  processes drawn as creatures labelled `PID name` (`src/map/creatures.js`).
+- The session playthrough plays all 14 chapters (3 seeds).
+
 ## State at 2026-10-07 (chapters 5 to 9, dev mode)
 
 - The user approved chapters 1 to 6 (`docs/APPROVED.md`). Their notes on 5 and 6: plain words for

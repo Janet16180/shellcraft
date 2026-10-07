@@ -12,4 +12,5 @@ user, or to apply a rule to every chapter (and then tell the user).
 | 5 | The Cursed Junkyard | `rm`, `rmdir`, `rm -r` | 2026-10-07 | Goals reworded in plain words (AUTHORING rule 10). |
 | 6 | Hall of Mirrors | `*`, `?`, `[1-3]`, quotes | 2026-10-07 | Goals reworded: "Remove all the `.shard` files with one `rm` command". |
 
-Waiting for the user's play: 7 The Great Library, 8 The Tower of Echoes, 9 The Market of Pipes.
+Waiting for the user's play: 7 The Great Library, 8 The Tower of Echoes, 9 The Market of Pipes,
+10 The Descent, 11 The Sealed Gate, 12 Well of Echoes, 13 The Shadow Daemon, 14 Forge Your Own Spell.

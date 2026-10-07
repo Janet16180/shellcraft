@@ -50,10 +50,12 @@ Before taking a task, tell the user (or the lead) which one, so nobody else star
 
 | # | Task | For | Where | Who |
 |---|---|---|---|---|
-| C1 | `for NAME in WORDS; do ...; done` and `if ...; then ...; else ...; fi` (with `test` / `[`), in scripts and on the command line. Today they print "command not found". | ch 14 (first script) | `src/shell/lexer.js`, `parse.js`, `exec.js` | **helper** or shell |
-| C2 | `source FILE` / `. FILE`, and read `~/.bashrc` when the shell starts, so `ll` and `la` come from the file, not from built-in aliases. | ch 12 (Well of Echoes) | `src/shell/` | **helper** or shell |
-| C3 | Background jobs: `&`, `jobs`, `fg`, `bg`, Ctrl+Z, and a simulated `sleep` so there is something to put in the background. | ch 13 (Shadow Daemon) | `src/shell/`, maybe `src/backend/port.js` | shell (touches the port; needs the lead) |
+| C1 | **Done 2026-10-08 (slice/shell).** `for NAME in WORDS; do ...; done` and `if ...; then ...; else ...; fi` (with `test` / `[`), in scripts and on the command line. Today they print "command not found". | ch 14 (first script) | `src/shell/lexer.js`, `parse.js`, `exec.js` | **helper** or shell |
+| C2 | **Done 2026-10-08 (slice/shell).** `source FILE` / `. FILE`, and read `~/.bashrc` when the shell starts, so `ll` and `la` come from the file, not from built-in aliases. | ch 12 (Well of Echoes) | `src/shell/` | **helper** or shell |
+| C3 | **Cut 2026-10-08:** job control is left to Ring Zero; ch13 teaches Ctrl+C in the lesson only. Background jobs: `&`, `jobs`, `fg`, `bg`, Ctrl+Z, and a simulated `sleep` so there is something to put in the background. | ch 13 (Shadow Daemon) | `src/shell/`, maybe `src/backend/port.js` | shell (touches the port; needs the lead) |
 | C4 | `--version` for `ps`, `top`, `pkill`, `killall`, `less`, `which`, as Ubuntu 24.04 prints them. | ch 7, 10, 13 | `src/shell/versions.js` | **helper** |
+
+| C5 | Known gaps from act II: `ps aux \| grep` does not list grep itself; `pgrep -l`/`-a` not simulated; no `!` history expansion; `while`/`until`/`case`/functions missing; `$(...)` and pipeline stages leak `cd` back; `touch ''` succeeds; an execute-only script says `bash:` where real bash says `/bin/bash:`. | later | `src/shell/` | shell |
 
 Every simulator change needs difftest cases that compare it with real bash, plus a line in the
 case file for any intended difference.
@@ -68,7 +70,7 @@ then 10-14 (12, 13 and 14 wait for C2, C3 and C1). The user plays each batch bef
 
 **Written:** 3 Things Unseen and 4 Build a Camp (branch `slice/ch3-4`, merged 2026-10-07; fact-checked,
 waiting for the user's play and a blind playtest). 5 to 9 (branch `slice/ch5-9`, 2026-10-07;
-fact-checked, waiting for the user's play). Next: 10 The Descent.
+fact-checked, waiting for the user's play). 10 to 14 (act II, on `slice/ch5-9`, 2026-10-08; fact-checked in the difftest image, logs in `docs/verification/`, waiting for the user's play). All 14 planned chapters are written.
 
 **Checking a level** suits the **helper** well. For each new chapter:
 
