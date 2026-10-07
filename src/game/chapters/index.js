@@ -6,6 +6,11 @@ import awakening from './awakening.js';
 import forest from './forest.js';
 import unseen from './unseen.js';
 import camp from './camp.js';
+import junkyard from './junkyard.js';
+import mirrors from './mirrors.js';
+import library from './library.js';
+import tower from './tower.js';
+import market from './market.js';
 
 const soon = (id, act, title) => ({ id, act, title, soon: true });
 
@@ -19,11 +24,11 @@ export default [
   forest,
   unseen,
   camp,
-  soon('junkyard', 1, 'The Cursed Junkyard'),
-  soon('mirrors', 1, 'Hall of Mirrors'),
-  soon('library', 1, 'The Great Library'),
-  soon('tower', 1, 'The Tower of Echoes'),
-  soon('market', 1, 'The Market of Pipes'),
+  junkyard,
+  mirrors,
+  library,
+  tower,
+  market,
   soon('descent', 2, 'The Descent'),
   soon('gate', 2, 'The Sealed Gate'),
   soon('well', 2, 'Well of Echoes'),
