@@ -23,6 +23,11 @@ export const BIOMES = {
   tower: { realm: 'overworld', name: 'Tower of Echoes', wall: ['#221a42', '#2e2356'], floor: '#4b3f7a', door: '#120c26', trim: '#b59cff' },
   market: { realm: 'overworld', name: 'Market of Pipes', wall: ['#5a3019', '#6c3b20'], floor: '#b08850', door: '#331b0d', trim: '#ffd36b' },
   gate: { realm: 'overworld', name: 'Sealed Gate', wall: ['#33373e', '#40454d'], floor: '#62676f', door: '#1a1c21', trim: '#c7ccd6' },
+  mirrors: { realm: 'overworld', name: 'Hall of Mirrors', wall: ['#26304a', '#34436a'], floor: '#4d5a78', door: '#161c30', trim: '#cfe6ff' },
+  well: { realm: 'overworld', name: 'Wishing Well', wall: ['#1f3a2c', '#2a4a38'], floor: '#5d7f48', door: '#1c2a1e', trim: '#8fd0e0' },
+  den: { realm: 'overworld', name: 'Imp Den', wall: ['#2a1410', '#3a1c16'], floor: '#4a2a1e', door: '#120806', trim: '#ff7a3d' },
+  forge: { realm: 'overworld', name: 'The Forge', wall: ['#2b2220', '#3b2d28'], floor: '#4e413a', door: '#1a1210', trim: '#ffa040' },
+  ore: { realm: 'overworld', name: 'Ore Pile', wall: ['#2a2622', '#3a332c'], floor: '#5a4e44', door: '#18140f', trim: '#e0b060' },
   hall: { realm: 'dungeon', name: 'Entrance Hall', accent: 'p' },
   archive: { realm: 'dungeon', name: 'Hall of Scrolls', accent: 'u' },
   scriptorium: { realm: 'dungeon', name: 'Scriptorium', accent: 'r' },
@@ -32,6 +37,7 @@ export const BIOMES = {
   quarters: { realm: 'dungeon', name: "Someone Else's Quarters", accent: 'u' },
   vault: { realm: 'dungeon', name: 'Sealed Vault', accent: 'e' },
   armory: { realm: 'dungeon', name: 'Armory of Commands', accent: 'e' },
+  guild: { realm: 'dungeon', name: 'Guild of New Commands', accent: 'G' },
   workshop: { realm: 'dungeon', name: 'Workshop', accent: 'b' },
   pit: { realm: 'dungeon', name: 'Hall of Devices', accent: 'p' },
   corridor: { realm: 'dungeon', name: 'Dungeon Corridor', accent: 'd' },
@@ -39,14 +45,15 @@ export const BIOMES = {
 
 const OVERWORLD_AREAS = [
   ['forest/cave', 'cave'], ['forest/river', 'river'], ['forest', 'forest'], ['camp', 'camp'], ['junk', 'junk'],
-  ['library', 'library'], ['tower', 'tower'], ['market', 'market'], ['gate', 'gate'],
+  ['library', 'library'], ['tower', 'tower'], ['market', 'market'], ['gate', 'gate'], ['mirrors', 'mirrors'],
+  ['well', 'well'], ['den', 'den'], ['forge/ore', 'ore'], ['forge', 'forge'],
 ];
 
 const DUNGEON_ROOMS = [['/', 'hall'], ['/home', 'gatehouse']];
 
 const DUNGEON_WINGS = [
   ['/home', 'quarters'], ['/var/log', 'scriptorium'], ['/var', 'cellar'], ['/etc', 'archive'], ['/tmp', 'scrap'],
-  ['/root', 'vault'], ['/usr/bin', 'armory'], ['/usr/sbin', 'armory'], ['/bin', 'armory'], ['/sbin', 'armory'],
+  ['/root', 'vault'], ['/usr/bin', 'armory'], ['/usr/sbin', 'armory'], ['/usr/local', 'guild'], ['/bin', 'armory'], ['/sbin', 'armory'],
   ['/usr', 'workshop'], ['/dev', 'pit'],
 ];
 
