@@ -79,6 +79,19 @@ then 10-14 (12, 13 and 14 wait for C2, C3 and C1). The user plays each batch bef
    or arbitrary rule, and not made trivial by a later chapter's tool?
 4. Report findings to the author; do not edit the chapter yourself.
 
+## E. Delivery
+
+The user plays the game locally (`npm run serve`, http://localhost:8765). **Do not publish to a
+claude.ai artifact** (the user's decision, 2026-10-06): no new artifact, no republish of the
+preview, no change to the original Shellcraft artifact. `npm run bundle` stays available to
+build a single-file `dist/index.html`, but nothing is published from it.
+
+## F. Waiting on the user
+
+- The new boss style for chapters 1 and 2 (A3).
+- Whether to add the extra chapters: Archive Vault (`tar`, `gzip`, `du`, `df`), Scribe's Desk
+  (`nano` basics), Signposts (`ln -s`).
+
 ## G. Graphics, the map and the page
 
 The map already draws, for chapters 3 to 14: your cottage, the forest, river and cave, the camp,
@@ -120,19 +133,6 @@ Graphics rules (DESIGN.md section 7): the outdoor style inside your home and Rin
 style outside it; every picture shows the real name of what it stands for; labels in IBM Plex
 Mono; check every new glyph and label for Z/2, 0/O and 1/l/I confusion; everything respects
 reduced motion.
-
-## E. Delivery
-
-The user plays the game locally (`npm run serve`, http://localhost:8765). **Do not publish to a
-claude.ai artifact** (the user's decision, 2026-10-06): no new artifact, no republish of the
-preview, no change to the original Shellcraft artifact. `npm run bundle` stays available to
-build a single-file `dist/index.html`, but nothing is published from it.
-
-## F. Waiting on the user
-
-- The new boss style for chapters 1 and 2 (A3).
-- Whether to add the extra chapters: Archive Vault (`tar`, `gzip`, `du`, `df`), Scribe's Desk
-  (`nano` basics), Signposts (`ln -s`).
 
 ## Known risks, accepted for now
 
