@@ -4,6 +4,8 @@
  */
 import awakening from './awakening.js';
 import forest from './forest.js';
+import unseen from './unseen.js';
+import camp from './camp.js';
 
 const soon = (id, act, title) => ({ id, act, title, soon: true });
 
@@ -15,8 +17,8 @@ const soon = (id, act, title) => ({ id, act, title, soon: true });
 export default [
   awakening,
   forest,
-  soon('unseen', 1, 'Things Unseen'),
-  soon('camp', 1, 'Build a Camp'),
+  unseen,
+  camp,
   soon('junkyard', 1, 'The Cursed Junkyard'),
   soon('mirrors', 1, 'Hall of Mirrors'),
   soon('library', 1, 'The Great Library'),

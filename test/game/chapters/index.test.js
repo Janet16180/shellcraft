@@ -23,8 +23,8 @@ test('act I runs to the Market of Pipes and act II starts with the Descent', () 
   assert.deepEqual(chapters.map(chapter => chapter.act), [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
 });
 
-test('the slice plays the first two chapters and marks the rest as coming soon', () => {
-  assert.deepEqual(chapters.map(chapter => Boolean(chapter.soon)), ORDER.map((_, i) => i >= 2));
+test('the first four chapters are playable and the rest are marked as coming soon', () => {
+  assert.deepEqual(chapters.map(chapter => Boolean(chapter.soon)), ORDER.map((_, i) => i >= 4));
 });
 
 function proseOf(chapter) {
@@ -68,23 +68,25 @@ async function playThrough(session, chapter) {
 
 const kinds = list => list.map(x => x.kind);
 
+const PLAYABLE = chapters.filter(c => !c.soon);
+
 for (const seed of [1, 2, 3]) {
-  test(`a session plays both chapters from boot to the end of the slice (seed ${seed})`, async () => {
+  test(`a session plays every playable chapter from boot to the last boss (seed ${seed})`, async () => {
     const backend = createSimBackend({ now: () => Date.UTC(2026, 9, 6, 12), random: createRandom(seed) });
     const session = createSession({ backend, chapters, baseWorld, store: createMemoryStore(), random: createRandom(seed) });
     assert.equal((await session.boot()).chapter.id, 'awakening');
 
-    const first = await playThrough(session, chapters[0]);
-    assert.deepEqual(first.errors, []);
-    assert.deepEqual(kinds(first.bossStart.events), ['task', 'boss-start']);
-    assert.deepEqual(kinds(first.last.events), ['boss', 'chapter']);
-    assert.equal(first.last.events[1].next, 'forest');
-
-    await session.startChapter('forest', { fresh: false });
-    const second = await playThrough(session, chapters[1]);
-    assert.deepEqual(second.errors, []);
-    assert.deepEqual(kinds(second.bossStart.events), ['task', 'boss-start']);
-    assert.deepEqual(kinds(second.last.events), ['boss', 'chapter']);
-    assert.equal(second.last.view.xp, (7 + 8) * 10 + 2 * (30 + 20));
+    let last = null;
+    for (const [i, chapter] of PLAYABLE.entries()) {
+      if (i > 0) await session.startChapter(chapter.id, { fresh: false });
+      const played = await playThrough(session, chapter);
+      assert.deepEqual(played.errors, [], chapter.id);
+      assert.deepEqual(kinds(played.bossStart.events), ['task', 'boss-start'], chapter.id);
+      assert.deepEqual(kinds(played.last.events), ['boss', 'chapter'], chapter.id);
+      assert.equal(played.last.events[1].next, PLAYABLE[i + 1]?.id ?? null, chapter.id);
+      last = played.last;
+    }
+    const tasks = PLAYABLE.reduce((sum, chapter) => sum + chapter.tasks.length, 0);
+    assert.equal(last.view.xp, tasks * 10 + PLAYABLE.length * (30 + 20));
   });
 }
