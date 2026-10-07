@@ -96,7 +96,7 @@ export function createSystem({ user, host, home, now, random, binaries }) {
     groups: [user],
     root: baseTree(home, user, binaries, started), loginTime: started,
     cwd: home, oldpwd: null,
-    vars: initialVars({ user, home, host }), aliases: nameTable({ ll: 'ls -alF', la: 'ls -A' }), history: [], hashed: new Map(),
+    vars: initialVars({ user, home, host }), aliases: nameTable(), history: [], hashed: new Map(),
     positional: { zero: 'bash', args: [] }, flags: 'himBHs', lastStatus: 0, umask: 0o022, procs: [], nextPid: 300, shellPid: 0, columns: 80,
   };
   sys.procs = systemProcs(sys);

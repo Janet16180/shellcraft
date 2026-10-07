@@ -3,7 +3,7 @@
  */
 
 import { createSystem, resizeTerminal } from './system.js';
-import { snapshot } from './fs.js';
+import { snapshot, lookup } from './fs.js';
 import { executeLine } from './exec.js';
 import { applyPatch } from './patch.js';
 import { complete } from './complete.js';
@@ -41,6 +41,13 @@ function runLine(sys, line) {
   return { output: run.chunks, status, commands: run.records, blocked: run.blocked };
 }
 
+// What bash does when it starts: read ~/.bashrc, if there is one. Its output
+// is dropped, as the game shows the terminal only after the shell is ready.
+function startShell(sys) {
+  const run = collector();
+  if (lookup(sys.root, `${sys.home}/.bashrc`)) executeLine({ sys, commands: COMMANDS, run }, '. ~/.bashrc', run.sink);
+}
+
 function observe(sys) {
   const procs = sys.procs.map(p => {
     const rec = { pid: p.pid, ppid: p.ppid, user: p.user, tty: p.tty, stat: p.stat, cpu: p.cpu, mem: p.mem, cmd: p.cmd };
@@ -55,6 +62,13 @@ function observe(sys) {
  * simulated command), `/dev/null`, an empty home owned by the user, and the
  * system processes; the game adds its world with load().
  *
+ * The first load() is when the player's shell starts: after applying that
+ * patch, the shell reads `~/.bashrc` (if the patch made one) in the current
+ * shell, as bash does, so its aliases and variables are the player's. Its
+ * output is dropped and it is not recorded. Later loads change the files and
+ * processes only; the shell keeps its variables, aliases and history, and
+ * does not read `~/.bashrc` again.
+ *
  * Output chunks: 'out' and 'err' text ends in a newline like a real stream;
  * `html` (when present) is the same text coloured with the classes c-dir,
  * c-exe, g-file, g-sep, g-num and g-match. `clear` writes the real escape
@@ -68,8 +82,14 @@ function observe(sys) {
  */
 export function createSimBackend({ user = 'hero', host = 'kernelia', home = '/home/hero', now = () => Date.now(), random = Math.random } = {}) {
   const sys = createSystem({ user, host, home, now, random, binaries: BINARIES });
+  let started = false;
+  const load = patch => {
+    applyPatch(sys, patch);
+    if (!started) startShell(sys);
+    started = true;
+  };
   return {
-    load: async patch => applyPatch(sys, patch),
+    load: async patch => load(patch),
     run: async line => runLine(sys, line),
     observe: async () => observe(sys),
     complete: async line => complete(sys, line, Object.keys(COMMANDS)),

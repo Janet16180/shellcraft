@@ -16,17 +16,15 @@ const begin = i => ` printf '${RS}B${i} %(%s)T${RS}' -1; printf '${RS}B${i}${RS}
 const end = ` __st=$?; printf '${RS}E%d %(%s)T${RS}' "$__st" -1`;
 
 /**
- * Build the input for bash.
+ * Build the input for bash. bash runs with --norc so the world's ~/.bashrc, not the image's, is read
+ * first, as the simulator reads it when the shell starts.
  *
  * @param {string[]} lines The player's lines.
- * @param {{cds: string[], aliases: Record<string, string>}} setup Directories to cd into first and aliases to define.
+ * @param {{cds: string[]}} setup Directories to cd into first.
  * @returns {string} The input text.
  */
-export function inputScript(lines, { cds, aliases }) {
-  const hidden = [
-    ...Object.entries(aliases).map(([k, v]) => ` alias ${k}=${quote(v)}`),
-    ...cds.map(p => ` cd ${quote(p)}`),
-  ];
+export function inputScript(lines, { cds }) {
+  const hidden = [' if [ -r ~/.bashrc ]; then . ~/.bashrc; fi', ...cds.map(p => ` cd ${quote(p)}`)];
   const body = lines.flatMap((line, i) => [i === 0 ? begin(0) : `${end}; ${begin(i).trim()}; (exit "$__st")`, line]);
   return [...hidden, ...body, `${end}; printf '${RS}Z${RS}' >&2`, ''].join('\n');
 }

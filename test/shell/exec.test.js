@@ -54,7 +54,7 @@ test('an unknown command fails with 127 and leaves teaching notes to the game', 
 });
 
 test('aliases expand in the first word unless it is quoted', async () => {
-  const b = await shell();
+  const b = await shell([put('/home/hero/.bashrc', file("alias ll='ls -alF'\n"))]);
   const r = await run(b, 'll');
   assert.equal(r.result.commands[0].name, 'ls');
   assert.deepEqual(r.result.commands[0].args, ['-alF']);

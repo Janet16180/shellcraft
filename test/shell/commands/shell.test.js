@@ -20,7 +20,7 @@ test('which finds programs in PATH; builtins without a program are not found', a
 });
 
 test('type tells aliases, builtins and programs apart', async () => {
-  const r = await run(await shell(), 'type ll cd ls nope');
+  const r = await run(await shell([put('/home/hero/.bashrc', file("alias ll='ls -alF'\n"))]), 'type ll cd ls nope');
   assert.equal(r.out, "ll is aliased to `ls -alF'\ncd is a shell builtin\nls is /usr/bin/ls\n");
   assert.equal(r.err, 'bash: type: nope: not found\n');
 });
