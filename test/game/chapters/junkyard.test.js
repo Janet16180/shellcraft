@@ -29,7 +29,7 @@ test('the chapter follows the authoring contract', () => {
 test('new commands get a clue in their first goal, and later goals name only the target', () => {
   assert.match(APPLE, /`rm` removes a file/);
   assert.match(CRATE, /`rmdir` removes an empty directory/);
-  assert.match(SWEEP, /`rm` with `-r`, recursive/);
+  assert.match(SWEEP, /`rm -r`: `-r` means recursive/);
   for (const goal of chapter.tasks.map(task => task.goal)) assert.match(goal, /`~\/junk[^`]*`/, goal);
   for (const goal of [LOOK, BONES, CART]) assert.doesNotMatch(goal, /`(ls|rm|rmdir)\b/, goal);
 });

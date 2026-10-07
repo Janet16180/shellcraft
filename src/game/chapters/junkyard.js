@@ -118,7 +118,7 @@ export default {
 <p><code>rm -i</code> (interactive) asks before each removal, like "rm: remove regular file 'rotten_apple.txt'?", and waits for <code>y</code> (yes) or <code>n</code> (no). In this game, it answers yes for you.</p>`,
   tasks: [
     {
-      goal: 'Look at the junkyard before you clean it `~/junk`',
+      goal: 'List the junkyard `~/junk` before you clean it',
       tip: 'Before you remove anything, list it with `ls`, so you know exactly what is there.',
       hints: [
         'You already know the command that lists a directory.',
@@ -129,10 +129,10 @@ export default {
       near: ctx => bootsNote(ctx),
     },
     {
-      goal: 'Throw away the rotten apple `~/junk/rotten_apple.txt` (`rm` removes a file, for good)',
+      goal: 'Remove the file `~/junk/rotten_apple.txt` (`rm` removes a file, for good)',
       tip: '`rm` and a file\'s path removes the file: there is no undo and no recycle bin.',
       hints: [
-        'Throwing away a file means removing it.',
+        '`rm` removes a file.',
         'Type `rm`, a space, and the apple\'s path.',
         'rm ~/junk/rotten_apple.txt',
       ],
@@ -140,7 +140,7 @@ export default {
       near: ctx => firstNote(ctx, [lostFile(appleOf, 'rotten apple')]),
     },
     {
-      goal: 'Throw away the fish bones `~/junk/fish_bones.txt`',
+      goal: 'Remove the file `~/junk/fish_bones.txt`',
       tip: 'The command that threw away the apple removes any file, so check the path before you press Enter.',
       hints: [
         'This is just like the rotten apple.',
@@ -151,7 +151,7 @@ export default {
       near: ctx => firstNote(ctx, [lostFile(bonesOf, 'fish bones')]),
     },
     {
-      goal: 'Remove the empty crate `~/junk/empty_crate` (`rmdir` removes an empty directory)',
+      goal: 'Remove the empty directory `~/junk/empty_crate` (`rmdir` removes an empty directory)',
       tip: '`rm` alone refuses a directory, but `rmdir` removes one that is empty.',
       hints: [
         'The crate is a directory with nothing inside.',
@@ -165,7 +165,7 @@ export default {
       ]),
     },
     {
-      goal: 'Try `rmdir` on the cobwebs `~/junk/cobwebs`, and read why it refuses',
+      goal: 'Try `rmdir` on the directory `~/junk/cobwebs`, and read why it refuses',
       tip: '`rmdir` removes only empty directories, so on a full one it fails with "Directory not empty".',
       hints: [
         'The cobwebs directory still holds files. See what `rmdir` says about that.',
@@ -178,7 +178,7 @@ export default {
       ]),
     },
     {
-      goal: 'Sweep away the cobwebs `~/junk/cobwebs` and everything in them (`rm` with `-r`, recursive)',
+      goal: 'Remove the directory `~/junk/cobwebs` and everything in it (`rm -r`: `-r` means recursive)',
       tip: '`rm -r` removes a directory with everything inside it, all the way down, so look before you use it.',
       hints: [
         'The cobwebs are a directory full of files, and `rmdir` refuses it.',
@@ -193,7 +193,7 @@ export default {
       ]),
     },
     {
-      goal: 'Break up the broken cart `~/junk/broken_cart` and everything in it',
+      goal: 'Remove the directory `~/junk/broken_cart` and everything in it',
       tip: 'A directory with things inside needs the recursive option, just like the cobwebs.',
       hints: [
         'The cart is a directory with parts inside, like the cobwebs.',

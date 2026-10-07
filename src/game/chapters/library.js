@@ -186,7 +186,7 @@ export default {
       near: ctx => countNear(ctx, scrollOf(ctx)),
     },
     {
-      goal: 'Count the books in the catalogue `~/library/catalogue.txt`, one per line',
+      goal: 'Count the lines of the catalogue `~/library/catalogue.txt` (one book per line)',
       tip: 'With one book per line, the number of lines is the number of books.',
       hints: [
         'Each line of the catalogue is one book, so count its lines.',

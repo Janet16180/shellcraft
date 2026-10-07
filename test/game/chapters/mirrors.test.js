@@ -119,7 +119,7 @@ const NEAR_NOTES = [
   [MAGIC, [], 'cat "~/mirrors/magic mirror.txt"', /Inside quotes, ~ is just a character.*~\/mirrors\/"magic mirror\.txt"/],
   [MAGIC, ['rm ~/mirrors/m*'], 'cat ~/mirrors/"magic mirror.txt"', /gone.*Restart the chapter/],
   [MAGIC, [], 'cat ~/mirrors/"magic mirror.txt"', null],
-  [SWEEP, [], 'rm ~/mirrors/*', /mirrors too.*no undo.*Restart the chapter/],
+  [SWEEP, [], 'rm ~/mirrors/*', /mirror files too.*no undo.*Restart the chapter/],
   [SWEEP, [], 'rm ~/mirrors/shard_a.shard', /one pattern.*Restart the chapter/],
   [SWEEP, [], 'rm "~/mirrors/*.shard"', /pattern itself/],
   [SWEEP, [], 'ls ~/mirrors/*.shard', null],

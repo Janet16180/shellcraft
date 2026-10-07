@@ -139,6 +139,11 @@ that `near` note first, else a generic note from `src/game/coach.js`.
      in full the first time: "(`echo wood > ~/camp/supplies.txt`)". Later goals of the chapter
      that use it again name only the target (the user, 2026-10-07).
    - The full command line waits for hint 3.
+10. **Plain words for actions** (the user, 2026-10-07). Goals, hints and notes say what the
+    command does: "Remove the file", "List", "Read", not "Sweep up", "Throw away" or "Break up".
+    The story lives in the lesson and the boss briefing, never in place of the action. Name game
+    things by what they are in the terminal, in backticks: "the `.shard` files", "the directory
+    `~/junk/cobwebs`", not "the shards" or "the cobwebs".
 
 ## 4. Chapter tests (`test/game/chapters/<id>.test.js`)
 

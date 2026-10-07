@@ -86,9 +86,9 @@ function sweepDone(ctx) {
 
 function sweepNear(ctx) {
   let note = null;
-  if (missing(ctx, inHall(ctx, KEEP)).length > 0) note = `That swept up mirrors too, ${RESTART}`;
+  if (missing(ctx, inHall(ctx, KEEP)).length > 0) note = `That removed mirror files too, ${RESTART}`;
   else if (unexpandedNote(ctx)) note = unexpandedNote(ctx);
-  else if (missing(ctx, inHall(ctx, SHARD_NAMES)).length > 0) note = 'One rm should sweep up all three shards with one pattern. Restart the chapter to bring back the shards already removed.';
+  else if (missing(ctx, inHall(ctx, SHARD_NAMES)).length > 0) note = 'Remove all three .shard files with one rm and one pattern. Restart the chapter to bring back the .shard files already removed.';
   return note;
 }
 
@@ -154,10 +154,10 @@ export default {
 </ul>
 <p>The key idea: <b>bash</b> expands the pattern, not the command. Before it runs <code>ls ~/mirrors/mirror?.txt</code>, bash replaces the pattern with every matching name, in order. So <code>ls</code> receives five file names and never sees the <code>?</code>. Given file names, <code>ls</code> lists just those names. If nothing matches, bash leaves the pattern as it is, and <code>ls</code> says it cannot find a file with that odd name.</p>
 <p>Quotes stop the expansion: inside quotes, <code>*</code> is just a star. Quotes also keep a name with a space in one piece. Bash splits a line into words at spaces, so <code>cat magic mirror.txt</code> asks for two files, <code>magic</code> and <code>mirror.txt</code>. Write <code>cat "magic mirror.txt"</code> instead. Careful: inside quotes, <code>~</code> is just a character too, so keep it outside them: <code>cat ~/mirrors/"magic mirror.txt"</code>.</p>
-<p><code>rm</code> with a pattern removes every match at once, for good. So look before you sweep: run the pattern with <code>ls</code> first, and when it lists exactly what should go, give the same pattern to <code>rm</code>.</p>`,
+<p><code>rm</code> with a pattern removes every match at once, for good. So look before you remove: run the pattern with <code>ls</code> first, and when it lists exactly what should go, give the same pattern to <code>rm</code>.</p>`,
   tasks: [
     {
-      goal: 'List only the mirrors (`*` matches any characters: `ls ~/mirrors/mirror*`)',
+      goal: 'List only the mirror files, the names that start with `mirror` (`*` matches any characters: `ls ~/mirrors/mirror*`)',
       tip: 'Bash swaps `mirror*` for every name that starts with mirror, then runs `ls` on those names.',
       hints: [
         'Every mirror\'s name starts with `mirror`.',
@@ -168,10 +168,10 @@ export default {
       near: ctx => listNote(ctx, ALL_MIRRORS, 'Every mirror starts with mirror: ~/mirrors/mirror*.'),
     },
     {
-      goal: 'List only the shards in `~/mirrors`, the files that end in `.shard`',
+      goal: 'List only the `.shard` files in `~/mirrors`, the names that end in `.shard`',
       tip: 'A `*` can come first too, so the pattern matches every name with the same ending.',
       hints: [
-        'The shards share an ending, not a beginning.',
+        'The `.shard` files share an ending, not a beginning.',
         'Put `*` before `.shard`, after the path `~/mirrors/`.',
         'ls ~/mirrors/*.shard',
       ],
@@ -179,7 +179,7 @@ export default {
       near: ctx => listNote(ctx, SHARD_NAMES, 'Put * before the ending: ~/mirrors/*.shard.'),
     },
     {
-      goal: 'List only the mirrors with a one-digit number (`?` matches exactly one character)',
+      goal: 'List only the mirror files with a one-digit number, like `mirror4.txt` (`?` matches exactly one character)',
       tip: '`?` stands for exactly one character, so a two-digit number does not fit in it.',
       hints: [
         '`mirror*` also matches `mirror12.txt` and `mirror30.txt`.',
@@ -190,7 +190,7 @@ export default {
       near: ctx => listNote(ctx, ONE_DIGIT, '? matches exactly one character: ~/mirrors/mirror?.txt.'),
     },
     {
-      goal: 'List only mirrors 1, 2 and 3 (`[1-3]` matches one character from 1 to 3)',
+      goal: 'List only `mirror1.txt`, `mirror2.txt` and `mirror3.txt` (`[1-3]` matches one character from 1 to 3)',
       tip: 'Brackets match one character from the set inside them, and `1-3` means 1, 2 or 3.',
       hints: [
         'Like `?`, the brackets stand for one character, but only one you allow.',
@@ -201,7 +201,7 @@ export default {
       near: ctx => listNote(ctx, ONE_TO_THREE, '[1-3] matches one character from 1 to 3: ~/mirrors/mirror[1-3].txt.'),
     },
     {
-      goal: 'Read the magic mirror `~/mirrors/magic mirror.txt` (the name has a space: put it in quotes)',
+      goal: 'Read the file `~/mirrors/magic mirror.txt` (its name has a space: put the name in quotes)',
       tip: 'Quotes keep a name with a space as one word; keep `~` outside them, because inside quotes it is just a character.',
       hints: [
         'Without quotes, bash splits the name at the space, and `cat` looks for two files.',
@@ -212,10 +212,10 @@ export default {
       near: readNear,
     },
     {
-      goal: 'Sweep up every shard with one `rm`, using the pattern you listed them with',
+      goal: 'Remove all the `.shard` files with one `rm` command (use the same pattern you listed them with)',
       tip: 'Preview with `ls`, then give `rm` the very same pattern, and every match goes at once.',
       hints: [
-        'You listed the shards with a pattern in the second task.',
+        'You listed the `.shard` files with a pattern in the second task.',
         'Give that same pattern to `rm` instead of `ls`.',
         'rm ~/mirrors/*.shard',
       ],

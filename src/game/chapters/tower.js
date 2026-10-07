@@ -234,7 +234,7 @@ export default {
       near: searchNote,
     },
     {
-      goal: 'Find every gem in the tower by its name (`find ~/tower -name "*.gem"`)',
+      goal: 'Find every `.gem` file in the tower by its name (`find ~/tower -name "*.gem"`)',
       tip: '`find` prints every path below a directory whose name matches; the quotes stop bash expanding the `*` first.',
       hints: [
         '`grep` looks inside files. To search by name, there is `find`.',
@@ -245,7 +245,7 @@ export default {
       near: ctx => findNote(ctx, '.gem'),
     },
     {
-      goal: 'Find every text file in the tower, on all floors',
+      goal: 'Find every `.txt` file in the tower, on all floors',
       tip: 'In the tower, text files have names that end in `.txt`: same `find`, another pattern.',
       hints: [
         'The text files in the tower have names that end in `.txt`.',
