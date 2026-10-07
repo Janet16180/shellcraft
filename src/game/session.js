@@ -219,7 +219,7 @@ function lists(ctx, path) {
 function uncover(s, ctx) {
   const found = s.concealed.filter(path => lists(ctx, path));
   s.concealed = s.concealed.filter(path => !found.includes(path));
-  return found.map(path => ({ kind: 'created', path, type: ctx.node(path)?.type ?? 'file' }));
+  return found.map(path => ({ kind: 'created', path, type: ctx.node(path)?.type ?? 'file', found: true }));
 }
 
 function nearNote(s, ctx) {

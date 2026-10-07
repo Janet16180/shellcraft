@@ -13,6 +13,7 @@ import { esc, inlineCode } from './output.js';
 import { confetti } from './confetti.js';
 import { bootText, restoredText } from './messages.js';
 import { createSound } from './sound.js';
+import { turnSounds } from './turnsounds.js';
 import { renderRoster, picksHTML } from './roster.js';
 import { createQueue } from './queue.js';
 import { conceal, concealEffects } from './conceal.js';
@@ -188,8 +189,7 @@ function revealHint(ui) {
 function applyTurn(ui, turn) {
   ui.rankUp = null;
   ui.terminal.print(turn.result.output);
-  if (turn.result.output.some(chunk => chunk.stream === 'err')) ui.sound.play('err');
-  if (turn.effects.some(e => e.kind === 'travel')) ui.sound.play('step');
+  turnSounds(turn).forEach(name => ui.sound.play(name));
   afterMap(ui, async () => {
     const hidden = turn.view.concealed;
     await ui.map.play(concealEffects(turn.effects, hidden), conceal(turn.obs, hidden));
