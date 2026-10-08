@@ -34,15 +34,25 @@ function parseGrep(args) {
   return { error, unsimulated: o.unsimulated, flags: o.flags, max: o.vals?.m === undefined ? Infinity : Number(o.vals.m), operands, patterns: patterns.flatMap(p => p.split('\n')) };
 }
 
-function walk(sys, node, label, acc) {
+// -r passes by the links it meets inside a directory; -R follows them, but
+// not back into a directory it is already inside.
+function walk(sys, node, label, acc, inside = new Set([node])) {
   for (const name of Object.keys(node.children).sort(compareNames)) {
-    const child = node.children[name];
     const shown = label === null ? name : joinDisp(label, name);
-    const readable = can(sys, child, 'r') && (child.type !== 'dir' || can(sys, child, 'x'));
-    if (!readable) acc.errs.push(`grep: ${shellQuote(shown)}: Permission denied`);
-    else if (child.type === 'dir') walk(sys, child, shown, acc);
-    else acc.sources.push({ label: shown, content: child.content });
+    const linked = node.children[name].type === 'symlink';
+    if (linked && !acc.deref) continue;
+    const child = linked ? resolve(sys, shown).node : node.children[name];
+    if (!child) acc.errs.push(`grep: ${shellQuote(shown)}: No such file or directory`);
+    else if (inside.has(child)) acc.errs.push(`grep: warning: ${shellQuote(shown)}: recursive directory loop`);
+    else visitEntry(sys, child, shown, acc, inside);
   }
+}
+
+function visitEntry(sys, child, shown, acc, inside) {
+  const readable = can(sys, child, 'r') && (child.type !== 'dir' || can(sys, child, 'x'));
+  if (!readable) acc.errs.push(`grep: ${shellQuote(shown)}: Permission denied`);
+  else if (child.type === 'dir') walk(sys, child, shown, acc, new Set([...inside, child]));
+  else acc.sources.push({ label: shown, content: child.content });
 }
 
 function addOperand(sys, f, recursive, acc) {
@@ -55,8 +65,8 @@ function addOperand(sys, f, recursive, acc) {
   else acc.sources.push({ label: f, content: r.node.content });
 }
 
-function gatherSources(sys, operands, recursive, stdin) {
-  const acc = { sources: [], errs: [] };
+function gatherSources(sys, operands, recursive, stdin, deref) {
+  const acc = { sources: [], errs: [], deref };
   if (!operands.length && recursive) walk(sys, resolve(sys, '.').node, null, acc);
   if (!operands.length && !recursive) acc.sources.push({ label: STDIN, content: stdin ?? '' });
   for (const f of operands) {
@@ -144,7 +154,7 @@ function grep(args, { sys, stdin }) {
   if (!o.operands.length && !recursive && stdin == null) return needInput('grep');
   const compiled = compileFor(o);
   if (compiled.error) return result('', `grep: ${compiled.error}`, 2);
-  const { sources, errs } = gatherSources(sys, o.operands, recursive, stdin);
+  const { sources, errs } = gatherSources(sys, o.operands, recursive, stdin, f.has('R'));
   const opts = outputOptions(f, o, sources, recursive);
   const re = { test: compiled.regex, global: new RegExp(compiled.source, `${compiled.flags}g`) };
   const acc = { text: '', html: '' };

@@ -156,5 +156,5 @@ export function expandPattern(pattern, sys) {
     candidates = stepSegment(sys, candidates, seg);
     if (i < segments.length - 1) candidates = candidates.map(c => ({ ...c, shown: `${c.shown}/` }));
   });
-  return candidates.filter(c => lookup(sys.root, c.path)).map(c => c.shown);
+  return candidates.filter(c => lookup(sys.root, c.path, { follow: false })).map(c => c.shown);
 }

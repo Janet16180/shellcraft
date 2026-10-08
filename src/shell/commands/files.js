@@ -87,7 +87,7 @@ function touch(args, { sys }) {
 }
 
 function makeDir(sys, path, verbose) {
-  const r = resolve(sys, path);
+  const r = resolve(sys, path, { follow: false });
   let error = null;
   let out = '';
   if (r.node) error = 'File exists';
@@ -132,11 +132,12 @@ function rmdir(args, { sys }) {
   const errs = [];
   let out = '';
   for (const f of o.rest) {
-    const r = resolve(sys, f);
+    const r = resolve(sys, f, { follow: false });
     const fail = text => errs.push(`rmdir: failed to remove ${quoted(f)}: ${text}`);
     if (o.flags.has('v')) out += `rmdir: removing directory, ${quoted(f)}\n`;
     if (/(^|\/)\.\/*$/.test(f)) fail('Invalid argument');
     else if (r.error) fail(errorText(r.error));
+    else if (throughLink(sys, f)) fail('Symbolic link not followed');
     else if (r.node.type !== 'dir') fail('Not a directory');
     else if (Object.keys(r.node.children).length) fail('Directory not empty');
     else if (!canUnlink(sys, r.parent, r.node)) fail('Permission denied');
@@ -148,20 +149,28 @@ function rmdir(args, { sys }) {
 
 const isHomeOrAbove = (sys, abs) => abs === sys.home || sys.home.startsWith(`${abs}/`);
 
+// A path that ends in a slash after a link names the directory the link leads
+// to, but the kernel will not remove that directory by the link's name.
+const throughLink = (sys, f) => /[^/]\/+$/.test(f) && resolve(sys, f.replace(/\/+$/, ''), { follow: false }).node?.type === 'symlink';
+
 // A real rm without -f asks before removing a file it may not write.
 function rememberProtected(sys, node, shown, acc) {
   if (!acc.force && !node.dev && !can(sys, node, 'w')) acc.protectedOne ??= { shown, node };
+}
+
+function removeChildren(sys, shown, node, acc) {
+  let ok = true;
+  for (const child of Object.keys(node.children).sort(compareNames)) {
+    ok = removeTree(sys, joinDisp(shown, child), node.children[child], node, child, acc) && ok;
+  }
+  return ok;
 }
 
 function removeTree(sys, shown, node, parent, name, acc) {
   const openable = node.type !== 'dir' || (can(sys, node, 'r') && can(sys, node, 'x'));
   let ok = openable;
   if (!openable) acc.errs.push(`rm: cannot remove ${quoted(shown)}: Permission denied`);
-  if (openable && node.type === 'dir') {
-    for (const child of Object.keys(node.children).sort(compareNames)) {
-      ok = removeTree(sys, joinDisp(shown, child), node.children[child], node, child, acc) && ok;
-    }
-  }
+  if (openable && node.type === 'dir') ok = removeChildren(sys, shown, node, acc);
   if (ok && !canUnlink(sys, parent, node)) {
     acc.errs.push(`rm: cannot remove ${quoted(shown)}: Permission denied`);
     ok = false;
@@ -194,15 +203,22 @@ function rmRefusal(f, r, flags) {
   return error;
 }
 
+// `rm -r link/` empties the directory the link leads to, then fails to remove it by the link's name.
+function removeThroughLink(sys, f, node, flags, acc) {
+  const ok = flags.has('r') || flags.has('R') ? removeChildren(sys, f, node, acc) : true;
+  if (ok && !acc.force) acc.errs.push(`rm: cannot remove ${quoted(f)}: Not a directory`);
+}
+
 function rmOne(sys, f, flags, acc) {
-  const r = resolve(sys, f);
+  const r = resolve(sys, f, { follow: false });
   const error = rmRefusal(f, r, flags);
   if (error) acc.errs.push(error);
   else if (error === '') return;
   else if (isHomeOrAbove(sys, r.abs)) {
     acc.block(`rm -r ${r.abs} would delete the home directory ${sys.home}`);
     acc.blocked = true;
-  } else removeTree(sys, f, r.node, r.parent, baseName(r.abs), acc);
+  } else if (throughLink(sys, f)) removeThroughLink(sys, f, r.node, flags, acc);
+  else removeTree(sys, f, r.node, r.parent, baseName(r.abs), acc);
 }
 
 const RM_LONG = { '--recursive': 'r', '--force': 'f', '--dir': 'd', '--verbose': 'v' };
@@ -268,7 +284,9 @@ function chmod(args, { sys }) {
   const apply = octal === null ? parseSymbolic(mode, sys.umask) : () => octal;
   if (!apply) return result('', `chmod: invalid mode: ${localeQuote(mode)}\n${tryHelp('chmod')}`, 1);
   const errs = [];
+  // -R passes by the links it meets; a link named on the line is followed.
   const visit = node => {
+    if (node.type === 'symlink') return;
     node.mode = apply(node.mode, node.type === 'dir');
     if (recursive && node.type === 'dir') Object.values(node.children).forEach(visit);
   };

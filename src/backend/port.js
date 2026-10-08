@@ -48,7 +48,8 @@
  * @property {number} stages How many commands that pipeline has.
  * @property {{op: string, target: string}[]} redirects Redirections in the order typed. `op` is
  *   the operator with the fd number as typed in front (`<`, `>`, `>>`, `2>`, `2>>`, `&>`); its
- *   target is the absolute path of the file. An fd duplication has op `2>&` (or `>&`, `1>&`...)
+ *   target is the absolute path of the file as typed (`.` and `..` removed as text,
+ *   symbolic links not resolved). An fd duplication has op `2>&` (or `>&`, `1>&`...)
  *   and the fd number as target: `ls x > f 2>&1` gives `[{op: '>', target: '/home/hero/f'},
  *   {op: '2>&', target: '1'}]`.
  */

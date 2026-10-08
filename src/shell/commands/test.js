@@ -13,9 +13,12 @@ import { sizeOf } from '../fs.js';
 const INT64 = 2n ** 63n;
 const INTEGER = /^\s*[-+]?\d+\s*$/;
 
-// Kinds of file the simulator does not have (links, devices, pipes, sockets)
+// Kinds of file the simulator does not have (devices, pipes, sockets)
 // and bits it does not keep (setuid, setgid, sticky) are always false.
-const NEVER = new Set(['-L', '-h', '-b', '-c', '-p', '-S', '-u', '-g', '-k', '-N', '-t', '-o']);
+const NEVER = new Set(['-b', '-c', '-p', '-S', '-u', '-g', '-k', '-N', '-t', '-o']);
+
+// -L and -h look at a link itself; every other test follows it.
+const LINK_TESTS = new Set(['-L', '-h']);
 
 const FILE_TESTS = {
   '-e': () => true,
@@ -54,7 +57,7 @@ const NUMERIC = {
 
 const FILE_COMPARE = ['-nt', '-ot', '-ef'];
 
-const isUnary = op => op in FILE_TESTS || op in STRING_TESTS || op in VARIABLE_TESTS || NEVER.has(op);
+const isUnary = op => op in FILE_TESTS || op in STRING_TESTS || op in VARIABLE_TESTS || NEVER.has(op) || LINK_TESTS.has(op);
 const isBinary = op => op in COMPARE || op in NUMERIC || FILE_COMPARE.includes(op);
 
 const truth = ok => ({ ok, error: null });
@@ -70,6 +73,7 @@ function unary(op, arg, sys) {
   if (op in STRING_TESTS) return truth(STRING_TESTS[op](arg));
   if (op in VARIABLE_TESTS) return truth(VARIABLE_TESTS[op](arg, sys));
   if (NEVER.has(op)) return truth(false);
+  if (LINK_TESTS.has(op)) return truth(arg !== '' && resolve(sys, arg, { follow: false }).node?.type === 'symlink');
   const node = fileNode(sys, arg);
   return truth(Boolean(node) && FILE_TESTS[op](node, sys));
 }

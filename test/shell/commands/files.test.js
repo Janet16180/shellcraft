@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run, runAll } from '../helpers.js';
-import { put, file, dir } from '../../../src/backend/spec.js';
+import { put, file, dir, symlink } from '../../../src/backend/spec.js';
 
 const home = async b => (await b.observe()).tree.children.home.children.hero.children;
 
@@ -156,4 +156,69 @@ test('cat options beyond -n, and touch -c, rm -I and mkdir -m, get a note', asyn
   assert.equal((await run(b, 'ls nofile')).status, 2);
   assert.equal((await run(b, 'rm -I forest')).note, 'rm -I is a real option, but this game does not simulate it.');
   assert.equal((await run(b, 'mkdir -m 700 d')).note, 'mkdir -m is a real option, but this game does not simulate it.');
+});
+
+const linkWorld = () => shell([
+  put('/home/hero/forest/cave/deep', dir({ 'key.txt': file('key\n', { owner: 'hero' }) }, { owner: 'hero' })),
+  put('/home/hero/portal', symlink('/home/hero/forest/cave/deep', { owner: 'hero' })),
+  put('/home/hero/letter', symlink('readme.txt', { owner: 'hero' })),
+  put('/home/hero/broken', symlink('nowhere', { owner: 'hero' })),
+  put('/home/hero/deeper', symlink('gone/x', { owner: 'hero' })),
+  put('/home/hero/loop', symlink('loop', { owner: 'hero' })),
+]);
+
+test('cat reads through a link; a dangling link is missing and a loop too deep', async () => {
+  const b = await linkWorld();
+  assert.equal((await run(b, 'cat letter')).out, 'Dear apprentice,\nwelcome.\n');
+  assert.equal((await run(b, 'cat portal/key.txt')).out, 'key\n');
+  assert.deepEqual(await run(b, 'cat broken').then(r => [r.err, r.status]), ['cat: broken: No such file or directory\n', 1]);
+  assert.equal((await run(b, 'cat loop')).err, 'cat: loop: Too many levels of symbolic links\n');
+});
+
+test('rm removes the link, never what it points at', async () => {
+  const b = await linkWorld();
+  assert.equal((await run(b, 'rm portal letter broken')).status, 0);
+  const h = await home(b);
+  assert.deepEqual([h.portal, h.letter, h.broken], [undefined, undefined, undefined]);
+  assert.ok(h['readme.txt'] && h.forest.children.cave.children.deep.children['key.txt']);
+});
+
+test('rm -r of a link removes only the link; with a slash the path is the directory', async () => {
+  const b = await linkWorld();
+  assert.equal((await run(b, 'rm portal/')).err, "rm: cannot remove 'portal/': Is a directory\n");
+  await run(b, 'rm -r portal');
+  const h = await home(b);
+  assert.equal(h.portal, undefined);
+  assert.ok(h.forest.children.cave.children.deep.children['key.txt']);
+});
+
+test('rmdir will not remove a link, with or without a slash', async () => {
+  const b = await linkWorld();
+  assert.equal((await run(b, 'rmdir portal')).err, "rmdir: failed to remove 'portal': Not a directory\n");
+  assert.equal((await run(b, 'rmdir portal/')).err, "rmdir: failed to remove 'portal/': Symbolic link not followed\n");
+  assert.ok((await home(b)).forest.children.cave.children.deep);
+});
+
+test('mkdir on a dangling link says it exists; touch creates the file it points at', async () => {
+  const b = await linkWorld();
+  assert.equal((await run(b, 'mkdir broken')).err, 'mkdir: cannot create directory ‘broken’: File exists\n');
+  await run(b, 'touch broken');
+  assert.equal((await home(b)).nowhere.type, 'file');
+  assert.equal((await home(b)).broken.type, 'symlink');
+});
+
+test('chmod changes what a link points at; chmod -R passes links by', async () => {
+  const b = await linkWorld();
+  await run(b, 'chmod 600 letter');
+  assert.equal((await home(b))['readme.txt'].mode, 0o600);
+  await run(b, 'chmod -R 700 forest');
+  await run(b, 'mkdir box && ln -s ../.secret_map box/m && chmod -R 711 box');
+  assert.equal((await home(b))['.secret_map'].mode, 0o644);
+});
+
+test('rm -r of a link with a slash empties the directory it leads to, then fails on the link\'s name', async () => {
+  const b = await linkWorld();
+  assert.deepEqual(await run(b, 'rm -r portal/').then(r => [r.err, r.status]), ["rm: cannot remove 'portal/': Not a directory\n", 1]);
+  const h = await home(b);
+  assert.deepEqual([h.portal.type, Object.keys(h.forest.children.cave.children.deep.children)], ['symlink', []]);
 });
