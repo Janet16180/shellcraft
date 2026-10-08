@@ -43,7 +43,7 @@ function firstOf(args, ...wanted) {
 
 const UNSIMULATED = new Set(['w', 'nl', 'cut', 'tr', 'du', 'df', 'stat', 'diff', 'tar', 'rev', 'seq', 'yes', 'od', 'xargs',
   'basename', 'dirname', 'realpath', 'tac', 'shuf', 'cmp', 'comm', 'paste', 'join', 'split', 'fold',
-  'expand', 'md5sum', 'sha256sum', 'base64', 'sleep', 'watch', 'free', 'uptime', 'lsblk', 'mount', 'apt', 'perl', 'gzip', 'whereis', 'stty', 'tput']);
+  'expand', 'md5sum', 'sha256sum', 'base64', 'watch', 'free', 'uptime', 'lsblk', 'mount', 'apt', 'perl', 'gzip', 'whereis', 'stty', 'tput']);
 const isAssignment = word => 'lit' in word.parts[0] && !word.parts[0].q && ASSIGNMENT.test(word.parts[0].lit);
 const withNewline = text => (text && !text.endsWith('\n') ? `${text}\n` : text);
 
@@ -203,6 +203,8 @@ function dispatch(sh, argv, streams, overlay) {
     leave: status => { sh.exit = status; },
     tty: text => sh.run.sink.write('out', text),
     ask: prompt => sh.run.ask(prompt),
+    hold: (until, pid) => sh.run.hold(until, pid),
+    cancel: () => { sh.run.cancelled = true; },
     runAs: (who, work) => runAs(sys, who, work),
     program: (path, programArgs) => runProgram(sh, path, programArgs, { ...ctx, env: {} }),
   };
@@ -269,6 +271,7 @@ function record(sh, argv, r, { cwd, user, place, redirects }) {
   const base = { cwd, ...place.record, redirects };
   const own = { name: argv[0], args: argv.slice(1), user, status: r.status, stdout: r.out, ...base };
   if (r.inner) own.asUser = r.inner.asUser;
+  if (r.key) own.signal = r.key;
   sh.run.records.push(own);
   if (r.inner?.ran) sh.run.records.push({ name: r.inner.name, args: r.inner.args, user: r.inner.asUser, via: argv[0], status: r.inner.status, stdout: r.out, ...base });
 }
@@ -337,7 +340,7 @@ function runPipeline(sh, item, sink, input) {
   return { status: item.negate ? Number(status === 0) : status, abort };
 }
 
-const interrupted = sh => sh.jump !== null || sh.exit !== null || sh.run.waiting !== null;
+const interrupted = sh => sh.jump !== null || sh.exit !== null || sh.run.waiting !== null || sh.run.cancelled;
 
 // Each pipeline in turn, as && and || allow, until one aborts the line or a
 // break, continue or exit is pending. stdin feeds the first command of each.
@@ -377,7 +380,7 @@ function runText(sh, text, sink, textFrame) {
   const tokens = lexed.error ? [...lexed.tokens, { type: 'error', message: lexed.error, line: lexed.errorLine }] : lexed.tokens;
   let status = sh.sys.lastStatus;
   let next = { end: 0, list: [], error: null };
-  while (next.list && sh.exit === null && sh.run.waiting === null) {
+  while (next.list && sh.exit === null && sh.run.waiting === null && !sh.run.cancelled) {
     next = parseNext(tokens, next.end);
     if (next.error) syntaxError(sh, next.error, text, sink);
     if (next.error) status = 2;

@@ -15,13 +15,23 @@ import { saveState, restoreState, createTape } from './snapshot.js';
 
 const CLEAR_MARK = '\u001b[2J';
 
-function collector(sys, answers = []) {
-  const run = { chunks: [], records: [], blocked: [], depth: 0, pipelines: 0, waiting: null, asked: 0 };
+function collector(sys, events = []) {
+  const run = { chunks: [], records: [], blocked: [], depth: 0, pipelines: 0, waiting: null, taken: 0, cancelled: false };
+  const next = () => (run.taken < events.length ? events[run.taken++] : null);
   // A command that reads a line from the terminal gets the next answer, or
   // stops the line until the page sends one.
   run.ask = prompt => {
-    if (run.asked < answers.length) return { text: answers[run.asked++] };
+    const event = next();
+    if (event) return { text: event.text };
     run.waiting = { prompt, at: run.chunks.length, status: sys.lastStatus };
+    return { waiting: true };
+  };
+  // A foreground command that takes time gets what happened next (its end
+  // came, or the player pressed a key), or stops the line until then.
+  run.hold = (until, pid = null) => {
+    const event = next();
+    if (event) return event;
+    run.waiting = { until, pid, at: run.chunks.length, status: sys.lastStatus };
     return { waiting: true };
   };
   run.sink = {
@@ -45,8 +55,8 @@ function remembered(sys, line) {
 
 // History expansion comes first: a missing event stops the line before it
 // is remembered or run, and $? stays as it was. An expanded line is echoed.
-function runLine(sys, typedLine, answers) {
-  const run = collector(sys, answers);
+function runLine(sys, typedLine, events) {
+  const run = collector(sys, events);
   const history = expandHistory(typedLine, sys.history);
   if (history.error) {
     run.sink.write('err', `${history.error}\n`);
@@ -60,17 +70,23 @@ function runLine(sys, typedLine, answers) {
   return { output: run.chunks, status, commands: run.records, blocked: run.blocked, waiting: run.waiting };
 }
 
-// One attempt at the pending line, from its start, with the answers so far.
+const SIGNALS = ['INT', 'TSTP'];
+const secondsLeft = (sys, until) => (until === Infinity ? null : Math.max(0, (until - sys.now()) / 1000));
+
+// One attempt at the pending line, from its start, with the events so far.
 // Only output the page has not shown yet goes out; a line still waiting
-// returns what came before its prompt, and the prompt.
+// returns what came before it waits, and what it waits for.
 function attempt(sys, pending) {
-  if (pending.saved) restoreState(sys, pending.saved);
-  const r = pending.tape.play(() => runLine(sys, pending.line, pending.answers));
+  if (pending.events.length) restoreState(sys, pending.saved);
+  const r = pending.tape.play(() => runLine(sys, pending.line, pending.events));
   const shown = pending.shown;
   let reply;
   if (r.waiting) {
     pending.shown = r.waiting.at;
-    reply = { output: r.output.slice(shown, r.waiting.at), status: r.waiting.status, commands: [], blocked: [], input: { prompt: r.waiting.prompt, hidden: true } };
+    pending.waiting = r.waiting;
+    reply = { output: r.output.slice(shown, r.waiting.at), status: r.waiting.status, commands: [], blocked: [] };
+    if (r.waiting.prompt === undefined) reply.running = { seconds: secondsLeft(sys, r.waiting.until) };
+    else reply.input = { prompt: r.waiting.prompt, hidden: true };
   } else {
     reply = { output: r.output.slice(shown), status: r.status, commands: r.commands, blocked: r.blocked };
   }
@@ -110,11 +126,13 @@ function observe(sys) {
  * operation), variables, aliases and history, and does not read `~/.bashrc` again.
  *
  * A line that reads typed input (sudo's password) returns a result with
- * `input` and waits for answer(). The simulator cannot pause a command
- * halfway, so each answer runs the line again from the state saved before
- * it, with the answers so far and the same clock readings and random
- * numbers, and sends only the output the page has not shown yet. The state
- * is saved only on a machine with a password, the one thing that can ask.
+ * `input` and waits for answer(). A line whose foreground command takes time
+ * (`sleep 5`, `fg`, `wait`) returns a result with `running` and goes on with
+ * poll() once the clock has reached its end, or with signal() when the player
+ * presses Ctrl+C or Ctrl+Z. The simulator cannot pause a command halfway, so
+ * each answer, key or end runs the line again from the state saved before
+ * it, with the events so far and the same clock readings and random
+ * numbers, and sends only the output the page has not shown yet.
  *
  * Output chunks: 'out' and 'err' text ends in a newline like a real stream;
  * `html` (when present) is the same text coloured with the classes c-dir,
@@ -131,33 +149,51 @@ export function createSimBackend({ user = 'hero', host = 'kernelia', home = '/ho
   const sys = createSystem({ user, host, home, now, random, binaries: BINARIES });
   let started = false;
   let pending = null;
-  const load = patch => {
+  const running = () => pending !== null && pending.waiting.prompt === undefined;
+  // A command still running in the foreground when its line is abandoned ends with it.
+  const abandon = () => {
+    if (running()) sys.procs = sys.procs.filter(p => p.pid !== pending.waiting.pid);
     pending = null;
+  };
+  const load = patch => {
+    abandon();
     applyPatch(sys, patch);
     if (!started) startShell(sys);
     started = true;
   };
-  // Only a machine with a password can ask for one, so only then is the state saved for a replay.
-  const run = line => {
-    if (pending) throw new Error('a line is waiting for input; send it with answer() first');
-    const saved = sys.password === null ? null : saveState(sys);
-    const next = { line, answers: [], shown: 0, saved: null, tape: createTape(sys) };
+  const go = next => {
     const { reply, done } = attempt(sys, next);
-    if (!done && !saved) throw new Error('a command asked for input on a machine with no password');
-    pending = done ? null : { ...next, saved };
+    pending = done ? null : next;
     return reply;
   };
+  const run = line => {
+    if (pending) throw new Error(`a line is ${running() ? 'running' : 'waiting for input'}; finish it first`);
+    return go({ line, events: [], shown: 0, saved: saveState(sys), tape: createTape(sys), waiting: null });
+  };
   const answer = text => {
-    if (!pending) throw new Error('no line is waiting for input');
-    pending.answers.push(text);
-    const { reply, done } = attempt(sys, pending);
-    if (done) pending = null;
-    return reply;
+    if (!pending || running()) throw new Error('no line is waiting for input');
+    pending.events.push({ text });
+    return go(pending);
+  };
+  const signal = name => {
+    if (!SIGNALS.includes(name)) throw new Error(`signal takes INT or TSTP, got ${name}`);
+    if (!running()) throw new Error('no command is running in the foreground');
+    pending.events.push({ key: name });
+    return go(pending);
+  };
+  const poll = () => {
+    if (!running()) throw new Error('no command is running in the foreground');
+    const { until, status } = pending.waiting;
+    if (sys.now() < until) return { output: [], status, commands: [], blocked: [], running: { seconds: secondsLeft(sys, until) } };
+    pending.events.push({ done: true });
+    return go(pending);
   };
   return {
     load: async patch => load(patch),
     run: async line => run(line),
     answer: async text => answer(text),
+    signal: async name => signal(name),
+    poll: async () => poll(),
     observe: async () => observe(sys),
     complete: async line => complete(sys, line, Object.keys(COMMANDS)),
     resize: async columns => resizeTerminal(sys, columns),

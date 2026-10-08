@@ -78,6 +78,18 @@
  * result without `input` is the line's end, with every record of the whole
  * line. Joining the output of every part gives what a real terminal shows.
  *
+ * A line may also stop while a foreground command takes time (`sleep 5`,
+ * `fg`, `wait`): the result then carries `running`, and again the line is not
+ * finished; `output` holds what the terminal showed so far, `commands` and
+ * `blocked` are empty. The page shows no prompt meanwhile. It calls
+ * `Backend.poll` when `running.seconds` have passed (null: the command never
+ * ends by itself, like `sleep infinity`), and `Backend.signal('INT')` when the
+ * player presses Ctrl+C or `Backend.signal('TSTP')` for Ctrl+Z. Each returns
+ * the next part, in the same way: more `running`, or the line's end. Ctrl+C
+ * ends the command and the rest of the line (`^C`, status 130); Ctrl+Z stops
+ * it as a job (`^Z`, `[1]+  Stopped ...`, status 148) and the line goes on.
+ * Time is the backend's clock: in the page, the real clock.
+ *
  * @typedef {object} RunResult
  * @property {OutputChunk[]} output What the terminal shows.
  * @property {number} status Exit status of the line (what `$?` becomes).
@@ -87,6 +99,8 @@
  *   that has no such guard.
  * @property {{prompt: string, hidden: boolean}} [input] Present while the line waits
  *   for a typed line: the prompt to show before it, and whether to hide what is typed.
+ * @property {{seconds: number|null}} [running] Present while a foreground command
+ *   runs: the seconds until it ends by itself, by the backend's clock, or null for never.
  */
 
 /**
@@ -147,11 +161,17 @@
  * @typedef {object} Backend
  * @property {(patch: object[]) => Promise<void>} load Apply a world patch from
  *   src/backend/spec.js. Raises on a patch it cannot apply (a missing parent).
- *   A line waiting for input is abandoned, as if its terminal closed.
+ *   A line waiting for input or running is abandoned, and its foreground command ends.
  * @property {(line: string) => Promise<RunResult>} run Run one line typed by the player.
- *   Raises while an earlier line waits for input.
+ *   Raises while an earlier line waits for input or runs.
  * @property {(text: string|null) => Promise<RunResult>} answer Send the line the player
  *   typed at a RunResult's `input` prompt, or `null` for Ctrl+C. Raises when no line waits.
+ * @property {() => Promise<RunResult>} poll Let a `running` line go on if its foreground
+ *   command has ended by now; otherwise `running` again with the seconds left and no output.
+ *   Raises when no line runs.
+ * @property {(name: 'INT'|'TSTP') => Promise<RunResult>} signal The player pressed Ctrl+C
+ *   (SIGINT) or Ctrl+Z (SIGTSTP) while a line runs: the terminal sends it to the foreground
+ *   command. Raises when no line runs, or for any other name.
  * @property {() => Promise<Observation>} observe Snapshot the world.
  * @property {(line: string) => Promise<{line: string, candidates: string[]}>} complete
  *   Tab completion: the completed line, plus the candidates to list when the
