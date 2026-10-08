@@ -37,11 +37,11 @@ function openRead(sys, path) {
   return { input: error ? null : r.node.content, error, abs: r.abs };
 }
 
-function applyDup(fd, target, streams) {
-  const source = target === '1' ? streams.out : streams.err;
+function applyDup(redir, fd, streams) {
+  const source = redir.target === '1' ? streams.out : streams.err;
   if (fd === 1) streams.out = source;
   if (fd === 2) streams.err = source;
-  return { error: null, record: null };
+  return { error: null, record: { op: `${redir.fd ?? ''}${redir.op}`, target: redir.target } };
 }
 
 function applyRead(sys, redir, streams) {
@@ -63,7 +63,7 @@ function applyOne(sys, redir, streams) {
   const { op, target } = redir;
   const fd = redir.fd ?? (op.startsWith('<') ? 0 : 1);
   let applied;
-  if ((op === '>&' || op === '<&') && /^\d$/.test(target)) applied = applyDup(fd, target, streams);
+  if ((op === '>&' || op === '<&') && /^\d$/.test(target)) applied = applyDup(redir, fd, streams);
   else if (op === '<') applied = applyRead(sys, redir, streams);
   else applied = applyWrite(sys, redir, fd, streams);
   return { error: applied.error ? `bash: ${target}: ${applied.error}` : null, record: applied.record };
@@ -76,7 +76,7 @@ function applyOne(sys, redir, streams) {
  * @param {{op: string, fd: number|null, target: string}[]} redirs Redirections with expanded targets.
  * @param {{stdin: string|null, out: object, err: object}} base Where the streams point before redirection.
  * @returns {{streams: {stdin: string|null, out: object, err: object}, error: string|null, records: {op: string, target: string}[]}}
- *   The streams, the first error (the command must not run), and the file redirections (`<`, `>`, `>>`...) for the command record.
+ *   The streams, the first error (the command must not run), and the redirections for the command record, in order.
  */
 export function openRedirects(sys, redirs, base) {
   const streams = { ...base };

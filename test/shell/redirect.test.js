@@ -37,6 +37,14 @@ test('< reads a file into standard input', () => {
   assert.equal(openRedirects(sys(), [r('<', 'a.txt')], base()).streams.stdin, 'old\n');
 });
 
+test('fd duplications are recorded as typed, in order, with the fd number as the target', () => {
+  const rec = redirs => openRedirects(sys(), redirs, base()).records;
+  assert.deepEqual(rec([r('>', 'out'), r('>&', '1', 2)]), [{ op: '>', target: '/h/out' }, { op: '2>&', target: '1' }]);
+  assert.deepEqual(rec([r('>&', '1', 2), r('>', 'out')]), [{ op: '2>&', target: '1' }, { op: '>', target: '/h/out' }]);
+  assert.deepEqual(rec([r('>&', '2')]), [{ op: '>&', target: '2' }]);
+  assert.deepEqual(rec([r('>&', '2', 1)]), [{ op: '1>&', target: '2' }]);
+});
+
 test('< is recorded with its absolute path, like > and >>', () => {
   assert.deepEqual(openRedirects(sys(), [r('<', 'a.txt'), r('>', 'b.txt')], base()).records, [{ op: '<', target: '/h/a.txt' }, { op: '>', target: '/h/b.txt' }]);
   assert.deepEqual(openRedirects(sys(), [r('<', 'missing')], base()).records, []);
