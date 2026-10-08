@@ -20,8 +20,19 @@ and keep using your terminal.
 const firstNote = rules => rules.find(([when]) => when())?.[1] ?? null;
 const jobsBefore = ctx => ctx.before.jobs ?? [];
 const startedInBackground = (ctx, name) => ctx.ran(name, record => record.background === true);
-const jobSpec = arg => /^%\d+$/.test(arg);
-const killedJob = ctx => ctx.commands.filter(r => r.name === 'kill').flatMap(r => r.args.filter(jobSpec).map(a => Number(a.slice(1))));
+const jobSpec = arg => /^%/.test(arg);
+// The job a spec names among the jobs there were before the line: %N, %+ %% (current), %- (previous), %?text, %text.
+function jobOfSpec(jobs, spec) {
+  const word = spec.slice(1);
+  if (/^\d+$/.test(word)) return Number(word);
+  const pickBy = pred => jobs.find(pred)?.id ?? null;
+  if (word === '' || word === '+' || word === '%') return pickBy(j => j.mark === '+');
+  if (word === '-') return pickBy(j => j.mark === '-');
+  if (word.startsWith('?')) return pickBy(j => j.cmd.includes(word.slice(1)));
+  return pickBy(j => j.cmd.startsWith(word));
+}
+const killedJob = ctx => ctx.commands.filter(r => r.name === 'kill')
+  .flatMap(r => r.args.filter(jobSpec).map(arg => jobOfSpec(jobsBefore(ctx), arg))).filter(id => id !== null);
 const resumed = ctx => jobsBefore(ctx).some(was => was.state === 'stopped' && ctx.job(was.id)?.pid === was.pid && ctx.job(was.id).state === 'running');
 
 const DURATIONS = [400, 500, 600, 700, 800, 900];
@@ -63,7 +74,7 @@ function bossNear(ctx, secret) {
   return firstNote([
     [() => wasKept !== null && kept === null, `That ended sleep ${keep}, but the orders cancel only sleep ${cancel}. Start sleep ${keep} & again.`],
     [() => kept === null, `Start the tasks of the orders first: sleep ${keep} & is not running.`],
-    [() => kept.state === 'stopped' && cancelled === null, `sleep ${keep} waits, good. Now end sleep ${cancel} with kill and its job number (start it with sleep ${cancel} & if you have not).`],
+    [() => kept.state === 'stopped' && cancelled === null, `sleep ${keep} waits, good. The orders go in order: pause first, then kill. Start sleep ${cancel} & again and end it with kill and its job number.`],
     [() => kept.state === 'stopped', `sleep ${keep} waits, good. Now end sleep ${cancel}: kill %${cancelled?.id}.`],
     [() => cancelled === null, `Bring sleep ${keep} to the front with fg %${kept?.id} and pause it with Ctrl+Z, then end sleep ${cancel} with kill.`],
     [() => true, `Bring sleep ${keep} to the front with fg %${kept?.id} and pause it with Ctrl+Z, then end sleep ${cancel} with kill.`],
@@ -85,7 +96,7 @@ export default {
   act: 3,
   title: 'Background Tasks',
   setup: (_random, { home, user }) => [remove(`${home}/workshop`), put(`${home}/workshop`, workshop(user)), cd(home)],
-  lesson: `<p>Some commands take a long time. While one runs in the <b>foreground</b>, the prompt is busy and you wait. Here <code>sleep 300</code>, which waits 300 seconds, stands in for long work.</p>
+  lesson: `<p>Some commands take a long time. While one runs in the <b>foreground</b>, the prompt is busy and you wait. Here <code>sleep 3000</code>, which waits 3000 seconds (almost an hour), stands in for long work.</p>
 <ul>
 <li>A <code>&amp;</code> at the end runs a command in the <b>background</b>: bash prints <code>[1] 2345</code>, the <b>job number</b> and the PID, and gives the prompt back at once.</li>
 <li><code>jobs</code> lists your jobs: <code>Running</code> or <code>Stopped</code>. The <code>+</code> marks the current job, the one <code>fg</code> and <code>bg</code> use when you name none.</li>
@@ -96,12 +107,12 @@ export default {
 <p>When a background job ends by itself, bash tells you before the next prompt: <code>[1]+  Done   sleep 5</code>.</p>`,
   tasks: [
     {
-      goal: 'Start a long task in the background (`sleep 300 &`: the `&` gives you the prompt back)',
+      goal: 'Start a long task in the background (`sleep 3000 &`: the `&` gives you the prompt back)',
       tip: 'A `&` at the end of a line runs it in the background, and bash prints its job number and PID.',
       hints: [
         'Put `&` at the end of the command.',
-        '`sleep 300`, a space, then `&`.',
-        'sleep 300 &',
+        '`sleep 3000`, a space, then `&`.',
+        'sleep 3000 &',
       ],
       done: ctx => startedInBackground(ctx, 'sleep'),
     },
@@ -114,18 +125,18 @@ export default {
         'jobs',
       ],
       done: ctx => ctx.ran('jobs') && ctx.jobs.length > 0,
-      near: ctx => (ctx.ran('jobs') && ctx.jobs.length === 0 ? 'You have no jobs right now. Start one first: sleep 300 &.' : null),
+      near: ctx => (ctx.ran('jobs') && ctx.jobs.length === 0 ? 'You have no jobs right now. Start one first: sleep 3000 &.' : null),
     },
     {
-      goal: 'Run `sleep 200` in the foreground, then pause it with Ctrl+Z',
+      goal: 'Run `sleep 2000` in the foreground, then pause it with Ctrl+Z',
       tip: 'Ctrl+Z pauses the command in front: it becomes a stopped job, and you get the prompt back.',
       hints: [
         'This time, no `&`: the prompt waits. Then press the keys.',
-        'Type `sleep 200`, press Enter, then hold Ctrl and press Z.',
-        'sleep 200',
+        'Type `sleep 2000`, press Enter, then hold Ctrl and press Z.',
+        'sleep 2000',
       ],
       done: ctx => ctx.pressed('TSTP'),
-      near: ctx => (ctx.pressed('INT') ? 'Ctrl+C ended it. Ctrl+Z pauses it instead: run sleep 200 again.' : null),
+      near: ctx => (ctx.pressed('INT') ? 'Ctrl+C ended it. Ctrl+Z pauses it instead: run sleep 2000 again.' : null),
     },
     {
       goal: 'Let the stopped job go on, in the background (`bg`)',
@@ -136,7 +147,7 @@ export default {
         'bg',
       ],
       done: ctx => ctx.ran('bg') && resumed(ctx),
-      near: ctx => (ctx.tried('bg') && !resumed(ctx) ? 'There is no stopped job to resume. Pause one first: sleep 200, then Ctrl+Z.' : null),
+      near: ctx => (ctx.tried('bg') && !resumed(ctx) ? 'There is no stopped job to resume. Pause one first: sleep 2000, then Ctrl+Z.' : null),
     },
     {
       goal: 'Bring a job to the front (`fg`), then interrupt it with Ctrl+C',
@@ -147,7 +158,10 @@ export default {
         'fg',
       ],
       done: ctx => ctx.tried('fg', record => record.signal === 'INT'),
-      near: ctx => (ctx.tried('fg', record => record.signal === 'TSTP') ? 'Ctrl+Z paused it again. Bring it back with fg, and press Ctrl+C to end it.' : null),
+      near: ctx => firstNote([
+        [() => ctx.tried('fg', record => record.signal === 'TSTP'), 'Ctrl+Z paused it again. Bring it back with fg, and press Ctrl+C to end it.'],
+        [() => ctx.tried('fg', record => record.status !== 0), 'There is no job to bring back: your jobs ended. Start one (sleep 3000 &), then fg and Ctrl+C.'],
+      ]),
     },
     {
       goal: 'End a background job by its job number (`kill %1`)',
@@ -159,8 +173,9 @@ export default {
       ],
       done: ctx => killedJob(ctx).some(id => ctx.ended(id)),
       near: ctx => firstNote([
+        [() => ctx.tried('kill') && jobsBefore(ctx).length === 0, 'You have no jobs left: they ended. Start one again (sleep 3000 &), then kill %1.'],
         [() => ctx.tried('kill', record => record.status !== 0 && record.args.some(jobSpec)), 'There is no job with that number: jobs shows the numbers.'],
-        [() => ctx.tried('kill', record => record.args.some(arg => /^\d{1,2}$/.test(arg))), 'Without %, kill takes a PID. Put % before a job number: kill %1.'],
+        [() => ctx.tried('kill', record => record.args.some(arg => /^\d+$/.test(arg))), 'Without %, kill takes a PID. This task uses the job number, with %: kill %1.'],
       ]),
     },
     {
@@ -175,9 +190,9 @@ export default {
     },
   ],
   solve: [
-    'sleep 300 &',
+    'sleep 3000 &',
     'jobs',
-    'sleep 200\u001a',
+    'sleep 2000\u001a',
     'bg',
     'fg\u0003',
     'kill %1',
@@ -198,7 +213,7 @@ export default {
     solve: solveBoss,
   },
   recap: [
-    ['sleep 300 &', 'run a command in the background'],
+    ['sleep 3000 &', 'run a command in the background'],
     ['jobs', 'list your jobs and their numbers'],
     ['bg', 'let a stopped job go on in the background'],
     ['fg %2', 'bring job 2 to the front'],
@@ -213,7 +228,7 @@ export default {
     ['echo $!', 'the PID of the last background job'],
   ],
   spells: [
-    { name: '&', summary: 'Run a command in the background.', examples: [['sleep 300 &', 'prints [1] and the PID']] },
+    { name: '&', summary: 'Run a command in the background.', examples: [['sleep 3000 &', 'prints [1] and the PID']] },
     { name: 'jobs', summary: 'List the jobs of this shell.', examples: [['jobs', 'Running or Stopped, with numbers']] },
     { name: 'fg / bg', summary: 'Bring a job to the front, or let it run behind.', examples: [['fg %2', 'job 2 to the front'], ['bg', 'the stopped job runs on']] },
     { name: 'kill %N', summary: 'End a job by its number.', examples: [['kill %1', 'end job 1']] },

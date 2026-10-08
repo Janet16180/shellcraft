@@ -27,9 +27,9 @@ test('the chapter follows the authoring contract', () => {
 });
 
 test('new commands and keys get a clue in their first goal', () => {
-  assert.match(BACKGROUND, /`sleep 300 &`/);
+  assert.match(BACKGROUND, /`sleep 3000 &`/);
   assert.match(JOBS, /`jobs`/);
-  assert.match(PAUSE, /`sleep 200`.*Ctrl\+Z/);
+  assert.match(PAUSE, /`sleep 2000`.*Ctrl\+Z/);
   assert.match(RESUME, /`bg`/);
   assert.match(INTERRUPT, /`fg`.*Ctrl\+C/);
   assert.match(KILL, /`kill %1`/);
@@ -58,17 +58,19 @@ test('the solve finishes every task and leaves no jobs behind', async () => {
 });
 
 const NEAR_MISSES = [
-  [BACKGROUND, [], 'sleep 1', 'sleep 300 &'],
+  [BACKGROUND, [], 'sleep 1', 'sleep 3000 &'],
   [JOBS, [], 'jobs', null],
-  [JOBS, ['sleep 300 &'], 'ps', 'jobs'],
-  [PAUSE, [], 'sleep 200', null, C],
-  [RESUME, ['sleep 300 &'], 'bg', null],
-  [RESUME, ['sleep 200\u001a'], 'fg', null, C],
-  [INTERRUPT, ['sleep 300 &'], 'fg', null, Z],
-  [INTERRUPT, ['sleep 300 &'], 'sleep 9', null, C],
-  [KILL, ['sleep 300 &'], 'kill %7', 'kill %1'],
-  [KILL, ['sleep 300 &'], 'jobs', 'kill -9 %1'],
-  [DONE, ['sleep 300 &'], 'kill %1', null],
+  [JOBS, ['sleep 3000 &'], 'ps', 'jobs'],
+  [PAUSE, [], 'sleep 2000', null, C],
+  [RESUME, ['sleep 3000 &'], 'bg', null],
+  [RESUME, ['sleep 2000\u001a'], 'fg', null, C],
+  [INTERRUPT, ['sleep 3000 &'], 'fg', null, Z],
+  [INTERRUPT, ['sleep 3000 &'], 'sleep 9', null, C],
+  [KILL, ['sleep 3000 &'], 'kill %7', 'kill %1'],
+  [KILL, ['sleep 3000 &'], 'jobs', 'kill -9 %1'],
+  [KILL, ['sleep 3000 &'], 'jobs', 'kill %+'],
+  [KILL, ['sleep 3000 &'], 'jobs', 'kill %?3000'],
+  [DONE, ['sleep 3000 &'], 'kill %1', null],
 ];
 
 for (const [goal, prefix, miss, hit, opts] of NEAR_MISSES) {
@@ -79,20 +81,22 @@ for (const [goal, prefix, miss, hit, opts] of NEAR_MISSES) {
 }
 
 test('the keys complete their tasks: Ctrl+Z pauses, bg resumes, fg then Ctrl+C interrupts', async () => {
-  assert.equal(await passes(PAUSE, [], 'sleep 200', Z), true);
-  assert.equal(await passes(RESUME, ['sleep 200\u001a'], 'bg'), true);
-  assert.equal(await passes(INTERRUPT, ['sleep 300 &'], 'fg', C), true);
-  assert.equal(await passes(INTERRUPT, ['sleep 300 &'], 'fg %1', C), true);
+  assert.equal(await passes(PAUSE, [], 'sleep 2000', Z), true);
+  assert.equal(await passes(RESUME, ['sleep 2000\u001a'], 'bg'), true);
+  assert.equal(await passes(INTERRUPT, ['sleep 3000 &'], 'fg', C), true);
+  assert.equal(await passes(INTERRUPT, ['sleep 3000 &'], 'fg %1', C), true);
   assert.equal(await passes(DONE, ['sleep 5 &'], 'sleep 6'), true);
 });
 
 const NEAR_NOTES = [
-  [JOBS, [], 'jobs', /sleep 300 &/],
-  [PAUSE, [], 'sleep 200', /Ctrl\+Z/, C],
-  [RESUME, ['sleep 300 &'], 'bg', /Ctrl\+Z/],
-  [INTERRUPT, ['sleep 300 &'], 'fg', /Ctrl\+C/, Z],
-  [KILL, ['sleep 300 &'], 'kill %7', /jobs/],
-  [KILL, ['sleep 300 &'], 'kill 1', /%/],
+  [JOBS, [], 'jobs', /sleep 3000 &/],
+  [PAUSE, [], 'sleep 2000', /Ctrl\+Z/, C],
+  [RESUME, ['sleep 3000 &'], 'bg', /Ctrl\+Z/],
+  [INTERRUPT, ['sleep 3000 &'], 'fg', /Ctrl\+C/, Z],
+  [KILL, ['sleep 3000 &'], 'kill %7', /jobs/],
+  [KILL, ['sleep 3000 &'], 'kill 1', /%/],
+  [KILL, [], 'kill %1', /no jobs left/],
+  [INTERRUPT, [], 'fg', /no job/],
 ];
 
 for (const [goal, prefix, line, note, opts] of NEAR_NOTES) {
@@ -149,7 +153,7 @@ for (const [prefix, line, opts, note] of BOSS_NOTES) {
   });
 }
 
-const NOT_COMMANDS = new Set(['&amp;', '&', '%1', 'sleep', '~/workshop/orders.txt', 'Done', 'Stopped', 'Running', '[1] 2345', '[1]+  Done   sleep 5', '+', 'sleep 300', '%']);
+const NOT_COMMANDS = new Set(['&amp;', '&', '%1', 'sleep', '~/workshop/orders.txt', 'Done', 'Stopped', 'Running', '[1] 2345', '[1]+  Done   sleep 5', '+', 'sleep 3000', '%']);
 
 test('every command the chapter shows runs in the simulator', async () => {
   const lines = [
