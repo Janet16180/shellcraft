@@ -96,8 +96,8 @@ test('tar -x overwrites existing files, even read-only ones in a directory you m
 
 test('tar -c strips a leading slash with the real message; -x as a player makes the files yours, masked by the umask', async () => {
   const b = await world();
-  const r = await run(b, 'tar -cf etc.tar /etc/hostname');
-  assert.deepEqual(outcome(r), ['', "tar: Removing leading `/' from member names\n", 0]);
+  const r = await run(b, 'tar -cvf etc.tar /etc/hostname');
+  assert.deepEqual(outcome(r), ['/etc/hostname\n', "tar: Removing leading `/' from member names\n", 0]);
   assert.equal((await run(b, 'tar -tf etc.tar')).out, 'etc/hostname\n');
   assert.match((await run(b, 'tar -tvf etc.tar')).out, /^-rw-r--r-- root\/root /);
   await run(b, 'tar -xf etc.tar');
@@ -148,7 +148,7 @@ test('reading what is not a tar archive, or not gzip data with -z, fails like GN
   const b = await world();
   assert.deepEqual(outcome(await run(b, 'tar -tf box/a.txt')), ['', `tar: This does not look like a tar archive\n${EXITING}`, 2]);
   await run(b, 'tar -cf box.tar box');
-  assert.deepEqual(outcome(await run(b, 'tar -tzf box.tar')), ['', `gzip: stdin: not in gzip format\ntar: Child returned status 1\n${FATAL}`, 2]);
+  assert.deepEqual(outcome(await run(b, 'tar -tzf box.tar')), ['', `\ngzip: stdin: not in gzip format\ntar: Child returned status 1\n${FATAL}`, 2]);
   assert.deepEqual(outcome(await run(b, 'tar -tf nosuch.tar')), ['', `tar: nosuch.tar: Cannot open: No such file or directory\n${FATAL}`, 2]);
   assert.deepEqual(outcome(await run(b, 'tar -tf box')), ['', `tar: box: Cannot read: Is a directory\ntar: At beginning of tape, quitting now\n${FATAL}`, 2]);
   await run(b, 'chmod 000 box.tar');

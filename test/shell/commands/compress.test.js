@@ -48,7 +48,8 @@ test('gzip refuses what it cannot compress with the real messages', async () => 
   await run(b, 'gzip -k hi.txt');
   assert.deepEqual(outcome(await run(b, 'gzip nosuch')), ['', 'gzip: nosuch: No such file or directory\n', 1]);
   assert.deepEqual(outcome(await run(b, 'gzip box')), ['', 'gzip: box is a directory -- ignored\n', 2]);
-  assert.deepEqual(outcome(await run(b, 'gzip hi.txt.gz')), ['', 'gzip: hi.txt.gz already has .gz suffix -- unchanged\n', 2]);
+  assert.deepEqual(outcome(await run(b, 'gzip hi.txt.gz')), ['', 'gzip: hi.txt.gz already has .gz suffix -- unchanged\n', 0]);
+  assert.deepEqual(outcome(await run(b, 'gzip -q box nosuch')), ['', 'gzip: nosuch: No such file or directory\n', 1]);
   assert.deepEqual(outcome(await run(b, 'gzip ln')), ['', 'gzip: ln: Too many levels of symbolic links\n', 1]);
   assert.deepEqual(outcome(await run(b, 'gzip /etc/shadow')), ['', 'gzip: /etc/shadow: Permission denied\n', 1]);
   assert.deepEqual(outcome(await run(b, 'gzip /etc/hostname')), ['', 'gzip: /etc/hostname.gz: Permission denied\n', 1]);
@@ -78,29 +79,31 @@ test('gunzip finds FILE.gz for a bare name, maps .tgz to .tar, and refuses other
   await runAll(b, ['gzip hi.txt', 'mv hi.txt.gz hi.tgz', 'gunzip hi.tgz']);
   assert.equal((await home(b))['hi.tar'].content, 'hi\n');
   await run(b, 'cp hi.tar fake.gz');
-  assert.deepEqual(outcome(await run(b, 'gunzip fake.gz')), ['', 'gzip: fake.gz: not in gzip format\n', 1]);
-  assert.deepEqual(outcome(await run(b, 'gzip -d fake.gz')), ['', 'gzip: fake.gz: not in gzip format\n', 1]);
+  assert.deepEqual(outcome(await run(b, 'gunzip fake.gz')), ['', '\ngzip: fake.gz: not in gzip format\n', 1]);
+  assert.deepEqual(outcome(await run(b, 'gzip -d fake.gz')), ['', '\ngzip: fake.gz: not in gzip format\n', 1]);
 });
 
 test('gunzip reports a cut-short file as the end of the data', async () => {
   const b = await world();
   await run(b, 'gzip notes.txt');
   await run(b, 'head -c 30 notes.txt.gz > cut.gz');
-  assert.deepEqual(outcome(await run(b, 'gunzip cut.gz')), ['', 'gzip: cut.gz: unexpected end of file\n', 1]);
+  assert.deepEqual(outcome(await run(b, 'gunzip cut.gz')), ['', '\ngzip: cut.gz: unexpected end of file\n', 1]);
 });
 
 test('zcat prints the original text and leaves the file alone', async () => {
   const b = await world();
   await runAll(b, ['gzip hi.txt', 'gzip -k notes.txt']);
   assert.deepEqual(outcome(await run(b, 'zcat hi.txt.gz hi.txt')), ['hi\nhi\n', '', 0]);
-  assert.deepEqual(outcome(await run(b, 'zcat notes.txt')), ['', 'gzip: notes.txt: not in gzip format\n', 1]);
+  assert.deepEqual(outcome(await run(b, 'zcat notes.txt')), ['', '\ngzip: notes.txt: not in gzip format\n', 1]);
   assert.equal((await run(b, 'gunzip -c notes.txt.gz | wc -l')).out, '20\n');
   assert.equal('hi.txt.gz' in await home(b), true);
 });
 
-test('gzip -c writes to a pipe or file but not to the terminal', async () => {
+test('gzip -c writes compressed data anywhere, but gzip keeps what it reads from standard input off the terminal', async () => {
   const b = await world();
-  assert.deepEqual(outcome(await run(b, 'gzip -c hi.txt')), ['', 'gzip: compressed data not written to a terminal. Use -f to force compression.\nFor help, type: gzip -h\n', 1]);
+  assert.equal(isGzip((await run(b, 'gzip -c hi.txt')).out), true);
+  assert.deepEqual(outcome(await run(b, 'echo hi | gzip')), ['', 'gzip: compressed data not written to a terminal. Use -f to force compression.\nFor help, type: gzip -h\n', 1]);
+  assert.deepEqual(outcome(await run(b, 'zcat')), ['', 'gzip: compressed data not read from a terminal. Use -f to force decompression.\nFor help, type: gzip -h\n', 1]);
   await run(b, 'gzip -c hi.txt > copy.gz');
   const h = await home(b);
   assert.equal(gunzip(h['copy.gz'].content).text, 'hi\n');

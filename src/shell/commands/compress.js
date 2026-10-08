@@ -17,14 +17,22 @@ const ERROR = 1;
 const WARNING = 2;
 const LONG = {
   '--stdout': 'c', '--to-stdout': 'c', '--decompress': 'd', '--uncompress': 'd', '--force': 'f', '--keep': 'k',
-  '--list': 'l', '--recursive': 'r', '--test': 't', '--verbose': 'v',
+  '--list': 'l', '--quiet': 'q', '--silent': 'q', '--recursive': 'r', '--test': 't', '--verbose': 'v',
 };
 // Suffixes gunzip removes, and what it puts in their place.
 const SUFFIXES = [['.gz', ''], ['.tgz', '.tar'], ['.taz', '.tar'], ['-gz', ''], ['.z', ''], ['-z', ''], ['_z', ''], ['.Z', '']];
-/** What gzip says about data it cannot decompress, by gunzip()'s error. */
-export const GUNZIP_ERRORS = {
+const GUNZIP_ERRORS = {
   format: 'not in gzip format', eof: 'unexpected end of file', corrupt: 'invalid compressed data--format violated', crc: 'invalid compressed data--crc error',
 };
+
+/**
+ * gzip's message about data it cannot decompress; gzip starts it on a new line.
+ *
+ * @param {string} name The file, or `stdin`.
+ * @param {'format'|'eof'|'corrupt'|'crc'} error What gunzip() reported.
+ * @returns {string} The message, without the final newline.
+ */
+export const gunzipError = (name, error) => `\ngzip: ${name}: ${GUNZIP_ERRORS[error]}`;
 const TO_TERMINAL = 'compressed data not written to a terminal. Use -f to force compression.\nFor help, type: gzip -h';
 const FROM_TERMINAL = 'compressed data not read from a terminal. Use -f to force decompression.\nFor help, type: gzip -h';
 const LIST_HEAD = '         compressed        uncompressed  ratio uncompressed_name\n';
@@ -35,7 +43,7 @@ const ratio = (num, den) => `${(den === 0 ? 0 : (100 * num) / den).toFixed(1).pa
 const savedRatio = (original, compressed, overhead) => ratio(original - (compressed - overhead), original);
 
 function fail(acc, text, level = ERROR) {
-  acc.errs.push(`gzip: ${text}`);
+  if (level === ERROR || !acc.quiet) acc.errs.push(text.startsWith('\n') ? text : `gzip: ${text}`);
   if (level === ERROR || acc.status === 0) acc.status = level;
 }
 
@@ -68,7 +76,7 @@ function place(sys, src, outName, content, opts, acc) {
 function compressFile(sys, typed, src, opts, acc) {
   const others = (linkCounts(sys.root).get(src.node) ?? 1) - 1;
   if (suffixOf(typed) && !opts.stdout) {
-    if (!opts.recursed) fail(acc, `${typed} already has ${suffixOf(typed)[0]} suffix -- unchanged`, WARNING);
+    if (!opts.recursed && !acc.quiet) acc.errs.push(`gzip: ${typed} already has ${suffixOf(typed)[0]} suffix -- unchanged`);
   } else if (others > 0 && !opts.stdout && !opts.force) fail(acc, `${typed} has ${others} other link${others > 1 ? 's' : ''} -- file ignored`, WARNING);
   else if (!can(sys, src.node, 'r')) fail(acc, `${typed}: Permission denied`);
   else {
@@ -86,7 +94,7 @@ function decompressFile(sys, typed, src, opts, acc) {
   if (!suffix && !opts.stdout && !opts.test) {
     if (!opts.recursed) fail(acc, `${typed}: unknown suffix -- ignored`, WARNING);
   } else if (!g) fail(acc, `${typed}: Permission denied`);
-  else if (g.error) fail(acc, `${typed}: ${GUNZIP_ERRORS[g.error]}`);
+  else if (g.error) fail(acc, gunzipError(typed, g.error));
   else if (opts.stdout) acc.out += g.text;
   else if (opts.test) acc.tested = true;
   else {
@@ -115,7 +123,7 @@ function listOne(sys, typed, acc, totals) {
   if (src.error) fail(acc, `${src.shown}: ${errorText(src.error)}`);
   else if (src.node.type === 'dir') fail(acc, `${src.shown} is a directory -- ignored`, WARNING);
   else if (!g) fail(acc, `${src.shown}: Permission denied`);
-  else if (g.error) fail(acc, `${src.shown}: ${GUNZIP_ERRORS[g.error]}`);
+  else if (g.error) fail(acc, gunzipError(src.shown, g.error));
   else {
     const compressed = sizeOf(src.node);
     const suffix = suffixOf(src.shown);
@@ -136,33 +144,34 @@ function list(sys, operands, acc) {
 // No file: a filter from standard input to standard output.
 function filter(name, opts, { stdin }) {
   let r;
-  if (opts.decompress && stdin == null && name !== 'zcat') r = result('', `gzip: ${FROM_TERMINAL}`, ERROR);
+  if (opts.decompress && stdin == null) r = result('', `gzip: ${FROM_TERMINAL}`, ERROR);
   else if (stdin == null) r = needInput(name);
   else if (!opts.decompress) r = result(gzip(stdin));
   else {
     const g = gunzip(stdin);
-    r = g.error ? result('', `gzip: stdin: ${GUNZIP_ERRORS[g.error]}`, ERROR) : result(g.text);
+    r = g.error ? result('', gunzipError('stdin', g.error), ERROR) : result(g.text);
   }
   return r;
 }
 
 const optionsOf = (name, f) => ({
   decompress: name !== 'gzip' || f.has('d') || f.has('t') || f.has('l'), stdout: name === 'zcat' || f.has('c'), force: f.has('f'),
-  keep: f.has('k'), recursive: f.has('r'), verbose: f.has('v'), test: f.has('t'), recursed: false,
+  keep: f.has('k'), recursive: f.has('r'), verbose: f.has('v') && !f.has('q'), test: f.has('t'), recursed: false,
 });
 
+// Only compressed data from standard input is kept off the terminal; gzip -c FILE prints it.
 const compressesToTerminal = (opts, operands, { piped }) => !opts.decompress && !piped && !opts.force
-  && (opts.stdout || !operands.length || operands.includes('-'));
+  && (!operands.length || operands.includes('-'));
 
 function compressor(name, args, ctx) {
   const long = mapLongOptions(name, args, LONG, /^$/);
-  const o = long.err || long.unsimulated ? long : parseOptions(name, long.args, 'cdfklrtv');
+  const o = long.err || long.unsimulated ? long : parseOptions(name, long.args, 'cdfklqrtv');
   const failed = optionFailure(name, o, ERROR);
   if (failed) return failed;
   const opts = optionsOf(name, o.flags);
   if (compressesToTerminal(opts, o.rest, ctx)) return result('', `gzip: ${TO_TERMINAL}`, ERROR);
   if (!o.rest.length || (o.rest.length === 1 && o.rest[0] === '-')) return filter(name, opts, ctx);
-  const acc = { out: '', errs: [], status: 0, asked: false };
+  const acc = { out: '', errs: [], status: 0, asked: false, quiet: o.flags.has('q') };
   if (o.flags.has('l')) list(ctx.sys, o.rest, acc);
   else for (const typed of o.rest) treat(ctx.sys, typed, opts, acc);
   const r = result(acc.out, acc.errs.join('\n'), acc.status);

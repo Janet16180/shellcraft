@@ -18,7 +18,7 @@ import { compileGlob } from '../glob.js';
 import { REAL_OPTIONS } from '../real-options.js';
 import { result, withNote } from '../result.js';
 import { modeString } from './ls.js';
-import { GUNZIP_ERRORS } from './compress.js';
+import { gunzipError } from './compress.js';
 import { packTar, unpackTar, gzip, gunzip, isGzip } from '../../backend/archive.js';
 
 const FAILURE = 2;
@@ -154,9 +154,10 @@ function longLine(m, width) {
   return `${modeString(m)} ${m.owner}/${m.group} ${size.padStart(width.value - pad + size.length)} ${dateOf(m.mtime)} ${name}`;
 }
 
-function report(acc, m) {
+// A name as -v prints it: when creating, the file's name as tar found it (`/etc/motd`), not as stored.
+function report(acc, m, shown = m.path) {
   if (!acc.verbose) return;
-  const line = acc.verbose > 1 ? longLine(m, acc.width) : m.path;
+  const line = acc.verbose > 1 ? longLine({ ...m, path: shown }, acc.width) : shown;
   if (acc.verboseToErr) acc.errs.push(line);
   else acc.out += `${line}\n`;
 }
@@ -199,12 +200,12 @@ function addMember(sys, path, shown, name, acc) {
   if (excluded(name, acc.excludes)) return;
   if (r.error) acc.fail(`tar: ${shown}: Cannot stat: ${errorText(r.error)}`);
   else if (node === acc.archive) acc.errs.push(`tar: ${shown}: archive cannot contain itself; not dumped`);
-  else if (node.type === 'symlink') acc.store({ path: name, type: 'symlink', ...fields, target: node.target });
+  else if (node.type === 'symlink') acc.store({ path: name, type: 'symlink', ...fields, target: node.target }, shown);
   else if (!can(sys, node, 'r')) acc.fail(`tar: ${shown}: Cannot open: Permission denied`);
-  else if (node.type === 'file') acc.store({ path: name, type: 'file', ...fields, content: node.content });
+  else if (node.type === 'file') acc.store({ path: name, type: 'file', ...fields, content: node.content }, shown);
   else if (!can(sys, node, 'x')) acc.fail(`tar: ${shown}: Cannot open: Permission denied`);
   else {
-    acc.store({ path: `${name}/`, type: 'dir', ...fields });
+    acc.store({ path: `${name}/`, type: 'dir', ...fields }, `${shown.replace(/\/+$/, '')}/`);
     for (const child of Object.keys(node.children).sort(compareNames)) {
       addMember(sys, joinPath(r.abs, child), joinDisp(shown, child), `${name === '.' ? '.' : name}/${child}`, acc);
     }
@@ -225,7 +226,7 @@ function create(sys, o, ctx, acc) {
   const opened = openForWriting(sys, o.file, ctx);
   if (opened.error) return result('', `${opened.error}\n${FATAL}`, FAILURE);
   const members = [];
-  Object.assign(acc, { archive: opened.node ?? null, verboseToErr: opened.stdout, store: m => { members.push(m); report(acc, m); } });
+  Object.assign(acc, { archive: opened.node ?? null, verboseToErr: opened.stdout, store: (m, shown) => { members.push(m); report(acc, m, shown); } });
   let dir = sys.cwd;
   for (const item of o.items) {
     if ('dir' in item) {
@@ -264,9 +265,9 @@ function readArchive(sys, o, stdin) {
   const compressed = isGzip(source.text);
   const g = compressed ? gunzip(source.text) : null;
   let problem = null;
-  if (o.gzip && !compressed) problem = 'not in gzip format';
-  else if (g?.error) problem = GUNZIP_ERRORS[g.error];
-  if (problem) return { stop: result('', `gzip: stdin: ${problem}\ntar: Child returned status 1\n${FATAL}`, FAILURE) };
+  if (o.gzip && !compressed) problem = 'format';
+  else if (g?.error) problem = g.error;
+  if (problem) return { stop: result('', `${gunzipError('stdin', problem)}\ntar: Child returned status 1\n${FATAL}`, FAILURE) };
   const members = unpackTar(g ? g.text : source.text);
   return members ? { members } : { stop: result('', `tar: This does not look like a tar archive\n${EXITING}`, FAILURE) };
 }
