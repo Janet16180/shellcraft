@@ -63,3 +63,10 @@ test('a missing option value is reported and not recorded', () => {
   assert.equal(o.err, "grep: option requires an argument -- 'e'\nTry 'grep --help' for more information.");
   assert.deepEqual([o.vals, o.lists], [{}, {}]);
 });
+
+test('a long option that takes a value takes it after = or as the next argument', () => {
+  const table = { '--lines': 'n', '--quiet': 'q' };
+  assert.deepEqual(mapLongOptions('head', ['--lines=3', 'f', '--lines', '4', '--quiet'], table, undefined, 'n').args, ['-n', '3', 'f', '-n', '4', '-q']);
+  assert.equal(mapLongOptions('head', ['f', '--lines'], table, undefined, 'n').err, "head: option '--lines' requires an argument\nTry 'head --help' for more information.");
+  assert.equal(mapLongOptions('head', ['--quiet=x'], table, undefined, 'n').err, "head: option '--quiet' doesn't allow an argument\nTry 'head --help' for more information.");
+});

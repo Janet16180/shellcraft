@@ -74,7 +74,7 @@ const NEAR_MISSES = [
   [HEAD3, [], `head ${SCROLL}`, `head -n 3 ${SCROLL}`],
   [HEAD3, [], `head -n 4 ${SCROLL}`, `head -n3 ${SCROLL}`],
   [HEAD3, [], `tail -n 3 ${SCROLL}`, `head -3 ${SCROLL}`],
-  [HEAD3, [], `head --lines=3 ${SCROLL}`, `head -n 3 ~/${SCROLL}`],
+  [HEAD3, [], `head --lines=4 ${SCROLL}`, `head --lines=3 ~/${SCROLL}`],
   [TAIL, [], `cat ${SCROLL}`, `tail ${SCROLL}`],
   [TAIL, [], `head ${SCROLL}`, `tail -n 2 ~/${SCROLL}`],
   [TAIL1, [], `tail ${SCROLL}`, `tail -n 1 ${SCROLL}`],

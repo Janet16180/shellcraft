@@ -6,7 +6,7 @@ import { splitLines, byteLength, sizeOf } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
 import { compareNames } from '../../backend/tree.js';
 import { can } from '../perms.js';
-import { parseOptions, optionFailure } from '../options.js';
+import { parseOptions, mapLongOptions, optionFailure } from '../options.js';
 import { shellQuote, localeQuote } from '../quote.js';
 import { result, withNote, needInput } from '../result.js';
 
@@ -36,7 +36,13 @@ export function openInput(sys, f, stdin) {
  */
 export const reason = code => (code === 'EISDIR' ? 'Is a directory' : errorText(code));
 
-function headTailArgs(which, rawArgs) {
+const HEAD_LONG = { '--lines': 'n', '--bytes': 'c', '--quiet': 'q', '--silent': 'q', '--verbose': 'v' };
+const TAIL_LONG = { ...HEAD_LONG, '--follow': 'f' };
+
+function headTailArgs(which, typed) {
+  const long = mapLongOptions(which, typed, which === 'tail' ? TAIL_LONG : HEAD_LONG, /^$/, 'nc');
+  if (long.err || long.unsimulated) return { o: { ...long, flags: new Set(), vals: {}, rest: [] }, error: long.err };
+  const rawArgs = long.args;
   const takesValue = i => i > 0 && (rawArgs[i - 1] === '-n' || rawArgs[i - 1] === '-c');
   const args = rawArgs.flatMap((x, i) => {
     if (/^-\d+$/.test(x) && !takesValue(i)) return ['-n', x.slice(1)];
@@ -118,8 +124,11 @@ function wcRows(inputs, fields, width, labelled) {
   return inputs.length > 1 ? out + row(total, ' total') : out;
 }
 
+const WC_LONG = { '--lines': 'l', '--words': 'w', '--bytes': 'c', '--chars': 'm', '--max-line-length': 'L' };
+
 function wc(args, { sys, stdin }) {
-  const o = parseOptions('wc', args, 'lwcmL');
+  const long = mapLongOptions('wc', args, WC_LONG, /^$/);
+  const o = long.err || long.unsimulated ? long : parseOptions('wc', long.args, 'lwcmL');
   const failed = optionFailure('wc', o, 1);
   if (failed) return failed;
   if (!o.rest.length && stdin == null) return needInput('wc');
