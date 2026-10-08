@@ -106,15 +106,16 @@ export function writeTo(sys, target, text) {
 
 /**
  * Write a whole file the way a program that opens it for writing does
- * (uniq's OUTPUT): create or truncate it, then fill it.
+ * (uniq's OUTPUT, tee): create or truncate it, then fill it; or append.
  *
  * @param {object} sys The machine state.
  * @param {string} path The path as typed.
  * @param {string} text The new content.
+ * @param {{append?: boolean}} [opts] Add to the end instead of truncating.
  * @returns {string|null} The reason it cannot be written (`Permission denied`), or null.
  */
-export function writeFile(sys, path, text) {
-  const opened = openWrite(sys, path, false);
+export function writeFile(sys, path, text, { append = false } = {}) {
+  const opened = openWrite(sys, path, append);
   if (opened.target) writeTo(sys, opened.target, text);
   return opened.error;
 }

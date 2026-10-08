@@ -1,5 +1,5 @@
 /**
- * Text tools: head, tail, wc, sort, uniq (grep and find have their own modules).
+ * Text tools: head, tail, wc, sort, uniq, tee (grep and find have their own modules).
  */
 
 import { splitLines, byteLength, sizeOf } from '../fs.js';
@@ -210,10 +210,29 @@ function uniq(args, { sys, stdin }) {
   return result(out);
 }
 
+const TEE_LONG = { '--append': 'a', '--ignore-interrupts': 'i' };
+
+// tee opens every file before it copies, so its errors come first. `-` is
+// a file named -, as in coreutils 9.4.
+function tee(args, { sys, stdin }) {
+  const long = mapLongOptions('tee', args, TEE_LONG);
+  const o = long.err || long.unsimulated ? long : parseOptions('tee', long.args, 'aip');
+  const failed = optionFailure('tee', o, 1);
+  if (failed) return failed;
+  if (stdin == null) return needInput('tee');
+  const errs = [];
+  for (const f of o.rest) {
+    const error = writeFile(sys, f, stdin, { append: o.flags.has('a') });
+    if (error) errs.push(`tee: ${shellQuote(f)}: ${error}`);
+  }
+  return result(stdin, errs.join('\n'), errs.length ? 1 : 0);
+}
+
 export default {
   head: (args, ctx) => headTail('head', args, ctx),
   tail: (args, ctx) => headTail('tail', args, ctx),
   wc,
   sort,
   uniq,
+  tee,
 };
