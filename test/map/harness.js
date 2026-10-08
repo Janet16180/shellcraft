@@ -112,6 +112,10 @@ const crowd = [...impsAndStubborn, imp(4242, './shadow_daemon', 'daemon', 99.7),
 
 const daemon = [{ pid: 4242, ppid: 1, user: 'hero', tty: '?', stat: 'R', cpu: 99.7, mem: 12.4, cmd: './shadow_daemon', key: 'daemon' }];
 
+const job = (id, state, cmd) => ({ id, pid: 4240 + id, cmd, state, mark: ' ' });
+const jobs = [job(1, 'running', 'sleep 30'), job(2, 'stopped', 'sleep 100'), job(3, 'running', 'sleep 600')];
+const manyJobs = [...jobs, job(4, 'running', 'sleep 9'), job(5, 'stopped', 'sleep 8')];
+
 const CASES = {
   cottage: () => ({ obs: observe('/home/hero', { tree: busyTree() }) }),
   forest: () => ({ obs: observe('/home/hero/forest') }),
@@ -128,6 +132,9 @@ const CASES = {
   den: () => ({ obs: observe('/home/hero/den', { tree: actTwoTree() }), procs: impsAndStubborn }),
   disguised: () => ({ obs: observe('/home/hero/den', { tree: actTwoTree() }), procs: disguised }),
   crowd: () => ({ obs: observe('/home/hero', { tree: busyTree() }), procs: crowd }),
+  jobs: () => ({ obs: observe('/home/hero', { tree: busyTree(), jobs }) }),
+  'jobs-dungeon': () => ({ obs: observe('/usr/bin', { tree: busyTree(), jobs: manyJobs }) }),
+  'jobs-den': () => ({ obs: observe('/home/hero/den', { tree: actTwoTree(), jobs: jobs.slice(0, 2) }), procs: impsAndStubborn }),
   forge: () => ({ obs: observe('/home/hero/forge', { tree: actTwoTree() }) }),
   ore: () => ({ obs: observe('/home/hero/forge/ore', { tree: actTwoTree() }) }),
   guild: () => ({ obs: observe('/usr/local/bin', { tree: actTwoTree() }) }),

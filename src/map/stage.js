@@ -13,6 +13,8 @@ import { makeCanvas } from './paint.js';
 import { MONO } from './overlay.js';
 import { placeCreatures, vanished, hover } from './creatures.js';
 import { CREATURE_BURST } from './creatureart.js';
+import { placeJobs, endedJobs } from './jobs.js';
+import { JOB_BURST, workerCentre } from './jobart.js';
 
 const NARROW_CSS = 560;
 const BUBBLE_MS = 2600;
@@ -51,7 +53,7 @@ export function createStage(canvas, reducedMotion) {
     view: { scale: 1, ox: 0, oy: 0, dpr: 1, font: 12, width: 0, height: 0, narrow: false },
     state: {
       obs: null, scene: null, bgKey: '', revealed: new Set(),
-      player: { ...STAND, walking: false }, creatures: [], fallen: [],
+      player: { ...STAND, walking: false }, creatures: [], fallen: [], jobs: placeJobs([]),
       fade: 0, flashUntil: 0, shakeUntil: 0, banner: null, bubbles: [], trip: null, hover: null, focus: null,
       gateOpen: false, token: 0,
     },
@@ -85,6 +87,7 @@ export function settle(stage, obs) {
     gateOpen: state.gateOpen,
   };
   settleCreatures(stage, obs.procs);
+  settleJobs(stage, obs.jobs);
   canvas.setAttribute('aria-label', describeRoom(obs, { revealed: state.revealed }));
 }
 
@@ -97,6 +100,16 @@ function settleCreatures(stage, procs) {
     const before = state.creatures.find(b => b.pid === c.pid);
     return { ...c, ...hover(c, 0), flashUntil: 0, ...(before && { x: before.x, y: before.y, flashUntil: before.flashUntil }) };
   });
+}
+
+// The player's jobs follow them from room to room; a job that ended bursts where its worker stood.
+function settleJobs(stage, jobs) {
+  const { state } = stage;
+  for (const gone of endedJobs(state.jobs.badges, jobs)) {
+    const { x, y } = workerCentre(gone);
+    stage.motion.burst(x, y, JOB_BURST, 22, 1.4);
+  }
+  state.jobs = placeJobs(jobs);
 }
 
 /**

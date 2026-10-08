@@ -15,6 +15,7 @@ import { paintFrame } from './render.js';
 import { journey } from './journey.js';
 import { INK, TOON } from './palette.js';
 import { SLOTS } from './creatures.js';
+import { placeJobs } from './jobs.js';
 import { CREATURE_BURST } from './creatureart.js';
 
 export { biomeFor, placeOf } from './biomes.js';
@@ -104,7 +105,7 @@ function show(stage, obs) {
   const { state } = stage;
   state.token += 1;
   stage.motion.finish();
-  Object.assign(state, { fade: 0, trip: null, gateOpen: false, hover: null, focus: null, banner: null, bubbles: [], flashUntil: 0, shakeUntil: 0, creatures: [], fallen: [] });
+  Object.assign(state, { fade: 0, trip: null, gateOpen: false, hover: null, focus: null, banner: null, bubbles: [], flashUntil: 0, shakeUntil: 0, creatures: [], fallen: [], jobs: placeJobs([]) });
   Object.assign(state.player, STAND, { walking: false });
   state.revealed.clear();
   settle(stage, obs);

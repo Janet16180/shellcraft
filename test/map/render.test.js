@@ -69,3 +69,30 @@ test('the hall of portals with its hard-linked names, the maze and the study pai
     for (const ms of [0, 1234, 98765]) assert.doesNotThrow(() => paintFrame(stage, ms), `${cwd} at ${ms}`);
   }
 });
+
+test('the player\'s jobs paint in a room and on the stairs, working, asleep, and with more than fit', t => {
+  globalThis.document = { createElement: fakeCanvas };
+  t.after(() => delete globalThis.document);
+  const jobs = [1, 2, 3, 4, 5].map(id => ({ id, pid: 4000 + id, cmd: `sleep ${id}00`, state: id % 2 ? 'running' : 'stopped', mark: ' ' }));
+  for (const cwd of ['/home/hero', '/etc']) {
+    const stage = createStage(fakeCanvas(), false);
+    settle(stage, observe(cwd, { jobs }));
+    assert.equal(stage.state.jobs.badges.length, 3);
+    for (const ms of [0, 333, 1234, 98765]) assert.doesNotThrow(() => paintFrame(stage, ms), `${cwd} at ${ms}`);
+    stage.state.trip = { direction: 'descend', progress: 0.5 };
+    assert.doesNotThrow(() => paintFrame(stage, 500), `${cwd} on the stairs`);
+  }
+});
+
+test('a job that ended bursts where its worker stood; one that only stopped does not', t => {
+  globalThis.document = { createElement: fakeCanvas };
+  t.after(() => delete globalThis.document);
+  const job = (state, pid = 4001) => ({ id: 1, pid, cmd: 'sleep 100', state, mark: '+' });
+  const stage = createStage(fakeCanvas(), false);
+  settle(stage, observe('/home/hero', { jobs: [job('running')] }));
+  settle(stage, observe('/home/hero', { jobs: [job('stopped')] }));
+  assert.equal(stage.motion.particles.length, 0);
+  settle(stage, observe('/home/hero', { jobs: [job('done')] }));
+  assert.ok(stage.motion.particles.length > 0);
+  assert.deepEqual(stage.state.jobs.badges, []);
+});

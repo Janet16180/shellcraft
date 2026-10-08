@@ -56,3 +56,9 @@ test('the map key shows a dark door: one you may enter but not list', () => {
   assert.ok(dark);
   assert.match(dark.what, /enter/);
 });
+
+test('the map key explains the job workers: what a job is and the commands that move it', () => {
+  const job = ROSTER.find(r => r.kind === 'job');
+  assert.ok(job);
+  for (const word of ['<code>&amp;</code>', 'Ctrl+Z', '<code>%1</code>', '<code>fg</code>', '<code>bg</code>', '<code>kill %1</code>']) assert.ok(job.what.includes(word), word);
+});

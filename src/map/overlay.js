@@ -109,6 +109,35 @@ export function drawCreatureLabels(g, view, creatures) {
   }
 }
 
+const JOB_LABEL_X = 33;
+const MORE_X = 9;
+
+/**
+ * Label each job worker with its job spec (`%1`) beside it, green while it
+ * runs and grey while it is stopped, and the jobs that did not fit as "+N".
+ *
+ * @param {CanvasRenderingContext2D} g The screen canvas.
+ * @param {View} view The mapping.
+ * @param {{badges: {label: string, state: string, x: number, y: number}[], more: number}} jobs The job row.
+ * @param {{w: number, h: number}} row Each badge's width and the row's height, in art pixels.
+ */
+export function drawJobLabels(g, view, { badges, more }, row) {
+  if (badges.length === 0) return;
+  g.font = `${view.font}px ${MONO}`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  const mid = sy(view, badges[0].y + row.h / 2);
+  for (const { label, state, x } of badges) {
+    g.fillStyle = state === 'running' ? LABEL.runnable : LABEL.hidden;
+    g.fillText(label, sx(view, x + JOB_LABEL_X), mid);
+  }
+  if (more) {
+    const last = badges[badges.length - 1];
+    g.fillStyle = LABEL.more;
+    g.fillText(`+${more}`, sx(view, last.x + row.w + MORE_X), mid);
+  }
+}
+
 /**
  * Draw speech bubbles over their speakers.
  *

@@ -8,7 +8,9 @@ import * as overworld from './overworld.js';
 import * as dungeon from './dungeon.js';
 import { drawItem, drawMore, drawPlayer, drawParticles, drawFocus, padlockDoor, darkDoor, drawResident } from './things.js';
 import { residentOf } from './residents.js';
-import { drawLabels, drawCreatureLabels, drawBubbles, drawBanner, drawVeil } from './overlay.js';
+import { drawLabels, drawCreatureLabels, drawJobLabels, drawBubbles, drawBanner, drawVeil } from './overlay.js';
+import { drawJobs } from './jobart.js';
+import { JOB_ROW } from './jobs.js';
 import { drawCreature } from './creatureart.js';
 import { hover, SLOTS } from './creatures.js';
 import { drawStairs } from './stairs.js';
@@ -74,6 +76,7 @@ function paintArt(stage, t, now) {
   if (state.trip) drawStairs(ax, state.trip, t);
   else if (state.scene) paintRoom(stage, t, now);
   if (state.scene) drawPlayer(ax, state.player, t);
+  drawJobs(ax, state.jobs, t);
   drawParticles(ax, motion.particles);
   if (state.scene && !state.trip) PAINTERS[state.scene.realm].lighting?.(ax, t);
 }
@@ -101,6 +104,7 @@ function paintScreen(stage, now) {
     drawLabels(g, view, state.scene.layout, ringed(state));
     drawCreatureLabels(g, view, state.creatures);
   }
+  drawJobLabels(g, view, state.jobs, JOB_ROW);
   state.bubbles = state.bubbles.filter(b => b.until > now);
   if (state.banner && now - state.banner.start >= BANNER_MS) state.banner = null;
   drawBubbles(g, view, state.bubbles, anchors(state));
