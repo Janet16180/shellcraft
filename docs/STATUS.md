@@ -12,6 +12,19 @@ map draws the working directory as a room: the original outdoor 8-bit style insi
 home, Ring Zero's Pixel Dungeon style outside it. Each chapter is lesson, guided quest, boss,
 adventure log. 14 chapters are planned (DESIGN.md section 4).
 
+## State at 2026-10-08, evening (act III started)
+
+- Chapters 1 to 14 and all tester fixes are merged into main (6cae0b8). The user approved the
+  act III plan (chapters 15 to 21, `docs/ACT3.md`: the reviewed order is at the end of its first part,
+  then the detailed designs of chapters 15 and 16).
+- Branch `slice/act3` (from main) is the act III integration branch.
+- Engine branch `slice/users` (worktree `.scratch/wt/users`): users and groups read from
+  /etc/passwd and /etc/group, a `login` spec op, `id USER`, `groups USER`, `chown`, `chgrp`,
+  directory r/w/x checks. See the agent's last commits for what is finished.
+- UI branch `slice/explainer` (worktree `.scratch/wt/explainer`): step-by-step concept explainers
+  (Back/Next/Skip) a chapter declares with `explainer`; two of them: "Which three letters are
+  yours?" (ch15) and "Names are pointers" (ch17, links).
+
 ## State at 2026-10-08 (act II: chapters 10 to 14)
 
 - On `slice/ch5-9`, not merged: 10 The Descent (`/`, `/etc`, `/var/log`, `$PATH`, `which`, `type`),
@@ -166,6 +179,11 @@ node test/ui/layouts.js OUT_DIR        # both layouts at five window sizes, plus
    any boss.** Done 2026-10-07: the user chose (b) for both; see the state above.
 
 ## First steps of the next session
+
+0. Act III: review and merge `slice/users` and `slice/explainer` into `slice/act3` (tests, lint,
+   difftest; finish anything their last reports list as left). Then write chapter 15 (guild) and
+   16 (hall) from `docs/ACT3.md`, tests first; then the engine for links (symlinks, inodes, `ln`,
+   `readlink`) and chapter 17. Ask the user before merging into main.
 
 1. The user plays chapters 5 to 9 on `slice/ch5-9` (`npm run serve`, `?dev` to jump); fix their
    notes, then merge. Earlier: the user plays chapters 3 and 4; fix their notes, then
