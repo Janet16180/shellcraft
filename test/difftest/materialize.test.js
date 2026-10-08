@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { materialize, loginRecord } from '../../difftest/materialize.js';
-import { put, remove, cd, proc, dir, file, symlink, link } from '../../src/backend/spec.js';
+import { put, remove, cd, proc, dir, file, symlink, link, password } from '../../src/backend/spec.js';
 
 const T = Date.UTC(2026, 9, 6, 10);
 
@@ -86,4 +86,11 @@ test('a hard link is made with ln and keeps the owner and mode of the file it na
   const lines = script.trim().split('\n');
   assert.ok(lines.includes("ln -- '/home/hero/a' '/home/hero/b'"));
   assert.doesNotMatch(script, /(chown|chmod) .* '\/home\/hero\/b'/);
+});
+
+test("password sets the player's password with chpasswd, after the accounts exist", () => {
+  const { script } = materialize([put('/etc', dir({ passwd: file('hero:x:1000:1000::/home/hero:/bin/bash\n') })), password("it's")], T);
+  const set = script.indexOf("printf '%s\\n' 'hero:it'\\''s' | chpasswd");
+  assert.ok(set > script.indexOf("> '/etc/passwd'"), script);
+  assert.doesNotMatch(materialize([password(null)], T).script, /chpasswd/);
 });

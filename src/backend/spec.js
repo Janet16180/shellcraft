@@ -7,7 +7,7 @@
  * a backend stores the world.
  */
 
-const OPS = new Set(['put', 'remove', 'proc', 'stop', 'cd', 'login']);
+const OPS = new Set(['put', 'remove', 'proc', 'stop', 'cd', 'login', 'password']);
 const PLAYER_SHELL = 'shell';
 const MAX_MODE = 0o7777;
 
@@ -112,6 +112,17 @@ export const cd = path => ({ op: 'cd', path });
  */
 export const login = () => ({ op: 'login' });
 
+/**
+ * Set the player's own password, the one `sudo` asks for, as `passwd` would.
+ * The machine keeps it outside the tree, so no file shows it (an /etc/shadow
+ * the world puts holds whatever hash it was given). `null` leaves the account
+ * without a password. Setting it also forgets any sudo timestamp.
+ *
+ * @param {string|null} text The password: non-empty text on one line, or null.
+ * @returns {{op: 'password', text: string|null}} The operation.
+ */
+export const password = text => ({ op: 'password', text });
+
 function checkNode(node, where) {
   if (node.type === 'link') throw new Error(`${where}: a hard link may only be the node a put places`);
   if (node.type === 'symlink' && !node.target) throw new Error(`${where}: a symbolic link needs a target, not an empty one`);
@@ -125,6 +136,11 @@ function checkPut({ path, node }) {
   else if (!node.target.startsWith('/')) throw new Error(`put ${path}: a hard link's target must be absolute, got ${node.target}`);
 }
 
+function checkPassword(text) {
+  const oneLine = typeof text === 'string' && text !== '' && !text.includes('\n');
+  if (text !== null && !oneLine) throw new Error(`password: give non-empty text on one line, or null, got ${JSON.stringify(text)}`);
+}
+
 // Linux's pid_max on 64-bit systems; PID 1 is init.
 const MAX_PID = 4194304;
 const validPid = pid => Number.isInteger(pid) && pid >= 2 && pid <= MAX_PID;
@@ -136,6 +152,7 @@ function checkOp(op) {
   if (op.op === 'proc' && !op.proc.key) throw new Error('proc: every process needs a key');
   if (op.op === 'proc' && !op.proc.cmd) throw new Error(`proc ${op.proc.key}: every process needs a cmd`);
   if (op.op === 'proc' && 'pid' in op.proc && !validPid(op.proc.pid)) throw new Error(`proc ${op.proc.key}: PID must be a whole number from 2 to ${MAX_PID}, got ${op.proc.pid}`);
+  if (op.op === 'password') checkPassword(op.text);
   const key = op.op === 'proc' ? op.proc.key : op.key;
   if (key === PLAYER_SHELL) throw new Error(`${op.op}: the key '${PLAYER_SHELL}' is reserved for the player's own shell`);
 }
@@ -149,7 +166,7 @@ function checkOp(op) {
  * @throws {Error} If an operation is unknown, uses a relative path, has a mode
  *   outside 0 to 7777, has a symbolic link with an empty target or a hard
  *   link that is not the node of a put or has a relative target, describes a process without a key or a command or
- *   with a PID outside 2 to 4194304, or uses
+ *   with a PID outside 2 to 4194304, sets a password that is empty, not text or has a newline, or uses
  *   the key 'shell', which belongs to the player's own shell.
  */
 export function validatePatch(patch) {

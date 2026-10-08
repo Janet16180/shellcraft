@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { applyPatch } from '../../src/shell/patch.js';
 import { createSystem } from '../../src/shell/system.js';
 import { lookup } from '../../src/shell/fs.js';
-import { put, proc, cd, dir, file, symlink, link } from '../../src/backend/spec.js';
+import { put, proc, cd, dir, file, symlink, link, password } from '../../src/backend/spec.js';
 
 const make = () => createSystem({ user: 'hero', host: 'kernelia', home: '/home/hero', now: () => 3, random: () => 0.5, binaries: ['ls'] });
 
@@ -76,4 +76,15 @@ test('a hard link to a directory or to nothing raises', () => {
   const sys = make();
   assert.throws(() => applyPatch(sys, [put('/home/hero/h', link('/home'))]), /directory/);
   assert.throws(() => applyPatch(sys, [put('/home/hero/h', link('/home/hero/nope'))]), /no such/);
+});
+
+test("password sets the account's password on the machine, outside the tree, and forgets any sudo timestamp", () => {
+  const sys = createSystem({ user: 'hero', host: 'h', home: '/home/hero', now: () => 0, random: () => 0.5, binaries: [] });
+  assert.equal(sys.password, null);
+  applyPatch(sys, [password('dragon')]);
+  assert.equal(sys.password, 'dragon');
+  sys.sudoStamp = 5;
+  applyPatch(sys, [password(null)]);
+  assert.equal(sys.password, null);
+  assert.equal(sys.sudoStamp, null);
 });

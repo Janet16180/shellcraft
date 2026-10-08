@@ -120,6 +120,7 @@ export function createSystem({ user, host, home, now, random, binaries }) {
   const sys = {
     user, host, home, now, random,
     gids: [],
+    password: null, sudoStamp: null,
     root: baseTree(home, user, binaries, started), loginTime: started,
     cwd: home, oldpwd: null,
     vars: initialVars({ user, home, host }), aliases: nameTable(), history: [], hashed: new Map(),
