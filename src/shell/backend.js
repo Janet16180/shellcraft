@@ -14,8 +14,15 @@ import { COMMANDS, BINARIES } from './commands/index.js';
 
 const CLEAR_MARK = '\u001b[2J';
 
-function collector() {
-  const run = { chunks: [], records: [], blocked: [], depth: 0, pipelines: 0 };
+function collector(answers = []) {
+  const run = { chunks: [], records: [], blocked: [], depth: 0, pipelines: 0, waiting: null, asked: 0 };
+  // A command that reads a line from the terminal gets the next answer, or
+  // stops the line until the page sends one.
+  run.ask = prompt => {
+    if (run.asked < answers.length) return { text: answers[run.asked++] };
+    run.waiting = { prompt, at: run.chunks.length };
+    return { waiting: true };
+  };
   run.sink = {
     write: (stream, text, html) => {
       const chunk = { stream, text };
