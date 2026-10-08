@@ -15,7 +15,7 @@
  */
 
 import { tokenize } from './lexer.js';
-import { parseNext } from './parse.js';
+import { parseNext, listText } from './parse.js';
 import { expandWords, expandTarget, expandAssignment } from './expand.js';
 import { openRedirects, writeTo } from './redirect.js';
 import { resolve, errorText, pathFiles } from './paths.js';
@@ -28,11 +28,15 @@ import { BUILTINS, BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from './builtins.j
 import { homeOf } from './accounts.js';
 import { enterChild, leaveChild } from './subshell.js';
 import { runFor, runIf } from './compound.js';
+import { allocPid, makeProc, TERMINAL } from './system.js';
+import { addJob, reap, notify } from './jobs.js';
+import { deepCopy } from './snapshot.js';
 
 const MAX_DEPTH = 32;
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const CONTINUATION = 'In a real terminal, bash would wait for the rest of the command on a new line (a > prompt). Here the line ends where you pressed Enter.';
-const BACKGROUND = 'Background jobs are not simulated yet: the command ran in the foreground.';
+// What a background job's subshell may change without the shell seeing it.
+const SUBSHELL_STATE = ['vars', 'aliases', 'cwd', 'oldpwd', 'umask', 'positional', 'flags', 'hashed', 'history', 'lastBackground'];
 const OWN_OPTIONS = new Set(['clear', 'find', 'which', 'sudo']);
 const helpNote = name => `Real bash prints a longer description here; help ${name} shows the same text.`;
 
@@ -43,7 +47,7 @@ function firstOf(args, ...wanted) {
 
 const UNSIMULATED = new Set(['w', 'nl', 'cut', 'tr', 'du', 'df', 'stat', 'diff', 'tar', 'rev', 'seq', 'yes', 'od', 'xargs',
   'basename', 'dirname', 'realpath', 'tac', 'shuf', 'cmp', 'comm', 'paste', 'join', 'split', 'fold',
-  'expand', 'md5sum', 'sha256sum', 'base64', 'sleep', 'watch', 'free', 'uptime', 'lsblk', 'mount', 'apt', 'perl', 'gzip', 'whereis', 'stty', 'tput']);
+  'expand', 'md5sum', 'sha256sum', 'base64', 'watch', 'free', 'uptime', 'lsblk', 'mount', 'apt', 'perl', 'gzip', 'whereis', 'stty', 'tput']);
 const isAssignment = word => 'lit' in word.parts[0] && !word.parts[0].q && ASSIGNMENT.test(word.parts[0].lit);
 const withNewline = text => (text && !text.endsWith('\n') ? `${text}\n` : text);
 
@@ -202,7 +206,12 @@ function dispatch(sh, argv, streams, overlay) {
     jump: (kind, count) => { sh.jump = { kind, count }; },
     leave: status => { sh.exit = status; },
     tty: text => sh.run.sink.write('out', text),
+    notice: text => sh.run.sink.write('err', text),
+    jobText: sh.run.pipelineText,
     ask: prompt => sh.run.ask(prompt),
+    hold: (until, pid) => sh.run.hold(until, pid),
+    background: sh.background,
+    cancel: () => { sh.run.cancelled = true; },
     runAs: (who, work) => runAs(sys, who, work),
     program: (path, programArgs) => runProgram(sh, path, programArgs, { ...ctx, env: {} }),
   };
@@ -267,10 +276,18 @@ function prepare(sh, cmd, stdin, place, sink) {
 
 function record(sh, argv, r, { cwd, user, place, redirects }) {
   const base = { cwd, ...place.record, redirects };
+  if (sh.background) Object.assign(base, { background: true, job: sh.background.job?.id ?? null });
   const own = { name: argv[0], args: argv.slice(1), user, status: r.status, stdout: r.out, ...base };
   if (r.inner) own.asUser = r.inner.asUser;
+  if (r.key) own.signal = r.key;
   sh.run.records.push(own);
   if (r.inner?.ran) sh.run.records.push({ name: r.inner.name, args: r.inner.args, user: r.inner.asUser, via: argv[0], status: r.inner.status, stdout: r.out, ...base });
+}
+
+// A command that ran is recorded (on the typed line), and the first one of a background job names its process.
+function noteCommand(sh, argv, r, where) {
+  if (sh.run.depth === 0) record(sh, argv, r, where);
+  if (sh.background) sh.background.argv ??= argv;
 }
 
 function runCommand(sh, cmd, stdin, place, sink) {
@@ -289,8 +306,9 @@ function runCommand(sh, cmd, stdin, place, sink) {
   route(sh, sink, opened.error ? base.err : streams.err, r.child ? err : shellMessage(sh, err, cmd.line), null);
   if (r.note) sink.note(r.note);
   route(sh, sink, streams.out, r.out, r.html);
-  if (sh.run.depth === 0 && argv.length && !opened.error) record(sh, argv, r, { cwd, user, place, redirects: opened.records });
-  return { status: r.status, piped: streams.out.kind === 'pipe' ? streams.out.buffer : '', abort: abort || Boolean(r.abort) };
+  const ran = argv.length > 0 && !opened.error;
+  if (ran) noteCommand(sh, argv, r, { cwd, user, place, redirects: opened.records });
+  return { status: r.status, piped: streams.out.kind === 'pipe' ? streams.out.buffer : '', abort: abort || Boolean(r.abort), external: ran && !BUILTINS.has(argv[0]) };
 }
 
 const COMPOUND = { for: runFor, if: runIf };
@@ -324,20 +342,64 @@ function runCompound(sh, cmd, stdin, place, sink) {
 function runPipeline(sh, item, sink, input) {
   const { pipeline } = item;
   const index = sh.run.depth === 0 ? sh.run.pipelines++ : -1;
+  if (sh.run.depth === 0 && !sh.background) sh.run.pipelineText = listText([{ ...item, next: null }]);
   let stdin = input;
   let status = 0;
   let abort = false;
+  let external = false;
   pipeline.forEach((cmd, stage) => {
     const place = { last: stage === pipeline.length - 1, record: { pipeline: index, stage, stages: pipeline.length } };
     const done = (cmd.type ? runCompound : runCommand)(sh, cmd, stdin, place, sink);
     status = done.status;
     stdin = done.piped;
     abort ||= done.abort;
+    external ||= Boolean(done.external);
   });
+  // Like bash after it waited for a program: it hears what its jobs did, and says what changed.
+  if (external && sh.run.depth === 0 && jobControl(sh) && !sh.run.waiting) reportJobs(sh);
   return { status: item.negate ? Number(status === 0) : status, abort };
 }
 
-const interrupted = sh => sh.jump !== null || sh.exit !== null || sh.run.waiting !== null;
+const jobControl = sh => sh.sys.flags.includes('i') && !sh.frame.subshell && !sh.background;
+
+function reportJobs(sh) {
+  reap(sh.sys);
+  const text = notify(sh.sys);
+  if (text) sh.run.sink.write('err', text);
+}
+
+// The text of the pipelines from i that && and || join to it, and where they end.
+function andOrEnd(list, i) {
+  let end = i;
+  while (end < list.length - 1 && (list[end].next === '&&' || list[end].next === '||')) end++;
+  return end;
+}
+
+// A job run in the background: a subshell runs its commands at once and
+// writes what they print; sleeps in it make its process live longer
+// instead of holding the line. Only an interactive shell keeps a job table
+// and prints [N] PID.
+function runBackground(sh, items, sink) {
+  const { sys } = sh;
+  const pid = allocPid(sys);
+  const proc = makeProc({ pid, ppid: sys.shellPid, user: sys.user, cmd: '-bash', tty: TERMINAL, stat: 'S' });
+  sys.procs.push(proc);
+  const job = jobControl(sh) ? addJob(sys, { pid, text: listText(items), foreground: false }) : null;
+  if (job) sh.run.sink.write('err', `[${job.id}] ${pid}\n`);
+  const started = sys.now();
+  const saved = deepCopy(Object.fromEntries(SUBSHELL_STATE.map(key => [key, sys[key]])));
+  const outer = { background: sh.background, jump: sh.jump, exit: sh.exit };
+  sh.background = { job, ms: 0, argv: null };
+  const last = items.length - 1;
+  const { status } = runList(sh, items.map((item, i) => (i === last ? { ...item, next: ';' } : item)), sink, null);
+  const single = items.length === 1 && items[0].pipeline.length === 1 && !items[0].pipeline[0].type && !items[0].negate;
+  Object.assign(proc, { cmd: single && sh.background.argv ? sh.background.argv.join(' ') : proc.cmd, endsAt: started + sh.background.ms, exitStatus: status });
+  Object.assign(sys, saved);
+  Object.assign(sh, outer);
+  sys.lastBackground = pid;
+}
+
+const interrupted = sh => sh.jump !== null || sh.exit !== null || sh.run.waiting !== null || sh.run.cancelled;
 
 // Each pipeline in turn, as && and || allow, until one aborts the line or a
 // break, continue or exit is pending. stdin feeds the first command of each.
@@ -348,12 +410,16 @@ function runList(sh, list, sink, stdin) {
   let prev = null;
   for (let i = 0; i < list.length && !abort && !interrupted(sh); i++) {
     const item = list[i];
+    const starts = prev !== '&&' && prev !== '||';
+    const end = starts ? andOrEnd(list, i) : i;
     const skip = (prev === '&&' && status !== 0) || (prev === '||' && status === 0);
-    const ran = skip ? null : runPipeline(sh, item, sink, stdin);
-    if (ran) ({ status, abort } = ran);
-    if (ran && item.next === '&') sink.note(BACKGROUND);
+    if (starts && list[end].next === '&') {
+      runBackground(sh, list.slice(i, end + 1), sink);
+      status = 0;
+      i = end;
+    } else if (!skip) ({ status, abort } = runPipeline(sh, item, sink, stdin));
     sys.lastStatus = status;
-    prev = item.next;
+    prev = list[i].next;
   }
   return { status, abort };
 }
@@ -377,7 +443,7 @@ function runText(sh, text, sink, textFrame) {
   const tokens = lexed.error ? [...lexed.tokens, { type: 'error', message: lexed.error, line: lexed.errorLine }] : lexed.tokens;
   let status = sh.sys.lastStatus;
   let next = { end: 0, list: [], error: null };
-  while (next.list && sh.exit === null && sh.run.waiting === null) {
+  while (next.list && sh.exit === null && sh.run.waiting === null && !sh.run.cancelled) {
     next = parseNext(tokens, next.end);
     if (next.error) syntaxError(sh, next.error, text, sink);
     if (next.error) status = 2;
@@ -398,6 +464,6 @@ function runText(sh, text, sink, textFrame) {
  * @returns {number} The exit status of the last pipeline that ran.
  */
 export function executeLine(sh, line, sink) {
-  Object.assign(sh, { jump: null, exit: null });
+  Object.assign(sh, { jump: null, exit: null, background: null });
   return runText(sh, line, sink, PROMPT());
 }

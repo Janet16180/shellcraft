@@ -760,7 +760,7 @@ test('a chapter list with repeated ids raises', () => {
 // Dev mode (?dev): a separate save, every written chapter open, and dev commands.
 async function devSession(options = {}) {
   const store = createMemoryStore(options.stored ?? {});
-  const session = createSession({ backend: createFakeBackend(), chapters: fixtureChapters(), baseWorld: fixtureWorld, store, random: createRandom(1), dev: true });
+  const session = createSession({ backend: createFakeBackend(), chapters: options.chapters ?? fixtureChapters(), baseWorld: fixtureWorld, store, random: createRandom(1), dev: true });
   const view = await session.boot();
   return { store, session, view };
 }
@@ -812,6 +812,13 @@ test('dev solve prints the answer lines for the tasks, then for the boss', async
   const turn = await session.submit('dev boss');
   const lines = fixtureChapters()[0].boss.solve(turn.obs);
   assert.match(noteOf(await session.submit('dev solve')), new RegExp(lines[0]));
+});
+
+test('dev solve names the Ctrl+C and Ctrl+Z a solve line presses while it runs', async () => {
+  const chapters = fixtureChapters();
+  chapters[0].solve = ['sleep 100\u001a', 'fg\u0003'];
+  const { session } = await devSession({ chapters });
+  assert.equal(noteOf(await session.submit('dev solve')), 'sleep 100   (then Ctrl+Z)\nfg   (then Ctrl+C)');
 });
 
 test('dev with no command, or an unknown one, lists the dev commands', async () => {
@@ -892,4 +899,56 @@ test('restarting the chapter abandons a line waiting for input', async () => {
   await session.startChapter('awakening');
   await assert.rejects(session.answer('dragon'), /no line is waiting/);
   assert.equal((await session.submit('pwd')).events.length, 1);
+});
+
+test('a line whose command takes time runs: no task is judged until the line ends', async () => {
+  const { session } = await booted();
+  const running = await session.submit('sleep 5; pwd');
+  assert.deepEqual(running.result.running, { seconds: 5 });
+  assert.deepEqual(running.events, []);
+  assert.equal(running.view.running, true);
+  await assert.rejects(session.submit('pwd'), /still running/);
+  await assert.rejects(session.answer('x'), /no line is waiting/);
+  const done = await session.poll();
+  assert.equal(done.result.running, undefined);
+  assert.equal(done.view.running, false);
+  assert.deepEqual(done.result.output.map(c => c.text), ['/home/hero\n']);
+  assert.deepEqual(kinds(done.events), ['task']);
+});
+
+test('Ctrl+C reaches the running command and ends the line; Ctrl+Z stops it and the line goes on', async () => {
+  const { session } = await booted();
+  await session.submit('sleep 5; pwd');
+  const cancelled = await session.signal('INT');
+  assert.deepEqual([cancelled.result.output.map(c => c.text), cancelled.result.status, cancelled.events], [['^C\n'], 130, []]);
+  await session.submit('sleep 5; pwd');
+  const stopped = await session.signal('TSTP');
+  assert.deepEqual(stopped.result.output.map(c => c.text), ['^Z\n', '[1]+  Stopped                 sleep 5\n', '/home/hero\n']);
+  assert.deepEqual(kinds(stopped.events), ['task']);
+});
+
+test('signal and poll raise when no line runs, and while a line waits for input', async () => {
+  const { session } = await booted();
+  await assert.rejects(session.poll(), /no line is running/);
+  await assert.rejects(session.signal('INT'), /no line is running/);
+  await session.submit('sudo pwd');
+  await assert.rejects(session.signal('INT'), /no line is running/);
+});
+
+test('restarting the chapter abandons a running line', async () => {
+  const { session } = await booted();
+  await session.submit('sleep 5');
+  await session.startChapter('awakening');
+  await assert.rejects(session.poll(), /no line is running/);
+  assert.equal((await session.submit('pwd')).events.length, 1);
+});
+
+test('an empty line reaches the shell, which may report jobs, but gets no note about the task', async () => {
+  const chapters = fixtureChapters();
+  chapters[0].tasks[0].near = () => 'Look closer.';
+  const { session, backend } = await booted({ chapters });
+  const empty = await session.submit('');
+  assert.deepEqual(backend.lines.at(-1), '');
+  assert.equal(empty.result.output.some(c => c.tone === 'coach'), false);
+  assert.equal((await session.submit('ls')).result.output.some(c => c.tone === 'coach'), true);
 });

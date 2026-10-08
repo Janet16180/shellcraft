@@ -8,7 +8,8 @@ import { createSimBackend } from '../../../src/shell/backend.js';
 import { assertChapterList } from '../../helpers/chapter.js';
 import { createMemoryStore } from '../../helpers/memory-store.js';
 import { typeLine } from '../../helpers/type-line.js';
-import { passwordOf } from './harness.js';
+import { passwordOf, jobNotice } from './harness.js';
+import { sessionKeys, createClock } from '../../helpers/session-keys.js';
 
 const ORDER = ['awakening', 'forest', 'unseen', 'camp', 'junkyard', 'mirrors', 'library', 'tower', 'market', 'descent', 'gate', 'well', 'daemon', 'forge', 'guild', 'hall', 'portals', 'crown', 'memory'];
 
@@ -59,23 +60,13 @@ test('the names the player types in goals and notes are marked as code', () => {
   for (const name of ['`forest/cave/deep`', '`..`', '`cd -`', '`/home/hero`', '`~`']) assert.ok(marked.includes(name), name);
 });
 
-// Type a line, answering a password prompt with the one the chapter's setup sets.
-function keysFor(session, chapter) {
-  const submit = async line => {
-    let turn = await session.submit(line);
-    while (turn.result.input) turn = await session.answer(passwordOf(chapter));
-    return turn;
-  };
-  return { complete: line => session.complete(line), submit };
-}
-
-async function playThrough(session, chapter) {
+async function playThrough(session, chapter, clock) {
   const turns = [];
-  const keys = keysFor(session, chapter);
+  const keys = sessionKeys(session, { password: passwordOf(chapter), tick: clock.tick });
   for (const line of chapter.solve) turns.push(await typeLine(line, keys));
   const bossStart = turns.at(-1);
   for (const line of chapter.boss.solve(session.observation())) turns.push(await typeLine(line, keys));
-  return { bossStart, last: turns.at(-1), errors: turns.flatMap(t => t.result.output.filter(c => c.stream === 'err')) };
+  return { bossStart, last: turns.at(-1), errors: turns.flatMap(t => t.result.output.filter(c => c.stream === 'err' && !jobNotice(c.text))) };
 }
 
 const kinds = list => list.map(x => x.kind);
@@ -101,14 +92,15 @@ const EXPECTED_ERRORS = {
 
 for (const seed of [1, 2, 3]) {
   test(`a session plays every playable chapter from boot to the last boss (seed ${seed})`, async () => {
-    const backend = createSimBackend({ now: () => Date.UTC(2026, 9, 6, 12), random: createRandom(seed) });
+    const clock = createClock();
+    const backend = createSimBackend({ now: clock.now, random: createRandom(seed) });
     const session = createSession({ backend, chapters, baseWorld, store: createMemoryStore(), random: createRandom(seed) });
     assert.equal((await session.boot()).chapter.id, 'awakening');
 
     let last = null;
     for (const [i, chapter] of PLAYABLE.entries()) {
       if (i > 0) await session.startChapter(chapter.id, { fresh: false });
-      const played = await playThrough(session, chapter);
+      const played = await playThrough(session, chapter, clock);
       assert.deepEqual(played.errors.map(e => e.text), EXPECTED_ERRORS[chapter.id] ?? [], chapter.id);
       assert.deepEqual(kinds(played.bossStart.events), ['task', 'boss-start'], chapter.id);
       assert.deepEqual(kinds(played.last.events), ['boss', 'chapter'], chapter.id);

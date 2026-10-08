@@ -1,3 +1,4 @@
+import { wireRunning } from './running.js';
 import { chunkLine, clears, columnsFor, displayPath, esc, promptHTML } from './output.js';
 import { createHistory } from './history.js';
 import { startSearch, typeText, searchOlder, backspace, searchView } from './isearch.js';
@@ -384,13 +385,15 @@ function wire(t, root) {
  *   Tab completions and resizes wait their turn in it, behind any other session call.
  * @param {(line: string) => Promise<void>} opts.onSubmit Runs a line the player entered.
  * @param {(text: string|null) => Promise<void>} [opts.onAnswer] Sends the line typed at an ask() prompt, or null for Ctrl+C.
+ * @param {(name: 'INT'|'TSTP') => unknown} [opts.onSignal] Sends Ctrl+C or Ctrl+Z to a running command: after
+ *   `running(true)` the prompt hides and those keys go here (src/ui/running.js), until `running(false)`.
  * @param {(line: string) => Promise<{line: string, candidates: string[]}>} opts.onComplete Tab completion.
  * @param {() => void} [opts.onKey] Called on each printable key (the key click sound).
  * @param {(columns: number) => unknown} [opts.onResize] Told the width in characters at the start and when it changes.
  * @returns {{print: Function, printLine: Function, setPrompt: Function, insert: Function, focus: Function, clear: Function, ask: Function, abandon: Function}}
  *   The terminal's controls.
  */
-export function createTerminal({ root, queue, onSubmit, onComplete, onAnswer = async () => {}, onKey = () => {}, onResize = () => {} }) {
+export function createTerminal({ root, queue, onSubmit, onComplete, onAnswer = async () => {}, onSignal = () => {}, onKey = () => {}, onResize = () => {} }) {
   const t = {
     out: root.querySelector('#out'),
     screen: root.querySelector('#screen'),
@@ -411,9 +414,11 @@ export function createTerminal({ root, queue, onSubmit, onComplete, onAnswer = a
     onResize,
     columns: 0,
   };
+  const running = wireRunning({ input: t.input, promptEl: t.promptEl, keys: root.querySelector('#keys') }, onSignal);
   wire(t, root);
   watchWidth(t);
   return {
+    running: on => running.set(on),
     print: chunks => print(t, chunks),
     printLine: (text, cls) => printLine(t, text, cls),
     setPrompt: prompt => setPrompt(t, prompt),

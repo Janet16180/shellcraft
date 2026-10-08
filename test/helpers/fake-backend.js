@@ -9,6 +9,8 @@
  *
  * `sudo LINE` asks for hidden input like the port allows; answer() with the
  * password `dragon` then runs LINE, anything else (or null, Ctrl+C) fails.
+ * `sleep N; REST` runs for N seconds: poll() ends the sleep and runs REST,
+ * signal('INT') ends the line with ^C, signal('TSTP') stops the sleep and runs REST.
  *
  * `loads` and `lines` record what the game asked for, for assertions.
  */
@@ -44,23 +46,17 @@ export function createFakeBackend({ user = 'hero', host = 'kernelia', home = '/h
     parent.children[baseName(path)] = structuredClone(node);
   }
 
-  const apply = {
-    put: op => put(op.path, op.node),
-    remove: op => { delete get(parentOf(op.path))?.children?.[baseName(op.path)]; },
-    proc: op => {
-      world.procs = world.procs.filter(p => p.key !== op.proc.key);
-      world.procs.push({ pid: world.nextPid++, ppid: 1, tty: '?', stat: 'S', cpu: 0, mem: 0, ...op.proc });
-    },
-    stop: op => { world.procs = world.procs.filter(p => p.key !== op.key); },
-    cd: op => { world.cwd = op.path; },
-  };
+  const apply = patchOps(world, { put, get });
 
   const commands = makeCommands({ world, user, home, abs, get, put });
   const prompt = `[sudo] password for ${user}: `;
   let pending = null;
+  const sleeping = { now: null };
   const backend = {
     loads: [],
     lines: [],
+    poll: async () => endSleep(backend, sleeping, null),
+    signal: async name => endSleep(backend, sleeping, name),
     async answer(text) {
       if (pending === null) throw new Error('no line is waiting for input');
       const line = pending;
@@ -69,12 +65,14 @@ export function createFakeBackend({ user = 'hero', host = 'kernelia', home = '/h
     },
     async load(patch) {
       pending = null;
+      sleeping.now = null;
       backend.loads.push(patch);
       for (const op of patch) apply[op.op](op);
     },
     async run(line) {
-      if (pending !== null) throw new Error('a line is waiting for input');
+      if (pending !== null || sleeping.now !== null) throw new Error('a line is waiting for input or running');
       backend.lines.push(line);
+      if (/^sleep \d+/.test(line)) return startSleep(sleeping, line, world.cwd);
       if (line.startsWith('sudo ')) {
         pending = line.slice('sudo '.length);
         return { output: [], status: 0, commands: [], blocked: [], input: { prompt, hidden: true } };
@@ -82,7 +80,7 @@ export function createFakeBackend({ user = 'hero', host = 'kernelia', home = '/h
       return runWords(line, world, commands);
     },
     async observe() {
-      return structuredClone({ user, groups: [user], host, home, cwd: world.cwd, tree: world.tree, procs: world.procs });
+      return structuredClone({ user, groups: [user], host, home, cwd: world.cwd, tree: world.tree, procs: world.procs, jobs: [] });
     },
     async complete(line) {
       return { line, candidates: [] };
@@ -102,6 +100,37 @@ function runWords(line, world, commands) {
     result.commands.push({ name, args, cwd, status: out.status, stdout: out.stdout, pipeline: result.commands.length, stage: 0, stages: 1, redirects: [] });
   }
   return result;
+}
+
+function patchOps(world, { put, get }) {
+  return {
+    put: op => put(op.path, op.node),
+    remove: op => { delete get(parentOf(op.path))?.children?.[baseName(op.path)]; },
+    proc: op => {
+      world.procs = world.procs.filter(p => p.key !== op.proc.key);
+      world.procs.push({ pid: world.nextPid++, ppid: 1, tty: '?', stat: 'S', cpu: 0, mem: 0, ...op.proc });
+    },
+    stop: op => { world.procs = world.procs.filter(p => p.key !== op.key); },
+    cd: op => { world.cwd = op.path; },
+  };
+}
+
+function startSleep(sleeping, line, cwd) {
+  const [, seconds, rest] = /^sleep (\d+)\s*(?:;(.*))?$/.exec(line);
+  sleeping.now = { seconds: Number(seconds), rest: rest ?? '', cwd };
+  return { output: [], status: 0, commands: [], blocked: [], running: { seconds: Number(seconds) } };
+}
+
+async function endSleep(backend, sleeping, key) {
+  if (sleeping.now === null) throw new Error('no command is running in the foreground');
+  const { seconds, rest, cwd } = sleeping.now;
+  sleeping.now = null;
+  const status = { INT: 130, TSTP: 148 }[key] ?? 0;
+  const sleep = { name: 'sleep', args: [String(seconds)], cwd, status, stdout: '', pipeline: 0, stage: 0, stages: 1, redirects: [] };
+  if (key) sleep.signal = key;
+  const echoed = { INT: [{ stream: 'out', text: '^C\n' }], TSTP: [{ stream: 'out', text: '^Z\n' }, { stream: 'err', text: `[1]+  Stopped                 sleep ${seconds}\n` }] }[key] ?? [];
+  const after = key === 'INT' || !rest.trim() ? { output: [], status, commands: [] } : await backend.run(rest);
+  return { output: [...echoed, ...after.output], status: after.status, commands: [sleep, ...after.commands], blocked: [] };
 }
 
 async function answerSudo(backend, { line, text, prompt, cwd }) {

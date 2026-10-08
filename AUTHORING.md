@@ -84,6 +84,17 @@ The check context `ctx` (implemented in `src/game/checks.js`) sees only the port
   (`user: 'root'`, `via: 'sudo'`), sharing the pipeline place and redirections. "chown ran as root" is
   `ctx.ran('chown', r => r.user === 'root')`; a plain `chown` by the player has `user: 'hero'`.
 - `ctx.tried(name, pred?)`: same, any exit status.
+- `ctx.jobs`: the shell's jobs after the line, `[{ id, pid, cmd, state, mark }]`, `state` being
+  `'running'`, `'stopped'` or `'done'` (the process is gone, not yet reported) and `mark` `'+'`
+  (current), `'-'` (previous) or `' '`. `ctx.job(1)` is job `%1`, or `null`.
+- `ctx.ended(id)`: job `id` ended on this line: its process went (`kill %1`, `kill -9 %1`, or it
+  finished), or bash reported its end (`[1]+  Done ...` after a job that finished while the player
+  typed). A new job that took the number does not count.
+- `ctx.pressed(key, name?)`: the player pressed Ctrl+C (`'INT'`) or Ctrl+Z (`'TSTP'`) while a
+  command (named `name`, if given) ran in the foreground: `ctx.pressed('TSTP', 'sleep')`.
+  The record of that command has `signal: 'INT'|'TSTP'` and status 130 or 148. A command of a
+  job started with `&` has `background: true` and `job: N`: "started sleep in the background" is
+  `ctx.ran('sleep', r => r.background)`.
 - `ctx.hasPath(record, absPath)`: one of its non-option arguments resolves to `absPath`; for commands that read their input (cat, grep, sort, uniq, wc, head, tail...), also a file sent in with `<` or by a plain `cat` piped into it.
 - `ctx.streams(record)`: `{out, err}`, where the command's output and errors went after its redirections in typed order (`2>&1`, `&>` included); `null` is the screen.
 - `ctx.onScreen(record)`: the record's output reached the screen: last stage of its pipeline, stdout not redirected.
@@ -193,6 +204,15 @@ In the Observation tree (`src/backend/port.js` TreeNode) every node has `ino` an
 link is `{type: 'symlink', target, ...}`. `ctx.node(path)` follows links like `cat` would;
 `ctx.inode(path)` and `ctx.linkTarget(path)` answer "same file?" and "where does this link point?".
 
+### Time and jobs
+
+The game's clock is the real one: `sleep 30 &` is `Done` 30 seconds later, and a foreground `sleep 5`
+holds the prompt for 5 seconds (Ctrl+C ends it, Ctrl+Z stops it as a job). Pick lengths a learner
+can wait for when a task needs the end (`sleep 20 &`), and long ones when it must not end on its
+own (`sleep 600` to stop with Ctrl+Z, `sleep 600 &` to `kill %1`). bash reports a finished job after
+the next line, so a lesson can say "press Enter". A job's commands run at once in the simulator;
+only its sleeps take time, so `sleep 3 && echo hi &` prints `hi` at once (real bash: after 3 s).
+
 ### Explainers (optional)
 
 A chapter may add `explainer: 'links'`, the id of an explainer in `src/intro/explainers.js` (game code
@@ -280,6 +300,17 @@ from `test/game/chapters/harness.js` answers each prompt in order (`{ password: 
 for several tries, `null` for Ctrl+C) and returns the parts of the line joined; a prompt the test did
 not answer raises. `play()` and the session playthrough answer with the password the chapter's setup
 sets (`passwordOf(chapter)`), so `solve` lines may use sudo.
+
+Commands that take time run on a test clock that stands still until the test moves it. `startChapter`
+returns a backend with `tick`: `await backend.tick(30)` lets 30 seconds pass, so a `sleep 30 &` job is
+`Done` on the next line. A line whose command runs in the foreground (`sleep 5`, `fg`, `wait`) runs to
+its end on that clock, unless the test presses keys while it runs: `type(backend, 'sleep 100', { keys:
+['ctrl-z'] })`, or `{ keys: [30, 'ctrl-c'] }` to let 30 seconds pass first. A line that never ends by
+itself (`sleep infinity`) needs a key, and keys the line did not use raise. In `solve` lines, Ctrl+C
+(`\u0003`) and Ctrl+Z (`\u001a`) at the end of the line are pressed while it runs: `'sleep 100\u001a'`.
+`play()`, the session playthrough and `dev solve` (which prints them as "(then Ctrl+Z)") follow them.
+`errors(result)` leaves out bash's job notices (`[1] 4242`, `[1]+  Done ...`), which go to standard
+error but are no errors.
 
 Each chapter test file runs against the real simulator (`createSimBackend`) and checks:
 1. The module passes the shared contract check (`assertChapter` from `test/helpers/`).

@@ -13,7 +13,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSyn
 import path from 'node:path';
 import { materialize, loginRecord } from './materialize.js';
 import { lineClocks, crossedMinute } from './clock.js';
-import { inputScript, splitOutput } from './protocol.js';
+import { inputScript, splitOutput, masked } from './protocol.js';
 import { runSim } from './sim.js';
 import { WORLDS } from './worlds.js';
 import { TERMINAL } from '../src/shell/system.js';
@@ -93,12 +93,14 @@ async function runCase(c, index) {
   let k = 0;
   const paired = c.lines.map(line => (runsReal(line) ? real[k++] : null));
   const sim = await runSim(world, c.lines, worldTime, lineClocks(paired, Math.floor(Date.now() / 1000)));
+  const mask = r => r && { ...r, out: masked(r.out, c.mask ?? []), err: masked(r.err, c.mask ?? []) };
   const lines = c.lines.map((line, i) => {
-    const r = paired[i];
-    const same = r !== null && r.out === sim[i].out && r.err === sim[i].err && r.status === sim[i].status;
+    const r = mask(paired[i]);
+    const s = mask(sim[i]);
+    const same = r !== null && r.out === s.out && r.err === s.err && r.status === s.status;
     let verdict = same ? 'same' : 'differ';
     if (intended.has(line)) verdict = 'intended';
-    return { line, verdict, real: r, sim: sim[i], reason: intended.get(line)?.reason };
+    return { line, verdict, real: r, sim: s, reason: intended.get(line)?.reason };
   });
   return { case: c, lines, crossed: crossedMinute(real) };
 }

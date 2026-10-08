@@ -229,3 +229,37 @@ test('node follows symbolic links like cat does', () => {
   assert.equal(ctx.node(`${HOME}/portal`).type, 'dir');
   assert.equal(ctx.node(`${HOME}/broken`), null);
 });
+
+const job = (id, state, fields = {}) => ({ id, pid: 4000 + id, cmd: 'sleep 100', state, mark: '+', ...fields });
+
+test('jobs lists the jobs after the line, and job finds one by number', () => {
+  const ctx = context([], { jobs: [job(1, 'stopped')] });
+  assert.deepEqual(ctx.jobs, [job(1, 'stopped')]);
+  assert.equal(ctx.job(1).state, 'stopped');
+  assert.equal(ctx.job(2), null);
+});
+
+test('pressed tells that the player pressed Ctrl+C or Ctrl+Z during a command, optionally a named one', () => {
+  const ctx = context([record('sleep', ['100'], { status: 148, signal: 'TSTP' }), record('echo')]);
+  assert.equal(ctx.pressed('TSTP'), true);
+  assert.equal(ctx.pressed('TSTP', 'sleep'), true);
+  assert.equal(ctx.pressed('TSTP', 'fg'), false);
+  assert.equal(ctx.pressed('INT'), false);
+});
+
+test('pressed with anything but INT or TSTP is an authoring bug and raises', () => {
+  assert.throws(() => context([]).pressed('ctrl-z'), /INT or TSTP/);
+});
+
+test('ended tells that a job ended on the line: its process went, or bash reported its end', () => {
+  const before = { jobs: [job(1, 'running'), job(2, 'stopped'), job(3, 'running'), job(5, 'done'), job(6, 'done')] };
+  const ctx = context([], { jobs: [job(1, 'done'), job(3, 'running'), job(6, 'done')] }, before);
+  assert.deepEqual([1, 2, 3, 4, 5, 6].map(id => ctx.ended(id)), [true, true, false, false, true, false]);
+});
+
+test('ended does not count a new job that took the number of an old one', () => {
+  const ctx = context([], { jobs: [job(1, 'running', { pid: 5000 })] }, { jobs: [job(1, 'running')] });
+  assert.equal(ctx.ended(1), true);
+  const same = context([], { jobs: [job(1, 'running')] }, { jobs: [job(1, 'running')] });
+  assert.equal(same.ended(1), false);
+});

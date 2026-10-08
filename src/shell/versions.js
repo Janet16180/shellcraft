@@ -33,6 +33,7 @@ const COREUTILS_AUTHORS = nameTable({
   env: 'Richard Mlynarik, David MacKenzie, and Assaf Gordon.',
   printenv: 'David MacKenzie and Richard Mlynarik.',
   tee: 'Mike Parker, Richard M. Stallman, and David MacKenzie.',
+  sleep: 'Jim Meyering and Paul Eggert.',
 });
 const OTHERS = nameTable({
   grep: `grep (GNU grep) 3.11\nCopyright (C) 2023 Free Software Foundation, Inc.\n${GPL}\nWritten by Mike Haertel and others; see\n<https://git.savannah.gnu.org/cgit/grep.git/tree/AUTHORS>.\n\ngrep -P uses PCRE2 10.42 2022-12-11\n`,

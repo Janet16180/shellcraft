@@ -39,6 +39,32 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
   `cases/16-sudo.json`. The password prompt itself is checked by hand in a container
   (`docs/verification/sudo.md`), since the case input cannot type at sudo's terminal.
 
+## State at 2026-10-08 (engine for chapter 20, Background Tasks: `slice/jobs`)
+
+- Branch `slice/jobs` (worktree `.scratch/wt/jobs`), not merged: job control as interactive bash
+  5.2 does it. `sleep` (s/m/h/d, sums, `infinity`), `CMD &` (`[1] PID`, `$!`), `jobs` (`-l -p -r
+  -s -n`, job specs `%N %% %+ %- %NAME %?TEXT`), `fg`, `bg`, `kill %N` (any signal; TERM/HUP wake a
+  stopped job), `wait` (all, `%N`, PID), `disown` (`-a -r -h`), Ctrl+C and Ctrl+Z. Bash's notices
+  (`[1]+  Done                    sleep 30`, `Stopped`, `Terminated`, `(wd: ~)`) come when bash
+  prints them: after a program on the line and before the next prompt. The job table is
+  `src/shell/jobs.js`; the commands `src/shell/commands/jobs.js`.
+- Time: the page's clock is the real one (`sleep 30 &` is Done 30 s later; `sleep 5` holds the
+  prompt 5 s). Tests use a clock that stands still until moved.
+- Port: a RunResult may carry `running: {seconds}`; `Backend.poll()` goes on once the command's
+  time is up, `Backend.signal('INT'|'TSTP')` sends Ctrl+C or Ctrl+Z (`src/backend/port.js`). The
+  session has `poll()` and `signal()`, and the view `running`. The page hides the prompt while a
+  command runs and sends the keys (`src/ui/running.js`, one hook in terminal.js); an empty line now
+  reaches the shell, so Enter shows a Done.
+- Records: `background: true, job: N` on a job's commands; `signal: 'INT'|'TSTP'` on the command a
+  key ended or stopped. Observation `jobs: [{id, pid, cmd, state, mark}]`. Checks: `ctx.jobs`,
+  `ctx.job(n)`, `ctx.ended(n)`, `ctx.pressed(key, name?)` (AUTHORING section 2).
+- Harness: `backend.tick(seconds)`; `type(backend, line, { keys: ['ctrl-z'] })` or `[30, 'ctrl-c']`;
+  solve lines may end with `\u0003`/`\u001a` (Ctrl+C/Ctrl+Z) (AUTHORING section 4).
+- Difftest: cases may `mask` PIDs; `cases/17-jobs.json`. Ctrl+C and Ctrl+Z were checked by hand in a
+  container (`docs/verification/jobs.md`, with what is kept different).
+- For the frontend: a `C-z` touch key (`data-k="C-z"`) would work at once (`src/ui/running.js`), and
+  the key list under the map's `?` could name Ctrl+Z.
+
 ## State at 2026-10-08, morning (act III: chapters 15 and 16)
 
 - `slice/users` and `slice/explainer` are merged into `slice/act3`. Chapters name an explainer by
