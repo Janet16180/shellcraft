@@ -108,3 +108,11 @@ test('when the path as typed leads nowhere but the real one does, cd takes the r
   await run(b, 'cd portal/../../cave');
   assert.equal((await b.observe()).cwd, '/home/hero/forest/cave');
 });
+
+test('tree shows a link as name -> target without entering it, counting one to a directory as a directory', async () => {
+  const mine = { owner: 'hero' };
+  const b = await shell([put('/home/hero/gate', dir({ p: symlink('../forest', mine), x: symlink('nowhere', mine) }, mine))]);
+  const r = await run(b, 'tree gate');
+  assert.equal(r.out, 'gate\n├── p -> ../forest\n└── x -> nowhere\n\n2 directories, 1 file\n');
+  assert.match(r.result.output.find(c => c.html).html, /<span class="c-link">p<\/span> -&gt; <span class="c-dir">\.\.\/forest<\/span>/);
+});

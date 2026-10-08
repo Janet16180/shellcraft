@@ -83,7 +83,17 @@ function cd(rawArgs, { sys }) {
   return res;
 }
 
-function treeWalk(node, prefix, level, opts, acc) {
+// tree shows a link as `name -> target` and does not enter it; it counts
+// one that leads to a directory as a directory.
+function treeLink(sys, path, name, node, branch, acc) {
+  const leadsTo = resolve(sys, path).node;
+  acc.text.push(`${branch}${name} -> ${node.target}`);
+  acc.html.push(`${esc(branch)}${span(leadsTo ? 'c-link' : 'c-orphan', name)} -&gt; ${leadsTo ? nameHTML(node.target, leadsTo, false) : esc(node.target)}`);
+  if (leadsTo?.type === 'dir') acc.dirs++;
+  else acc.files++;
+}
+
+function treeWalk(sys, path, node, prefix, level, opts, acc) {
   if (level > opts.maxLevel) return;
   const names = Object.keys(node.children)
     .filter(k => (opts.all || k[0] !== '.') && (!opts.dirsOnly || node.children[k].type === 'dir'))
@@ -92,11 +102,15 @@ function treeWalk(node, prefix, level, opts, acc) {
     const child = node.children[k];
     const last = i === names.length - 1;
     const branch = prefix + (last ? '└── ' : '├── ');
+    if (child.type === 'symlink') {
+      treeLink(sys, `${path}/${k}`, k, child, branch, acc);
+      return;
+    }
     acc.text.push(branch + k);
     acc.html.push(esc(branch) + nameHTML(k, child, false));
     if (child.type === 'dir') {
       acc.dirs++;
-      treeWalk(child, prefix + (last ? '    ' : '│\u00a0\u00a0 '), level + 1, opts, acc);
+      treeWalk(sys, `${path}/${k}`, child, prefix + (last ? '    ' : '│\u00a0\u00a0 '), level + 1, opts, acc);
     } else acc.files++;
   });
 }
@@ -115,7 +129,7 @@ function tree(args, { sys }) {
   const opened = !r.error && r.node.type === 'dir' && can(sys, r.node, 'r') && can(sys, r.node, 'x');
   const opts = { all: o.flags.has('a'), dirsOnly: o.flags.has('d'), maxLevel: o.vals.L ? parseInt(o.vals.L, 10) : Infinity };
   const acc = { text: [], html: [], dirs: opened ? 1 : 0, files: !opened && !r.error ? 1 : 0 };
-  if (opened) treeWalk(r.node, '', 1, opts, acc);
+  if (opened) treeWalk(sys, top, r.node, '', 1, opts, acc);
   const head = opened ? top : `${top}  [error opening dir]`;
   const summary = treeSummary(acc, opts.dirsOnly);
   const text = [head, ...acc.text].join('\n');

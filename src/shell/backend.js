@@ -86,7 +86,7 @@ function observe(sys) {
  *
  * Output chunks: 'out' and 'err' text ends in a newline like a real stream;
  * `html` (when present) is the same text coloured with the classes c-dir,
- * c-exe, g-file, g-sep, g-num and g-match. `clear` writes the real escape
+ * c-exe, c-link, c-orphan, g-file, g-sep, g-num and g-match. `clear` writes the real escape
  * sequence and its chunk carries `tone: 'clear'`. 'note' chunks explain where
  * the simulation differs from a real terminal.
  *

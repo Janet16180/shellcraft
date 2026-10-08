@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run, NOW } from '../helpers.js';
-import { put, dir, file } from '../../../src/backend/spec.js';
+import { put, dir, file, symlink, link } from '../../../src/backend/spec.js';
 import { humanSize } from '../../../src/shell/commands/ls.js';
 
 const mine = { owner: 'hero' };
@@ -144,10 +144,92 @@ test('into a pipe, ls -C uses an exported COLUMNS, else 80, and quotes nothing',
 
 test('a real ls option the game does not simulate gets a note, not invalid option', async () => {
   const b = await shell();
-  for (const line of ['ls -R', 'ls -laR', 'ls --recursive', 'dir -i']) {
+  for (const line of ['ls -R', 'ls -laR', 'ls --recursive', 'dir -s']) {
     const r = await run(b, line);
     assert.deepEqual([r.out, r.err, r.status], ['', '', 2], line);
-    assert.match(r.note, /^(ls|dir) (-R|--recursive|-i) is a real option, but this game does not simulate it\.$/, line);
+    assert.match(r.note, /^(ls|dir) (-R|--recursive|-s) is a real option, but this game does not simulate it\.$/, line);
   }
   assert.equal((await run(b, 'ls -z')).err, "ls: invalid option -- 'z'\nTry 'ls --help' for more information.\n");
+});
+
+const portals = () => shell([
+  put('/home/hero/links', dir({
+    deep: dir({ 'key.txt': file('key\n', mine) }, mine),
+    'scroll.txt': file('ink\n', mine),
+    portal: symlink('deep', mine),
+    broken: symlink('nowhere', mine),
+    'run.sh': file('', { owner: 'hero', mode: 0o755 }),
+    tool: symlink('run.sh', mine),
+  }, mine)),
+  put('/home/hero/links/copy.txt', link('/home/hero/links/scroll.txt')),
+]);
+
+test('ls -l shows a link as l, its size as the target text\'s length, and name -> target', async () => {
+  const b = await portals();
+  const r = await run(b, 'ls -l links');
+  assert.equal(r.out, [
+    'total 12',
+    'lrwxrwxrwx 1 hero hero    7 Oct  6 10:00 broken -> nowhere',
+    '-rw-r--r-- 2 hero hero    4 Oct  6 10:00 copy.txt',
+    'drwxr-xr-x 2 hero hero 4096 Oct  6 10:00 deep',
+    'lrwxrwxrwx 1 hero hero    4 Oct  6 10:00 portal -> deep',
+    '-rwxr-xr-x 1 hero hero    0 Oct  6 10:00 run.sh',
+    '-rw-r--r-- 2 hero hero    4 Oct  6 10:00 scroll.txt',
+    'lrwxrwxrwx 1 hero hero    6 Oct  6 10:00 tool -> run.sh',
+    '',
+  ].join('\n'));
+  assert.match(r.result.output[0].html, /<span class="c-orphan">broken<\/span> -&gt; nowhere/);
+  assert.match(r.result.output[0].html, /<span class="c-link">portal<\/span> -&gt; <span class="c-dir">deep<\/span>/);
+});
+
+test('ls -F marks links with @; in a long listing the target gets the mark of what it leads to', async () => {
+  const b = await portals();
+  assert.equal((await run(b, 'ls -F links | cat')).out, 'broken@\ncopy.txt\ndeep/\nportal@\nrun.sh*\nscroll.txt\ntool@\n');
+  assert.match((await run(b, 'ls -lF links')).out, / portal -> deep\/\n.* tool -> run\.sh\*\n$/s);
+  assert.match((await run(b, 'ls -lF links')).out, / broken -> nowhere\n/);
+});
+
+test('ls of a link to a directory lists the directory, unless -l, -d or -F, or the path ends in a slash', async () => {
+  const b = await portals();
+  await run(b, 'cd links');
+  assert.equal((await run(b, 'ls portal')).out, 'key.txt\n');
+  assert.equal((await run(b, 'ls -d portal')).out, 'portal\n');
+  assert.equal((await run(b, 'ls -F portal')).out, 'portal@\n');
+  assert.match((await run(b, 'ls -l portal')).out, /^lrwxrwxrwx .* portal -> deep\n$/);
+  assert.match((await run(b, 'ls -l portal/')).out, /^total 4\n-rw-r--r-- .* key\.txt\n$/);
+});
+
+test('ls names a dangling link it is given, and ls -l shows it, with no error', async () => {
+  const b = await portals();
+  await run(b, 'cd links');
+  assert.deepEqual(await run(b, 'ls broken').then(r => [r.out, r.err, r.status]), ['broken\n', '', 0]);
+  assert.match((await run(b, 'ls -l broken')).out, /^lrwxrwxrwx .* broken -> nowhere\n$/);
+});
+
+test('ls -i shows inode numbers, the same for two names of one file', async () => {
+  const b = await portals();
+  await run(b, 'cd links');
+  const lines = (await run(b, 'ls -i scroll.txt copy.txt tool | cat')).out.trim().split('\n');
+  const [copy, scroll, tool] = lines.map(l => l.trim().split(' ')[0]);
+  assert.equal(copy, scroll);
+  assert.notEqual(tool, scroll);
+  assert.match(lines[0], /^\d+ copy\.txt$/);
+  const long = (await run(b, 'ls -li scroll.txt')).out;
+  assert.match(long, new RegExp(`^${scroll} -rw-r--r-- 2 hero hero 4 `));
+  const obs = await b.observe();
+  assert.equal(String(obs.tree.children.home.children.hero.children.links.children['scroll.txt'].ino), scroll);
+});
+
+test('ls -i pads the numbers to one width', async () => {
+  const b = await shell();
+  const out = (await run(b, 'ls -ia /home/hero | cat')).out.trim().split('\n');
+  const width = out[0].indexOf(' ');
+  assert.ok(out.every(l => /^ *\d+ /.test(l) && l.indexOf(' ', l.search(/\d/)) === width));
+});
+
+test('link counts: 2 plus subdirectories for a directory, the number of names for a file', async () => {
+  const b = await portals();
+  assert.match((await run(b, 'ls -ld links')).out, /^drwxr-xr-x 3 /);
+  await run(b, 'rm links/scroll.txt');
+  assert.match((await run(b, 'ls -l links/copy.txt')).out, /^-rw-r--r-- 1 /);
 });
