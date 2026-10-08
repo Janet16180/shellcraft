@@ -1,5 +1,5 @@
 /**
- * Word expansion when a command runs: tilde, parameters, command
+ * Word expansion when a command runs: braces, tilde, parameters, command
  * substitution, word splitting, pathname expansion and quote removal, in
  * bash's order.
  *
@@ -12,6 +12,8 @@
 
 import { hasGlob, expandPattern } from './glob.js';
 import { evaluate } from './arith.js';
+import { braceExpand } from './brace.js';
+import { tokenize } from './lexer.js';
 
 const GLOB_CHARS = /[*?[\]\\]/g;
 const BLANKS = /[ \t\n]+/;
@@ -88,6 +90,13 @@ function globField(field, env) {
   return matches.length ? matches : [field.text];
 }
 
+// Each word that braces make is read again; a leading # stays a word, not a comment.
+function braceWords(word) {
+  const raws = word.raw?.includes('{') ? braceExpand(word.raw) : [word.raw];
+  if (raws.length === 1 && raws[0] === word.raw) return [word];
+  return raws.flatMap(raw => tokenize(raw.startsWith('#') ? `\\${raw}` : raw).tokens.filter(t => t.type === 'word').map(t => ({ ...t, raw, line: word.line })));
+}
+
 /**
  * Expand command words into the arguments the command receives.
  *
@@ -95,7 +104,7 @@ function globField(field, env) {
  * @param {object} env The expansion environment.
  * @returns {string[]} The arguments.
  */
-export const expandWords = (words, env) => words.flatMap(w => expandToFields(w, env).flatMap(f => globField(f, env)));
+export const expandWords = (words, env) => words.flatMap(braceWords).flatMap(w => expandToFields(w, env).flatMap(f => globField(f, env)));
 
 /**
  * Expand a redirection target, which must become exactly one word.

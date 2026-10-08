@@ -71,3 +71,14 @@ test('"$@" with no arguments is no word at all', () => {
   const none = { ...env(), positional: () => [] };
   assert.deepEqual(expandWords(words('echo "$@" "x$@"'), none), ['echo', 'x']);
 });
+
+test('brace expansion comes first, then tilde, variables and globs on each word', () => {
+  assert.deepEqual(expand('echo {a,b} x{1..2}y "{a,b}" {a} {}'), ['echo', 'a', 'b', 'x1y', 'x2y', '{a,b}', '{a}', '{}']);
+  assert.deepEqual(expand('echo {~,x} ~{root,nobody} {$X,c}'), ['echo', '/home/hero', 'x', '/root', '~nobody', 'a', 'b', 'c']);
+  assert.deepEqual(expand('ls {a,b}.txt {*.txt,c} {#a,b} {a,""}'), ['ls', 'a.txt', 'b.txt', 'a.txt', 'b.txt', 'c', '#a', 'b', 'a', '']);
+  assert.deepEqual(expand('echo {,}'), ['echo']);
+});
+
+test('a redirection target that braces make into two words is ambiguous', () => {
+  assert.deepEqual(expandTarget(words('{a,b}')[0], env()), { value: null, error: 'bash: {a,b}: ambiguous redirect' });
+});
