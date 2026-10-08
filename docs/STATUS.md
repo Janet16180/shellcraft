@@ -12,6 +12,22 @@ map draws the working directory as a room: the original outdoor 8-bit style insi
 home, Ring Zero's Pixel Dungeon style outside it. Each chapter is lesson, guided quest, boss,
 adventure log. 14 chapters are planned (DESIGN.md section 4).
 
+## State at 2026-10-08 (engine for chapter 18, The Crown: `slice/sudo`)
+
+- Branch `slice/sudo` (worktree `.scratch/wt/sudo`), not merged: `sudo` follows the tree's policy
+  (`/etc/sudoers`, `/etc/sudoers.d`; the base world now has Ubuntu's files and a root-only
+  `/etc/shadow`), runs one command as root or `-u USER`, and supports `-l`, `-k`, `-K`, `-v`, `-n`;
+  `-i`/`-s` end with a note. `tee` exists. `password('...')` (spec.js) sets the player's password;
+  `accounts(player, { sudo: [...] })` and `realm(player, { sudo: true })` make the player a sudoer
+  (AUTHORING "sudo and the player's password").
+- The port can ask the page for one hidden line mid-command: a RunResult with `input: {prompt,
+  hidden}`, answered with `Backend.answer(text|null)` (`src/backend/port.js`). The simulator replays
+  the line from a saved state with the answers so far. The session has `answer()`; the terminal hides
+  what is typed (labelled "password", no history). Records carry `user` (and `asUser`/`via` for sudo).
+- Difftest: the image installs sudo; world `sudo` (hero in group sudo with a NOPASSWD rule) and
+  `cases/16-sudo.json`. The password prompt itself is checked by hand in a container
+  (`docs/verification/sudo.md`), since the case input cannot type at sudo's terminal.
+
 ## State at 2026-10-08, morning (act III: chapters 15 and 16)
 
 - `slice/users` and `slice/explainer` are merged into `slice/act3`. Chapters name an explainer by

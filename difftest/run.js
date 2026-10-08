@@ -28,7 +28,10 @@ const ENV = [
   'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
   'LANG=C.UTF-8', 'LC_ALL=C.UTF-8', 'TZ=UTC', 'TERM=xterm-256color', 'PS1=', 'PS2=', 'HISTCONTROL=ignoreboth',
 ];
+// Like a real machine (and the game's /etc/hosts), the host name resolves;
+// without it sudo warns that it cannot.
 const RUN_SH = `bash /case/setup.sh
+grep -q kernelia /etc/hosts || echo '127.0.1.1 kernelia' >> /etc/hosts
 cd /home/hero 2>/dev/null || cd /
 while [ "$(date +%-S)" -ge ${LATEST_START_SECOND} ]; do sleep 0.5; done
 exec script -qec "stty -onlcr cols 80 rows 24; exec setpriv --reuid=1000 --regid=1000 --init-groups env -i ${ENV.join(' ')} bash --norc --noprofile --noediting -i < /case/input.sh 2>/out/err" /dev/null < /dev/null

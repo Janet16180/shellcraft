@@ -62,10 +62,13 @@ export function allocPid(sys, maxGap = 3) {
   return sys.nextPid;
 }
 
+// Programs that run with their owner's rights (the s in -rwsr-xr-x).
+const SETUID = new Set(['sudo']);
+
 function baseTree(home, user, binaries, mtime) {
   const meta = mode => ({ ...ROOT_META, mode, mtime });
   const bin = {};
-  for (const name of binaries) bin[name] = { ...newFile(BINARY, meta(0o755)), bin: name };
+  for (const name of binaries) bin[name] = { ...newFile(BINARY, meta(SETUID.has(name) ? 0o4755 : 0o755)), bin: name };
   const root = newDir({
     usr: newDir({ bin: newDir(bin, meta(0o755)) }, meta(0o755)),
     dev: newDir({ null: { ...newFile('', meta(0o666)), dev: 'null' } }, meta(0o755)),
@@ -120,6 +123,7 @@ export function createSystem({ user, host, home, now, random, binaries }) {
   const sys = {
     user, host, home, now, random,
     gids: [],
+    password: null, sudoStamp: null,
     root: baseTree(home, user, binaries, started), loginTime: started,
     cwd: home, oldpwd: null,
     vars: initialVars({ user, home, host }), aliases: nameTable(), history: [], hashed: new Map(),

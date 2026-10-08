@@ -20,7 +20,7 @@ test('a run result has output chunks, a status, command records and blocked reas
   assert.deepEqual(r.output, [{ stream: 'err', text: "ls: cannot access 'nope': No such file or directory\n" }]);
   assert.deepEqual(r.commands.map(c => [c.name, c.pipeline, c.stage, c.stages]), [['cat', 0, 0, 2], ['head', 0, 1, 2], ['ls', 1, 0, 1]]);
   assert.deepEqual(r.commands[0], {
-    name: 'cat', args: ['readme.txt'], cwd: '/home/hero', status: 0, stdout: 'Dear apprentice,\nwelcome.\n',
+    name: 'cat', args: ['readme.txt'], user: 'hero', cwd: '/home/hero', status: 0, stdout: 'Dear apprentice,\nwelcome.\n',
     pipeline: 0, stage: 0, stages: 2, redirects: [],
   });
   assert.deepEqual(r.commands[1].redirects, [{ op: '>', target: '/tmp/first' }]);

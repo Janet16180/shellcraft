@@ -7,6 +7,9 @@
  * player's shell, reporting them in `blocked`. A guard refusal only becomes a guardian effect; hearts come from
  * src/game/dangers.js.
  *
+ * `sudo LINE` asks for hidden input like the port allows; answer() with the
+ * password `dragon` then runs LINE, anything else (or null, Ctrl+C) fails.
+ *
  * `loads` and `lines` record what the game asked for, for assertions.
  */
 import { dir, file } from '../../src/backend/spec.js';
@@ -53,25 +56,30 @@ export function createFakeBackend({ user = 'hero', host = 'kernelia', home = '/h
   };
 
   const commands = makeCommands({ world, user, home, abs, get, put });
+  const prompt = `[sudo] password for ${user}: `;
+  let pending = null;
   const backend = {
     loads: [],
     lines: [],
+    async answer(text) {
+      if (pending === null) throw new Error('no line is waiting for input');
+      const line = pending;
+      pending = null;
+      return answerSudo(backend, { line, text, prompt, cwd: world.cwd });
+    },
     async load(patch) {
+      pending = null;
       backend.loads.push(patch);
       for (const op of patch) apply[op.op](op);
     },
     async run(line) {
+      if (pending !== null) throw new Error('a line is waiting for input');
       backend.lines.push(line);
-      const result = { output: [], status: 0, commands: [], blocked: [] };
-      for (const words of line.split(';').map(part => part.trim().split(/\s+/).filter(Boolean)).filter(w => w.length > 0)) {
-        const [name, ...args] = words;
-        const cwd = world.cwd;
-        const out = (Object.hasOwn(commands, name) ? commands[name] : notFound(name))(args, result);
-        result.output.push(...out.output);
-        result.status = out.status;
-        result.commands.push({ name, args, cwd, status: out.status, stdout: out.stdout, pipeline: result.commands.length, stage: 0, stages: 1, redirects: [] });
+      if (line.startsWith('sudo ')) {
+        pending = line.slice('sudo '.length);
+        return { output: [], status: 0, commands: [], blocked: [], input: { prompt, hidden: true } };
       }
-      return result;
+      return runWords(line, world, commands);
     },
     async observe() {
       return structuredClone({ user, groups: [user], host, home, cwd: world.cwd, tree: world.tree, procs: world.procs });
@@ -81,6 +89,27 @@ export function createFakeBackend({ user = 'hero', host = 'kernelia', home = '/h
     },
   };
   return backend;
+}
+
+function runWords(line, world, commands) {
+  const result = { output: [], status: 0, commands: [], blocked: [] };
+  for (const words of line.split(';').map(part => part.trim().split(/\s+/).filter(Boolean)).filter(w => w.length > 0)) {
+    const [name, ...args] = words;
+    const cwd = world.cwd;
+    const out = (Object.hasOwn(commands, name) ? commands[name] : notFound(name))(args, result);
+    result.output.push(...out.output);
+    result.status = out.status;
+    result.commands.push({ name, args, cwd, status: out.status, stdout: out.stdout, pipeline: result.commands.length, stage: 0, stages: 1, redirects: [] });
+  }
+  return result;
+}
+
+async function answerSudo(backend, { line, text, prompt, cwd }) {
+  const sudo = { name: 'sudo', args: line.split(/\s+/), cwd, status: 1, stdout: '', pipeline: 0, stage: 0, stages: 1, redirects: [] };
+  const asked = { stream: 'out', text: `${prompt}\n` };
+  if (text !== 'dragon') return { output: [asked, { stream: 'err', text: 'sudo: a password is required\n' }], status: 1, commands: [sudo], blocked: [] };
+  const r = await backend.run(line);
+  return { ...r, output: [asked, ...r.output], commands: [{ ...sudo, status: r.status }, ...r.commands] };
 }
 
 const ok = (stdout = '') => ({ status: 0, stdout, output: stdout ? [{ stream: 'out', text: stdout }] : [] });

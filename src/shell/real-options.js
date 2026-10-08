@@ -33,6 +33,7 @@ export const REAL_OPTIONS = Object.freeze({
   groups: { short: '', long: ['--help', '--version'] },
   ln: { short: 'FLPSTbdfinrstv', long: ['--backup', '--directory', '--force', '--help', '--interactive', '--logical', '--no-dereference', '--no-target-directory', '--physical', '--relative', '--suffix', '--symbolic', '--target-directory', '--verbose', '--version'] },
   readlink: { short: 'efmnqsvz', long: ['--canonicalize', '--canonicalize-existing', '--canonicalize-missing', '--help', '--no-newline', '--quiet', '--silent', '--verbose', '--version', '--zero'] },
+  tee: { short: 'aip', long: ['--append', '--help', '--ignore-interrupts', '--output-error', '--version'] },
   apropos: { short: '?CLMVadelmrsvw', long: ['--and', '--config-file', '--debug', '--exact', '--help', '--locale', '--long', '--manpath', '--regex', '--section', '--sections', '--systems', '--usage', '--verbose', '--version', '--wildcard'] },
   whatis: { short: '?CLMVdlmrsvw', long: ['--config-file', '--debug', '--help', '--locale', '--long', '--manpath', '--regex', '--section', '--sections', '--systems', '--usage', '--verbose', '--version', '--wildcard'] },
 });

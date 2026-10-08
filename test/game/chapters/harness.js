@@ -30,14 +30,45 @@ export async function startChapter(chapter, seed = 1) {
 }
 
 /**
+ * The password a chapter's setup gives the player, if any.
+ *
+ * @param {object} chapter A chapter module, or just its tasks (then null).
+ * @returns {string|null} The text of its password() operation, or null.
+ */
+export function passwordOf(chapter) {
+  return chapter.setup?.(createRandom(1), PLAYER).findLast(op => op.op === 'password')?.text ?? null;
+}
+
+// Run a line, answering each prompt with the next answer. One the test did
+// not foresee is cancelled (Ctrl+C), so the backend stays usable, and raises.
+async function runAnswering(backend, line, answers) {
+  const parts = [await backend.run(line)];
+  let unforeseen = null;
+  while (parts.at(-1).input) {
+    unforeseen ??= answers.length ? null : parts.at(-1).input.prompt;
+    parts.push(await backend.answer(unforeseen === null ? answers.shift() : null));
+  }
+  if (unforeseen !== null) throw new Error(`"${line}" asked for input (${unforeseen}) and the test gave no answer`);
+  const last = parts.at(-1);
+  return { ...last, output: parts.flatMap(p => p.output) };
+}
+
+/**
  * Type one line and press Enter, with typeLine's rule: a tab in the line
  * presses Tab there. Tab presses are recorded for the check context.
  *
+ * When the line asks for hidden input (sudo's password), the answers are
+ * given in order: `{ password: 'dragon' }`, or several tries
+ * `{ password: ['wrong', 'dragon'] }`, where null is Ctrl+C. The result
+ * joins the output of every part, as the terminal shows it.
+ *
  * @param {object} backend The backend.
  * @param {string} line The keys typed.
+ * @param {{password?: string|null|(string|null)[]}} [answers] What to type at each prompt.
  * @returns {Promise<{result: object, ctx: object}>} What ran, and the check context of the line.
+ * @throws {Error} If the line asks for input the answers do not cover.
  */
-export async function type(backend, line) {
+export async function type(backend, line, { password } = {}) {
   const completions = [];
   const complete = async typed => {
     const answer = await backend.complete(typed);
@@ -46,7 +77,7 @@ export async function type(backend, line) {
   };
   const submit = async typed => {
     const before = await backend.observe();
-    const result = await backend.run(typed);
+    const result = await runAnswering(backend, typed, password === undefined ? [] : [password].flat());
     const obs = await backend.observe();
     return { result, ctx: makeContext({ commands: result.commands, before, obs, completions, line: typed }) };
   };
@@ -70,7 +101,8 @@ export const errors = result => result.output.filter(c => c.stream === 'err').ma
 export const notFound = result => /command not found/.test(errors(result)) || result.commands.some(r => r.status === 127);
 
 /**
- * Type lines in order and record which tasks passed at least once.
+ * Type lines in order and record which tasks passed at least once. A
+ * password prompt is answered with the password the chapter's setup sets.
  *
  * @param {object} chapter A chapter module.
  * @param {object} backend A backend with the chapter set up.
@@ -80,8 +112,9 @@ export const notFound = result => /command not found/.test(errors(result)) || re
 export async function play(chapter, backend, lines) {
   const done = chapter.tasks.map(() => false);
   const errs = [];
+  const password = passwordOf(chapter) ?? undefined;
   for (const line of lines) {
-    const { result, ctx } = await type(backend, line);
+    const { result, ctx } = await type(backend, line, { password });
     chapter.tasks.forEach((task, i) => { done[i] ||= task.done(ctx); });
     if (errors(result)) errs.push(`${line}: ${errors(result)}`);
   }

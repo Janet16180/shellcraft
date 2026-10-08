@@ -1,6 +1,6 @@
 /**
  * The shell's own commands and helpers: man, history, which, type, alias,
- * export, env, printenv, sudo, editors, exit, bash, source, help.
+ * export, env, printenv, editors, exit, bash, source, help.
  */
 
 import { lookup, normalize } from '../fs.js';
@@ -241,12 +241,6 @@ function unalias(args, { sys }) {
   return result('', errs.join('\n'), errs.length ? 1 : 0);
 }
 
-function sudo(args, { sys }) {
-  if (!args.length) return result('', 'usage: sudo -h | -K | -k | -V\nusage: sudo [-u user] command', 1);
-  const r = result('', `[sudo] password for ${sys.user}: \n${sys.user} is not in the sudoers file.  This incident will be reported.`, 1);
-  return withNote(r, 'On your own machine, sudo runs one command as the administrator, so read the command twice before pressing Enter.');
-}
-
 const editor = (name, quit) => () => withNote(result('', '', 1),
   `${name} is an interactive editor and is not simulated here. ${quit} Here, write files with echo "text" > file or echo "text" >> file.`);
 
@@ -345,7 +339,6 @@ export default {
   export: exportVars,
   env,
   printenv,
-  sudo,
   nano: editor('nano', 'In real nano, Ctrl+O saves and Ctrl+X exits.'),
   vim: editor('vim', 'Real vim tip: press Esc, type :wq and Enter to save and quit, or :q! to quit without saving.'),
   vi: editor('vi', 'Real vi tip: press Esc, type :wq and Enter to save and quit, or :q! to quit without saving.'),

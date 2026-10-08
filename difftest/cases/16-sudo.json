@@ -1,0 +1,8 @@
+[
+  { "name": "sudo runs one command as root or as another user", "world": "sudo", "lines": ["groups", "sudo whoami; sudo id", "sudo -u mira whoami; sudo -u mira id; sudo --user=mira whoami; sudo -uroot whoami", "cat /root/treasure.txt; sudo cat /root/treasure.txt", "sudo -u mira cat /root/treasure.txt", "cd /tmp && sudo touch r && sudo -u mira touch m && sudo mkdir rd && ls -l r m && ls -ld rd", "sudo -- whoami; sudo /usr/bin/whoami", "sudo cat /root/treasure.txt | wc -l"] },
+  { "name": "the shell opens redirections before sudo runs; tee writes as root", "world": "sudo", "lines": ["sudo echo x > /etc/f; echo s=$?", "echo x | sudo tee /etc/f; echo s=$?", "ls -l /etc/f; cat /etc/f", "echo y | sudo tee -a /etc/f > /dev/null; cat /etc/f", "echo z | tee /etc/f"] },
+  { "name": "sudo cannot run builtins or unknown commands", "world": "sudo", "lines": ["sudo cd /root; echo s=$?", "sudo nosuch; echo s=$?", "sudo alias; echo s=$?", "sudo -u nosuch whoami; echo s=$?"] },
+  { "name": "sudo options and usage", "world": "sudo", "lines": ["sudo; echo s=$?", "sudo -x; echo s=$?", "sudo -u; echo s=$?", "sudo --bogus; echo s=$?", "sudo -k; echo s=$?", "sudo -K; echo s=$?", "sudo -V", "sudo -h", "sudo -n whoami"] },
+  { "name": "sudo -l lists what you may run", "world": "sudo", "lines": ["sudo -l; echo s=$?", "sudo -l | cat", "sudo -l whoami; sudo -l nosuch; echo s=$?", "sudo -l -u mira; echo s=$?"] },
+  { "name": "as root, chown gives files away", "world": "sudo", "lines": ["chown mira readme.txt", "sudo chown mira readme.txt; ls -l readme.txt", "sudo chown -v mira:smiths readme.txt", "echo x >> readme.txt", "sudo chown -R mira:smiths forest; ls -l forest forest/cave", "sudo chown -c hero: readme.txt; ls -l readme.txt"] }
+]

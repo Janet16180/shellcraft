@@ -17,7 +17,9 @@
  *   each has a `kind`.
  *
  * @typedef {object} Turn
- * @property {RunResult} result What the terminal shows for the line.
+ * @property {RunResult} result What the terminal shows for the line. While
+ *   `result.input` is set the line waits for one typed line (a password): send it
+ *   with `answer`. Only the turn that ends the line judges tasks and awards anything.
  * @property {Observation} obs The world after the line (and after any room the game loaded).
  * @property {Effect[]} effects What the map and the sound should play.
  * @property {GameEvent[]} events What the game awarded or took.
@@ -56,6 +58,7 @@ export function createSession({ backend, chapters, baseWorld, store, random, dev
     backend, chapters, baseWorld, store, random, dev, saveKey: dev ? `${SAVE_KEY}.dev` : SAVE_KEY,
     save: null, boot: null, obs: null, index: null, completions: [], busy: false, concealed: [],
     phase: 'quest', tasksDone: [], hints: [], bossHints: 0, secret: undefined, hearts: MAX_HEARTS, replay: false,
+    waiting: null,
   };
   const idle = work => (...args) => {
     requireIdle(s);
@@ -65,6 +68,7 @@ export function createSession({ backend, chapters, baseWorld, store, random, dev
     boot: () => exclusive(s, () => boot(s)),
     startChapter: (id, options) => exclusive(s, () => startChapter(s, id, options)),
     submit: line => exclusive(s, () => submit(s, line)),
+    answer: text => exclusive(s, () => answer(s, text)),
     complete: line => exclusive(s, () => complete(s, line)),
     reset: () => exclusive(s, () => reset(s)),
     hint: idle(() => hint(s)),
@@ -164,6 +168,7 @@ async function start(s, id, fresh) {
     concealed: [],
     hearts: MAX_HEARTS,
     replay: s.save.cleared.includes(id),
+    waiting: null,
   });
   s.save.chapter = id;
   persist(s);
@@ -179,6 +184,7 @@ async function complete(s, line) {
 
 async function submit(s, line) {
   requireBooted(s);
+  if (s.waiting) throw new Error('the line before is waiting for input; send it with answer()');
   const completions = s.completions;
   s.completions = [];
   const words = line.trim().split(/\s+/);
@@ -187,9 +193,27 @@ async function submit(s, line) {
   return answer ? gameTurn(s, answer(s)) : shellTurn(s, line, completions);
 }
 
+// A line that waits for typed input (sudo's password) is judged only when it ends.
 async function shellTurn(s, line, completions) {
-  const before = s.obs;
   const result = await s.backend.run(line);
+  return result.input ? waitingTurn(s, { line, completions, before: s.obs }, result) : endTurn(s, { line, completions, before: s.obs }, result);
+}
+
+async function answer(s, text) {
+  requireBooted(s);
+  if (!s.waiting) throw new Error('no line is waiting for input');
+  const pending = s.waiting;
+  s.waiting = null;
+  const result = await s.backend.answer(text);
+  return result.input ? waitingTurn(s, pending, result) : endTurn(s, pending, result);
+}
+
+function waitingTurn(s, pending, result) {
+  s.waiting = pending;
+  return { result, obs: s.obs, effects: [], events: [], view: view(s) };
+}
+
+async function endTurn(s, { line, completions, before }, result) {
   const after = await s.backend.observe();
   s.obs = after;
   const ctx = makeContext({ commands: result.commands, before, obs: after, completions, line });

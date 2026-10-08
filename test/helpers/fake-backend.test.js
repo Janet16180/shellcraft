@@ -84,3 +84,16 @@ test('kill with a deadly signal removes another process', async () => {
   await backend.run(`kill -9 ${pid}`);
   assert.equal((await backend.observe()).procs.some(p => p.key === 'daemon'), false);
 });
+
+test('sudo LINE waits for hidden input; dragon runs the line, anything else fails', async () => {
+  const backend = createFakeBackend();
+  const asked = await backend.run('sudo pwd');
+  assert.deepEqual(asked.input, { prompt: '[sudo] password for hero: ', hidden: true });
+  await assert.rejects(backend.run('pwd'), /waiting/);
+  const done = await backend.answer('dragon');
+  assert.deepEqual(done.output.map(c => c.text), ['[sudo] password for hero: \n', '/home/hero\n']);
+  assert.deepEqual(done.commands.map(c => c.name), ['sudo', 'pwd']);
+  await backend.run('sudo pwd');
+  assert.equal((await backend.answer(null)).status, 1);
+  await assert.rejects(backend.answer('x'), /no line is waiting/);
+});

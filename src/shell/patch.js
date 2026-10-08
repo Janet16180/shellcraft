@@ -54,6 +54,11 @@ function putNode(sys, path, spec) {
   insert(sys.root, path, fromSpec(spec, sys.now()));
 }
 
+const ACCOUNT_OPS = {
+  login: sys => { sys.gids = loginGids(sys); },
+  password: (sys, op) => Object.assign(sys, { password: op.text, sudoStamp: null }),
+};
+
 function applyOp(sys, op) {
   if ((op.op === 'put' || op.op === 'remove') && touchesSystem(op.path)) {
     throw new Error(`${op.op} ${op.path}: /usr/bin and /dev belong to the backend`);
@@ -64,7 +69,7 @@ function applyOp(sys, op) {
   if (op.op === 'remove') detach(sys.root, op.path, sys.now());
   if (op.op === 'proc') startProc(sys, op.proc);
   if (op.op === 'stop') sys.procs = sys.procs.filter(p => p.key !== op.key);
-  if (op.op === 'login') sys.gids = loginGids(sys);
+  ACCOUNT_OPS[op.op]?.(sys, op);
   if (op.op === 'cd' && op.path !== sys.cwd) {
     sys.oldpwd = sys.cwd;
     sys.cwd = op.path;

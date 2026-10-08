@@ -861,3 +861,35 @@ test('marking an explainer seen without an id raises', async () => {
   const { session } = await booted();
   for (const id of [undefined, '', 3]) assert.throws(() => session.markExplainerSeen(id), /explainer id/);
 });
+
+test('a line that asks for hidden input waits: no task is judged until the answer ends the line', async () => {
+  const { session } = await booted();
+  const asked = await session.submit('sudo pwd');
+  assert.deepEqual(asked.result.input, { prompt: '[sudo] password for hero: ', hidden: true });
+  assert.deepEqual(asked.events, []);
+  assert.equal(asked.view.chapter.tasks[0].done, false);
+  await assert.rejects(session.submit('pwd'), /waiting for input/);
+  const done = await session.answer('dragon');
+  assert.equal(done.result.input, undefined);
+  assert.deepEqual(done.result.output.map(c => c.text).slice(0, 2), ['[sudo] password for hero: \n', '/home/hero\n']);
+  assert.deepEqual(kinds(done.events), ['task']);
+  assert.equal(done.view.chapter.tasks[0].done, true);
+});
+
+test('answer raises when no line waits, and Ctrl+C (null) ends the waiting line', async () => {
+  const { session } = await booted();
+  await assert.rejects(session.answer('x'), /no line is waiting/);
+  await session.submit('sudo pwd');
+  const cancelled = await session.answer(null);
+  assert.equal(cancelled.result.status, 1);
+  assert.deepEqual(cancelled.events, []);
+  assert.equal((await session.submit('pwd')).events.length, 1);
+});
+
+test('restarting the chapter abandons a line waiting for input', async () => {
+  const { session } = await booted();
+  await session.submit('sudo pwd');
+  await session.startChapter('awakening');
+  await assert.rejects(session.answer('dragon'), /no line is waiting/);
+  assert.equal((await session.submit('pwd')).events.length, 1);
+});

@@ -40,6 +40,17 @@
  * @typedef {object} CommandRecord
  * @property {string} name The command name after alias expansion (`ls`, `./open_gate.sh`).
  * @property {string[]} args Arguments after quote removal and glob expansion.
+ * @property {string} user The user it ran as: the player, or another user for a
+ *   command that sudo ran.
+ * @property {string} [asUser] On a `sudo` record only: the user sudo was asked to
+ *   run the command as (`root`, or the user of `-u`), whether or not it ran.
+ * @property {string} [via] On a command another command ran for the player: that
+ *   command's name (`sudo`). `sudo chown mira f` gives two records, in this order:
+ *   `{name: 'sudo', args: ['chown', 'mira', 'f'], user: 'hero', asUser: 'root', status}`
+ *   and, if sudo ran it, `{name: 'chown', args: ['mira', 'f'], user: 'root', via: 'sudo', status}`.
+ *   Both share the pipeline place, the redirections and stdout; sudo's status is
+ *   the command's own, or 1 when sudo refused. So `ctx.ran('chown', r => r.user === 'root')`
+ *   asks "did chown run as root?".
  * @property {string} cwd Absolute working directory when it started.
  * @property {number} status Its exit status.
  * @property {string} stdout Everything it wrote to standard output, even if redirected or piped.
@@ -55,6 +66,18 @@
  */
 
 /**
+ * A line may stop to read one line the player types, as `sudo` reads a
+ * password: the result then carries `input`, and the line is not finished.
+ * `output` holds only what the terminal shows before the prompt; `commands`
+ * and `blocked` are empty and `status` is `$?` so far. The page shows
+ * `input.prompt`, reads one line (hidden: no echo, nothing shown, not added
+ * to history) and sends it with `Backend.answer`; Ctrl+C sends `null`. The
+ * answer's result continues the same line: its output is only what is new
+ * (starting with the prompt line as the terminal keeps it, `[sudo] password
+ * for hero: ` and a newline), and it may ask again (a wrong password). The
+ * result without `input` is the line's end, with every record of the whole
+ * line. Joining the output of every part gives what a real terminal shows.
+ *
  * @typedef {object} RunResult
  * @property {OutputChunk[]} output What the terminal shows.
  * @property {number} status Exit status of the line (what `$?` becomes).
@@ -62,6 +85,8 @@
  * @property {string[]} blocked Reasons the backend refused something a real
  *   system would have done, to protect the world (`rm -r ~`). Empty for a real backend
  *   that has no such guard.
+ * @property {{prompt: string, hidden: boolean}} [input] Present while the line waits
+ *   for a typed line: the prompt to show before it, and whether to hide what is typed.
  */
 
 /**
@@ -122,7 +147,11 @@
  * @typedef {object} Backend
  * @property {(patch: object[]) => Promise<void>} load Apply a world patch from
  *   src/backend/spec.js. Raises on a patch it cannot apply (a missing parent).
+ *   A line waiting for input is abandoned, as if its terminal closed.
  * @property {(line: string) => Promise<RunResult>} run Run one line typed by the player.
+ *   Raises while an earlier line waits for input.
+ * @property {(text: string|null) => Promise<RunResult>} answer Send the line the player
+ *   typed at a RunResult's `input` prompt, or `null` for Ctrl+C. Raises when no line waits.
  * @property {() => Promise<Observation>} observe Snapshot the world.
  * @property {(line: string) => Promise<{line: string, candidates: string[]}>} complete
  *   Tab completion: the completed line, plus the candidates to list when the

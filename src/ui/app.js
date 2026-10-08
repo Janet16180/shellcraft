@@ -48,6 +48,7 @@ export async function startApp({ doc, session, createMap, createIntroBackend, re
     root: doc.getElementById('term'),
     queue: ui.queue,
     onSubmit: line => runLine(ui, line),
+    onAnswer: async text => applyTurn(ui, await session.answer(text)),
     onComplete: line => session.complete(line),
     onKey: () => sound.play('key'),
     onResize: resizeTerminal,
@@ -202,6 +203,7 @@ function applyTurn(ui, turn) {
   });
   show(ui, turn.view);
   for (const event of turn.events) onEvent(ui, event);
+  if (turn.result.input) ui.terminal.ask(turn.result.input);
 }
 
 const EVENTS = {

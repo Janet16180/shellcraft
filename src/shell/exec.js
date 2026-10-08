@@ -33,7 +33,7 @@ const MAX_DEPTH = 32;
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const CONTINUATION = 'In a real terminal, bash would wait for the rest of the command on a new line (a > prompt). Here the line ends where you pressed Enter.';
 const BACKGROUND = 'Background jobs are not simulated yet: the command ran in the foreground.';
-const OWN_OPTIONS = new Set(['clear', 'find', 'which']);
+const OWN_OPTIONS = new Set(['clear', 'find', 'which', 'sudo']);
 const helpNote = name => `Real bash prints a longer description here; help ${name} shows the same text.`;
 
 function firstOf(args, ...wanted) {
@@ -41,7 +41,7 @@ function firstOf(args, ...wanted) {
   return args.slice(0, end).find(a => wanted.includes(a));
 }
 
-const UNSIMULATED = new Set(['w', 'nl', 'cut', 'tr', 'du', 'df', 'stat', 'diff', 'tar', 'rev', 'seq', 'yes', 'od', 'tee', 'xargs',
+const UNSIMULATED = new Set(['w', 'nl', 'cut', 'tr', 'du', 'df', 'stat', 'diff', 'tar', 'rev', 'seq', 'yes', 'od', 'xargs',
   'basename', 'dirname', 'realpath', 'tac', 'shuf', 'cmp', 'comm', 'paste', 'join', 'split', 'fold',
   'expand', 'md5sum', 'sha256sum', 'base64', 'sleep', 'watch', 'free', 'uptime', 'lsblk', 'mount', 'apt', 'perl', 'gzip', 'whereis', 'stty', 'tput']);
 const isAssignment = word => 'lit' in word.parts[0] && !word.parts[0].q && ASSIGNMENT.test(word.parts[0].lit);
@@ -170,6 +170,25 @@ function standardOption(name, args) {
   return r;
 }
 
+// A program file run by another program (sudo): no PATH search, no
+// aliases; a simulated program still answers --help and --version.
+function runProgram(sh, path, args, ctx) {
+  const { node } = resolve(sh.sys, path);
+  const standard = node?.bin ? standardOption(node.bin, args) : null;
+  return standard ?? runFile(sh, path, args, ctx);
+}
+
+// Run work as another user: their name, groups and umask, then back.
+function runAs(sys, who, work) {
+  const saved = { user: sys.user, gids: sys.gids, umask: sys.umask };
+  Object.assign(sys, who);
+  try {
+    return work();
+  } finally {
+    Object.assign(sys, saved);
+  }
+}
+
 function dispatch(sh, argv, streams, overlay) {
   const { sys } = sh;
   const [name, ...args] = argv;
@@ -182,6 +201,10 @@ function dispatch(sh, argv, streams, overlay) {
     subshell: Boolean(sh.frame.subshell),
     jump: (kind, count) => { sh.jump = { kind, count }; },
     leave: status => { sh.exit = status; },
+    tty: text => sh.run.sink.write('out', text),
+    ask: prompt => sh.run.ask(prompt),
+    runAs: (who, work) => runAs(sys, who, work),
+    program: (path, programArgs) => runProgram(sh, path, programArgs, { ...ctx, env: {} }),
   };
   const standard = name.includes('/') ? null : standardOption(name, args);
   const found = name.includes('/') || sh.commands[name] || BASH_BUILTINS.has(name) ? null : searchPath(sys, name);
@@ -242,9 +265,17 @@ function prepare(sh, cmd, stdin, place, sink) {
   return { argv, values, opened, base, abort: env.errors.length > 0, substitutionStatus: env.substitutionStatus };
 }
 
+function record(sh, argv, r, { cwd, user, place, redirects }) {
+  const base = { cwd, ...place.record, redirects };
+  const own = { name: argv[0], args: argv.slice(1), user, status: r.status, stdout: r.out, ...base };
+  if (r.inner) own.asUser = r.inner.asUser;
+  sh.run.records.push(own);
+  if (r.inner?.ran) sh.run.records.push({ name: r.inner.name, args: r.inner.args, user: r.inner.asUser, via: argv[0], status: r.inner.status, stdout: r.out, ...base });
+}
+
 function runCommand(sh, cmd, stdin, place, sink) {
   const { sys } = sh;
-  const cwd = sys.cwd;
+  const { cwd, user } = sys;
   const { argv, values, opened, base, abort, substitutionStatus } = prepare(sh, cmd, stdin, place, sink);
   const { streams } = opened;
   let r = result();
@@ -258,9 +289,7 @@ function runCommand(sh, cmd, stdin, place, sink) {
   route(sh, sink, opened.error ? base.err : streams.err, r.child ? err : shellMessage(sh, err, cmd.line), null);
   if (r.note) sink.note(r.note);
   route(sh, sink, streams.out, r.out, r.html);
-  if (sh.run.depth === 0 && argv.length && !opened.error) {
-    sh.run.records.push({ name: argv[0], args: argv.slice(1), cwd, status: r.status, stdout: r.out, ...place.record, redirects: opened.records });
-  }
+  if (sh.run.depth === 0 && argv.length && !opened.error) record(sh, argv, r, { cwd, user, place, redirects: opened.records });
   return { status: r.status, piped: streams.out.kind === 'pipe' ? streams.out.buffer : '', abort: abort || Boolean(r.abort) };
 }
 
@@ -308,7 +337,7 @@ function runPipeline(sh, item, sink, input) {
   return { status: item.negate ? Number(status === 0) : status, abort };
 }
 
-const interrupted = sh => sh.jump !== null || sh.exit !== null;
+const interrupted = sh => sh.jump !== null || sh.exit !== null || sh.run.waiting !== null;
 
 // Each pipeline in turn, as && and || allow, until one aborts the line or a
 // break, continue or exit is pending. stdin feeds the first command of each.
@@ -348,7 +377,7 @@ function runText(sh, text, sink, textFrame) {
   const tokens = lexed.error ? [...lexed.tokens, { type: 'error', message: lexed.error, line: lexed.errorLine }] : lexed.tokens;
   let status = sh.sys.lastStatus;
   let next = { end: 0, list: [], error: null };
-  while (next.list && sh.exit === null) {
+  while (next.list && sh.exit === null && sh.run.waiting === null) {
     next = parseNext(tokens, next.end);
     if (next.error) syntaxError(sh, next.error, text, sink);
     if (next.error) status = 2;

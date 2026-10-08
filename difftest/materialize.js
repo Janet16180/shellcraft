@@ -45,22 +45,25 @@ function build(path, node, out, parentFresh) {
  * and /etc/hostname, are left alone), and every node the patch creates or
  * whose entries it changes gets the given mtime, as the simulator stamps them.
  * Symbolic links are made with `ln -s` and hard links (spec `link()`) with `ln`.
+ * `password` sets the user's password with chpasswd once the accounts exist.
  * `proc` and `login` operations are ignored (the shell logs in after the setup); `cd` targets are
  * returned for the caller to replay inside the shell, so OLDPWD behaves as in
  * the simulator.
  *
  * @param {object[]} patch Operations from src/backend/spec.js.
  * @param {number} mtimeMs The modification time to stamp, in ms since the epoch.
+ * @param {string} [user] The player, whose password a `password` operation sets.
  * @returns {{script: string, cds: string[]}} The root script and the directories to cd into, in order.
  */
-export function materialize(patch, mtimeMs) {
-  const out = { lines: [], accountFiles: [], users: new Set(), groups: new Set(), stamped: [] };
+export function materialize(patch, mtimeMs, user = 'hero') {
+  const out = { lines: [], accountFiles: [], users: new Set(), groups: new Set(), stamped: [], passwords: [] };
   const cds = [];
   for (const op of patch) {
     if (op.op === 'remove') out.lines.push(`rm -rf -- ${quote(op.path)}`);
     if (op.op === 'put' || op.op === 'remove') out.stamped.push(parentOf(op.path));
     if (op.op === 'put') build(op.path, op.node, out, false);
     if (op.op === 'cd') cds.push(op.path);
+    if (op.op === 'password' && op.text !== null) out.passwords.push(`printf '%s\\n' ${quote(`${user}:${op.text}`)} | chpasswd`);
   }
   const seconds = Math.floor(mtimeMs / 1000);
   const accounts = [
@@ -68,7 +71,7 @@ export function materialize(patch, mtimeMs) {
     ...[...out.users].map(u => `getent passwd ${quote(u)} >/dev/null || useradd -M -N ${quote(u)}`),
   ];
   const stamps = [...new Set(out.stamped)].map(p => `if [ -e ${quote(p)} ] || [ -L ${quote(p)} ]; then touch -h -d @${seconds} -- ${quote(p)}; fi`);
-  return { script: ['set -e', ...out.accountFiles, ...accounts, ...out.lines, ...stamps].join('\n') + '\n', cds };
+  return { script: ['set -e', ...out.accountFiles, ...accounts, ...out.passwords, ...out.lines, ...stamps].join('\n') + '\n', cds };
 }
 
 /**
