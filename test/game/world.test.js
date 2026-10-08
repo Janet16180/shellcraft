@@ -200,7 +200,30 @@ test('accounts writes the base users and groups plus the new ones', () => {
   assert.match(passwd.node.content, /^root:x:0:0:root:\/root:\/bin\/bash\n/);
   assert.match(passwd.node.content, /\nhero:x:1000:1000:Hero,,,:\/home\/hero:\/bin\/bash\nmira:x:1001:1001:Mira,,,:\/home\/mira:\/bin\/bash\noren:x:1002:1002:Oren,,,:\/home\/oren:\/bin\/bash\n$/);
   assert.match(group.node.content, /\nhero:x:1000:\nsmiths:x:1001:\nscribes:x:1002:hero,oren\n$/);
-  assert.deepEqual(validatePatch(accounts(PLAYER, GUILD)).length, 2);
+  assert.deepEqual(validatePatch(accounts(PLAYER, GUILD)).map(op => op.path), ['/etc/passwd', '/etc/group', '/etc/shadow']);
+});
+
+test('accounts writes /etc/shadow, root-only, with a made-up hash for each person, never the password', () => {
+  const shadow = accounts(PLAYER, GUILD)[2].node;
+  assert.deepEqual([shadow.mode, shadow.owner, shadow.group], [0o640, 'root', 'shadow']);
+  assert.match(shadow.content, /^root:\*:20713:0:99999:7:::\n/);
+  assert.match(shadow.content, /\nhero:\$y\$j9T\$[./0-9A-Za-z]{22}\$[./0-9A-Za-z]{43}:20713:0:99999:7:::\nmira:\$y\$j9T\$/);
+  assert.notEqual(shadow.content.match(/^hero:(\S+?):/m)[1], shadow.content.match(/^mira:(\S+?):/m)[1]);
+});
+
+test('accounts adds sudoers to the sudo group, which must name known users', () => {
+  const group = accounts(PLAYER, { ...GUILD, sudo: ['hero'] })[1].node.content;
+  assert.match(group, /\nsudo:x:27:hero\n/);
+  assert.match(accounts(PLAYER)[1].node.content, /\nsudo:x:27:\n/);
+  assert.throws(() => accounts(PLAYER, { sudo: ['ghost'] }), /ghost/);
+});
+
+test("the base world has Ubuntu's sudoers, its README directory and a root-only shadow file", () => {
+  const etc = baseWorld(PLAYER).find(op => op.path === '/etc').node.children;
+  assert.deepEqual([etc.sudoers.mode, etc.sudoers.owner, etc.sudoers.group], [0o440, 'root', 'root']);
+  assert.match(etc.sudoers.content, /\n%sudo\tALL=\(ALL:ALL\) ALL\n/);
+  assert.equal(etc['sudoers.d'].children.README.mode, 0o440);
+  assert.equal(etc.shadow.mode, 0o640);
 });
 
 test('accounts raises for a taken name or id, an unknown primary group or an unknown member', () => {

@@ -16,10 +16,11 @@ const USERS = [
  * The accounts, a fresh login and each person's home (mode 750).
  *
  * @param {{home: string, user: string}} player The player.
- * @param {{factions?: string[]}} [opts] The factions the player belongs to: 'smiths', 'scribes'.
+ * @param {{factions?: string[], sudo?: boolean}} [opts] The factions the player belongs to: 'smiths', 'scribes';
+ *   and whether the player is in the group sudo, an administrator (set a password with password() too).
  * @returns {object[]} The patch.
  */
-export function realm(player, { factions = [] } = {}) {
+export function realm(player, { factions = [], sudo = false } = {}) {
   const members = (faction, others) => [...others, ...(factions.includes(faction) ? [player.user] : [])];
   return [
     ...accounts(player, {
@@ -29,6 +30,7 @@ export function realm(player, { factions = [] } = {}) {
         { name: 'smiths', gid: 1100, members: members('smiths', ['mira', 'oren']) },
         { name: 'scribes', gid: 1101, members: members('scribes', ['tamsin']) },
       ],
+      sudo: sudo ? [player.user] : [],
     }),
     login(),
     ...USERS.map(({ name }) => put(`/home/${name}`, dir({}, { owner: name, group: name, mode: 0o750 }))),

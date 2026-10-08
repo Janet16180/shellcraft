@@ -8,6 +8,7 @@
  * and /dev, so they are not described here.
  */
 import { put, cd, login, dir, file } from '../backend/spec.js';
+import { UBUNTU_SUDOERS, SUDOERS_README } from '../backend/sudoers.js';
 
 const SCROLL = [
   'THE SCROLL OF AGES', '==================',
@@ -174,7 +175,7 @@ syslog:x:101:102::/nonexistent:/usr/sbin/nologin
 sshd:x:102:65534::/run/sshd:/usr/sbin/nologin
 `;
 
-const groups = user => `root:x:0:
+const groups = (user, sudoers = []) => `root:x:0:
 daemon:x:1:
 bin:x:2:
 sys:x:3:
@@ -194,7 +195,7 @@ voice:x:22:
 cdrom:x:24:
 floppy:x:25:
 tape:x:26:
-sudo:x:27:
+sudo:x:27:${sudoers.join(',')}
 audio:x:29:
 dip:x:30:
 www-data:x:33:
@@ -333,7 +334,34 @@ function etc({ home, user, host }) {
     motd: file(motd(home, host)),
     'os-release': file(OS_RELEASE),
     passwd: file(passwdText({ home, user })),
+    shadow: shadowFile(passwdText({ home, user })),
+    sudoers: file(UBUNTU_SUDOERS, { mode: 0o440 }),
+    'sudoers.d': dir({ README: file(SUDOERS_README, { mode: 0o440 }) }),
   });
+}
+
+// The day the machine was installed, in days since 1970, as shadow counts.
+const INSTALLED_DAY = 20713;
+const HASH_ALPHABET = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+// A yescrypt-shaped hash made from the name alone: it looks real and hides
+// nothing, because the password never reaches a file.
+function madeUpHash(name) {
+  let seed = [...name].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261);
+  const chars = n => Array.from({ length: n }, () => {
+    seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+    return HASH_ALPHABET[(seed >>> 16) % HASH_ALPHABET.length];
+  }).join('');
+  return `$y$j9T$${chars(22)}$${chars(43)}`;
+}
+
+// People (uid 1000 up) get a hash; system accounts have none (*).
+function shadowFile(passwd) {
+  const lines = fieldsOf(passwd).map(([name, , uid]) => {
+    const person = Number(uid) >= 1000 && Number(uid) < 65534;
+    return `${name}:${person ? madeUpHash(name) : '*'}:${INSTALLED_DAY}:0:99999:7:::\n`;
+  });
+  return file(lines.join(''), { mode: 0o640, group: 'shadow' });
 }
 
 const passwdLine = (name, uid, gid, home) => `${name}:x:${uid}:${gid}:${capitalize(name)},,,:${home}:/bin/bash\n`;
@@ -366,30 +394,34 @@ function newPasswdLines(player, userList, gidOf) {
 }
 
 /**
- * Write /etc/passwd and /etc/group with the base world's accounts plus new
- * users and groups. Follow it with login() from spec.js when the player
- * joins a group, so the running shell gets it, as a real login would.
- * Homes are not created; put them in the same setup if the chapter needs them.
+ * Write /etc/passwd, /etc/group and /etc/shadow with the base world's
+ * accounts plus new users and groups. Follow it with login() from spec.js
+ * when the player joins a group, so the running shell gets it, as a real
+ * login would. Homes are not created; put them in the same setup if the
+ * chapter needs them. /etc/shadow gets a made-up hash for each person; the
+ * player's real password is set with password() from spec.js.
  *
  * @param {{home: string, user: string}} player The player's user name and home.
- * @param {{users?: {name: string, uid: number, group: string, home?: string}[], groups?: {name: string, gid: number, members?: string[]}[]}} added
- *   New users (primary group by name, home /home/NAME unless given) and new
- *   groups (members by user name, the player included).
- * @returns {object[]} The patch: put /etc/passwd, put /etc/group.
+ * @param {{users?: {name: string, uid: number, group: string, home?: string}[], groups?: {name: string, gid: number, members?: string[]}[], sudo?: string[]}} added
+ *   New users (primary group by name, home /home/NAME unless given), new
+ *   groups (members by user name, the player included), and the users to put
+ *   in the existing group sudo, whom Ubuntu's /etc/sudoers lets run anything as root.
+ * @returns {object[]} The patch: put /etc/passwd, put /etc/group, put /etc/shadow.
  * @throws {Error} If home is not /home/USER, a name or id is taken, a primary
  *   group or a member is unknown.
  */
-export function accounts(player, { users = [], groups: groupList = [] } = {}) {
+export function accounts(player, { users = [], groups: groupList = [], sudo = [] } = {}) {
   checkPlayer(player);
   const groupLines = newGroupLines(player, groupList);
   const gidOf = Object.fromEntries(fieldsOf(groups(player.user) + groupLines.join('')).map(f => [f[0], Number(f[2])]));
-  const passwdLines = newPasswdLines(player, users, gidOf);
-  const names = new Set(fieldsOf(passwdText(player) + passwdLines.join('')).map(f => f[0]));
-  const stranger = groupList.flatMap(g => g.members ?? []).find(m => !names.has(m));
+  const passwd = passwdText(player) + newPasswdLines(player, users, gidOf).join('');
+  const names = new Set(fieldsOf(passwd).map(f => f[0]));
+  const stranger = [...groupList.flatMap(g => g.members ?? []), ...sudo].find(m => !names.has(m));
   if (stranger !== undefined) throw new Error(`group member ${stranger} is not a user`);
   return [
-    put('/etc/passwd', file(passwdText(player) + passwdLines.join(''))),
-    put('/etc/group', file(groups(player.user) + groupLines.join(''))),
+    put('/etc/passwd', file(passwd)),
+    put('/etc/group', file(groups(player.user, sudo) + groupLines.join(''))),
+    put('/etc/shadow', shadowFile(passwd)),
   ];
 }
 

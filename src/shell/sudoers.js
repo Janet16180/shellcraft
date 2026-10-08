@@ -1,6 +1,6 @@
 /**
  * The sudo policy, read from the tree like sudoers does: /etc/sudoers (or
- * Ubuntu 24.04's default file when the world has none) and the files of
+ * Ubuntu 24.04's default file, UBUNTU_SUDOERS, when the world has none) and the files of
  * any `@includedir` directory. Only the plain forms are understood:
  * `Defaults` lines without a scope, and rules `WHO HOST=(RUNAS) [TAGS:] COMMANDS`
  * where WHO is a user, `%group` or ALL, HOST is ALL or the host name,
@@ -10,66 +10,7 @@
 
 import { lookup } from './fs.js';
 import { compareNames } from '../backend/tree.js';
-
-/** Ubuntu 24.04's /etc/sudoers, from the sudo 1.9.15p5 package. */
-export const DEFAULT_SUDOERS = `#
-# This file MUST be edited with the 'visudo' command as root.
-#
-# Please consider adding local content in /etc/sudoers.d/ instead of
-# directly modifying this file.
-#
-# See the man page for details on how to write a sudoers file.
-#
-Defaults\tenv_reset
-Defaults\tmail_badpass
-Defaults\tsecure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"
-
-# This fixes CVE-2005-4890 and possibly breaks some versions of kdesu
-# (#1011624, https://bugs.kde.org/show_bug.cgi?id=452532)
-Defaults\tuse_pty
-
-# This preserves proxy settings from user environments of root
-# equivalent users (group sudo)
-#Defaults:%sudo env_keep += "http_proxy https_proxy ftp_proxy all_proxy no_proxy"
-
-# This allows running arbitrary commands, but so does ALL, and it means
-# different sudoers have their choice of editor respected.
-#Defaults:%sudo env_keep += "EDITOR"
-
-# Completely harmless preservation of a user preference.
-#Defaults:%sudo env_keep += "GREP_COLOR"
-
-# While you shouldn't normally run git as root, you need to with etckeeper
-#Defaults:%sudo env_keep += "GIT_AUTHOR_* GIT_COMMITTER_*"
-
-# Per-user preferences; root won't have sensible values for them.
-#Defaults:%sudo env_keep += "EMAIL DEBEMAIL DEBFULLNAME"
-
-# "sudo scp" or "sudo rsync" should be able to use your SSH agent.
-#Defaults:%sudo env_keep += "SSH_AGENT_PID SSH_AUTH_SOCK"
-
-# Ditto for GPG agent
-#Defaults:%sudo env_keep += "GPG_AGENT_INFO"
-
-# Host alias specification
-
-# User alias specification
-
-# Cmnd alias specification
-
-# User privilege specification
-root\tALL=(ALL:ALL) ALL
-
-# Members of the admin group may gain root privileges
-%admin ALL=(ALL) ALL
-
-# Allow members of group sudo to execute any command
-%sudo\tALL=(ALL:ALL) ALL
-
-# See sudoers(5) for more information on "@include" directives:
-
-@includedir /etc/sudoers.d
-`;
+import { UBUNTU_SUDOERS } from '../backend/sudoers.js';
 
 const SUDOERS = '/etc/sudoers';
 const RULE = /^(\S+)\s+(\S+?)\s*=\s*(?:\(([^)]*)\)\s*)?((?:(?:NOPASSWD|PASSWD)\s*:\s*)*)(.+)$/;
@@ -132,7 +73,7 @@ function readFile(sys, path, text, policy, depth) {
  */
 export function readPolicy(sys) {
   const policy = { defaults: [], rules: [] };
-  readFile(sys, SUDOERS, fileText(sys, SUDOERS) ?? DEFAULT_SUDOERS, policy, 0);
+  readFile(sys, SUDOERS, fileText(sys, SUDOERS) ?? UBUNTU_SUDOERS, policy, 0);
   return policy;
 }
 
