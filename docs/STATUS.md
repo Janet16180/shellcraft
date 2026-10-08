@@ -12,6 +12,20 @@ map draws the working directory as a room: the original outdoor 8-bit style insi
 home, Ring Zero's Pixel Dungeon style outside it. Each chapter is lesson, guided quest, boss,
 adventure log. 14 chapters are planned (DESIGN.md section 4).
 
+## State at 2026-10-08 (simulator fixes from the act III tester: `slice/fixes3`)
+
+- Branch `slice/fixes3` (worktree `.scratch/wt/fixes3`), not merged. Aliases expand as bash reads a
+  line (`alias up='cd ..'; up` is not found; scripts need `shopt -s expand_aliases`); `shopt` knows
+  expand_aliases. chmod takes `u+x-r`, `g=u`. cat, head, tail, wc and grep keep output and errors in
+  order (`ordered()` in result.js). New: `su` (locked root), `getent passwd|group`, `find -xtype`,
+  `/etc/skel`, the `endJobs()` patch op. `sudo su`/`sudo bash` get the root-shell note.
+- Port: RunResult `line` (after history expansion); Observation `aliases` and `vars`; sudo records
+  carry `auth`. Checks: `ctx.alias`, `ctx.variable`, `ctx.typed`; `ctx.paths` reads tar's
+  `--file=`, `-fX`, `--directory=`, `-CX`. The harness judges against the previous observation.
+- Waiting on chapter 19: `ctx.line` should become the expanded line (session.js and the harness,
+  one argument each) once memory.js reads `!!`/`!N` from `ctx.typed`; two tests are `todo` until then.
+- E5 (the tester's `^Z` layout) is what real bash prints; pinned by a test (docs/verification/jobs.md).
+
 ## State at 2026-10-08 (UI and art for chapter 18: `slice/ui3`)
 
 - Branch `slice/ui3` (worktree `.scratch/wt/ui3`), not merged. The password prompt: the touch keys

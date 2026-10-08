@@ -204,11 +204,13 @@ tries), `'cancelled'` (Ctrl+C, or `-n`), `'not-allowed'` (the policy refused), o
 stopped before, as for `-k` or `-i`); a near note can tell a wrong password from a refused command:
 `ctx.tried('sudo', r => r.auth === 'failed')`.
 
-Not simulated: a root shell (`sudo -i`, `sudo -s` end with a note: put sudo in front of the one
-command that needs root), `sudo -ll`, sudo's environment handling (`env_reset`, `SUDO_USER`), and
-options like `-E`, `-g`, `-D` (a note). Redirections belong to the player's shell, as in bash: `sudo
-echo x > /etc/f` is refused, `echo x | sudo tee /etc/f` works. sudo logs to `/var/log/auth.log` like
-Ubuntu (readable with `sudo cat`).
+Not simulated: a root shell (`sudo -i` and `sudo -s`, or `sudo su`, `sudo su -` and `sudo bash` after
+the password, end with a note: put sudo in front of the one command that needs root), `sudo -ll`,
+sudo's environment handling (`env_reset`, `SUDO_USER`), and options like `-E`, `-g`, `-D` (a note).
+`su` behaves as on Ubuntu, where root's password is locked: `Password: `, then `su: Authentication
+failure`, status 1, and a note pointing to sudo. Redirections belong to the player's shell, as in
+bash: `sudo echo x > /etc/f` is refused, `echo x | sudo tee /etc/f` works. sudo logs to
+`/var/log/auth.log` like Ubuntu (readable with `sudo cat`).
 
 ### Links
 
