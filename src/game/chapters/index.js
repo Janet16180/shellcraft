@@ -18,6 +18,7 @@ import well from './well.js';
 import daemon from './daemon.js';
 import forge from './forge.js';
 import guild from './guild.js';
+import hall from './hall.js';
 
 
 /**
@@ -41,4 +42,5 @@ export default [
   daemon,
   forge,
   guild,
+  hall,
 ];
