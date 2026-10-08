@@ -11,10 +11,10 @@ test('every port method returns a promise', async () => {
   await Promise.all(calls);
 });
 
-test('a run result has output chunks, a status, command records and blocked reasons', async () => {
+test('a run result has output chunks, a status, command records, blocked reasons and the line that ran', async () => {
   const b = await shell();
   const r = await b.run('cat readme.txt | head -n 1 > /tmp/first; ls nope');
-  assert.deepEqual(Object.keys(r).sort(), ['blocked', 'commands', 'output', 'status']);
+  assert.deepEqual(Object.keys(r).sort(), ['blocked', 'commands', 'line', 'output', 'status']);
   assert.equal(r.status, 2);
   assert.deepEqual(r.blocked, []);
   assert.deepEqual(r.output, [{ stream: 'err', text: "ls: cannot access 'nope': No such file or directory\n" }]);
@@ -172,7 +172,7 @@ test('an empty line runs nothing and keeps the previous status', async () => {
   const b = await shell();
   await b.run('false');
   const r = await b.run('   ');
-  assert.deepEqual(r, { output: [], status: 1, commands: [], blocked: [] });
+  assert.deepEqual(r, { output: [], status: 1, commands: [], blocked: [], line: '   ' });
 });
 
 test('complete returns the completed line and the candidates when ambiguous', async () => {

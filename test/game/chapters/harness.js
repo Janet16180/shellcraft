@@ -29,6 +29,13 @@ export async function startChapter(chapter, seed = 1) {
   let now = NOW;
   const backend = createSimBackend({ now: () => now, random: createRandom(seed) });
   backend.tick = async seconds => { now += seconds * 1000; };
+  // Like the session, a line is judged against the observation after the line
+  // before (or after the last load): a job that ended meanwhile was running then.
+  const load = backend.load;
+  backend.load = async patch => {
+    await load(patch);
+    backend.seen = await backend.observe();
+  };
   await backend.load([...baseWorld(PLAYER), ...chapter.setup(createRandom(seed), PLAYER)]);
   return backend;
 }
@@ -85,7 +92,9 @@ async function runAnswering(backend, line, answers, keys) {
 
 /**
  * Type one line and press Enter, with typeLine's rule: a tab in the line
- * presses Tab there. Tab presses are recorded for the check context.
+ * presses Tab there. Tab presses are recorded for the check context. On a
+ * backend from startChapter, `ctx.before` is the observation after the line
+ * before (or the last load), as in the session.
  *
  * When the line asks for hidden input (sudo's password), the answers are
  * given in order: `{ password: 'dragon' }`, or several tries
@@ -114,10 +123,11 @@ export async function type(backend, line, { password, keys = [] } = {}) {
     return answer;
   };
   const submit = async (typed, pressed) => {
-    const before = await backend.observe();
+    const before = backend.seen ?? await backend.observe();
     const result = await runAnswering(backend, typed, password === undefined ? [] : [password].flat(), [...pressed, ...keys]);
     const obs = await backend.observe();
-    return { result, ctx: makeContext({ commands: result.commands, before, obs, completions, line: typed }) };
+    if (backend.seen) backend.seen = obs;
+    return { result, ctx: makeContext({ commands: result.commands, before, obs, completions, line: typed, typed }) };
   };
   return typeLine(line, { complete, submit });
 }

@@ -74,7 +74,7 @@ function runLine(sys, typedLine, events) {
   }
   const notices = run.waiting ? '' : notify(sys);
   if (notices) run.sink.write('err', notices);
-  return { output: run.chunks, status, commands: run.records, blocked: run.blocked, waiting: run.waiting };
+  return { output: run.chunks, status, commands: run.records, blocked: run.blocked, waiting: run.waiting, line: history.line ?? typedLine };
 }
 
 const SIGNALS = ['INT', 'TSTP'];
@@ -95,7 +95,7 @@ function attempt(sys, pending) {
     if (r.waiting.prompt === undefined) reply.running = { seconds: secondsLeft(sys, r.waiting.until) };
     else reply.input = { prompt: r.waiting.prompt, hidden: true };
   } else {
-    reply = { output: r.output.slice(shown), status: r.status, commands: r.commands, blocked: r.blocked };
+    reply = { output: r.output.slice(shown), status: r.status, commands: r.commands, blocked: r.blocked, line: r.line };
   }
   return { reply, done: !r.waiting };
 }

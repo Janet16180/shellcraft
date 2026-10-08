@@ -116,8 +116,12 @@ The check context `ctx` (implemented in `src/game/checks.js`) sees only the port
 - `ctx.paths(record)`: its non-option arguments as absolute paths (for `tar czf a.tgz dir`, the archive and `dir`).
   For tar, the archive and directory given as option values count too, where they were typed: `--file=a.tgz`,
   `-fa.tgz`, `-czfa.tgz`, `--directory=out`, `-Cout`.
-- `ctx.line`: the line's text as typed. Judge records and state first; use the text only for what
+- `ctx.line`: the line's text. Judge records and state first; use the text only for what
   leaves no record, like a variable assignment (`wish=gold`) or which `$` name was expanded.
+- `ctx.typed`: the keys as typed. It differs from `ctx.line` only for history expansion: the backend
+  reports the line that ran (`RunResult.line`: `sudo !!` ran `sudo echo hi`), and `ctx.line` becomes
+  that line once chapter 19 reads `!!` and `!N` from `ctx.typed` (until then both are the typed text).
+  Use `ctx.typed` to ask "did the player type `!!`?"
 - `ctx.completions`: the Tab presses since the previous line, `[{ line, completed }]`. They come
   from the page's own terminal; a real terminal (termlab) would handle Tab inside bash and report
   none, so only use this where losing the task in that mode is acceptable (today: forest's Tab task).
@@ -337,6 +341,10 @@ from `test/game/chapters/harness.js` answers each prompt in order (`{ password: 
 for several tries, `null` for Ctrl+C) and returns the parts of the line joined; a prompt the test did
 not answer raises. `play()` and the session playthrough answer with the password the chapter's setup
 sets (`passwordOf(chapter)`), so `solve` lines may use sudo.
+
+`type()` judges a line against the observation after the line before it (or after the last
+`backend.load`), as the session does: a background job that ended while the test clock moved is
+`running` in `ctx.before`, so an empty line that shows its `Done` passes `ctx.ended(1)`.
 
 Commands that take time run on a test clock that stands still until the test moves it. `startChapter`
 returns a backend with `tick`: `await backend.tick(30)` lets 30 seconds pass, so a `sleep 30 &` job is

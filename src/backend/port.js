@@ -108,6 +108,9 @@
  * @property {OutputChunk[]} output What the terminal shows.
  * @property {number} status Exit status of the line (what `$?` becomes).
  * @property {CommandRecord[]} commands Every command that ran, in order.
+ * @property {string} [line] On the line's end: the line that ran, after history
+ *   expansion (`sudo !!` gives `sudo echo hi`, which bash echoes); the typed line
+ *   when nothing was expanded or the expansion failed.
  * @property {string[]} blocked Reasons the backend refused something a real
  *   system would have done, to protect the world (`rm -r ~`). Empty for a real backend
  *   that has no such guard.

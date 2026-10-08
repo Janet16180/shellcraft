@@ -5,6 +5,7 @@ import { SAVE_KEY, V1_SAVE_KEY } from '../../src/game/save.js';
 import { createRandom } from '../../src/game/rng.js';
 import { nodeAt } from '../../src/backend/tree.js';
 import { createFakeBackend } from '../helpers/fake-backend.js';
+import { createSimBackend } from '../../src/shell/backend.js';
 import { createMemoryStore } from '../helpers/memory-store.js';
 import { fixtureChapters, fixtureWorld } from '../helpers/fixture-chapters.js';
 
@@ -108,6 +109,15 @@ test('a line runs on the backend and the turn carries its result, observation, e
   assert.equal(turn.obs.cwd, `${HOME}/forest`);
   assert.deepEqual(turn.effects, [{ kind: 'travel', from: HOME, to: `${HOME}/forest` }]);
   assert.deepEqual(turn.view.prompt, { user: 'hero', host: 'kernelia', cwd: `${HOME}/forest`, home: HOME });
+});
+
+test('checks see the line after history expansion as ctx.line and the keys as ctx.typed', { todo: 'ctx.line becomes the expanded line once memory.js reads the keys from ctx.typed' }, async () => {
+  const [awakening, ...rest] = fixtureChapters();
+  const seen = [];
+  const chapter = { ...awakening, tasks: [{ ...awakening.tasks[0], done: ctx => { seen.push([ctx.line, ctx.typed]); return false; } }, awakening.tasks[1]] };
+  const { session } = await booted({ chapters: [chapter, ...rest], backend: createSimBackend({ now: () => 0, random: () => 0.5 }) });
+  await play(session, ['echo hi', 'sudo !!']);
+  assert.deepEqual(seen, [['echo hi', 'echo hi'], ['sudo echo hi', 'sudo !!']]);
 });
 
 test('a line that meets a task pays 10 XP and marks the task done', async () => {

@@ -153,12 +153,13 @@ function jobEnded(before, after, id) {
 /**
  * Build the context a chapter's checks receive for one line.
  *
- * @param {{commands: object[], before: object, obs: object, completions?: {line: string, completed: string}[], line?: string}} line
+ * @param {{commands: object[], before: object, obs: object, completions?: {line: string, completed: string}[], line?: string, typed?: string}} line
  *   The line's CommandRecords, the Observations before and after it, the
- *   Tab completions made while typing it, and its text as typed.
+ *   Tab completions made while typing it, the line that ran (after history
+ *   expansion) and the keys as typed (the line that ran, by default).
  * @returns {object} The context described in AUTHORING.md section 2.
  */
-export function makeContext({ commands, before, obs, completions = [], line = '' }) {
+export function makeContext({ commands, before, obs, completions = [], line = '', typed = line }) {
   const { home } = obs;
   const paths = record => (record.name === 'tar' ? tarPaths(record) : operands(record.args)).map(arg => resolvePath(arg, record.cwd, home));
   const ran = (name, pred = () => true) => commands.some(r => r.name === name && r.status === 0 && pred(r));
@@ -186,6 +187,7 @@ export function makeContext({ commands, before, obs, completions = [], line = ''
     obs,
     completions,
     line,
+    typed,
     home,
     cwd: obs.cwd,
     node: path => nodeAt(obs.tree, path),

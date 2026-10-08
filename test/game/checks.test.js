@@ -30,6 +30,13 @@ test('the context carries the text of the line as typed, empty by default', () =
   assert.equal(makeContext({ commands: [], before, obs: before }).line, '');
 });
 
+test('the context keeps the keys as typed apart from the line that ran, the same line by default', () => {
+  const before = observation();
+  const ctx = makeContext({ commands: [], before, obs: before, line: 'sudo echo hi', typed: 'sudo !!' });
+  assert.deepEqual([ctx.line, ctx.typed], ['sudo echo hi', 'sudo !!']);
+  assert.equal(makeContext({ commands: [], before, obs: before, line: 'ls' }).typed, 'ls');
+});
+
 test('node finds files and directories by absolute path in the observation after the line', () => {
   const ctx = context([]);
   assert.equal(ctx.node(`${HOME}/readme.txt`).content, 'Welcome, hero.\n');

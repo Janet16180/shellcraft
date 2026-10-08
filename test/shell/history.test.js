@@ -61,3 +61,10 @@ test('at the prompt, a missing event runs nothing, keeps $?, and is not remember
   assert.equal((await b.observe()).tree.children.home.children.hero.children.f, undefined);
   assert.equal((await run(b, 'history')).out, '    1  false\n    2  history\n');
 });
+
+test('a finished line reports the line that ran, after history expansion', async () => {
+  const b = await shell();
+  assert.equal((await b.run('echo one')).line, 'echo one');
+  assert.equal((await b.run('!! | wc -l')).line, 'echo one | wc -l');
+  assert.equal((await b.run('echo !nosuch')).line, 'echo !nosuch');
+});

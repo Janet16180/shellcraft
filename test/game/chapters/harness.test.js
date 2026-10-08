@@ -77,3 +77,28 @@ test('play presses the Ctrl+C and Ctrl+Z written at the end of a solve line', as
   const { done, errors: errs } = await play(plain, backend, ['sleep 100\u001a', 'fg\u0003']);
   assert.deepEqual([done, errs], [[true], []]);
 });
+
+test('type judges a line against the observation after the line before, as the session does', async () => {
+  const backend = await startChapter(plain);
+  await type(backend, 'sleep 5 &');
+  await backend.tick(10);
+  const { result, ctx } = await type(backend, '');
+  assert.deepEqual(texts(result), ['[1]+  Done                    sleep 5\n']);
+  assert.equal(ctx.before.jobs[0].state, 'running');
+  assert.ok(ctx.ended(1));
+});
+
+test('a load between lines refreshes the observation the next line starts from', async () => {
+  const backend = await startChapter(plain);
+  await type(backend, 'pwd');
+  await backend.load([put('/home/hero/new.txt', file('x\n', { owner: 'hero' }))]);
+  const { ctx } = await type(backend, 'cat new.txt');
+  assert.equal(ctx.before.tree.children.home.children.hero.children['new.txt'].type, 'file');
+});
+
+test('the check context sees the line after history expansion, and the keys as typed', { todo: 'ctx.line becomes the expanded line once memory.js reads the keys from ctx.typed' }, async () => {
+  const backend = await startChapter(plain);
+  await type(backend, 'echo hi');
+  const { ctx } = await type(backend, '!!');
+  assert.deepEqual([ctx.line, ctx.typed], ['echo hi', '!!']);
+});
