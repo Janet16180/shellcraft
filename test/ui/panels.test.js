@@ -146,3 +146,15 @@ test('the chapter you are in is marked as current whatever its status, cleared i
   const html = chaptersHTML(chapters);
   assert.match(html, /data-ch="awakening" class="cur" aria-current="true">.*<span class="status cleared">cleared<\/span>/s);
 });
+
+test('a chapter with an explainer gets a button to watch it, in every phase', () => {
+  for (const phase of ['quest', 'boss', 'done']) {
+    const view = withPhase(phase);
+    view.chapter.explainer = { id: 'links', title: 'Names are <pointers>', steps: [], seen: true };
+    assert.match(questHTML(view), /<button class="px-btn small ghost explainer-btn" id="explainerBtn" type="button">Watch the explainer: Names are &lt;pointers&gt;<\/button>/, phase);
+  }
+});
+
+test('a chapter without an explainer has no explainer button', () => {
+  assert.doesNotMatch(questHTML(sampleView()), /explainerBtn/);
+});
