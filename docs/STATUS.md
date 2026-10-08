@@ -25,6 +25,9 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
 - Art (`slice/art`, merged): areas well, den, forge, ore, mirrors, the `/usr/local` guild wing,
   processes drawn as creatures labelled `PID name` (`src/map/creatures.js`).
 - The session playthrough plays all 14 chapters (3 seeds).
+- Engine (`slice/shell2`, not merged): playtest gaps closed (WORKLIST C5): `<` and `2>&1` in
+  `CommandRecord.redirects`, brace expansion, `!` history expansion, more long options, `printf`,
+  `type -a/-t`, `uniq IN OUT`, `${v#pat}`/`%`, find and less error wording.
 
 ## State at 2026-10-07 (chapters 5 to 9, dev mode)
 
