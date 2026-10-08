@@ -253,3 +253,11 @@ test('as root, chown gives files away: to a user, to user:group, and a whole tre
   assert.deepEqual(outcome(await run(b, 'sudo chown hero: blade.txt; ls -l blade.txt')).slice(1), ['', 0]);
   assert.match((await run(b, 'ls -l blade.txt')).out, / hero hero /);
 });
+
+test('loading a patch abandons a line waiting for input', async () => {
+  const b = await realm({ extra: [password('dragon')] });
+  await b.run('sudo whoami');
+  await b.load([]);
+  await assert.rejects(b.answer('dragon'), /no line is waiting/);
+  assert.equal((await run(b, 'whoami')).out, 'hero\n');
+});

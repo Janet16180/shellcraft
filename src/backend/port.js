@@ -147,6 +147,7 @@
  * @typedef {object} Backend
  * @property {(patch: object[]) => Promise<void>} load Apply a world patch from
  *   src/backend/spec.js. Raises on a patch it cannot apply (a missing parent).
+ *   A line waiting for input is abandoned, as if its terminal closed.
  * @property {(line: string) => Promise<RunResult>} run Run one line typed by the player.
  *   Raises while an earlier line waits for input.
  * @property {(text: string|null) => Promise<RunResult>} answer Send the line the player

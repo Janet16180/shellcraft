@@ -132,6 +132,7 @@ export function createSimBackend({ user = 'hero', host = 'kernelia', home = '/ho
   let started = false;
   let pending = null;
   const load = patch => {
+    pending = null;
     applyPatch(sys, patch);
     if (!started) startShell(sys);
     started = true;
