@@ -260,13 +260,27 @@ function symbolicBits(who, perms, old, isDir) {
   return bits;
 }
 
+const SHIFT = { u: 6, g: 3, o: 0 };
+const CLAUSE = /^([ugoa]*)((?:[+\-=](?:[ugo]|[rwxXst]*))+)$/;
+const OPERATION = /([+\-=])([ugo]|[rwxXst]*)/g;
+
+// A copy like g=u takes the source class's rwx as they are at that point.
+function operationBits(who, perms, m, isDir) {
+  const copied = perms.length === 1 && perms in SHIFT;
+  if (!copied) return symbolicBits(who, perms, m, isDir);
+  const rwx = (m >> SHIFT[perms]) & 7;
+  return [...who].reduce((acc, w) => acc | (rwx << SHIFT[w]), 0);
+}
+
+// Clauses split by commas, each a class and one or more operations: u+x-r, go=, g=u.
 function parseSymbolic(mode, umask) {
-  const clauses = mode.split(',').map(c => /^([ugoa]*)([+\-=])([rwxXst]*)$/.exec(c));
+  const clauses = mode.split(',').map(c => CLAUSE.exec(c));
   if (clauses.some(c => !c)) return null;
-  return (old, isDir) => clauses.reduce((m, [, whoRaw, op, perms]) => {
+  const steps = clauses.flatMap(([, whoRaw, ops]) => [...ops.matchAll(OPERATION)].map(([, op, perms]) => ({ whoRaw, op, perms })));
+  return (old, isDir) => steps.reduce((m, { whoRaw, op, perms }) => {
     const who = !whoRaw || whoRaw.includes('a') ? 'ugo' : whoRaw;
-    const bits = symbolicBits(who, perms, old, isDir) & (whoRaw ? ~0 : ~umask);
-    const mask = [...who].reduce((acc, w) => acc | (7 << { u: 6, g: 3, o: 0 }[w]), 0);
+    const bits = operationBits(who, perms, m, isDir) & (whoRaw ? ~0 : ~umask);
+    const mask = [...who].reduce((acc, w) => acc | (7 << SHIFT[w]), 0);
     let next = (m & ~mask) | bits;
     if (op === '+') next = m | bits;
     if (op === '-') next = m & ~bits;
