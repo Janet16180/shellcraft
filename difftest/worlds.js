@@ -4,7 +4,7 @@
  * and never replace a system directory, only add children to it.
  */
 
-import { put, dir, file } from '../src/backend/spec.js';
+import { put, dir, file, symlink, link } from '../src/backend/spec.js';
 import { baseWorld, accounts } from '../src/game/world.js';
 import { PLAYER } from '../src/backend/player.js';
 
@@ -96,6 +96,15 @@ const hall = () => put('/home/hero/hall', dir({
   forge: dir({ 'blade.txt': file('blade\n', { owner: 'mira', group: 'smiths' }) }, { owner: 'mira', group: 'smiths', mode: 0o755 }),
 }, mine));
 
+const portals = () => [
+  put('/home/hero/portal', symlink('/home/hero/forest/cave/deep', mine)),
+  put('/home/hero/near', symlink('forest/cave', mine)),
+  put('/home/hero/letter', symlink('readme.txt', mine)),
+  put('/home/hero/broken', symlink('nowhere', mine)),
+  put('/home/hero/loop', symlink('loop', mine)),
+  put('/home/hero/copy.txt', link('/home/hero/readme.txt')),
+];
+
 /** @type {Record<string, () => object[]>} */
 export const WORLDS = {
   home: () => [home(), ...system()],
@@ -104,4 +113,5 @@ export const WORLDS = {
   scripts: () => [home(), ...system(), localBin(), spells()],
   loops: () => [home(), ...system(), loops()],
   guild: () => [home(), ...system(), ...people(), hall()],
+  links: () => [home(), ...system(), ...portals()],
 };

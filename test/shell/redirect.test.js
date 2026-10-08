@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { openRedirects, writeTo } from '../../src/shell/redirect.js';
-import { newDir, newFile, lookup } from '../../src/shell/fs.js';
+import { newDir, newFile, newSymlink, lookup } from '../../src/shell/fs.js';
 
 const m = (owner, mode) => ({ owner, group: owner, mode, mtime: 0 });
 const sys = () => ({
@@ -79,4 +79,16 @@ test('failures give the bash message with the target as expanded', () => {
   assert.equal(err(r('>', 'ro.txt')), 'bash: ro.txt: Permission denied');
   assert.equal(err(r('>', '/etc/x')), 'bash: /etc/x: Permission denied');
   assert.equal(err(r('<', 'missing')), 'bash: missing: No such file or directory');
+});
+
+test('writing through a dangling link creates the file it points at; the record names the path as typed', () => {
+  const s = sys();
+  s.root.children.h.children.ghost = newSymlink('real.txt', m('hero', 0o777));
+  s.root.children.h.children.far = newSymlink('nodir/x', m('hero', 0o777));
+  const r = openRedirects(s, [{ op: '>', fd: null, target: 'ghost' }], { stdin: null, out: { kind: 'terminal' }, err: { kind: 'terminal' } });
+  assert.equal(r.error, null);
+  assert.deepEqual(r.records, [{ op: '>', target: '/h/ghost' }]);
+  assert.equal(lookup(s.root, '/h/real.txt').type, 'file');
+  const far = openRedirects(s, [{ op: '>', fd: null, target: 'far' }], { stdin: null, out: { kind: 'terminal' }, err: { kind: 'terminal' } });
+  assert.equal(far.error, 'bash: far: No such file or directory');
 });

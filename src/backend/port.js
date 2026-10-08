@@ -20,7 +20,8 @@
  *
  * The vocabulary is closed, so the page can render any backend:
  * - `html` may use only these span classes: `c-dir` (a directory name), `c-exe`
- *   (an executable file), `g-file`, `g-sep` and `g-num` (grep's file name,
+ *   (an executable file), `c-link` (a symbolic link), `c-orphan` (a symbolic
+ *   link that leads nowhere), `g-file`, `g-sep` and `g-num` (grep's file name,
  *   separator and line number) and `g-match` (grep's matched text). It never
  *   contains raw terminal escape codes; a backend that receives colours from a
  *   real terminal translates them into these classes or drops them.
@@ -47,7 +48,8 @@
  * @property {number} stages How many commands that pipeline has.
  * @property {{op: string, target: string}[]} redirects Redirections in the order typed. `op` is
  *   the operator with the fd number as typed in front (`<`, `>`, `>>`, `2>`, `2>>`, `&>`); its
- *   target is the absolute path of the file. An fd duplication has op `2>&` (or `>&`, `1>&`...)
+ *   target is the absolute path of the file as typed (`.` and `..` removed as text,
+ *   symbolic links not resolved). An fd duplication has op `2>&` (or `>&`, `1>&`...)
  *   and the fd number as target: `ls x > f 2>&1` gives `[{op: '>', target: '/home/hero/f'},
  *   {op: '2>&', target: '1'}]`.
  */
@@ -63,16 +65,28 @@
  */
 
 /**
- * A node of the observed tree. Directories have `children`, files `content`.
+ * A node of the observed tree. Directories have `children`, files `content`,
+ * symbolic links `target`.
+ *
+ * Each node is an inode. A file with several names (hard links) appears once
+ * under each name, every copy with the same `ino`; compare `ino` to tell
+ * whether two paths are one file. A symbolic link is not followed in the
+ * tree: it is its own node, and `target` is its text exactly as created (a
+ * relative target is read from the link's directory). `nodeAt` in tree.js
+ * follows links like the kernel; pass `{follow: false}` to get the link itself.
  *
  * @typedef {object} TreeNode
- * @property {'dir'|'file'} type
- * @property {number} mode Permission bits (0o755).
+ * @property {'dir'|'file'|'symlink'} type
+ * @property {number} mode Permission bits (0o755); always 0o777 for a symbolic link.
  * @property {string} owner
  * @property {string} group
- * @property {number} size Bytes for a file.
+ * @property {number} size Bytes for a file, 4096 for a directory, the bytes of the target text for a link.
  * @property {number} mtime Milliseconds since the epoch.
+ * @property {number} ino The inode number, as `ls -i` shows it. It stays with the node across renames.
+ * @property {number} links The link count, as `ls -l` shows it: a file's number of
+ *   names; 2 plus the number of subdirectories for a directory.
  * @property {string} [content]
+ * @property {string} [target] A symbolic link's target text.
  * @property {Record<string, TreeNode>} [children]
  */
 

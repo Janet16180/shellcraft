@@ -6,6 +6,7 @@
 
 import { newDir, newFile, insert } from './fs.js';
 import { nameTable } from './table.js';
+import { compareNames } from '../backend/tree.js';
 import { initialVars, setVar } from './vars.js';
 import { loginGids } from './accounts.js';
 
@@ -15,6 +16,38 @@ const ROOT_META = { owner: 'root', group: 'root' };
 export const TERMINAL = 'pts/0';
 
 const BINARY = '\u007fELF\u0002\u0001\u0001\u0000';
+
+// ext4 gives the root directory inode 2. Other numbers start low enough for
+// a beginner to compare them at a glance.
+const ROOT_INODE = 2;
+const FIRST_INODE = 1801;
+
+/**
+ * A node's inode number, giving it the next free one if it has none yet.
+ *
+ * @param {object} sys The machine state.
+ * @param {object} node A filesystem node.
+ * @returns {number} Its inode number, the same for every name it has.
+ */
+export function inodeOf(sys, node) {
+  if (node.ino === undefined) node.ino = node === sys.root ? ROOT_INODE : sys.nextIno++;
+  return node.ino;
+}
+
+/**
+ * Give every node without an inode number one, walking the tree in name order.
+ *
+ * @param {object} sys The machine state.
+ * @returns {void}
+ */
+export function numberInodes(sys) {
+  const stack = [sys.root];
+  while (stack.length) {
+    const node = stack.pop();
+    inodeOf(sys, node);
+    if (node.type === 'dir') stack.push(...Object.keys(node.children).sort(compareNames).reverse().map(name => node.children[name]));
+  }
+}
 
 /**
  * Pick the next PID. Real kernels hand them out in increasing order with gaps
@@ -90,7 +123,7 @@ export function createSystem({ user, host, home, now, random, binaries }) {
     root: baseTree(home, user, binaries, started), loginTime: started,
     cwd: home, oldpwd: null,
     vars: initialVars({ user, home, host }), aliases: nameTable(), history: [], hashed: new Map(),
-    positional: { zero: 'bash', args: [] }, flags: 'himBHs', lastStatus: 0, umask: 0o022, procs: [], nextPid: 300, shellPid: 0, columns: 80,
+    positional: { zero: 'bash', args: [] }, flags: 'himBHs', lastStatus: 0, umask: 0o022, procs: [], nextPid: 300, shellPid: 0, columns: 80, nextIno: FIRST_INODE,
   };
   sys.gids = loginGids(sys);
   sys.procs = systemProcs(sys);

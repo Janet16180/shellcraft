@@ -19,11 +19,17 @@ function build(path, node, out, parentFresh) {
     return;
   }
   if (!parentFresh && !system) out.lines.push(`rm -rf -- ${quote(path)}`);
+  if (node.type === 'link') {
+    out.lines.push(`ln -- ${quote(node.target)} ${quote(path)}`);
+    return;
+  }
   if (system) out.lines.push(`mkdir -p -- ${quote(path)}`);
   else if (node.type === 'dir') out.lines.push(`mkdir -- ${quote(path)}`);
+  else if (node.type === 'symlink') out.lines.push(`ln -s -- ${quote(node.target)} ${quote(path)}`);
   else out.lines.push(`printf '%s' ${quote(node.content)} > ${quote(path)}`);
-  out.lines.push(`chown ${quote(`${node.owner}:${node.group}`)} -- ${quote(path)}`);
-  out.lines.push(`chmod ${node.mode.toString(8).padStart(4, '0')} -- ${quote(path)}`);
+  const link = node.type === 'symlink';
+  out.lines.push(`chown ${link ? '-h ' : ''}${quote(`${node.owner}:${node.group}`)} -- ${quote(path)}`);
+  if (!link) out.lines.push(`chmod ${node.mode.toString(8).padStart(4, '0')} -- ${quote(path)}`);
   if (!/^\d+$/.test(node.owner)) out.users.add(node.owner);
   if (!/^\d+$/.test(node.group)) out.groups.add(node.group);
   out.stamped.push(path);
@@ -38,6 +44,7 @@ function build(path, node, out, parentFresh) {
  * other account and network files the container manages, like /etc/shadow
  * and /etc/hostname, are left alone), and every node the patch creates or
  * whose entries it changes gets the given mtime, as the simulator stamps them.
+ * Symbolic links are made with `ln -s` and hard links (spec `link()`) with `ln`.
  * `proc` and `login` operations are ignored (the shell logs in after the setup); `cd` targets are
  * returned for the caller to replay inside the shell, so OLDPWD behaves as in
  * the simulator.
@@ -60,7 +67,7 @@ export function materialize(patch, mtimeMs) {
     ...[...out.groups].map(g => `getent group ${quote(g)} >/dev/null || groupadd ${quote(g)}`),
     ...[...out.users].map(u => `getent passwd ${quote(u)} >/dev/null || useradd -M -N ${quote(u)}`),
   ];
-  const stamps = [...new Set(out.stamped)].map(p => `[ ! -e ${quote(p)} ] || touch -h -d @${seconds} -- ${quote(p)}`);
+  const stamps = [...new Set(out.stamped)].map(p => `if [ -e ${quote(p)} ] || [ -L ${quote(p)} ]; then touch -h -d @${seconds} -- ${quote(p)}; fi`);
   return { script: ['set -e', ...out.accountFiles, ...accounts, ...out.lines, ...stamps].join('\n') + '\n', cds };
 }
 

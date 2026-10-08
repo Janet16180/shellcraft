@@ -30,7 +30,7 @@ These are the user's rules (`~/.claude/CLAUDE.md`) applied to JavaScript.
 ## 2. Chapter modules (`src/game/chapters/<id>.js`)
 
 ```js
-import { put, remove, cd, dir, file } from '../../backend/spec.js';
+import { put, remove, cd, dir, file, symlink, link } from '../../backend/spec.js';
 
 export default {
   id: 'forest',
@@ -71,7 +71,13 @@ export default {
 
 The check context `ctx` (implemented in `src/game/checks.js`) sees only the port's data:
 - `ctx.commands`: the `CommandRecord`s of this line; `ctx.obs` / `ctx.before`: observations after and before it.
-- `ctx.home`, `ctx.cwd`, `ctx.node(absPath)`, `ctx.proc(key)`.
+- `ctx.home`, `ctx.cwd`, `ctx.node(absPath)`, `ctx.proc(key)`. `ctx.node` follows symbolic links like `cat`
+  does (a dangling link gives `null`). `ctx.cwd` is the logical path, as `pwd` prints it: after `cd portal`
+  it is `~/portal`, not where the link leads.
+- `ctx.inode(absPath)`: the inode number the path leads to (links followed), or `null`. Two paths are one
+  file (hard links) when their numbers are equal: `ctx.inode(a) === ctx.inode(b) && ctx.inode(a) !== null`.
+- `ctx.linkTarget(absPath)`: the target text of the symbolic link at that path, exactly as created
+  (`'/home/hero/forest/cave/deep'`, `'../scroll.txt'`), or `null` if the path is not a link.
 - `ctx.ran(name, pred?)`: a command with that name exited 0 (and `pred(record)` holds).
 - `ctx.tried(name, pred?)`: same, any exit status.
 - `ctx.hasPath(record, absPath)`: one of its non-option arguments resolves to `absPath`; for commands that read their input (cat, grep, sort, uniq, wc, head, tail...), also a file sent in with `<` or by a plain `cat` piped into it.
@@ -125,6 +131,27 @@ setup: (random, player) => [
 Node owners and groups are names; use digits (`owner: '1234'`) for a file whose owner has no
 account, which `ls -l` shows as a number. `accounts()` does not create homes. The base world ends with
 `login()`, so a fresh world resets the player's groups.
+
+### Links
+
+`symlink(target, { owner, group })` from spec.js describes a symbolic link. The target text is kept
+exactly as written (like `ln -s TARGET NAME`): a relative one is read from the link's own directory,
+and it may point at nothing (a dangling link). Use it anywhere a node goes, also inside `dir()`.
+`link('/abs/path')` is a hard link: another name for the node already at that path, sharing its
+inode, content, mode and owner. It may only be the node a `put` places, after its target exists,
+and the target may not be a directory (the backend raises).
+
+```js
+setup: (random, { home }) => [
+  put(`${home}/portal`, symlink(`${home}/forest/cave/deep`, { owner: 'hero' })),  // ~/portal -> ~/forest/cave/deep
+  put(`${home}/scroll.txt`, file('A map.\n', { owner: 'hero' })),
+  put(`${home}/copy.txt`, link(`${home}/scroll.txt`)),                         // a second name, same inode
+],
+```
+
+In the Observation tree (`src/backend/port.js` TreeNode) every node has `ino` and `links`; a symbolic
+link is `{type: 'symlink', target, ...}`. `ctx.node(path)` follows links like `cat` would;
+`ctx.inode(path)` and `ctx.linkTarget(path)` answer "same file?" and "where does this link point?".
 
 ### Explainers (optional)
 

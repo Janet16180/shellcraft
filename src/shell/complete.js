@@ -28,8 +28,12 @@ function pathCandidates(sys, word) {
     .filter(k => k.startsWith(base) && (base.startsWith('.') || k[0] !== '.'))
     .sort(compareNames)
     .map(k => {
-      const isDir = r.node.children[k].type === 'dir';
-      return { text: dirPart + escapeName(k) + (isDir ? '/' : ' '), show: k + (isDir ? '/' : '') };
+      const child = r.node.children[k];
+      const isDir = child.type === 'dir';
+      // Like readline, a link to a directory gets no slash until a second Tab.
+      const dirLink = child.type === 'symlink' && resolve(sys, `${lookupPath || '.'}/${k}`).node?.type === 'dir';
+      const text = dirPart + escapeName(k) + (isDir ? '/' : dirLink ? '' : ' ');
+      return { text, show: k + (isDir || dirLink ? '/' : ''), again: dirLink ? `${text}/` : text };
     });
 }
 
@@ -53,7 +57,7 @@ export function complete(sys, line, commandNames) {
     : pathCandidates(sys, word);
   const common = cands.length ? commonPrefix(cands.map(c => c.text)) : '';
   let out = { line, candidates: [] };
-  if (cands.length === 1) out = { line: before + cands[0].text, candidates: [] };
+  if (cands.length === 1) out = { line: before + (cands[0].text === word ? cands[0].again ?? cands[0].text : cands[0].text), candidates: [] };
   else if (common.length > word.length) out = { line: before + common, candidates: [] };
   else if (cands.length > 1) out = { line, candidates: cands.map(c => c.show) };
   return out;

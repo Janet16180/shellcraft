@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nodeAt, childOf, isInside, compareNames, parentOf, joinPath, baseName } from '../../src/backend/tree.js';
-import { dir, file } from '../../src/backend/spec.js';
+import { nodeAt, walkPath, childOf, isInside, compareNames, parentOf, joinPath, baseName } from '../../src/backend/tree.js';
+import { dir, file, symlink } from '../../src/backend/spec.js';
 
 const tree = dir({ home: dir({ hero: dir({ 'a.txt': file('hi\n') }) }) });
 
@@ -89,4 +89,68 @@ test('a path is its parent joined with its base name', () => {
   for (const path of ['/etc', '/home/hero', '/home/hero/forest/cave/deep', '/tmp/ ', '/x/~.txt']) {
     assert.equal(joinPath(parentOf(path), baseName(path)), path);
   }
+});
+
+const linked = () => dir({ home: dir({ hero: dir({
+  'a.txt': file('hi\n'),
+  forest: dir({ cave: dir({ deep: dir({ 'key.txt': file('key\n') }) }) }),
+  portal: symlink('/home/hero/forest/cave/deep'),
+  near: symlink('forest/cave'),
+  up: symlink('../hero/a.txt'),
+  broken: symlink('nowhere'),
+  loop1: symlink('loop2'),
+  loop2: symlink('loop1'),
+}) }) });
+
+test('nodeAt follows symbolic links, absolute or relative to the link\'s directory', () => {
+  const t = linked();
+  assert.equal(nodeAt(t, '/home/hero/portal/key.txt').content, 'key\n');
+  assert.equal(nodeAt(t, '/home/hero/portal'), nodeAt(t, '/home/hero/forest/cave/deep'));
+  assert.equal(nodeAt(t, '/home/hero/near/deep/key.txt').content, 'key\n');
+  assert.equal(nodeAt(t, '/home/hero/up').content, 'hi\n');
+});
+
+test('.. after a followed link goes up from where the link leads', () => {
+  assert.equal(nodeAt(linked(), '/home/hero/portal/../deep/key.txt').content, 'key\n');
+});
+
+test('with follow false, nodeAt gives the link itself when it is the last name', () => {
+  const t = linked();
+  assert.deepEqual(nodeAt(t, '/home/hero/portal', { follow: false }), symlink('/home/hero/forest/cave/deep'));
+  assert.equal(nodeAt(t, '/home/hero/portal/key.txt', { follow: false }).content, 'key\n');
+});
+
+test('a dangling link or a loop leads nowhere, but the link itself is there', () => {
+  const t = linked();
+  assert.equal(nodeAt(t, '/home/hero/broken'), null);
+  assert.equal(nodeAt(t, '/home/hero/loop1'), null);
+  assert.equal(nodeAt(t, '/home/hero/broken', { follow: false }).type, 'symlink');
+});
+
+test('walkPath reports the kernel errors: a loop, a file in the middle, a missing name', () => {
+  const t = linked();
+  const root = [{ name: '', node: t }];
+  assert.equal(walkPath(root, '/home/hero/loop1').error, 'ELOOP');
+  assert.equal(walkPath(root, '/home/hero/a.txt/x').error, 'ENOTDIR');
+  assert.equal(walkPath(root, '/home/hero/nope/x').error, 'ENOENT');
+});
+
+test('walkPath ends a dangling link at the name it points to, with that name\'s directory as parent', () => {
+  const t = linked();
+  const w = walkPath([{ name: '', node: t }], '/home/hero/broken');
+  assert.equal(w.error, 'ENOENT');
+  assert.equal(w.parent, nodeAt(t, '/home/hero'));
+  assert.deepEqual(w.stack.map(s => s.name), ['', 'home', 'hero', 'nowhere']);
+});
+
+test('walkPath follows a last link anyway when the path ends in a slash', () => {
+  const w = walkPath([{ name: '', node: linked() }], '/home/hero/portal/', { follow: false });
+  assert.equal(w.stack.at(-1).node.type, 'dir');
+  assert.deepEqual(w.stack.map(s => s.name).slice(-3), ['forest', 'cave', 'deep']);
+});
+
+test('walkPath asks check before each step and stops at its error', () => {
+  const t = linked();
+  const w = walkPath([{ name: '', node: t }], '/home/hero/a.txt', { check: (_dir, name) => (name === 'hero' ? 'EACCES' : null) });
+  assert.equal(w.error, 'EACCES');
 });

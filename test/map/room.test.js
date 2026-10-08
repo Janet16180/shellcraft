@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readRoom, itemKind, picksOf } from '../../src/map/room.js';
-import { file, dir } from '../../src/backend/spec.js';
+import { file, dir, symlink } from '../../src/backend/spec.js';
 import { observe, sampleTree } from './fixtures.js';
 
 const names = list => list.map(entry => entry.name);
@@ -129,4 +129,28 @@ test('the root offers no exit pick and a revealed room offers its hidden files',
   assert.equal(picksOf(readRoom(observe('/'), none)).some(p => p.kind === 'exit'), false);
   const home = picksOf(readRoom(observe('/home/hero'), new Set(['/home/hero'])));
   assert.ok(home.some(p => p.name === '.secret_map'));
+});
+
+const withPortals = () => {
+  const tree = sampleTree();
+  Object.assign(tree.children.home.children.hero.children, {
+    portal: symlink('/home/hero/forest/cave/deep', { owner: 'hero' }),
+    broken: symlink('nowhere', { owner: 'hero' }),
+  });
+  return tree;
+};
+
+test('a symbolic link is an item for now, even one to a directory or one that leads nowhere', () => {
+  const room = readRoom(observe('/home/hero', { tree: withPortals() }), none);
+  assert.deepEqual(names(room.items), ['broken', 'portal', 'readme.txt']);
+  assert.equal(names(room.doors).includes('portal'), false);
+  assert.equal(room.items[1].locked, false);
+});
+
+test('standing in a directory reached through a link shows where it leads, and .. goes back the way it came', () => {
+  const room = readRoom(observe('/home/hero/portal', { tree: withPortals() }), none);
+  assert.equal(room.status, 'open');
+  assert.deepEqual(names(room.items), ['ancient_key.txt']);
+  assert.equal(room.items[0].path, '/home/hero/portal/ancient_key.txt');
+  assert.equal(room.exit, '/home/hero');
 });

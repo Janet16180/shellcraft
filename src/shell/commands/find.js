@@ -88,12 +88,14 @@ function permTest(v) {
   return { test: tests[m[1]] };
 }
 
+const FIND_TYPES = { f: 'file', d: 'dir', l: 'symlink' };
+
 const isEmpty = e => (e.node.type === 'dir' ? Object.keys(e.node.children).length === 0 : sizeOf(e.node) === 0);
 
 const PRIMARIES = nameTable({
   '-name': v => { const re = compileGlob(v); return { test: e => re.test(e.name) }; },
   '-iname': v => { const re = compileGlob(v, { ignoreCase: true }); return { test: e => re.test(e.name) }; },
-  '-type': v => (v === 'f' || v === 'd' ? { test: e => e.node.type === (v === 'd' ? 'dir' : 'file') } : { error: `find: Unknown argument to -type: ${v}` }),
+  '-type': v => (Object.hasOwn(FIND_TYPES, v) ? { test: e => e.node.type === FIND_TYPES[v] } : { error: `find: Unknown argument to -type: ${v}` }),
   '-user': (v, ctx) => (ctx.users.has(v) ? { test: e => e.node.owner === v } : { error: `find: ${localeQuote(v)} is not the name of a known user` }),
   '-group': v => ({ test: e => e.node.group === v }),
   '-size': sizeTest,
@@ -235,7 +237,7 @@ function find(args, { sys }) {
   if (parsed.info) return result(parsed.info === 'help' ? `${FIND_HELP}\n` : versionText('find'));
   Object.assign(ctx, { test: parsed.test, prints: parsed.prints });
   for (const start of starts) {
-    const r = resolve(sys, start);
+    const r = resolve(sys, start, { follow: false });
     const base = r.abs === '/' ? '/' : r.abs.slice(r.abs.lastIndexOf('/') + 1);
     if (r.error) ctx.errs.push(`find: ${localeQuote(start)}: ${errorText(r.error)}`);
     else visit(sys, { name: start === '.' ? '.' : base, node: r.node, shown: start }, 0, ctx);

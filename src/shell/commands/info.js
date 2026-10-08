@@ -9,6 +9,7 @@ import { versionText } from '../versions.js';
 import { builtinOptions } from '../builtins.js';
 import { TERMINAL } from '../system.js';
 import { findUser, memberGroups, groupNames } from '../accounts.js';
+import { resolve } from '../paths.js';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -44,7 +45,8 @@ const UNAME_FIELDS = { s: () => 'Linux', n: sys => sys.host, r: () => '6.8.0-ker
 
 function pwd(args, { sys }) {
   const o = builtinOptions('pwd', args, 'LP');
-  return o.error ? result('', o.error, 2) : result(`${sys.cwd}\n`);
+  const physical = [...o.flags].at(-1) === 'P';
+  return o.error ? result('', o.error, 2) : result(`${physical ? resolve(sys, sys.cwd).abs : sys.cwd}\n`);
 }
 
 function whoami(args, { sys }) {

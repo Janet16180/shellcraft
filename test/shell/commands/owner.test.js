@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run, guild } from '../helpers.js';
-import { put, dir, file, login } from '../../../src/backend/spec.js';
+import { put, dir, file, login, symlink } from '../../../src/backend/spec.js';
 
 const outcome = r => [r.out, r.err, r.status];
 const mine = { owner: 'hero' };
@@ -132,4 +132,11 @@ test('rm removes a write-protected file in a writable directory, and notes the q
 test('rm -f does not note anything about write-protected files', async () => {
   const b = await shell([put('/home/hero/locked.txt', file('x\n', { owner: 'hero', mode: 0o444 }))]);
   assert.equal((await run(b, 'rm -f locked.txt')).note, '');
+});
+
+test('chown and chgrp cannot follow a dangling link or a loop', async () => {
+  const b = await shell([put('/home/hero/b', symlink('nowhere', { owner: 'hero' })), put('/home/hero/loop', symlink('loop', { owner: 'hero' }))]);
+  assert.deepEqual(await run(b, 'chown hero b').then(r => [r.err, r.status]), ["chown: cannot dereference 'b': No such file or directory\n", 1]);
+  assert.equal((await run(b, 'chgrp hero b')).err, "chgrp: cannot dereference 'b': No such file or directory\n");
+  assert.equal((await run(b, 'chown hero loop')).err, "chown: cannot dereference 'loop': Too many levels of symbolic links\n");
 });

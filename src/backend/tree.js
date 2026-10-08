@@ -1,6 +1,6 @@
 /**
- * Questions about the observed tree that every layer asks: what is at a path,
- * path arithmetic (parent, base name, join), whether a path lies inside a
+ * Questions about the observed tree that every layer asks: what is at a path
+ * (following symbolic links as the kernel does), path arithmetic (parent, base name, join), whether a path lies inside a
  * directory, and the order names sort in. One home for them, so the shell,
  * the rules, the map and the page agree.
  */
@@ -19,20 +19,75 @@ export function childOf(node, name) {
   return children && Object.hasOwn(children, name) ? children[name] : null;
 }
 
+/** How many symbolic links Linux follows while resolving one path before it gives up (ELOOP). */
+export const MAX_SYMLINKS = 40;
+
+const namesOf = path => path.split('/').filter(Boolean);
+
 /**
- * Find the node at an absolute path in an observed tree.
+ * Walk a path one name at a time, the way the kernel resolves it: a symbolic
+ * link is replaced by its target text (from the root if the text is absolute,
+ * else from the link's directory), and `..` goes up from wherever the walk is.
+ * A link in the last place is followed only when `follow` is true or the path
+ * ends in a slash.
+ *
+ * @param {{name: string, node: object}[]} start Where the walk begins: the root first, then each
+ *   directory down to the starting one. A path starting with `/` begins at the root.
+ * @param {string} path The path.
+ * @param {{follow?: boolean, check?: (dir: object, name: string, stack: object[]) => string|null}} [opts]
+ *   Follow a link in the last place; `check` may refuse a step with an error code (EACCES).
+ * @returns {{stack: {name: string, node: object|null}[], error: 'ENOENT'|'ENOTDIR'|'ELOOP'|string|null, parent: object|null}}
+ *   The directories walked through and what the walk reached. On ENOENT at the
+ *   last name, the stack ends with that name and a null node, and `parent` is
+ *   the directory it would be created in; otherwise `parent` is null.
+ */
+export function walkPath(start, path, { follow = true, check = () => null } = {}) {
+  const walk = { stack: path.startsWith('/') ? [start[0]] : [...start], queue: namesOf(path), error: null, parent: null, hops: 0 };
+  const followLast = follow || /[^/]\/+$/.test(path);
+  while (!walk.error && walk.queue.length) step(walk, walk.queue.shift(), followLast, check);
+  return { stack: walk.stack, error: walk.error, parent: walk.parent };
+}
+
+function step(walk, name, followLast, check) {
+  const { stack, queue } = walk;
+  const dir = stack.at(-1).node;
+  const last = queue.length === 0;
+  walk.error = dir.type === 'dir' ? check(dir, name, stack) : 'ENOTDIR';
+  const child = walk.error ? null : childOf(dir, name);
+  if (walk.error || name === '.') return;
+  if (name === '..') {
+    if (stack.length > 1) stack.pop();
+  } else if (child?.type === 'symlink' && (!last || followLast)) {
+    walk.hops++;
+    if (walk.hops > MAX_SYMLINKS) walk.error = 'ELOOP';
+    else if (child.target.startsWith('/')) stack.length = 1;
+    queue.unshift(...namesOf(child.target));
+  } else if (child) {
+    stack.push({ name, node: child });
+  } else {
+    walk.error = 'ENOENT';
+    if (last) {
+      walk.parent = dir;
+      stack.push({ name, node: null });
+    }
+  }
+}
+
+/**
+ * Find the node at an absolute path in an observed tree, following symbolic
+ * links like `stat` does (or, with `follow: false`, like `lstat`: a link in
+ * the last place is returned itself).
  *
  * @param {object} tree The TreeNode rooted at '/'.
  * @param {string} path Absolute path.
- * @returns {object|null} The node, or null if nothing is there.
+ * @param {{follow?: boolean}} [opts] Follow a symbolic link in the last place (default true).
+ * @returns {object|null} The node, or null if nothing is there (a dangling link or a loop included).
  * @throws {Error} If path is not absolute.
  */
-export function nodeAt(tree, path) {
+export function nodeAt(tree, path, { follow = true } = {}) {
   requireAbsolute(path);
-
-  let node = tree;
-  for (const name of path.split('/').filter(Boolean)) node = childOf(node, name);
-  return node;
+  const walked = walkPath([{ name: '', node: tree }], path, { follow });
+  return walked.error ? null : walked.stack.at(-1).node;
 }
 
 function requireAbsolute(path) {

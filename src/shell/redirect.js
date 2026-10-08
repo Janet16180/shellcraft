@@ -6,7 +6,7 @@
  * `{kind: 'null'}` (/dev/null) or `{kind: 'file', node}`.
  */
 
-import { newFile, addChild } from './fs.js';
+import { newFile, addChild, normalize } from './fs.js';
 import { baseName } from '../backend/tree.js';
 import { resolve, errorText } from './paths.js';
 import { can, canChangeEntries, newMeta } from './perms.js';
@@ -25,7 +25,7 @@ function openWrite(sys, path, append) {
     target = { kind: 'file', node: addChild(r.parent, baseName(r.abs), newFile('', newMeta(sys, r.parent, 0o666, false)), sys.now()) };
   }
   if (target?.kind === 'file' && !append) Object.assign(target.node, { content: '', mtime: sys.now() });
-  return { target, error, abs: r.abs };
+  return { target, error, abs: normalize(path, sys.cwd) };
 }
 
 function openRead(sys, path) {
@@ -33,7 +33,7 @@ function openRead(sys, path) {
   let error = r.error ? errorText(r.error) : null;
   if (!error && r.node.type === 'dir') error = 'Is a directory';
   else if (!error && !can(sys, r.node, 'r')) error = 'Permission denied';
-  return { input: error ? null : r.node.content, error, abs: r.abs };
+  return { input: error ? null : r.node.content, error, abs: normalize(path, sys.cwd) };
 }
 
 function applyDup(redir, fd, streams) {
