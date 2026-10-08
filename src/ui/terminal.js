@@ -426,7 +426,9 @@ export function createTerminal({ root, queue, onSubmit, onComplete, onAnswer = a
   wire(t, root);
   watchWidth(t);
   return {
-    running: on => running.set(on),
+    running: on => {
+      if (running.set(on)) t.screen.scrollTop = t.screen.scrollHeight;
+    },
     print: chunks => print(t, chunks),
     printLine: (text, cls) => printLine(t, text, cls),
     setPrompt: prompt => setPrompt(t, prompt),

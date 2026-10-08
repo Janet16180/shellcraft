@@ -45,7 +45,8 @@ function take(event) {
  *   The input line, the prompt before it, the touch key row (buttons with `data-k`), the busy mark
  *   shown in the prompt's place and the note line in the task strip (both hidden at first).
  * @param {(name: 'INT'|'TSTP') => void} onSignal Sends a signal to the running command.
- * @returns {{set: (on: boolean) => void}} Switches the running state on (a command runs) or off.
+ * @returns {{set: (on: boolean) => boolean}} Switches the running state on (a command runs) or off, and
+ *   says whether it changed (the task strip then changed height).
  */
 export function wireRunning({ input, promptEl, keys, busy, note }, onSignal) {
   let on = false;
@@ -66,7 +67,7 @@ export function wireRunning({ input, promptEl, keys, busy, note }, onSignal) {
   });
   return {
     set: running => {
-      if (running === on) return;
+      if (running === on) return false;
       on = running;
       if (running) label = input.getAttribute('aria-label');
       input.setAttribute('aria-label', running ? RUNNING_LABEL : label);
@@ -74,6 +75,7 @@ export function wireRunning({ input, promptEl, keys, busy, note }, onSignal) {
       busy.hidden = !running;
       note.hidden = !running;
       note.innerHTML = running ? NOTE_HTML : '';
+      return true;
     },
   };
 }

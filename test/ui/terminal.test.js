@@ -365,3 +365,22 @@ test('the Ctrl+Z and Ctrl+R touch keys type nothing when no command runs: not at
   await settle();
   assert.deepEqual(sent.answers, ['']);
 });
+
+test('when a command starts or ends running the screen keeps its last line in view, though the task strip grew or shrank', () => {
+  const { terminal, parts } = page();
+  parts.screen.scrollHeight = 900;
+  parts.screen.scrollTop = 500;
+  terminal.running(true);
+  assert.equal(parts.screen.scrollTop, 900);
+  parts.screen.scrollHeight = 950;
+  terminal.running(false);
+  assert.equal(parts.screen.scrollTop, 950);
+});
+
+test('saying the terminal is not running when it was not leaves the scrollback where the player put it', () => {
+  const { terminal, parts } = page();
+  parts.screen.scrollHeight = 900;
+  parts.screen.scrollTop = 200;
+  terminal.running(false);
+  assert.equal(parts.screen.scrollTop, 200);
+});
