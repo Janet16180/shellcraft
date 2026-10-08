@@ -103,6 +103,29 @@ fail silently when the player did almost the right thing. The session asks only 
 another task would answer a question the player was not asking. At most one coach note per line:
 that `near` note first, else a generic note from `src/game/coach.js`.
 
+### Users and groups
+
+/etc/passwd and /etc/group in the tree are the user and group database: `id`, `groups`, `ls -l`,
+`chown`, `chgrp`, `~name` and the permission checks all read them. To add people, write both files
+with `accounts()` from `src/game/world.js` (the base accounts plus yours; it throws on a taken name or
+id). The shell's groups are fixed at login, as on Linux, so follow it with `login()` from spec.js
+when the player joins a group:
+
+```js
+setup: (random, player) => [
+  ...accounts(player, {
+    users: [{ name: 'mira', uid: 1001, group: 'smiths' }, { name: 'oren', uid: 1002, group: 'scribes' }],
+    groups: [{ name: 'smiths', gid: 1001 }, { name: 'scribes', gid: 1002, members: [player.user] }],
+  }),
+  login(),
+  put(`${player.home}/hall/blade.txt`, file('...', { owner: 'mira', group: 'smiths', mode: 0o640 })),
+],
+```
+
+Node owners and groups are names; use digits (`owner: '1234'`) for a file whose owner has no
+account, which `ls -l` shows as a number. `accounts()` does not create homes. The base world ends with
+`login()`, so a fresh world resets the player's groups.
+
 ## 3. Content rules
 
 1. **Correct on the reference system** (Ubuntu 24.04, bash 5.2, coreutils 9.4, `LC_ALL=C.UTF-8`).
