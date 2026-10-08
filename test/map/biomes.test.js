@@ -146,3 +146,10 @@ test('chapters 17 and 19 have their areas at home: the hall of portals, the maze
     assert.deepEqual(biomeFor(`${HOME}/${area}`, HOME), { realm: 'overworld', biome, name }, area);
   }
 });
+
+test('chapter 20\'s workshop at home is the busy smithy, and /usr stays the dungeon workshop', () => {
+  assert.deepEqual(biomeFor(`${HOME}/workshop`, HOME), { realm: 'overworld', biome: 'smithy', name: 'Busy Workshop' });
+  assert.equal(at(`${HOME}/workshop/bench`), 'smithy');
+  assert.equal(at('/usr'), 'workshop');
+  assert.equal(at(`${HOME}/workshops`), 'cottage');
+});

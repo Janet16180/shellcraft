@@ -96,3 +96,18 @@ test('a job that ended bursts where its worker stood; one that only stopped does
   assert.ok(stage.motion.particles.length > 0);
   assert.deepEqual(stage.state.jobs.badges, []);
 });
+
+test('chapter 20\'s busy workshop paints, with one or two rows of doors, at rest and moving', t => {
+  globalThis.document = { createElement: fakeCanvas };
+  t.after(() => delete globalThis.document);
+  const mine = { owner: 'hero' };
+  for (const doors of [1, 9]) {
+    const tree = sampleTree();
+    const rooms = Object.fromEntries(Array.from({ length: doors }, (_, i) => [`room${i}`, dir({}, mine)]));
+    tree.children.home.children.hero.children.workshop = dir({ ...rooms, 'blade.txt': file('', mine) }, mine);
+    const stage = createStage(fakeCanvas(), false);
+    settle(stage, observe('/home/hero/workshop', { tree }));
+    assert.equal(stage.state.scene.biome, 'smithy');
+    for (const ms of [0, 250, 1234, 98765]) assert.doesNotThrow(() => paintFrame(stage, ms), `${doors} doors at ${ms}`);
+  }
+});
