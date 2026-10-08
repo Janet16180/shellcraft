@@ -1325,14 +1325,19 @@ kbd {
   }
 }
 
-/* Eleven keys in two rows on a 360px phone. */
+/* Twelve keys in two rows on a 360px phone. */
 @media (max-width: 400px) {
   .keys {
-    gap: 8px;
+    gap: 6px;
+    padding-inline: 10px;
+  }
+
+  .keys button {
+    min-width: 34px;
   }
 
   .keys .px-btn {
-    padding-inline: 8px;
+    padding-inline: 6px;
   }
 
   .keys .px-btn::before {
