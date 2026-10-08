@@ -65,7 +65,7 @@ program via the GNU findutils bug-reporting page at
 https://savannah.gnu.org/bugs/?group=findutils or, if
 you have no web access, by sending email to <bug-findutils@gnu.org>.`;
 const INFO = new Map([['-help', 'help'], ['--help', 'help'], ['-version', 'version'], ['--version', 'version']]);
-const WITH_VALUE = new Set(['-name', '-iname', '-type', '-size', '-user', '-group', '-perm', '-maxdepth', '-mindepth']);
+const WITH_VALUE = new Set(['-name', '-iname', '-type', '-xtype', '-size', '-user', '-group', '-perm', '-maxdepth', '-mindepth']);
 
 function compare(spec, value) {
   if (spec.startsWith('+')) return value > Number(spec.slice(1));
@@ -90,12 +90,18 @@ function permTest(v) {
 
 const FIND_TYPES = { f: 'file', d: 'dir', l: 'symlink' };
 
+// What a link leads to (the link itself when it leads nowhere); any other entry is itself.
+function followedType(e, sys) {
+  return e.node.type === 'symlink' ? resolve(sys, e.shown).node?.type ?? 'symlink' : e.node.type;
+}
+
 const isEmpty = e => (e.node.type === 'dir' ? Object.keys(e.node.children).length === 0 : sizeOf(e.node) === 0);
 
 const PRIMARIES = nameTable({
   '-name': v => { const re = compileGlob(v); return { test: e => re.test(e.name) }; },
   '-iname': v => { const re = compileGlob(v, { ignoreCase: true }); return { test: e => re.test(e.name) }; },
   '-type': v => (Object.hasOwn(FIND_TYPES, v) ? { test: e => e.node.type === FIND_TYPES[v] } : { error: `find: Unknown argument to -type: ${v}` }),
+  '-xtype': (v, ctx) => (Object.hasOwn(FIND_TYPES, v) ? { test: e => followedType(e, ctx.sys) === FIND_TYPES[v] } : { error: `find: Unknown argument to -xtype: ${v}` }),
   '-user': (v, ctx) => (ctx.users.has(v) ? { test: e => e.node.owner === v } : { error: `find: ${localeQuote(v)} is not the name of a known user` }),
   '-group': v => ({ test: e => e.node.group === v }),
   '-size': sizeTest,

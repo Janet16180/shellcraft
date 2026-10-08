@@ -92,3 +92,11 @@ test('find given a link names only the link, unless the path ends in a slash', a
   assert.equal((await run(b, 'find portal')).out, 'portal\n');
   assert.equal((await run(b, 'find portal/')).out, 'portal/\nportal/c.txt\n');
 });
+
+test('-xtype tests what a link leads to, so -xtype l finds the broken links', async () => {
+  const b = await shell();
+  await run(b, 'mkdir m; ln -s nowhere m/broken; ln -s /etc m/good; ln -s broken m/chain; touch m/f');
+  assert.deepEqual([(await run(b, 'find m -xtype l')).out, (await run(b, 'find m -xtype f')).out, (await run(b, 'find m -xtype d')).out],
+    ['m/broken\nm/chain\n', 'm/f\n', 'm\nm/good\n']);
+  assert.equal((await run(b, 'find m -xtype x')).err, 'find: Unknown argument to -xtype: x\n');
+});
