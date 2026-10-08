@@ -65,6 +65,30 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
 - For the frontend: a `C-z` touch key (`data-k="C-z"`) would work at once (`src/ui/running.js`), and
   the key list under the map's `?` could name Ctrl+Z.
 
+## State at 2026-10-08 (engine for chapter 21, Pack and Travel: `slice/tar`)
+
+- Branch `slice/tar` (worktree `.scratch/wt/tar`), not merged. New commands: `tar` (`-c -x -t -v -f -z
+  -C`, bundled `-czf` and dashless `czf`, `--create --extract --list --file= --gzip --directory=
+  --exclude= --sort=`, unique long prefixes like `--cre`), `gzip` (`-c -d -f -k -l -q -r -t -v`),
+  `gunzip`, `zcat`, `file`, `du` (`-s -h -a -c -d`), `df` (`-h -T`, a fixed table: `/dev/sda2` ext4 on
+  `/`). Man pages, `--help` and `--version` for all. grep now treats a file with a NUL byte as binary.
+- Archives are ordinary files whose text only the simulator reads (`src/backend/archive.js`): a tar
+  is GNU tar's layout (512-byte headers, 10240-byte records, so `ls -l` sizes are exact) holding
+  scrambled JSON fields and scrambled contents; gzip is a gzip-like header, real DEFLATE
+  (`src/backend/deflate.js`) packed seven bits to a character, and a CRC-32 trailer. `cat` shows
+  binary-looking text and never an ESC. gzip sizes are about an eighth above real gzip's.
+- Checks: `ctx.archive(path)` (the members, as `tar -t` names them, or null) and `ctx.gzipped(path)`
+  (the original text, or null); `ctx.flag` knows tar's dashless letters and the long options of
+  tar, gzip, du, df and file (AUTHORING section 2).
+- Kept different from GNU (logged in `difftest/cases/18-archives.json`): members are stored in name
+  order (GNU: directory order, unless `--sort=name`); a file stored twice is stored twice (GNU: a hard
+  link the second time); archive and gzip text is opaque, so `grep` finds no words inside a `.tar`
+  (GNU tar keeps file text as it is); compressed bytes and sizes differ; `file` knows text, scripts,
+  gzip, tar, programs (made-up BuildID), directories, links and /dev/null, not HTML or JSON; `df` is
+  a fixed machine. Other real options (`-j`, `-k`, `-p`...) end with a note, as elsewhere.
+- Difftest: the image installs `file`; `cases/18-archives.json` (9 cases). `difftest/real-options.js`
+  now reads tar, gzip, gunzip, zcat, du, df and file.
+
 ## State at 2026-10-08, morning (act III: chapters 15 and 16)
 
 - `slice/users` and `slice/explainer` are merged into `slice/act3`. Chapters name an explainer by

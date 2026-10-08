@@ -224,6 +224,26 @@ own (`sleep 600` to stop with Ctrl+Z, `sleep 600 &` to `kill %1`). bash reports 
 the next line, so a lesson can say "press Enter". A job's commands run at once in the simulator;
 only its sleeps take time, so `sleep 3 && echo hi &` prints `hi` at once (real bash: after 3 s).
 
+### Archives
+
+`tar` and `gzip` write files whose text only the simulator reads (`src/backend/archive.js`): `cat`
+shows binary-looking text, `ls -l` a believable size. To start a chapter with an archive already in
+place, build its text with the same module:
+
+```js
+import { packTar, gzip } from '../../backend/archive.js';
+
+const t = Date.UTC(2026, 9, 1, 12, 0);   // members keep their own times
+const parcel = gzip(packTar([
+  { path: 'parcel/', type: 'dir', mode: 0o755, owner: 'mira', group: 'smiths', mtime: t },
+  { path: 'parcel/map.txt', type: 'file', mode: 0o644, owner: 'mira', group: 'smiths', mtime: t, content: 'X marks the spot.\n' },
+]));
+setup: (random, { home }) => [put(`${home}/parcel.tar.gz`, file(parcel, { owner: 'hero' }))],
+```
+
+Directory paths end with a slash and come before what is in them, as `tar -c` stores them. Check what
+an archive holds with `ctx.archive(path)` and a gzip file's text with `ctx.gzipped(path)` (section 2).
+
 ### Explainers (optional)
 
 A chapter may add `explainer: 'links'`, the id of an explainer in `src/intro/explainers.js` (game code
