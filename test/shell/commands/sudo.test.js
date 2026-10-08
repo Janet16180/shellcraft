@@ -261,3 +261,9 @@ test('loading a patch abandons a line waiting for input', async () => {
   await assert.rejects(b.answer('dragon'), /no line is waiting/);
   assert.equal((await run(b, 'whoami')).out, 'hero\n');
 });
+
+test('sudo is a setuid program owned by root, with a manual page', async () => {
+  const b = await realm();
+  assert.match((await run(b, 'ls -l /usr/bin/sudo')).out, /^-rwsr-xr-x 1 root root /);
+  assert.match((await run(b, 'man sudo')).out, /^SUDO\(1\)[\s\S]*execute a command as another user/);
+});
