@@ -1,9 +1,9 @@
 /**
  * Chapter 11, The Sealed Gate: permissions. ls -l's mode column (owner,
  * group, others; r, w, x), id, reading a script before running it, ./,
- * chmod +x, the numbers of chmod 600, and a directory that is not yours. The
- * boss room puts a second spell with a random name and no permissions at all
- * in the gate: the player gives it 700 and runs it.
+ * chmod with letters (+x, a-w) and with numbers (600), and a directory that
+ * is not yours. The boss room puts a second spell with a random name and no permissions at all
+ * in the gate: the player gives it 700 (with numbers or letters) and runs it.
  */
 import { put, cd, file } from '../../backend/spec.js';
 import { restore } from '../world.js';
@@ -39,6 +39,11 @@ const listsLong = (ctx, path) => ctx.ran('ls', record => ctx.flag(record, 'l')
   && (ctx.hasPath(record, path) || (ctx.paths(record).length === 0 && record.cwd === path)));
 const chmods = (ctx, path) => ctx.ran('chmod', record => ctx.hasPath(record, path));
 
+const inscriptionOf = ctx => `${gateOf(ctx)}/inscription.txt`;
+const numeric = record => record.args.some(arg => /^[0-7]{1,4}$/.test(arg));
+const chmodsWith = (ctx, path, letters) => ctx.ran('chmod', record => ctx.hasPath(record, path) && numeric(record) !== letters);
+const rwx = mode => [0o400, 0o200, 0o100, 0o040, 0o020, 0o010, 0o004, 0o002, 0o001].map((bit, i) => (mode & bit ? 'rwx'[i % 3] : '-')).join('');
+
 const spellRunnable = ctx => (modeOf(ctx, spellOf(ctx)) & 0o100) !== 0 && (modeOf(ctx, spellOf(ctx)) & 0o022) === 0;
 
 function setupBoss(random, { home, user }) {
@@ -54,14 +59,28 @@ function setupBoss(random, { home, user }) {
 
 const bossDone = (ctx, { rune }) => modeOf(ctx, rune) === 0o700 && runs(ctx, rune);
 
+// What is still wrong with the rune's mode, said with letters.
+function letterNote(mode, path) {
+  const missing = ['r', 'w', 'x'].filter((_, i) => (mode & (0o400 >> i)) === 0).join('');
+  return [
+    `Its mode is now ${rwx(mode)}.`,
+    missing && `You still need ${missing}: chmod u+${missing} ${path}.`,
+    (mode & 0o077) !== 0 && `The group and everyone else still have permissions: chmod go-rwx ${path}.`,
+    `Or set everything at once: chmod 700 ${path}.`,
+  ].filter(Boolean).join(' ');
+}
+
 function bossNear(ctx, { rune }) {
   const mode = modeOf(ctx, rune);
+  const path = tilde(rune);
   return bossDone(ctx, { rune }) ? null : firstNote([
-    [() => runs(ctx, rune) && mode !== 0o700, `It ran, but its mode is ${octal(mode)}. This room asks for read, write and execute for you, nothing for anyone else: chmod 700.`],
-    [() => runs(ctx, rune, record => record.status === 126) && (mode & 0o100) !== 0, 'x lets it run, but bash must also read the file, so it needs r too. chmod 700 gives you read, write and execute.'],
+    [() => runs(ctx, rune) && mode !== 0o700, `It ran, but its mode is ${octal(mode)} (${rwx(mode)}). This room asks for read, write and execute for you, nothing for anyone else: chmod 700 ${path}.`],
+    [() => runs(ctx, rune, record => record.status === 126) && (mode & 0o100) !== 0 && (mode & 0o400) === 0, `Permission denied: bash must read a script to run it, and you have no r yet. Add it with chmod u+r ${path}, or set everything with chmod 700 ${path}.`],
+    [() => runs(ctx, rune, record => record.status === 126) && (mode & 0o100) !== 0, `Permission denied: its mode is ${rwx(mode)}. chmod 700 ${path} gives you read, write and execute.`],
     [() => runs(ctx, rune, record => record.status === 126), 'It has no permissions at all yet: ls -l shows ----------. Give it permissions with chmod first.'],
     [() => viaBash(ctx, rune), 'Run it as a command of its own, with ./ and its name, not through bash.'],
     [() => chmods(ctx, rune) && mode === 0o700, `Its mode is 700 now. Run it: ${tilde(rune)}, or ./ and its name from inside ~/gate.`],
+    [() => chmodsWith(ctx, rune, true) && mode !== 0o700, letterNote(mode, path)],
     [() => chmods(ctx, rune) && mode !== 0o700, `Its mode is now ${octal(mode)}. For read, write and execute for you and nothing for others, the digits are 7, 0, 0.`],
   ]);
 }
@@ -83,19 +102,33 @@ export default {
   ],
   effects: ctx => (runs(ctx, spellOf(ctx)) ? [{ kind: 'gate-opened' }] : []),
   lesson: `<p>Every file and directory says who may do what with it. <code>ls -l</code> shows it in the first column:</p>
-<pre>-rw-r--r-- 1 hero hero 142 Oct  6 12:00 open_gate.sh</pre>
+<pre class="perm-line"><span class="perm-type">-</span><span class="perm-owner">rw-</span><span class="perm-group">r--</span><span class="perm-other">r--</span> 1 <span class="perm-owner">hero</span> <span class="perm-group">hero</span> 142 Oct  6 12:00 open_gate.sh</pre>
+<div class="perm-map">
+<div class="perm-cell perm-type"><span class="perm-bits">-</span><span class="perm-who">type</span><span class="perm-means">a file</span></div>
+<div class="perm-cell perm-owner"><span class="perm-bits">rw-</span><span class="perm-who">owner (hero)</span><span class="perm-means">read, write</span></div>
+<div class="perm-cell perm-group"><span class="perm-bits">r--</span><span class="perm-who">group (hero)</span><span class="perm-means">read only</span></div>
+<div class="perm-cell perm-other"><span class="perm-bits">r--</span><span class="perm-who">everyone else</span><span class="perm-means">read only</span></div>
+</div>
 <ul>
-<li>The first character is the type: <code>-</code> for a file, <code>d</code> for a directory.</li>
-<li>Then come three groups of three letters: for the <b>owner</b> (the first name after the number, here <code>hero</code>), for the file's <b>group</b> (the second name), and for <b>everyone else</b>.</li>
+<li>The first character is the <b class="perm-type">type</b>: <code>-</code> for a file, <code>d</code> for a directory.</li>
+<li>Then come three groups of three letters: for the <b class="perm-owner">owner</b> (the first name after the number, here <code>hero</code>), for the file's <b class="perm-group">group</b> (the second name), and for <b class="perm-other">everyone else</b>.</li>
 <li><code>r</code> means read, <code>w</code> means write (change it), <code>x</code> means execute (run it as a program). A <code>-</code> means that permission is missing. So <code>rw-r--r--</code> is: you may read and write; the group and everyone else may only read.</li>
 <li><code>id</code> prints who you are and the groups you belong to.</li>
 </ul>
 <p>A <b>script</b> is a text file of commands. To run a script as a command of its own, it needs the <code>x</code> permission, and you type its path. <code>./</code> means "in this directory", so <code>./open_gate.sh</code> runs the file <code>open_gate.sh</code> that is here. Its name alone is not enough: bash looks for commands only in the directories of <code>$PATH</code> (chapter 10), and this one is not there. A wise mage reads a script with <code>cat</code> before running it.</p>
-<p><code>chmod</code> (change mode) changes the permissions, if the file is yours:</p>
+<p><code>chmod</code> (change mode) changes the permissions, if the file is yours. There are two ways to write the change:</p>
 <ul>
-<li><code>chmod +x FILE</code> adds execute.</li>
-<li>With numbers, each group gets one digit, the sum of <code>4</code> read, <code>2</code> write and <code>1</code> execute: <code>7</code> = all three, <code>6</code> = read and write, <code>5</code> = read and execute, <code>4</code> = only read, <code>0</code> = nothing. The three digits are for the owner, the group and everyone else. <code>chmod 600 FILE</code> gives you read and write, and nobody else anything.</li>
+<li><b>With letters</b>, you say whose permission to add or take away. Whose: <code>u</code> you (the owner, the "user"), <code>g</code> the group, <code>o</code> everyone else (the "others"), <code>a</code> all three. Then <code>+</code> adds or <code>-</code> takes away, then <code>r</code>, <code>w</code> or <code>x</code>. Everything you do not name stays as it was. <code>chmod +x FILE</code>, with no letter before the <code>+</code>, adds execute for all three here.</li>
+<li><b>With numbers</b>, you set all nine permissions at once. Each group gets one digit, the sum of <code>4</code> read, <code>2</code> write and <code>1</code> execute: <code>7</code> = all three, <code>6</code> = read and write, <code>5</code> = read and execute, <code>4</code> = only read, <code>0</code> = nothing. The three digits are for the owner, the group and everyone else.</li>
 </ul>
+<p>The same changes both ways, for a file that starts as <span class="mono">rw-r--r--</span>:</p>
+<table class="chmod-ways">
+<tr><th>With letters</th><th>With numbers</th><th>Result</th></tr>
+<tr><td><code>chmod u+x FILE</code></td><td><code>chmod 744 FILE</code></td><td class="mono">rwxr--r--</td></tr>
+<tr><td><code>chmod go-r FILE</code></td><td><code>chmod 600 FILE</code></td><td class="mono">rw-------</td></tr>
+<tr><td><code>chmod a-w FILE</code></td><td><code>chmod 444 FILE</code></td><td class="mono">r--r--r--</td></tr>
+</table>
+<p>Letters are handy to change one thing and keep the rest. Numbers are handy to set everything exactly.</p>
 <p>For a directory, <code>r</code> lets you list it and <code>x</code> lets you go into it. <code>/root</code> is the home of root, the administrator, and its mode is <code>drwx------</code>: only root may enter. On machines where you are an administrator, you type <code>sudo</code> in front of a command to run it as root. Here, hero is not one.</p>`,
   tasks: [
     {
@@ -176,6 +209,27 @@ export default {
       ]),
     },
     {
+      goal: 'Make the inscription `~/gate/inscription.txt` read-only, so nobody can change it, not even you (`chmod a-w`: `a` = everyone, `-w` = take away write)',
+      tip: 'Letters change only what you name: `a-w` takes write away from everyone and keeps read as it was.',
+      hints: [
+        'Use the letters: whose permission, then `-` to take it away, then which one.',
+        '`a` is everyone and `-w` takes away write. Then the path of the inscription.',
+        'chmod a-w ~/gate/inscription.txt',
+      ],
+      done: ctx => chmodsWith(ctx, inscriptionOf(ctx), true) && modeOf(ctx, inscriptionOf(ctx)) === 0o444,
+      near: ctx => {
+        const path = inscriptionOf(ctx);
+        const mode = modeOf(ctx, path);
+        const changed = chmods(ctx, path);
+        return changed && chmodsWith(ctx, path, true) && mode === 0o444 ? null : firstNote([
+          [() => changed && mode === 0o444, '444 works too, but this task practises the letters: chmod a-w.'],
+          [() => changed && (mode & 0o444) !== 0o444, `That took away read (mode ${rwx(mode)}). Give it back with chmod a+r, then take away write with chmod a-w.`],
+          [() => changed && (mode & 0o222) !== 0, `It can still be changed: its mode is ${rwx(mode)}. Remember: + adds and - takes away. Use chmod a-w.`],
+          [() => ctx.ran('chmod', record => record.args.some(arg => /^[ugoa]*-w$/.test(arg))), 'That took write away from another file. The inscription is ~/gate/inscription.txt.'],
+        ]);
+      },
+    },
+    {
       goal: 'Make the guard\'s diary `~/gate/guard_diary.txt` private: read and write for you, nothing for anyone else (`chmod 600`: 6 = 4 read + 2 write)',
       tip: 'One digit each for the owner, the group and everyone else: `4` read, `2` write, `1` execute, added up.',
       hints: [
@@ -217,6 +271,7 @@ export default {
     './open_gate.sh',
     'chmod +x open_gate.sh',
     './open_gate.sh',
+    'chmod a-w inscription.txt',
     'chmod 600 guard_diary.txt',
     'ls /root',
   ],
@@ -226,7 +281,7 @@ export default {
     setup: setupBoss,
     hints: [
       'Find its name with `ls -l ~/gate`: its permissions are `----------`.',
-      '`chmod` with three digits: read, write and execute is 4 + 2 + 1 = 7 for you, then 0 for the group and 0 for others. After that, run it by its path.',
+      '`chmod` with three digits: read, write and execute is 4 + 2 + 1 = 7 for you, then 0 for the group and 0 for others. Letters work too: `u+rwx`. After that, run it by its path.',
       ({ rune }) => `chmod 700 ${tilde(rune)}`,
     ],
     done: bossDone,
@@ -240,15 +295,16 @@ export default {
     ['cat open_gate.sh', 'read a script before you run it'],
     ['./open_gate.sh', 'run the script that is in this directory'],
     ['chmod +x open_gate.sh', 'allow a file to run as a program'],
+    ['chmod a-w inscription.txt', 'take write away from everyone: nobody can change it'],
     ['chmod 600 guard_diary.txt', 'read and write for you, nothing for others'],
     ['chmod 700 FILE', 'read, write and execute for you, nothing for others'],
   ],
   why: `<p>Why <code>./</code>? Bash does not look in the directory you are in unless you say so. If it did, a file named <code>ls</code> left in some directory could run instead of the real <code>ls</code> when you list it. With <code>./</code>, you always know which file runs.</p>
 <p>Why does a script need <code>r</code> as well as <code>x</code>? A script is not a program the processor can run. bash runs it by reading its lines, one by one, so bash must be allowed to read the file.</p>
-<p>Why numbers? Each permission is one bit: read is worth 4, write 2, execute 1. Three bits make a digit from 0 to 7, so three digits hold all nine permissions. <code>chmod +x</code> is easier to read; <code>chmod 600</code> sets all nine at once.</p>`,
+<p>Why numbers? Each permission is one bit: read is worth 4, write 2, execute 1. Three bits make a digit from 0 to 7, so three digits hold all nine permissions. Letters like <code>u+x</code> are easier to read; numbers like <code>600</code> set all nine at once.</p>`,
   field: [
-    ['chmod u+x FILE', 'add execute for the owner (`u`) only; `g` is the group, `o` everyone else'],
-    ['chmod -w FILE', 'remove write, so you cannot change the file by mistake'],
+    ['chmod u=rw,go=r FILE', 'with `=`, set exactly the permissions you name for those groups'],
+    ['chmod -R go-w DIR', 'change a directory and everything inside it'],
     ['ls -ld DIR', 'the permissions of a directory itself, not of what it holds'],
     ['umask', 'print which permissions new files and directories are made without'],
     ['sudo COMMAND', 'run one command as root, on a machine where you are an administrator'],
@@ -257,6 +313,6 @@ export default {
     { name: 'ls -l', summary: 'Long listing: permissions, owner, group, size, date.', examples: [['ls -l ~/gate', 'the first column: `-rw-r--r--`']] },
     { name: 'id', summary: 'Print your user and your groups.', examples: [['id', 'prints: `uid=1000(hero) gid=1000(hero) groups=1000(hero)`']] },
     { name: './', summary: 'Run a file that is in this directory.', examples: [['./open_gate.sh', 'needs the `x` permission']] },
-    { name: 'chmod', summary: 'Change who may read, write or execute a file.', examples: [['chmod +x open_gate.sh', 'add execute'], ['chmod 600 guard_diary.txt', 'read and write for you only'], ['chmod 700 FILE', 'everything for you, nothing for others']] },
+    { name: 'chmod', summary: 'Change who may read, write or execute a file.', examples: [['chmod +x open_gate.sh', 'add execute'], ['chmod a-w inscription.txt', 'take write away from everyone'], ['chmod 600 guard_diary.txt', 'read and write for you only'], ['chmod 700 FILE', 'everything for you, nothing for others']] },
   ],
 };

@@ -9,9 +9,10 @@ const HOME = PLAYER.home;
 const GATE = `${HOME}/gate`;
 const SPELL = `${GATE}/open_gate.sh`;
 const DIARY = `${GATE}/guard_diary.txt`;
+const INSCRIPTION = `${GATE}/inscription.txt`;
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const GOAL = Object.fromEntries(chapter.tasks.map((task, i) => [task.goal, i]));
-const [PERMS, ID, READ, TRY, ALLOW, RUN, PRIVATE, ROOT] = chapter.tasks.map(task => task.goal);
+const [PERMS, ID, READ, TRY, ALLOW, RUN, LOCK, PRIVATE, ROOT] = chapter.tasks.map(task => task.goal);
 const IN_GATE = ['cd ~/gate'];
 const ALLOWED = ['cd ~/gate', 'chmod +x open_gate.sh'];
 
@@ -31,7 +32,7 @@ test('the chapter follows the authoring contract', () => {
 });
 
 test('new commands get a clue in their first goal, and every goal names its target', () => {
-  assert.equal(chapter.tasks.length, 8);
+  assert.equal(chapter.tasks.length, 9);
   assert.match(PERMS, /`~\/gate`.*`ls -l`/);
   assert.match(ID, /`id`/);
   assert.match(READ, /`~\/gate\/open_gate\.sh`/);
@@ -39,6 +40,7 @@ test('new commands get a clue in their first goal, and every goal names its targ
   assert.match(ALLOW, /`open_gate\.sh`.*`chmod \+x`/);
   assert.match(RUN, /`open_gate\.sh`/);
   assert.doesNotMatch(RUN, /`\.\//);
+  assert.match(LOCK, /`~\/gate\/inscription\.txt`.*`chmod a-w`.*`a` = everyone.*`-w` = take away write/);
   assert.match(PRIVATE, /`~\/gate\/guard_diary\.txt`.*`chmod 600`.*4 read \+ 2 write/);
   assert.match(ROOT, /`\/root`.*`ls`/);
 });
@@ -50,6 +52,12 @@ test('the lesson explains the mode column, ./, the chmod numbers, and why /root 
   assert.match(chapter.lesson, /<code>4<\/code> read, <code>2<\/code> write and <code>1<\/code> execute/);
   assert.match(chapter.lesson, /drwx------.*only root may enter/s);
   assert.match(chapter.why, /need <code>r<\/code> as well as <code>x<\/code>/);
+  assert.match(chapter.lesson, /two ways/i);
+  for (const letter of ['u', 'g', 'o', 'a']) assert.match(chapter.lesson, new RegExp(`<code>${letter}</code>`));
+  assert.match(chapter.lesson, /<code>\+<\/code> adds.*<code>-<\/code> takes away/s);
+  assert.match(chapter.lesson, /<code>chmod u\+x FILE<\/code>.*<code>chmod 744 FILE<\/code>/s);
+  assert.match(chapter.lesson, /<code>chmod go-r FILE<\/code>.*<code>chmod 600 FILE<\/code>/s);
+  assert.doesNotMatch(chapter.lesson, /chmod [ugoa]*=/);
 });
 
 test('the solve finishes every task, opens the gate on the map, and fails only where the tasks expect it', async () => {
@@ -82,6 +90,9 @@ test('the commands print what a real Ubuntu prints', async () => {
   await play(chapter, backend, ALLOWED);
   assert.match(textOf((await type(backend, 'ls -l open_gate.sh')).result), /^-rwxr-xr-x /);
   assert.equal(textOf((await type(backend, './open_gate.sh')).result), 'The runes on the gate begin to glow...\n*** The Sealed Gate grinds open! ***\n');
+  await type(backend, 'chmod a-w inscription.txt');
+  assert.match(textOf((await type(backend, 'ls -l inscription.txt')).result), /^-r--r--r-- /);
+  assert.equal(textOf((await type(backend, 'echo x >> inscription.txt')).result), 'bash: inscription.txt: Permission denied\n');
 });
 
 test('the setup restores the gate with a readable diary and a spell without x, and brings the player home', async () => {
@@ -93,6 +104,7 @@ test('the setup restores the gate with a readable diary and a spell without x, a
   assert.deepEqual(Object.keys(nodeAt(obs.tree, GATE).children).sort(), ['guard_diary.txt', 'inscription.txt', 'open_gate.sh']);
   assert.equal(modeAt(obs, SPELL), 0o644);
   assert.equal(modeAt(obs, DIARY), 0o644);
+  assert.equal(modeAt(obs, INSCRIPTION), 0o644);
 });
 
 const NEAR_MISSES = [
@@ -109,6 +121,11 @@ const NEAR_MISSES = [
   [RUN, ALLOWED, 'bash open_gate.sh', './open_gate.sh'],
   [RUN, IN_GATE, './open_gate.sh', null],
   [RUN, ALLOWED, 'open_gate.sh', '~/gate/open_gate.sh'],
+  [LOCK, IN_GATE, 'chmod 444 inscription.txt', 'chmod a-w inscription.txt'],
+  [LOCK, IN_GATE, 'chmod a-r inscription.txt', 'chmod ugo-w ~/gate/inscription.txt'],
+  [LOCK, IN_GATE, 'chmod go-w inscription.txt', 'chmod u-w inscription.txt'],
+  [LOCK, IN_GATE, 'chmod a-w guard_diary.txt', 'chmod -w inscription.txt'],
+  [LOCK, IN_GATE, 'chmod a+w inscription.txt', 'chmod u-w,g-w,o-w inscription.txt'],
   [PRIVATE, IN_GATE, 'chmod 700 guard_diary.txt', 'chmod 600 guard_diary.txt'],
   [PRIVATE, IN_GATE, 'chmod 660 guard_diary.txt', 'chmod 600 ~/gate/guard_diary.txt'],
   [PRIVATE, IN_GATE, 'chmod 644 guard_diary.txt', 'chmod 600 guard_diary.txt'],
@@ -141,6 +158,11 @@ const NEAR_NOTES = [
   [RUN, IN_GATE, './open_gate.sh', /no x for you.*chmod \+x/],
   [RUN, ALLOWED, 'open_gate.sh', /\.\/ in front/],
   [RUN, ALLOWED, './open_gate.sh', null],
+  [LOCK, IN_GATE, 'chmod 444 inscription.txt', /444 works too.*letters.*chmod a-w/],
+  [LOCK, IN_GATE, 'chmod a-r inscription.txt', /took away read.*-w/],
+  [LOCK, IN_GATE, 'chmod a+w inscription.txt', /\+ adds.*- takes away.*a-w/],
+  [LOCK, IN_GATE, 'chmod a-w guard_diary.txt', /inscription/],
+  [LOCK, IN_GATE, 'chmod a-w inscription.txt', null],
   [PRIVATE, IN_GATE, 'chmod 700 guard_diary.txt', /not a program.*600/],
   [PRIVATE, IN_GATE, 'chmod 660 guard_diary.txt', /middle digit is for the group/],
   [PRIVATE, IN_GATE, 'chmod 604 guard_diary.txt', /last digit is for everyone else/],
@@ -190,6 +212,12 @@ test('the boss is beaten by ls -l, chmod 700, then running it, found from the ob
   }
 });
 
+test('the boss is also beaten with letters, chmod u+rwx, then running it', async () => {
+  const { backend, secret } = await startBoss(chapter, 5);
+  await type(backend, `chmod u+rwx ${secret.rune}`);
+  assert.ok(chapter.boss.done((await type(backend, secret.rune)).ctx, secret));
+});
+
 test('the exact boss hint, then the run its note asks for, beats the boss from anywhere', async () => {
   for (const seed of SEEDS.slice(0, 4)) {
     const { backend, secret } = await startBoss(chapter, seed);
@@ -203,7 +231,11 @@ test('the exact boss hint, then the run its note asks for, beats the boss from a
 
 const BOSS_NOTES = [
   [[], rune => rune, /no permissions at all.*chmod/],
-  [[rune => `chmod +x ${rune}`], rune => rune, /bash must also read the file.*chmod 700/],
+  [[rune => `chmod +x ${rune}`], rune => rune, /Permission denied.*bash must read.*no r.*chmod u\+r.*chmod 700/],
+  [[rune => `chmod u+wx ${rune}`], rune => rune, /no r.*chmod u\+r .*rune_.*chmod 700/],
+  [[], rune => `chmod u+wx ${rune}`, /now -wx------.*still need r.*chmod u\+r .*rune_/],
+  [[], rune => `chmod a+rwx ${rune}`, /now rwxrwxrwx.*group and everyone else.*chmod go-rwx .*rune_/],
+  [[], rune => `chmod u+r ${rune}`, /now r--------.*still need wx.*chmod u\+wx/],
   [[rune => `chmod 755 ${rune}`], rune => rune, /It ran, but its mode is 755.*chmod 700/],
   [[rune => `chmod 700 ${rune}`], rune => `bash ${rune}`, /not through bash/],
   [[], rune => `chmod 600 ${rune}`, /mode is now 600.*7, 0, 0/],
@@ -224,7 +256,7 @@ test('the rune is kept off the map until an ls lists the gate', () => {
   assert.deepEqual(chapter.boss.hidden({ rune: `${GATE}/rune_xyzw.sh` }), [`${GATE}/rune_xyzw.sh`]);
 });
 
-const NOT_COMMANDS = new Set(['-', 'd', 'hero', 'r', 'w', 'x', '4', '2', '1', '7', '6', '5', '0', 'rw-r--r--', 'drwx------', '/root', '$PATH', 'open_gate.sh', 'sudo', 'chmod', 'chmod +x FILE', 'chmod 600 FILE', 'chmod 700 FILE', 'ls -l', 'id']);
+const NOT_COMMANDS = new Set(['-', 'd', 'hero', 'r', 'w', 'x', '4', '2', '1', '7', '6', '5', '0', 'rw-r--r--', 'drwx------', '/root', '$PATH', 'open_gate.sh', 'sudo', 'chmod', 'chmod +x FILE', 'chmod 600 FILE', 'chmod 700 FILE', 'ls -l', 'id', 'u', 'g', 'o', 'a', '+', 'chmod u+x FILE', 'chmod 744 FILE', 'chmod go-r FILE', 'chmod a-w FILE', 'chmod 444 FILE']);
 
 test('every command the chapter shows runs in the simulator', async () => {
   const lines = [

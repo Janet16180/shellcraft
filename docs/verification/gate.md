@@ -22,6 +22,8 @@ entry for `umask` names no value for that reason.
 | `./` means "in this directory"; the name alone is looked up in `$PATH` | R11: `s.sh` alone: `command not found`, status 127, even with mode 775; `bash(1)` COMMAND EXECUTION: "If the command name contains no slashes, the shell attempts to locate it" in PATH |
 | `chmod +x FILE` adds execute | R11: 664 became 775; SIM: 644 became 755 (umask 022 does not mask x, nor does 002) |
 | Digits: 4 read + 2 write + 1 execute, one digit each for owner, group, others; `chmod 600` gives read and write to you only | `chmod(1)` numeric mode: "4 read, 2 write, 1 execute"; R11: `chmod 600 d` gave `-rw-------` |
+| Letters: `u`, `g`, `o`, `a`, then `+` adds or `-` takes away, then `r`, `w`, `x`; the rest stays | `chmod(1)` symbolic mode; R11 (2026-10-07), from 644: `u+x` gave `-rwxr--r--`, `go-r` gave `-rw-------`, `a-w` gave `-r--r--r--`; with umask 022, `-w` and `u-w` also gave `-r--r--r--` |
+| After `a-w`, even the owner cannot write the file | R11: `echo x >> f` printed `bash: line 1: f: Permission denied` (the `line 1:` is from `bash -c`; the simulator prints `bash: f: Permission denied`) |
 | For a directory, `r` lets you list it and `x` lets you go in | `chmod(1)` "execute (or search for directories)"; R11: dir mode 600: `cd dd` Permission denied; mode 300: `ls dd` "cannot open directory" |
 | `/root` is `drwx------`: only root may enter | R11: `ls -ld /root`; `ls /root` as hero: `ls: cannot open directory '/root': Permission denied`, status 2; `cd /root`: Permission denied, status 1; SIM prints the same |
 | `sudo` runs a command as root for administrators; hero is not one | `sudo(8)`; the difftest image has no sudo installed; the simulator prints Ubuntu's "is not in the sudoers file" message (`world.md`) |
@@ -34,6 +36,7 @@ entry for `umask` names no value for that reason.
 | `chmod 777` lets everyone change the file | R11: `-rwxrwxrwx` |
 | A script with `x` but no `r` cannot run: bash must read it | R11: mode 000 then `chmod +x`: `---x--x--x`, `./r.sh` printed `/bin/bash: ./r.sh: Permission denied`, status 126 (the interpreter's message; the simulator prints `bash: ./r.sh: ...`, the same status; logged as a known difference) |
 | After `chmod 700`, the owner can run a mode-000 script they own | R11: `chmod 700 r.sh; ./r.sh` printed `hi` |
+| From mode 000, `chmod u+wx` gives `--wx------`, which still cannot run; `chmod u+r` then lets it run; `chmod u+rwx` gives 700 | R11 (2026-10-07): `./r.sh` at `--wx------`: Permission denied, status 126; after `u+r`: printed `ok`; `chmod u+rwx` then `stat -c %a`: `700` |
 | The owner may chmod their own file even at mode 000 | `chmod(2)`: "The effective UID of the calling process must match the owner of the file" |
 
 ## Why

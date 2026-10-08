@@ -15,7 +15,7 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
 ## State at 2026-10-08 (act II: chapters 10 to 14)
 
 - On `slice/ch5-9`, not merged: 10 The Descent (`/`, `/etc`, `/var/log`, `$PATH`, `which`, `type`),
-  11 The Sealed Gate (`ls -l` modes, `id`, `chmod +x`, `chmod 600`, `/root`), 12 Well of Echoes
+  11 The Sealed Gate (`ls -l` modes, `id`, `chmod +x`, `chmod a-w`, `chmod 600`, `/root`), 12 Well of Echoes
   (variables, quotes, `$?`, `2>`, `/dev/null`, `&&`, `||`), 13 The Shadow Daemon (`ps`, `ps aux`,
   `pgrep`, `kill`, `kill -9`; no job control) and 14 Forge Your Own Spell (scripts, `$1`, `for`).
   Design and the teaching review: session file `ch10-14-design.md`.
