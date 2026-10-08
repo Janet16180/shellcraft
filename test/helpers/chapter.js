@@ -8,6 +8,7 @@ import { validatePatch } from '../../src/backend/spec.js';
 import { PLAYER } from '../../src/backend/player.js';
 import { createRandom } from '../../src/game/rng.js';
 import { termTimeline } from '../../src/intro/term.js';
+import { EXPLAINERS } from '../../src/intro/explainers.js';
 import { SOUND_NAMES } from '../../src/ui/sound.js';
 
 const ID = /^[a-z][a-z0-9-]*$/;
@@ -159,7 +160,10 @@ export function assertChapter(chapter) {
   assertSpells(chapter.spells, where);
   assert.ok(chapter.effects === undefined || isFunction(chapter.effects), `${where}: effects must be a function when present`);
   assert.ok(isFunction(chapter.setup), `${where}: setup must be a function`);
-  if (chapter.explainer !== undefined) assertExplainer(chapter.explainer);
+  if (typeof chapter.explainer === 'string') {
+    assert.ok(Object.hasOwn(EXPLAINERS, chapter.explainer), `${where}: no explainer named ${chapter.explainer}`);
+    assertExplainer(EXPLAINERS[chapter.explainer]);
+  } else if (chapter.explainer !== undefined) assertExplainer(chapter.explainer);
 
   const patch = chapter.setup(createRandom(1), PLAYER);
   assert.ok(Array.isArray(patch), `${where}: setup must return a patch (a list of operations)`);

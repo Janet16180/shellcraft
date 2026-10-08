@@ -9,18 +9,18 @@ import { assertChapterList } from '../../helpers/chapter.js';
 import { createMemoryStore } from '../../helpers/memory-store.js';
 import { typeLine } from '../../helpers/type-line.js';
 
-const ORDER = ['awakening', 'forest', 'unseen', 'camp', 'junkyard', 'mirrors', 'library', 'tower', 'market', 'descent', 'gate', 'well', 'daemon', 'forge'];
+const ORDER = ['awakening', 'forest', 'unseen', 'camp', 'junkyard', 'mirrors', 'library', 'tower', 'market', 'descent', 'gate', 'well', 'daemon', 'forge', 'guild'];
 
 test('the chapter list passes the shared contract check', () => {
   assertChapterList(chapters);
 });
 
-test('the chapter list has the fourteen chapters of the design, in order', () => {
+test('the chapter list has the chapters of the design, in order', () => {
   assert.deepEqual(chapters.map(chapter => chapter.id), ORDER);
 });
 
-test('act I runs to the Market of Pipes and act II starts with the Descent', () => {
-  assert.deepEqual(chapters.map(chapter => chapter.act), [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+test('act I runs to the Market of Pipes, act II starts with the Descent and act III with the Guild', () => {
+  assert.deepEqual(chapters.map(chapter => chapter.act), [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3]);
 });
 
 test('every chapter is playable', () => {
@@ -76,6 +76,7 @@ const EXPECTED_ERRORS = {
   gate: ['bash: ./open_gate.sh: Permission denied\n', "ls: cannot open directory '/root': Permission denied\n"],
   well: ["ls: cannot access '/home/hero/well/bucket.txt': No such file or directory\n", 'bash: cd: /home/hero/well/dry: No such file or directory\n'],
   daemon: ['bash: kill: (1) - Operation not permitted\n'],
+  guild: ['cat: /srv/guild/plans.txt: Permission denied\n', 'cat: /home/hero/guild/notice.txt: Permission denied\n'],
 };
 
 for (const seed of [1, 2, 3]) {

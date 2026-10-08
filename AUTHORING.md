@@ -128,7 +128,8 @@ account, which `ls -l` shows as a number. `accounts()` does not create homes. Th
 
 ### Explainers (optional)
 
-A chapter may add `explainer: EXPLAINERS.links` (from `src/intro/explainers.js`). It plays before
+A chapter may add `explainer: 'links'`, the id of an explainer in `src/intro/explainers.js` (game code
+may not import that layer; `withExplainers` in the composition root swaps the id for the explainer). It plays before
 the lesson the first time the chapter opens (the save remembers it in `explainersSeen`, like
 `introSeen`) and comes back from "Watch the explainer" in the Quest panel. The player moves with
 Back, Next and Skip; nothing moves on by itself. An explainer is

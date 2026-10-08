@@ -1,6 +1,6 @@
 /**
  * The chapter explainers, as data so a fact-checker can read every sentence.
- * A chapter shows one by declaring `explainer: EXPLAINERS.links` (AUTHORING.md
+ * A chapter shows one by declaring `explainer: 'links'` (AUTHORING.md
  * section 2). Each step has a caption of one to three short sentences, an
  * optional little terminal, and a diagram drawn by the explainer's `draw`.
  *
@@ -45,7 +45,7 @@ const perms = {
       text: [
         'If not, Linux asks: is the file\'s group one of your groups? <code>id</code> lists your groups. <code>oren</code> is in <code>smiths</code>, so the group letters <code>r--</code> count for him.',
       ],
-      term: [{ user: 'oren', type: 'id', output: ['uid=1002(oren) gid=1002(oren) groups=1002(oren),1001(smiths)'] }],
+      term: [{ user: 'oren', type: 'id', output: ['uid=1002(oren) gid=1002(oren) groups=1002(oren),1100(smiths)'] }],
       diagram: { show: 'ladder', file: PLANS, people: [OREN] },
     },
     {
@@ -173,4 +173,21 @@ const links = {
 };
 
 /** Every explainer by id. */
+/**
+ * Give each chapter that names an explainer by id (`explainer: 'perms'`) the
+ * explainer itself. Game code may not import this layer, so the composition
+ * root does it.
+ *
+ * @param {object[]} chapters The chapter modules.
+ * @returns {object[]} The chapters, with explainer ids swapped for explainers.
+ * @throws {Error} If a chapter names an explainer that does not exist.
+ */
+export function withExplainers(chapters) {
+  return chapters.map(chapter => {
+    if (typeof chapter.explainer !== 'string') return chapter;
+    if (!Object.hasOwn(EXPLAINERS, chapter.explainer)) throw new Error(`chapter ${chapter.id}: no explainer ${chapter.explainer}`);
+    return { ...chapter, explainer: EXPLAINERS[chapter.explainer] };
+  });
+}
+
 export const EXPLAINERS = Object.freeze({ perms, links });
