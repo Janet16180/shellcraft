@@ -6,8 +6,8 @@
  * everyone else's. The boss room fills an archive with scrolls under random
  * names: the player finds the one oren may read and writes its name down.
  */
-import { put, remove, cd, dir, file, login } from '../../backend/spec.js';
-import { accounts } from '../world.js';
+import { put, remove, cd, dir, file } from '../../backend/spec.js';
+import { realm } from '../people.js';
 import { token, shuffle, pick } from '../rng.js';
 import { nodeAt } from '../../backend/tree.js';
 import { allows } from '../../backend/access.js';
@@ -29,21 +29,6 @@ const RULES_TEXT = `RULES OF THE GUILD
 3. What is for everyone, anyone may read.
 `;
 const NOTICE_TEXT = 'Notice from hero: I joined the scribes today.\n';
-
-const PEOPLE = {
-  users: [
-    { name: 'mira', uid: 1001, group: 'mira' },
-    { name: 'oren', uid: 1002, group: 'oren' },
-    { name: 'tamsin', uid: 1003, group: 'tamsin' },
-  ],
-  groups: [
-    { name: 'mira', gid: 1001 },
-    { name: 'oren', gid: 1002 },
-    { name: 'tamsin', gid: 1003 },
-    { name: 'smiths', gid: 1100, members: ['mira', 'oren'] },
-    { name: 'scribes', gid: 1101, members: ['tamsin', 'hero'] },
-  ],
-};
 
 const guildOf = ctx => `${ctx.home}/guild`;
 const noticeOf = ctx => `${guildOf(ctx)}/notice.txt`;
@@ -133,11 +118,8 @@ export default {
   explainer: 'perms',
   setup: (_random, player) => {
     const { home, user } = player;
-    const own = name => ({ owner: name, group: name, mode: 0o750 });
     return [
-      ...accounts(player, PEOPLE),
-      login(),
-      ...PEOPLE.users.map(({ name }) => put(`/home/${name}`, dir({}, own(name)))),
+      ...realm(player, { factions: ['scribes'] }),
       put('/srv', dir({
         guild: dir({
           'ledger.txt': file(LEDGER_TEXT, { owner: 'tamsin', group: 'scribes', mode: 0o640 }),
