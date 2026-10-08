@@ -76,6 +76,15 @@ const scribe = (cwd, edit) => {
   return { obs: { ...observe(cwd, { tree }), groups: ['hero', 'scribes'] } };
 };
 
+// Chapter 18: the throne room with the sword and the order, and the five services, each with a config only root may read.
+const crown = cwd => {
+  const tree = actThreeTree();
+  const mine = { owner: 'hero' };
+  tree.children.home.children.hero.children.crown = dir({ 'sword.txt': file('', mine), 'order.txt': file('', mine) }, mine);
+  for (const service of ['mill', 'bakery', 'stables', 'lighthouse', 'granary']) tree.children.srv.children[service] = dir({ 'config.txt': file('', { mode: 0o600 }) });
+  return { obs: { ...observe(cwd, { tree }), groups: ['hero', 'sudo'] } };
+};
+
 const imp = (pid, cmd, key, cpu = 0.3) => ({ pid, ppid: 1, user: 'hero', tty: '?', stat: 'S', cpu, mem: 0.4, cmd, key });
 const shell = imp(100, '-bash', 'shell');
 const impsAndStubborn = [shell, imp(412, 'imp', 'imp'), imp(413, 'imp', 'imp2'), imp(420, './greedy_imp --eat', 'greedy', 88.1), imp(431, 'stubborn_imp', 'stubborn')];
@@ -110,6 +119,12 @@ const CASES = {
   guildarchive: () => scribe('/srv/guild/archive'),
   homes: () => scribe('/home'),
   outpost: () => scribe('/home/hero/guild'),
+  throne: () => crown('/home/hero/crown'),
+  mill: () => crown('/srv/mill'),
+  bakery: () => crown('/srv/bakery'),
+  stables: () => crown('/srv/stables'),
+  lighthouse: () => crown('/srv/lighthouse'),
+  granary: () => crown('/srv/granary'),
   commons: () => scribe('/home/hero/hall'),
   blind: () => scribe('/home/hero/hall', hero => { hero.hall.children.vault.mode = 0o300; }),
   strongroom: () => scribe('/home/hero/hall/vault', hero => { hero.hall.children.vault.mode = 0o700; }),
