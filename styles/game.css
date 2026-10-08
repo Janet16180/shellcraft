@@ -674,8 +674,9 @@ kbd {
   color: var(--warn-text);
 }
 
-/* The permissions lesson: each part of the mode column has its own colour. */
-.lesson {
+/* The permissions lesson and explainer: each part of the mode column has its own colour. */
+.lesson,
+.explainer {
   --perm-type: var(--c-mist);
   --perm-owner: var(--c-gold);
   --perm-group: var(--c-lilac);
@@ -689,10 +690,10 @@ kbd {
   font-weight: 700;
 }
 
-.lesson .perm-type { color: var(--perm-type); }
-.lesson .perm-owner { color: var(--perm-owner); }
-.lesson .perm-group { color: var(--perm-group); }
-.lesson .perm-other { color: var(--perm-other); }
+.lesson .perm-type, .explainer .perm-type { color: var(--perm-type); }
+.lesson .perm-owner, .explainer .perm-owner { color: var(--perm-owner); }
+.lesson .perm-group, .explainer .perm-group { color: var(--perm-group); }
+.lesson .perm-other, .explainer .perm-other { color: var(--perm-other); }
 
 .perm-map {
   display: grid;

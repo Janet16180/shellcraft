@@ -12,6 +12,8 @@ import { createMap } from './map/map.js';
 import { createStore } from './ui/store.js';
 import { startApp } from './ui/app.js';
 
+const params = new URLSearchParams(window.location.search);
+const dev = params.has('dev');
 const backend = createSimBackend(PLAYER);
 const session = createSession({
   backend,
@@ -19,7 +21,7 @@ const session = createSession({
   baseWorld,
   store: createStore(() => window.localStorage),
   random: Math.random,
-  dev: new URLSearchParams(window.location.search).has('dev'),
+  dev,
 });
 
 startApp({
@@ -28,4 +30,5 @@ startApp({
   createMap,
   createIntroBackend: () => createSimBackend(PLAYER),
   resizeTerminal: columns => backend.resize(columns),
+  explainer: dev ? params.get('explainer') : null,
 });

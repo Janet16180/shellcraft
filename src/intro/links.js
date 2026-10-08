@@ -48,7 +48,8 @@ function doorHTML(dir, cls = '') {
 }
 
 function symlinkHTML({ link, target, dir, added, moved, broken, hard }, timing) {
-  const linkAt = when(timing, added);
+  // A new link rises when it is made; a broken one turns red when it breaks.
+  const linkAt = broken === undefined ? when(timing, added) : when(timing, broken);
   const nameNode = moved
     ? `<div class="node name-node moved" style="${delay(when(timing, moved.at))}"><span class="sign name ghostly"><span class="board"><code>${pathHTML(target)}</code></span><span class="post"></span></span><small>no such name now</small></div>`
     : `<div class="node name-node"><span class="sign name"><span class="board"><code>${pathHTML(target)}</code></span><span class="post"></span></span><small>a name: the path</small></div>`;

@@ -20,6 +20,8 @@ import { conceal, concealEffects } from './conceal.js';
 import { createToasts } from './toasts.js';
 import { logoSVG } from './logo.js';
 import { playIntro } from '../intro/player.js';
+import { playExplainer } from '../intro/explainer.js';
+import { EXPLAINERS } from '../intro/explainers.js';
 import { biomeFor, drawKey } from '../map/map.js';
 
 const TABS = ['quest', 'spells', 'levels'];
@@ -35,9 +37,10 @@ const RANK_FLASH_MS = 3200;
  * @param {Function} deps.createMap The map renderer (DESIGN.md section 2.4).
  * @param {() => object} deps.createIntroBackend A fresh backend for the intro to run its lines on.
  * @param {(columns: number) => Promise<void>} deps.resizeTerminal Tells the game's shell the terminal's width.
+ * @param {string|null} [deps.explainer] Dev mode only: the id of an explainer to open over the title screen.
  * @returns {Promise<void>} Resolves once the title screen is up.
  */
-export async function startApp({ doc, session, createMap, createIntroBackend, resizeTerminal }) {
+export async function startApp({ doc, session, createMap, createIntroBackend, resizeTerminal, explainer = null }) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const sound = createSound();
   const ui = { doc, session, sound, reducedMotion, view: null, queue: createQueue(), mapQueue: createQueue(), rankUp: null };
@@ -52,6 +55,7 @@ export async function startApp({ doc, session, createMap, createIntroBackend, re
   ui.toasts = createToastLine(doc);
   ui.map = createMap(doc.getElementById('map'), { reducedMotion, onPick: pick => ui.terminal.insert(commandForPick(pick)) });
   ui.intro = () => playIntro({ doc, createMap, createBackend: createIntroBackend, reducedMotion, sound, onDone: line => finishIntro(ui, line) });
+  ui.explainer = (shown, onDone) => playExplainer({ doc, explainer: shown, reducedMotion, sound, onDone });
   doc.getElementById('brand').innerHTML = logoSVG('SHELLCRAFT');
   wireControls(ui);
   await act(ui, async () => {
@@ -60,6 +64,7 @@ export async function startApp({ doc, session, createMap, createIntroBackend, re
   });
   renderRoster(doc.getElementById('rosterList'), drawKey, devicePixelRatio || 1, ui.view.prompt.home);
   showTitle(ui);
+  if (Object.hasOwn(EXPLAINERS, explainer ?? '')) ui.explainer(EXPLAINERS[explainer], () => doc.getElementById('goBtn').focus());
 }
 
 // Every session call runs in the queue the player's lines use, so two never overlap (the session
@@ -277,7 +282,7 @@ async function startChapter(ui, id, fresh, note = 'You jumped to this chapter, s
   chapterBanner(ui);
   if (fresh) ui.terminal.printLine(note, 'sys');
   showTab(ui.doc, 'quest');
-  ui.terminal.focus();
+  firstExplainer(ui, () => ui.terminal.focus());
 }
 
 function showTitle(ui) {
@@ -301,7 +306,7 @@ function begin(ui) {
   const saved = bootText(ui.view.boot);
   if (saved) ui.terminal.printLine(saved, 'note');
   chapterBanner(ui);
-  if (ui.view.introSeen) ui.terminal.focus();
+  if (ui.view.introSeen) firstExplainer(ui, () => ui.terminal.focus());
   else ui.intro();
 }
 
@@ -311,8 +316,27 @@ async function finishIntro(ui, yourTurn) {
     ui.session.markIntroSeen();
     ui.view = ui.session.view();
   });
-  if (first) showCallout(ui, `Your turn: type <code>${esc(yourTurn)}</code> and press <kbd>Enter</kbd>.`);
-  ui.terminal.focus();
+  firstExplainer(ui, () => {
+    if (first) showCallout(ui, `Your turn: type <code>${esc(yourTurn)}</code> and press <kbd>Enter</kbd>.`);
+    ui.terminal.focus();
+  });
+}
+
+// The first time a chapter with an explainer opens, it plays before the lesson.
+function firstExplainer(ui, then) {
+  const { explainer } = ui.view.chapter;
+  if (explainer && !explainer.seen) watchExplainer(ui, then);
+  else then();
+}
+
+function watchExplainer(ui, then) {
+  ui.explainer(ui.view.chapter.explainer, async id => {
+    await act(ui, () => {
+      ui.session.markExplainerSeen(id);
+      ui.view = ui.session.view();
+    });
+    then();
+  });
 }
 
 function showCallout(ui, html) {
@@ -367,6 +391,7 @@ function wireControls(ui) {
   doc.getElementById('tab-quest').addEventListener('click', event => {
     if (event.target.closest('#hintBtn')) revealHint(ui);
     if (event.target.closest('#logBtn')) openDebrief(ui);
+    if (event.target.closest('#explainerBtn')) watchExplainer(ui, () => doc.getElementById('explainerBtn')?.focus());
   });
   doc.getElementById('soundBtn').addEventListener('click', () => act(ui, () => {
     session.setSound(!ui.view.sound);
