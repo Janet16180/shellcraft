@@ -73,6 +73,8 @@ const NEAR_MISSES = [
   [UNPACK, [...SQUEEZED, 'mkdir ~/travel/unpacked'], 'cp -r ~/library ~/travel/unpacked', 'tar -xzf ~/travel/library.tar.gz -C ~/travel/unpacked'],
   [GZIP, [], 'gzip ~/travel/notes.txt', 'gzip ~/travel/notes.txt && zcat ~/travel/notes.txt.gz'],
   [GZIP, ['gzip ~/travel/notes.txt'], 'cat ~/travel/notes.txt.gz', 'zcat ~/travel/notes.txt.gz'],
+  [GZIP, ['gzip ~/travel/notes.txt'], 'ls ~/travel', 'gunzip -c ~/travel/notes.txt.gz'],
+  [GZIP, ['gzip ~/travel/notes.txt', 'cd ~/travel'], 'ls', 'zcat notes.txt'],
 ];
 
 for (const [goal, prefix, miss, hit] of NEAR_MISSES) {
@@ -89,6 +91,10 @@ const NEAR_NOTES = [
   [UNPACK, SQUEEZED, 'tar -xzf ~/travel/library.tar.gz', /-C/],
   [UNPACK, SQUEEZED, 'tar -xzf ~/travel/library.tar.gz -C ~/travel/unpacked', /mkdir/],
   [GZIP, ['gzip ~/travel/notes.txt'], 'cat ~/travel/notes.txt.gz', /zcat/],
+  [UNPACK, SQUEEZED, 'tar -xzf ~/travel/library.tar.gz --directory=travel/unpacked', /mkdir/],
+  [SQUEEZE, ['tar -cf ~/travel/library.tar ~/library'], 'gzip -k ~/travel/library.tar', /That works too/],
+  [PACK, ['cd ~/library'], 'tar -cf ../travel/library.tar .', /inside library/],
+  [PACK, [], 'tar -cf library.tar library', /must be/],
 ];
 
 for (const [goal, prefix, line, note] of NEAR_NOTES) {
@@ -143,7 +149,7 @@ for (const [line, note] of BOSS_NOTES) {
   });
 }
 
-const NOT_COMMANDS = new Set(['-s', '-h', '-C DIR', 'FILE.gz', 'c', 'x', 't', 'f', 'z', 'v', '-C', '.tar', '.tar.gz', '.gz', '~/travel/packing_list.txt', 'gzip', 'zcat', 'file', 'tar -cf ARCHIVE THINGS', 'tar -xf ARCHIVE', 'tar -tf ARCHIVE']);
+const NOT_COMMANDS = new Set(['library', 'home/hero/library', '-s', '-h', '-C DIR', 'FILE.gz', 'c', 'x', 't', 'f', 'z', 'v', '-C', '.tar', '.tar.gz', '.gz', '~/travel/packing_list.txt', 'gzip', 'zcat', 'file', 'tar -cf ARCHIVE THINGS', 'tar -xf ARCHIVE', 'tar -tf ARCHIVE']);
 
 test('every command the chapter shows runs in the simulator', async () => {
   const lines = [

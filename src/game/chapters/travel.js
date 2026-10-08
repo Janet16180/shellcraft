@@ -89,6 +89,7 @@ export default {
 <ul>
 <li><code>tar -cf ARCHIVE THINGS</code> packs; <code>tar -tf ARCHIVE</code> lists; <code>tar -xf ARCHIVE</code> unpacks into the directory you are in.</li>
 <li><code>-C DIR</code> unpacks into another directory, which must exist.</li>
+<li>Give tar paths from where you stand, like <code>library</code> from your home. With a full path like <code>~/library</code>, tar says <code>Removing leading \`/' from member names</code>: not an error, but it stores <code>home/hero/library</code>, and that is where it unpacks too.</li>
 <li><code>z</code> also compresses with gzip, so the file is smaller: <code>tar -czf library.tar.gz library</code>, and <code>tar -xzf</code> to unpack. The name then ends in <code>.tar.gz</code>.</li>
 </ul></li>
 <li><code>gzip FILE</code> compresses one file into <code>FILE.gz</code> (the original goes away); <code>gunzip</code> undoes it, and <code>zcat</code> prints the text without unpacking.</li>
@@ -110,11 +111,15 @@ export default {
       tip: '`tar -cf ARCHIVE THINGS` packs the things into a new archive named ARCHIVE.',
       hints: [
         'After `-cf` comes the archive\'s name first, then what to pack.',
-        '`tar -cf ~/travel/library.tar ~/library`.',
-        'tar -cf ~/travel/library.tar ~/library',
+        'From your home: `tar -cf travel/library.tar library`.',
+        'cd ~ && tar -cf travel/library.tar library',
       ],
       done: ctx => ctx.ran('tar', tarFlag(ctx, 'c')) && holdsLibrary(ctx, tarOf(ctx)) && ctx.gzipped(tarOf(ctx)) === null,
-      near: ctx => (ctx.archive(tarOf(ctx)) && !holdsLibrary(ctx, tarOf(ctx)) ? 'That archive does not hold the library. Pack ~/library into it.' : null),
+      near: ctx => firstNote([
+        [() => members(ctx, tarOf(ctx)).some(m => m.startsWith('./')), 'That packed what is inside library, without the directory itself. From ~, pack library: tar -cf travel/library.tar library.'],
+        [() => ctx.archive(tarOf(ctx)) && !holdsLibrary(ctx, tarOf(ctx)), 'That archive does not hold the library. Pack library into it.'],
+        [() => ctx.ran('tar', record => ctx.flag(record, 'c') && ctx.paths(record).some(p => p !== tarOf(ctx) && holdsLibrary(ctx, p))), 'The archive must be ~/travel/library.tar.'],
+      ]),
     },
     {
       goal: 'List what is inside `~/travel/library.tar` (`tar -tf`)',
@@ -132,11 +137,14 @@ export default {
       tip: 'With `z`, tar also compresses the archive, so it takes less space.',
       hints: [
         'The same as before, with one more letter.',
-        '`tar -czf ~/travel/library.tar.gz ~/library`.',
-        'tar -czf ~/travel/library.tar.gz ~/library',
+        'From your home: `tar -czf travel/library.tar.gz library`.',
+        'cd ~ && tar -czf travel/library.tar.gz library',
       ],
       done: ctx => ctx.ran('tar', tarFlag(ctx, 'c')) && holdsLibrary(ctx, tgzOf(ctx)) && ctx.gzipped(tgzOf(ctx)) !== null,
-      near: ctx => (ctx.archive(tgzOf(ctx)) && ctx.gzipped(tgzOf(ctx)) === null ? 'A name ending in .gz does not compress anything: add -z.' : null),
+      near: ctx => firstNote([
+        [() => ctx.archive(tgzOf(ctx)) && ctx.gzipped(tgzOf(ctx)) === null, 'A name ending in .gz does not compress anything: add -z.'],
+        [() => ctx.ran('gzip') && holdsLibrary(ctx, tgzOf(ctx)), 'That works too: tar\'s z calls gzip for you. This task practises tar -czf.'],
+      ]),
     },
     {
       goal: 'Ask what kind of file each archive in `~/travel` is (`file`)',
@@ -158,8 +166,8 @@ export default {
       ],
       done: ctx => ctx.ran('tar', tarFlag(ctx, 'x')) && unpackedScroll(ctx),
       near: ctx => firstNote([
-        [() => ctx.tried('tar', record => record.status !== 0 && ctx.flag(record, 'x') && record.args.includes('-C')), 'The directory for -C must exist: mkdir ~/travel/unpacked first.'],
-        [() => ctx.ran('tar', record => ctx.flag(record, 'x') && !record.args.includes('-C')), `That unpacked into ${tilde(ctx.cwd)}, where you stand. Add -C ~/travel/unpacked.`],
+        [() => ctx.tried('tar', record => record.status !== 0 && ctx.flag(record, 'x') && ctx.flag(record, 'C')), 'The directory for -C must exist: mkdir ~/travel/unpacked first.'],
+        [() => ctx.ran('tar', record => ctx.flag(record, 'x') && !ctx.flag(record, 'C')), `That unpacked into ${tilde(ctx.cwd)}, where you stand. Add -C ~/travel/unpacked.`],
       ]),
     },
     {
@@ -170,7 +178,9 @@ export default {
         '`gzip ~/travel/notes.txt`, then `zcat ~/travel/notes.txt.gz`.',
         'gzip ~/travel/notes.txt && zcat ~/travel/notes.txt.gz',
       ],
-      done: ctx => ctx.ran('zcat', record => ctx.hasPath(record, `${notesOf(ctx)}.gz`)),
+      // zcat finds notes.txt.gz from notes.txt too; gunzip -c and gzip -dc print it the same way.
+      done: ctx => ctx.ran('zcat', record => ctx.hasPath(record, `${notesOf(ctx)}.gz`) || ctx.hasPath(record, notesOf(ctx)))
+        || ['gunzip', 'gzip'].some(name => ctx.ran(name, record => ctx.flag(record, 'c') && (name === 'gunzip' || ctx.flag(record, 'd')) && ctx.hasPath(record, `${notesOf(ctx)}.gz`))),
       near: ctx => (ctx.ran('cat', record => ctx.hasPath(record, `${notesOf(ctx)}.gz`)) ? 'cat shows the compressed bytes. zcat prints the text inside.' : null),
     },
   ],
@@ -191,8 +201,8 @@ export default {
     setup: setupBoss,
     hints: [
       'Read the list with `cat ~/travel/packing_list.txt`.',
-      'One `tar -czf`, the archive\'s name from the list, then every item it names.',
-      ({ archive, items }) => `tar -czf ${tilde(archive)} ${items.map(item => `~/${item}`).join(' ')}`,
+      'From your home, one `tar -czf`, the archive\'s name from the list, then every item it names, without `~/`.',
+      ({ archive, items }) => `cd ~ && tar -czf ${tilde(archive).slice(2)} ${items.join(' ')}`,
     ],
     done: bossDone,
     near: bossNear,
@@ -200,9 +210,9 @@ export default {
   },
   recap: [
     ['du -sh ~/library', 'how much space a directory takes'],
-    ['tar -cf ~/travel/library.tar ~/library', 'pack a directory into an archive'],
+    ['cd ~ && tar -cf travel/library.tar library', 'pack a directory into an archive'],
     ['tar -tf ~/travel/library.tar', 'list an archive'],
-    ['tar -czf ~/travel/library.tar.gz ~/library', 'pack and compress'],
+    ['cd ~ && tar -czf travel/library.tar.gz library', 'pack and compress'],
     ['tar -xzf ~/travel/library.tar.gz -C ~/travel/unpacked', 'unpack into a directory'],
     ['gzip ~/travel/notes.txt', 'compress one file'],
     ['zcat ~/travel/notes.txt.gz', 'read a compressed file'],
@@ -217,7 +227,7 @@ export default {
     ['df -h', 'how full each disk is'],
   ],
   spells: [
-    { name: 'tar', summary: 'Pack, list and unpack archives.', examples: [['tar -czf ~/travel/library.tar.gz ~/library', 'pack and compress'], ['tar -tf ~/travel/library.tar', 'list'], ['tar -xzf ~/travel/library.tar.gz -C ~/travel/unpacked', 'unpack']] },
+    { name: 'tar', summary: 'Pack, list and unpack archives.', examples: [['cd ~ && tar -czf travel/library.tar.gz library', 'pack and compress'], ['tar -tf ~/travel/library.tar', 'list'], ['tar -xzf ~/travel/library.tar.gz -C ~/travel/unpacked', 'unpack']] },
     { name: 'gzip / zcat', summary: 'Compress one file, and read it compressed.', examples: [['gzip ~/travel/notes.txt', 'makes notes.txt.gz'], ['zcat ~/travel/notes.txt.gz', 'print the text']] },
     { name: 'du -sh', summary: 'How much space a directory takes.', examples: [['du -sh ~/library', 'one total']] },
     { name: 'file', summary: 'What kind of file something is.', examples: [['file ~/travel/*', 'text, tar, gzip...']] },
