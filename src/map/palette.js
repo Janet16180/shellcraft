@@ -23,6 +23,9 @@ export const PALETTES = { ink: INK, toon: TOON };
 /** The Shadow Daemon: its body, its eyes (and its flash), its ghostly highlight. */
 export const DAEMON = { body: '#3b1d5c', eye: '#ff3355', glow: '#e8d7ff' };
 
+/** A dangling symlink: the portal sprite gone cold, grey with a red core. */
+export const BROKEN_PORTAL = { v: '#a3a0bf', p: '#615b80', n: '#353050', w: '#e2434f' };
+
 /** Gem colours by the word in the file name: body, highlight, shadow. */
 export const GEMS = {
   ruby: { c: '#ff4d6d', l: '#ffb3c1', d: '#a3122f' },
