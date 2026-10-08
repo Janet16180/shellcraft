@@ -73,6 +73,7 @@ export function settle(stage, obs) {
     layout: layoutRoom(room, { narrow: view.narrow }),
     path: obs.cwd,
     home: obs.home,
+    user: obs.user,
     gateOpen: state.gateOpen,
   };
   settleCreatures(stage, obs.procs);

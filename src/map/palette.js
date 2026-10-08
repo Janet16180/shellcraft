@@ -31,6 +31,17 @@ export const GEMS = {
   opal: { c: '#f5e6ff', l: '#ffffff', d: '#b68fd6' },
 };
 
+/**
+ * The other people of the realm, as the hero's sprite recoloured: h is the
+ * hat, r the robe. Mira and oren are smiths, tamsin
+ * a scribe.
+ */
+export const PEOPLE = {
+  mira: { h: '#e2434f', r: '#a24f34' },
+  oren: { h: '#8fd14f', r: '#2c5aa8' },
+  tamsin: { h: '#ffd348', r: '#3e7a3c' },
+};
+
 /** Label colours match ls --color: directories blue, executables green. */
 export const LABEL = {
   back: 'rgba(11, 10, 18, 0.86)',

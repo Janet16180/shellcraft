@@ -6,7 +6,8 @@
 import { ART, findEntry } from './layout.js';
 import * as overworld from './overworld.js';
 import * as dungeon from './dungeon.js';
-import { drawItem, drawMore, drawPlayer, drawParticles, drawFocus, padlockDoor, darkDoor } from './things.js';
+import { drawItem, drawMore, drawPlayer, drawParticles, drawFocus, padlockDoor, darkDoor, drawResident } from './things.js';
+import { residentOf } from './residents.js';
 import { drawLabels, drawCreatureLabels, drawBubbles, drawBanner, drawVeil } from './overlay.js';
 import { drawCreature } from './creatureart.js';
 import { hover, SLOTS } from './creatures.js';
@@ -43,6 +44,10 @@ function paintRoom(stage, t, now) {
     painter.door(ax, door, scene, t);
     if (door.locked) padlockDoor(ax, door);
     else if (door.dark) darkDoor(ax, door, painter.leafColour(scene));
+  }
+  for (const door of layout.doors) {
+    const resident = residentOf(door, scene.user);
+    if (resident) drawResident(ax, door, resident, t);
   }
   if (layout.moreDoors) drawMore(ax, layout.moreDoors, 'door');
   layout.items.forEach((item, i) => drawItem(ax, item, scene.biome, t, i));
