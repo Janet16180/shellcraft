@@ -11,16 +11,17 @@ import { varValue } from './vars.js';
 import { groupNames, loginGids } from './accounts.js';
 import { expandHistory } from './history.js';
 import { COMMANDS, BINARIES } from './commands/index.js';
+import { saveState, restoreState, createTape } from './snapshot.js';
 
 const CLEAR_MARK = '\u001b[2J';
 
-function collector(answers = []) {
+function collector(sys, answers = []) {
   const run = { chunks: [], records: [], blocked: [], depth: 0, pipelines: 0, waiting: null, asked: 0 };
   // A command that reads a line from the terminal gets the next answer, or
   // stops the line until the page sends one.
   run.ask = prompt => {
     if (run.asked < answers.length) return { text: answers[run.asked++] };
-    run.waiting = { prompt, at: run.chunks.length };
+    run.waiting = { prompt, at: run.chunks.length, status: sys.lastStatus };
     return { waiting: true };
   };
   run.sink = {
@@ -44,26 +45,43 @@ function remembered(sys, line) {
 
 // History expansion comes first: a missing event stops the line before it
 // is remembered or run, and $? stays as it was. An expanded line is echoed.
-function runLine(sys, typedLine) {
-  const run = collector();
+function runLine(sys, typedLine, answers) {
+  const run = collector(sys, answers);
   const history = expandHistory(typedLine, sys.history);
   if (history.error) {
     run.sink.write('err', `${history.error}\n`);
-    return { output: run.chunks, status: sys.lastStatus, commands: [], blocked: [] };
+    return { output: run.chunks, status: sys.lastStatus, commands: [], blocked: [], waiting: null };
   }
   const { line } = history;
   if (history.expanded) run.sink.write('err', `${line}\n`);
   const typed = line.trim() !== '';
   if (typed && remembered(sys, line)) sys.history.push(line);
   const status = typed ? executeLine({ sys, commands: COMMANDS, run }, line, run.sink) : sys.lastStatus;
-  return { output: run.chunks, status, commands: run.records, blocked: run.blocked };
+  return { output: run.chunks, status, commands: run.records, blocked: run.blocked, waiting: run.waiting };
+}
+
+// One attempt at the pending line, from its start, with the answers so far.
+// Only output the page has not shown yet goes out; a line still waiting
+// returns what came before its prompt, and the prompt.
+function attempt(sys, pending) {
+  if (pending.saved) restoreState(sys, pending.saved);
+  const r = pending.tape.play(() => runLine(sys, pending.line, pending.answers));
+  const shown = pending.shown;
+  let reply;
+  if (r.waiting) {
+    pending.shown = r.waiting.at;
+    reply = { output: r.output.slice(shown, r.waiting.at), status: r.waiting.status, commands: [], blocked: [], input: { prompt: r.waiting.prompt, hidden: true } };
+  } else {
+    reply = { output: r.output.slice(shown), status: r.status, commands: r.commands, blocked: r.blocked };
+  }
+  return { reply, done: !r.waiting };
 }
 
 // What logging in does: take the groups /etc/group gives the user now, then
 // what bash does when it starts: read ~/.bashrc, if there is one. Its output
 // is dropped, as the game shows the terminal only after the shell is ready.
 function startShell(sys) {
-  const run = collector();
+  const run = collector(sys);
   sys.gids = loginGids(sys);
   if (lookup(sys.root, `${sys.home}/.bashrc`)) executeLine({ sys, commands: COMMANDS, run }, '. ~/.bashrc', run.sink);
 }
@@ -91,6 +109,13 @@ function observe(sys) {
  * and processes only; the shell keeps its groups (until a `login()`
  * operation), variables, aliases and history, and does not read `~/.bashrc` again.
  *
+ * A line that reads typed input (sudo's password) returns a result with
+ * `input` and waits for answer(). The simulator cannot pause a command
+ * halfway, so each answer runs the line again from the state saved before
+ * it, with the answers so far and the same clock readings and random
+ * numbers, and sends only the output the page has not shown yet. The state
+ * is saved only on a machine with a password, the one thing that can ask.
+ *
  * Output chunks: 'out' and 'err' text ends in a newline like a real stream;
  * `html` (when present) is the same text coloured with the classes c-dir,
  * c-exe, c-link, c-orphan, g-file, g-sep, g-num and g-match. `clear` writes the real escape
@@ -105,14 +130,33 @@ function observe(sys) {
 export function createSimBackend({ user = 'hero', host = 'kernelia', home = '/home/hero', now = () => Date.now(), random = Math.random } = {}) {
   const sys = createSystem({ user, host, home, now, random, binaries: BINARIES });
   let started = false;
+  let pending = null;
   const load = patch => {
     applyPatch(sys, patch);
     if (!started) startShell(sys);
     started = true;
   };
+  // Only a machine with a password can ask for one, so only then is the state saved for a replay.
+  const run = line => {
+    if (pending) throw new Error('a line is waiting for input; send it with answer() first');
+    const saved = sys.password === null ? null : saveState(sys);
+    const next = { line, answers: [], shown: 0, saved: null, tape: createTape(sys) };
+    const { reply, done } = attempt(sys, next);
+    if (!done && !saved) throw new Error('a command asked for input on a machine with no password');
+    pending = done ? null : { ...next, saved };
+    return reply;
+  };
+  const answer = text => {
+    if (!pending) throw new Error('no line is waiting for input');
+    pending.answers.push(text);
+    const { reply, done } = attempt(sys, pending);
+    if (done) pending = null;
+    return reply;
+  };
   return {
     load: async patch => load(patch),
-    run: async line => runLine(sys, line),
+    run: async line => run(line),
+    answer: async text => answer(text),
     observe: async () => observe(sys),
     complete: async line => complete(sys, line, Object.keys(COMMANDS)),
     resize: async columns => resizeTerminal(sys, columns),

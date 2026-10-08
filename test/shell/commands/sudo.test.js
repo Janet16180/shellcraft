@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run, NOW } from '../helpers.js';
-import { put, dir, file, login } from '../../../src/backend/spec.js';
+import { put, dir, file, login, password } from '../../../src/backend/spec.js';
 
 const outcome = r => [r.out, r.err, r.status];
 const mine = { owner: 'hero' };
@@ -152,4 +152,90 @@ test('sudo writes what it ran to /var/log/auth.log like Ubuntu', async () => {
     `${stamp} kernelia sudo: pam_unix(sudo:session): session opened for user root(uid=0) by hero(uid=1000)`,
     `${stamp} kernelia sudo: pam_unix(sudo:session): session closed for user root`,
   ]);
+});
+
+const PROMPT = '[sudo] password for hero: ';
+const promptLine = { stream: 'out', text: `${PROMPT}\n` };
+const asks = { prompt: PROMPT, hidden: true };
+
+test('a line that needs the password waits for hidden input, then the answer finishes it', async () => {
+  const b = await realm({ extra: [password('dragon')] });
+  const first = await b.run('echo before; sudo whoami; echo after');
+  assert.deepEqual(first, { output: [{ stream: 'out', text: 'before\n' }], status: 0, commands: [], blocked: [], input: asks });
+  const done = await b.answer('dragon');
+  assert.deepEqual(done.output, [promptLine, { stream: 'out', text: 'root\n' }, { stream: 'out', text: 'after\n' }]);
+  assert.equal(done.status, 0);
+  assert.equal(done.input, undefined);
+  assert.deepEqual(done.commands.map(c => [c.name, c.user]), [['echo', 'hero'], ['sudo', 'hero'], ['whoami', 'root'], ['echo', 'hero']]);
+});
+
+test('a wrong password gets Sorry, try again, and the third ends sudo with status 1', async () => {
+  const b = await realm({ extra: [password('dragon')] });
+  await b.run('sudo cat /root/secret.txt; echo s=$?');
+  const second = await b.answer('wrong');
+  assert.deepEqual([second.output, second.input], [[promptLine, { stream: 'out', text: 'Sorry, try again.\n' }], asks]);
+  await b.answer('');
+  const last = await b.answer('dragn');
+  assert.deepEqual(last.output, [promptLine, { stream: 'err', text: 'sudo: 3 incorrect password attempts\n' }, { stream: 'out', text: 's=1\n' }]);
+  assert.equal(last.input, undefined);
+  assert.deepEqual(last.commands.map(c => [c.name, c.status]), [['sudo', 1], ['echo', 0]]);
+});
+
+test('Ctrl+C at the prompt (a null answer) gives up: a password is required, and the line goes on', async () => {
+  const b = await realm({ extra: [password('dragon')] });
+  await b.run('sudo whoami; echo after');
+  const r = await b.answer(null);
+  assert.deepEqual(r.output, [promptLine, { stream: 'err', text: 'sudo: a password is required\n' }, { stream: 'out', text: 'after\n' }]);
+  await b.run('sudo whoami');
+  await b.answer('nope');
+  assert.equal((await b.answer(null)).output.at(-1).text, 'sudo: 1 incorrect password attempt\n');
+});
+
+test('what ran before the prompt ran once, and the password stays out of history and the observation', async () => {
+  const b = await realm({ extra: [password('dragon')] });
+  await b.run('echo x >> log.txt; ps > /dev/null; sudo whoami');
+  await b.answer('dragon');
+  assert.equal((await run(b, 'cat log.txt')).out, 'x\n');
+  assert.deepEqual((await run(b, 'history')).out.split('\n').slice(0, 2).map(l => l.trim()), ['1  echo x >> log.txt; ps > /dev/null; sudo whoami', '2  cat log.txt']);
+  assert.doesNotMatch(JSON.stringify(await b.observe()), /dragon/);
+});
+
+test('a correct password is remembered for 15 minutes of the clock; sudo -k forgets it', async () => {
+  let now = NOW;
+  const b = await shell([], { now: () => now });
+  await b.load([put('/etc/group', file('root:x:0:\nsudo:x:27:hero\nhero:x:1000:\n')), login(), password('dragon')]);
+  assert.ok((await b.run('sudo whoami')).input);
+  await b.answer('dragon');
+  now += 14 * 60 * 1000;
+  assert.deepEqual(outcome(await run(b, 'sudo whoami')), ['root\n', '', 0]);
+  now += 15 * 60 * 1000;
+  assert.ok((await b.run('sudo whoami')).input);
+  await b.answer('dragon');
+  assert.deepEqual(outcome(await run(b, 'sudo -k; sudo -v')), ['', '', 0]);
+  assert.equal((await b.answer('dragon')).status, 0);
+  assert.equal((await run(b, 'sudo -n true')).status, 0);
+  assert.deepEqual(outcome(await run(b, 'sudo -k; sudo -n true')), ['', 'sudo: a password is required\n', 1]);
+});
+
+test('a stranger to sudoers types the password, then is refused; auth.log records both', async () => {
+  const b = await realm({ admin: false, extra: [password('dragon')] });
+  await b.run('sudo ls');
+  assert.deepEqual((await b.answer('dragon')).output, [promptLine, { stream: 'err', text: 'hero is not in the sudoers file.\n' }]);
+  const log = (await b.observe()).tree.children.var.children.log.children['auth.log'].content;
+  assert.match(log, / sudo: {5}hero : user NOT in sudoers ; TTY=pts\/0 ; PWD=\/home\/hero ; USER=root ; COMMAND=\/usr\/bin\/ls\n$/);
+  await b.run('sudo ls');
+  await b.answer('x');
+  await b.answer('y');
+  await b.answer('z');
+  const failed = (await b.observe()).tree.children.var.children.log.children['auth.log'].content;
+  assert.match(failed, /pam_unix\(sudo:auth\): authentication failure; logname=hero uid=1000 euid=0 tty=\/dev\/pts\/0 ruser=hero rhost= {2}user=hero\n.* sudo: {5}hero : 3 incorrect password attempts ; TTY=pts\/0 ; PWD=\/home\/hero ; USER=root ; COMMAND=\/usr\/bin\/ls\n$/);
+});
+
+test('while a line waits for input, run raises; answer raises when nothing waits', async () => {
+  const b = await realm({ extra: [password('dragon')] });
+  await assert.rejects(b.answer('x'), /no line is waiting/);
+  await b.run('sudo whoami');
+  await assert.rejects(b.run('ls'), /waiting for input/);
+  await b.answer(null);
+  assert.equal((await b.run('pwd')).status, 0);
 });
