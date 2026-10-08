@@ -288,6 +288,16 @@ test('jobs with a job spec lists that job, and complains about one that does not
 
 const STOPPED_100 = '[1]+  Stopped                 sleep 100\n';
 
+// Checked in a container: bash 5.2 writes `^Z[1]   Done    sleep 1\r\n\r\n[2]+  Stopped ...` (docs/verification/jobs.md).
+test('Ctrl+Z after a job finished: the Done notice follows ^Z on its line, a blank line, then Stopped', async () => {
+  const { b, tick } = await timed();
+  await b.run('sleep 1 &');
+  await b.run('sleep 30');
+  tick(2);
+  const r = await b.signal('TSTP');
+  assert.deepEqual(r.output.map(c => c.text), ['^Z', '[1]   Done                    sleep 1\n\n[2]+  Stopped                 sleep 30\n']);
+});
+
 test('Ctrl+Z stops the foreground command as a job: ^Z, Stopped, status 148', async () => {
   const b = await shell();
   await b.run('sleep 100');
