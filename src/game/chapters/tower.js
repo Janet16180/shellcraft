@@ -55,6 +55,11 @@ const grepFiles = record => {
   return record.args.includes('-e') ? all : all.slice(1);
 };
 const grepPaths = (ctx, record) => grepFiles(record).map(arg => resolvePath(arg, record.cwd, ctx.home));
+// grep -r with no file searches the directory it ran in.
+const searched = (ctx, record) => {
+  const paths = grepPaths(ctx, record);
+  return paths.length === 0 && recursive(ctx, record) ? [record.cwd] : paths;
+};
 
 // Every wanted line is shown, and every line shown has the word: the line is the word's, not a whole file.
 function shows(record, word, wanted) {
@@ -92,8 +97,9 @@ function caseNote(ctx) {
 
 function searchNote(ctx) {
   const tower = towerOf(ctx);
-  const record = ctx.commands.find(r => r.name === 'grep' && recursive(ctx, r) && grepPaths(ctx, r).length > 0 && !ctx.hasPath(r, tower));
-  const elsewhere = record && `That searched ${grepFiles(record).join(' ')}, not the tower. Give grep -r the tower's path: ~/tower.`;
+  const record = ctx.commands.find(r => r.name === 'grep' && recursive(ctx, r) && !searched(ctx, r).includes(tower));
+  const where = record && (grepFiles(record).join(' ') || tildeOf(record.cwd, ctx.home));
+  const elsewhere = record && `That searched ${where}, not the tower. Give grep -r the tower's path: ~/tower.`;
   const plain = ctx.tried('grep', r => !recursive(ctx, r) && grepPaths(ctx, r).some(path => isInside(path, tower)));
   return grepDirectoryNote(ctx) ?? elsewhere ?? (plain ? 'grep -r searches every floor at once, hidden files too: give it the tower, ~/tower.' : null);
 }
@@ -230,7 +236,7 @@ export default {
         'Add `-r` after `grep`, then the word `gold`, then the tower\'s path.',
         'grep -r gold ~/tower',
       ],
-      done: ctx => grepShows(ctx, towerOf(ctx), 'gold', GOLD_LINES, r => recursive(ctx, r)),
+      done: ctx => ctx.ran('grep', r => recursive(ctx, r) && searched(ctx, r).includes(towerOf(ctx)) && shows(r, 'gold', GOLD_LINES)),
       near: searchNote,
     },
     {
