@@ -30,15 +30,22 @@ const SIGNALLERS = new Set(['kill', 'pkill', 'killall']);
 
 const firstNote = rules => rules.find(([when]) => when())?.[1] ?? null;
 
-// What a kill line asked for: its signal number and the PIDs it named, or null for other commands.
-function sent(record) {
-  if (record.name !== 'kill') return null;
-  const asked = requestedSignal('kill', record.args);
-  return asked.status === 'send' ? { signal: asked.signal, pids: asked.operands } : null;
+// The PIDs a pkill or killall name matched, in the processes there were before the line.
+function matched(ctx, record, names) {
+  const fits = record.name === 'pkill' ? (cmd, name) => cmd.includes(name) : (cmd, name) => cmd === name;
+  return ctx.before.procs.filter(p => names.some(name => fits(p.cmd, name))).map(p => String(p.pid));
+}
+
+// What a kill, pkill or killall line asked for: its signal number and the PIDs it reached, or null for other commands.
+function sent(ctx, record) {
+  if (!SIGNALLERS.has(record.name)) return null;
+  const asked = requestedSignal(record.name, record.args);
+  if (asked.status !== 'send') return null;
+  return { signal: asked.signal, pids: record.name === 'kill' ? asked.operands : matched(ctx, record, asked.operands) };
 }
 
 const kills = (ctx, pid, pred = () => true) => ctx.commands.some(record => {
-  const signal = sent(record);
+  const signal = sent(ctx, record);
   return signal !== null && signal.pids.includes(String(pid)) && pred(signal, record);
 });
 const alive = (ctx, key) => ctx.proc(key) !== null;
@@ -72,12 +79,14 @@ function setupBoss(random, { home, user }) {
   };
 }
 
+// The imps are harmless: the daemon must end, and they must still be running.
 function bossDone(ctx) {
-  return ended(ctx, 'daemon') && ctx.commands.some(record => SIGNALLERS.has(record.name));
+  return ended(ctx, 'daemon') && ctx.commands.some(record => SIGNALLERS.has(record.name)) && DECOY_KEYS.every(key => alive(ctx, key));
 }
 
 function bossNear(ctx, { pid }) {
   return bossDone(ctx) ? null : firstNote([
+    [() => ended(ctx, 'daemon'), 'The daemon is gone, but so are harmless imps. End only the one using almost all of the CPU: press Restart chapter in the HUD and try again.'],
     [() => DECOY_KEYS.some(key => ended(ctx, key)), 'That was an ordinary imp: its %CPU was low. In ps aux, find the one using almost all of the CPU.'],
     [() => alive(ctx, 'daemon') && kills(ctx, pid, ({ signal }) => signal !== KILL), 'It ignored the polite signal and is still running. Send the one it cannot ignore: signal 9.'],
     [() => killedByName(ctx), 'kill needs the PID, the number in the second column of ps aux.'],

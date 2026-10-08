@@ -45,6 +45,9 @@ const TASKS = [
   ['tower', 4, ['cd tower'], 'find -name "*.gem"', true],
   ['tower', 3, [], 'grep -r -e gold tower', true],
   ['tower', 3, ['cd tower'], 'grep -r -e gold', true],
+  ['daemon', 3, [], 'pkill greedy_imp', true],
+  ['daemon', 4, ['kill 2420'], 'pkill stubborn', true],
+  ['daemon', 5, ['kill 2420', 'kill 2431'], 'pkill -9 stubborn', true],
 ];
 
 for (const [id, index, prefix, line, done, note] of TASKS) {
@@ -61,6 +64,9 @@ for (const [id, index, prefix, line, done, note] of TASKS) {
 
 // [chapter, seed, lines typed before (functions of the secret), the line, done?, expected note]
 const BOSSES = [
+  ['daemon', 1, [], () => 'pkill -9 imp', false, /harmless imps/],
+  ['daemon', 2, [], () => 'killall -9 sleepy_imp lazy_imp tiny_imp grumpy_imp dusty_imp quiet_imp', false, /harmless imps/],
+  ['daemon', 1, [], ({ name }) => `pkill -9 ${name}`, true],
   ['forest', 1, [({ target }) => `cd ${target}`, () => 'cd ..'], () => 'cd', false, /not straight from the lantern/],
   ['library', 1, [], ({ tome }) => `tail ${tome} | tail -n 1`, true],
   ['descent', 1, [() => 'cd /usr/local/bin'], ({ name }) => `./${name}`, false, /type only its name, from anywhere/],
