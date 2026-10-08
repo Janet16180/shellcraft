@@ -292,7 +292,9 @@ function chmod(args, { sys }) {
   };
   for (const f of files) {
     const r = resolve(sys, f);
-    if (r.error) errs.push(`chmod: cannot access ${quoted(f)}: ${errorText(r.error)}`);
+    const dangling = r.error === 'ENOENT' && resolve(sys, f, { follow: false }).node?.type === 'symlink';
+    if (dangling) errs.push(`chmod: cannot operate on dangling symlink ${quoted(f)}`);
+    else if (r.error) errs.push(`chmod: cannot access ${quoted(f)}: ${errorText(r.error)}`);
     else if (!canChmod(sys, r.node)) errs.push(`chmod: changing permissions of ${quoted(f)}: Operation not permitted`);
     else visit(r.node);
   }

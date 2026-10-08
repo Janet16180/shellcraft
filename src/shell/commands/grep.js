@@ -41,8 +41,9 @@ function walk(sys, node, label, acc, inside = new Set([node])) {
     const shown = label === null ? name : joinDisp(label, name);
     const linked = node.children[name].type === 'symlink';
     if (linked && !acc.deref) continue;
-    const child = linked ? resolve(sys, shown).node : node.children[name];
-    if (!child) acc.errs.push(`grep: ${shellQuote(shown)}: No such file or directory`);
+    const followed = linked ? resolve(sys, shown) : null;
+    const child = linked ? followed.node : node.children[name];
+    if (!child) acc.errs.push(`grep: ${shellQuote(shown)}: ${errorText(followed.error)}`);
     else if (inside.has(child)) acc.errs.push(`grep: warning: ${shellQuote(shown)}: recursive directory loop`);
     else visitEntry(sys, child, shown, acc, inside);
   }

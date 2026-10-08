@@ -222,3 +222,9 @@ test('rm -r of a link with a slash empties the directory it leads to, then fails
   const h = await home(b);
   assert.deepEqual([h.portal.type, Object.keys(h.forest.children.cave.children.deep.children)], ['symlink', []]);
 });
+
+test('chmod names a dangling link as such; a loop is too deep', async () => {
+  const b = await linkWorld();
+  assert.deepEqual(await run(b, 'chmod 600 broken').then(r => [r.err, r.status]), ["chmod: cannot operate on dangling symlink 'broken'\n", 1]);
+  assert.equal((await run(b, 'chmod 600 loop')).err, "chmod: cannot access 'loop': Too many levels of symbolic links\n");
+});

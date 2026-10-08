@@ -98,3 +98,8 @@ test('grep -R follows links inside the directory, warns about a loop and names a
   assert.equal(r.out, 't/a.txt:key\nt/portal/b.txt:key\nt/sub/b.txt:key\n');
   assert.equal(r.err, "grep: t/broken: No such file or directory\ngrep: warning: t/portal/up: recursive directory loop\ngrep: warning: t/sub/up: recursive directory loop\n");
 });
+
+test('grep -R names a link that loops on itself', async () => {
+  const b = await shell([put('/home/hero/t', dir({ loop: symlink('loop', mine) }, mine))]);
+  assert.equal((await run(b, 'grep -R key t')).err, 'grep: t/loop: Too many levels of symbolic links\n');
+});

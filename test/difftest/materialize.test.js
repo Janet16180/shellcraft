@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { materialize, loginRecord } from '../../difftest/materialize.js';
-import { put, remove, cd, proc, dir, file } from '../../src/backend/spec.js';
+import { put, remove, cd, proc, dir, file, symlink, link } from '../../src/backend/spec.js';
 
 const T = Date.UTC(2026, 9, 6, 10);
 
@@ -14,7 +14,7 @@ test('put replaces the path and builds every node with owner, mode and time', ()
   assert.ok(script.includes("printf '%s' 'it'\\''s\n' > '/home/hero/forest/a.txt'"));
   assert.ok(lines.includes("chown 'hero:hero' -- '/home/hero/forest/a.txt'"));
   assert.ok(lines.includes("chmod 0644 -- '/home/hero/forest/a.txt'"));
-  assert.ok(lines.includes(`[ ! -e '/home/hero/forest/a.txt' ] || touch -h -d @${T / 1000} -- '/home/hero/forest/a.txt'`));
+  assert.ok(lines.includes(`if [ -e '/home/hero/forest/a.txt' ] || [ -L '/home/hero/forest/a.txt' ]; then touch -h -d @${T / 1000} -- '/home/hero/forest/a.txt'; fi`));
 });
 
 test('system directories are kept and only receive the children', () => {
@@ -70,4 +70,20 @@ test('numeric owners and groups are used as ids, not created as accounts', () =>
   const { script } = materialize([put('/srv/f', file('', { owner: '1234', group: '4321' }))], T);
   assert.doesNotMatch(script, /useradd '1234'|groupadd '4321'/);
   assert.match(script, /chown '1234:4321' -- '\/srv\/f'/);
+});
+
+test('a symbolic link is made with ln -s and owned with chown -h; it has no mode to set', () => {
+  const { script } = materialize([put('/home/hero/d', dir({ portal: symlink('../x y', { owner: 'hero' }) }, { owner: 'hero' }))], T);
+  const lines = script.trim().split('\n');
+  assert.ok(lines.includes("ln -s -- '../x y' '/home/hero/d/portal'"));
+  assert.ok(lines.includes("chown -h 'hero:hero' -- '/home/hero/d/portal'"));
+  assert.doesNotMatch(script, /chmod \d+ -- '\/home\/hero\/d\/portal'/);
+  assert.ok(lines.includes(`if [ -e '/home/hero/d/portal' ] || [ -L '/home/hero/d/portal' ]; then touch -h -d @${T / 1000} -- '/home/hero/d/portal'; fi`));
+});
+
+test('a hard link is made with ln and keeps the owner and mode of the file it names', () => {
+  const { script } = materialize([put('/home/hero/a', file('a', { owner: 'hero' })), put('/home/hero/b', link('/home/hero/a'))], T);
+  const lines = script.trim().split('\n');
+  assert.ok(lines.includes("ln -- '/home/hero/a' '/home/hero/b'"));
+  assert.doesNotMatch(script, /(chown|chmod) .* '\/home\/hero\/b'/);
 });

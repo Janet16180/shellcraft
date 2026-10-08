@@ -138,7 +138,8 @@ function changeOwners(name, args, { sys }) {
   const job = { sys, name, want, opts, out: [], fail: msg => { status = 1; if (!opts.silent) errs.push(msg); } };
   for (const f of files) {
     const r = resolve(sys, f);
-    if (r.error) job.fail(`${name}: cannot access ${quoted(f)}: ${errorText(r.error)}`);
+    const link = r.error && resolve(sys, f, { follow: false }).node?.type === 'symlink';
+    if (r.error) job.fail(`${name}: cannot ${link ? 'dereference' : 'access'} ${quoted(f)}: ${errorText(r.error)}`);
     else visit(job, r.node, f);
   }
   return result(job.out.map(l => `${l}\n`).join(''), errs.join('\n'), status);
