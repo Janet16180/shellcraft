@@ -20,9 +20,12 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
   `id USER`, only one set of letters counts; boss: the one scroll oren may read) and 16 The Shared
   Hall (`hall`: r/w/x on directories, removing needs w on the directory, `chgrp`; boss: a faction's
   room, 770). The people are in `src/game/people.js` (`realm(player, { factions })`).
-- Running agents: backend `slice/links` (symlinks, hard links, inodes, `ln`, `readlink`) for
-  chapter 17; frontend art `slice/art3` (Guild Hall `/srv/guild`, other homes, `~/guild`, `~/hall`,
-  a portal sprite).
+- Merged into `slice/act3`: `slice/links` (symlinks, hard links, inodes, `ln`, `readlink`,
+  `ctx.inode`, `ctx.linkTarget`) and `slice/art3` (Guild wing, other homes with their owners,
+  `~/guild`, `~/hall` rooms, dark door for x-without-r, portal sprite). Chapter 17 Portals
+  (`portals`) is written. 2249 tests, difftest 0 failures.
+- Running agents: backend `slice/sudo` (sudo with a hidden password prompt, chown as root) for
+  chapter 18; frontend art on `slice/art3` (portals and broken links on the map, `c-link`/`c-orphan`).
 
 ## State at 2026-10-08, evening (act III started)
 
