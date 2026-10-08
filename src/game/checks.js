@@ -4,6 +4,7 @@
  * same with the simulator or a real bash.
  */
 import { nodeAt } from '../backend/tree.js';
+import { archiveMembers, gunzip, isGzip, byteLength } from '../backend/archive.js';
 
 /** Commands that read a file's content. */
 export const READERS = new Set(['cat', 'less', 'more', 'head', 'tail']);
@@ -45,7 +46,16 @@ const LONG_OPTIONS = {
   wc: { lines: 'l', words: 'w', bytes: 'c', chars: 'm' },
   sort: { unique: 'u', reverse: 'r', 'numeric-sort': 'n' },
   uniq: { count: 'c', repeated: 'd', unique: 'u' },
+  tar: { create: 'c', extract: 'x', get: 'x', list: 't', gzip: 'z', gunzip: 'z', ungzip: 'z', verbose: 'v', file: 'f', directory: 'C' },
+  gzip: { keep: 'k', decompress: 'd', stdout: 'c', list: 'l', recursive: 'r', verbose: 'v', force: 'f' },
+  gunzip: { keep: 'k', stdout: 'c', list: 'l', recursive: 'r', verbose: 'v', force: 'f' },
+  du: { summarize: 's', 'human-readable': 'h', all: 'a', total: 'c', 'max-depth': 'd' },
+  df: { 'human-readable': 'h', 'print-type': 'T' },
+  file: { brief: 'b', dereference: 'L' },
 };
+
+// tar's old form takes its letters without a dash: `tar czf a.tgz dir`.
+const dashless = record => record.name === 'tar' && record.args.length > 0 && !record.args[0].startsWith('-');
 
 function longOptions(record) {
   const end = record.args.indexOf('--');
@@ -56,9 +66,22 @@ function longOptions(record) {
     .filter(Boolean);
 }
 
-function shortOptions(args) {
+function shortOptions(record) {
+  const { args } = record;
   const end = args.indexOf('--');
-  return (end < 0 ? args : args.slice(0, end)).filter(a => /^-[^-]/.test(a));
+  const clusters = (end < 0 ? args : args.slice(0, end)).filter(a => /^-[^-]/.test(a));
+  return dashless(record) ? [`-${args[0]}`, ...clusters] : clusters;
+}
+
+// The members of the tar archive at a node, with each file's size in bytes.
+function membersOf(node) {
+  const members = node?.type === 'file' ? archiveMembers(node.content) : null;
+  return members && members.map(m => (m.type === 'file' ? { ...m, size: byteLength(m.content) } : { ...m, size: 0 }));
+}
+
+function gzippedText(node) {
+  const g = node?.type === 'file' && isGzip(node.content) ? gunzip(node.content) : null;
+  return g && !g.error ? g.text : null;
 }
 
 /**
@@ -109,7 +132,7 @@ function jobEnded(before, after, id) {
  */
 export function makeContext({ commands, before, obs, completions = [], line = '' }) {
   const { home } = obs;
-  const paths = record => operands(record.args).map(arg => resolvePath(arg, record.cwd, home));
+  const paths = record => operands(dashless(record) ? record.args.slice(1) : record.args).map(arg => resolvePath(arg, record.cwd, home));
   const ran = (name, pred = () => true) => commands.some(r => r.name === name && r.status === 0 && pred(r));
   const inputOf = record => record.redirects.find(x => x.op === '<')?.target ?? null;
   const stageBefore = record => commands.find(r => r.pipeline === record.pipeline && r.stage === record.stage - 1) ?? null;
@@ -143,6 +166,8 @@ export function makeContext({ commands, before, obs, completions = [], line = ''
       const node = nodeAt(obs.tree, path, { follow: false });
       return node?.type === 'symlink' ? node.target : null;
     },
+    archive: path => membersOf(nodeAt(obs.tree, path)),
+    gzipped: path => gzippedText(nodeAt(obs.tree, path)),
     proc: key => obs.procs.find(p => p.key === key) ?? null,
     jobs: obs.jobs ?? [],
     job: id => (obs.jobs ?? []).find(j => j.id === id) ?? null,
@@ -153,7 +178,7 @@ export function makeContext({ commands, before, obs, completions = [], line = ''
     },
     ran,
     tried: (name, pred = () => true) => commands.some(r => r.name === name && pred(r)),
-    flag: (record, letter) => shortOptions(record.args).some(o => o.slice(1).includes(letter)) || longOptions(record).includes(letter),
+    flag: (record, letter) => shortOptions(record).some(o => o.slice(1).includes(letter)) || longOptions(record).includes(letter),
     paths,
     hasPath,
     piped,

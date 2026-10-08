@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeContext } from '../../src/game/checks.js';
 import { HOME, observation, record } from '../helpers/records.js';
-import { symlink } from '../../src/backend/spec.js';
+import { symlink, file } from '../../src/backend/spec.js';
+import { packTar, gzip } from '../../src/backend/archive.js';
 
 const context = (commands, after = {}, before = {}) =>
   makeContext({ commands, before: observation(before), obs: observation(after) });
@@ -262,4 +263,64 @@ test('ended does not count a new job that took the number of an old one', () => 
   assert.equal(ctx.ended(1), true);
   const same = context([], { jobs: [job(1, 'running')] }, { jobs: [job(1, 'running')] });
   assert.equal(same.ended(1), false);
+});
+
+const archiveTree = () => {
+  const tree = observation().tree;
+  const meta = { mode: 0o644, owner: 'hero', group: 'hero', mtime: 0 };
+  const tar = packTar([
+    { path: 'camp/', type: 'dir', ...meta, mode: 0o755 },
+    { path: 'camp/notes.txt', type: 'file', ...meta, content: 'wood\n' },
+    { path: 'camp/way', type: 'symlink', ...meta, mode: 0o777, target: 'notes.txt' },
+  ]);
+  Object.assign(tree.children.home.children.hero.children, {
+    'camp.tar': file(tar, { owner: 'hero' }),
+    'camp.tgz': file(gzip(tar), { owner: 'hero' }),
+    'notes.txt.gz': file(gzip('wood\n', { name: 'notes.txt' }), { owner: 'hero' }),
+    'link.tgz': symlink('camp.tgz', { owner: 'hero' }),
+  });
+  return tree;
+};
+
+test('archive lists the members of a tar archive, compressed or not, as tar -t names them', () => {
+  const ctx = context([], { tree: archiveTree() });
+  const members = ctx.archive(`${HOME}/camp.tgz`);
+  assert.deepEqual(members.map(m => [m.path, m.type]), [['camp/', 'dir'], ['camp/notes.txt', 'file'], ['camp/way', 'symlink']]);
+  assert.deepEqual([members[1].content, members[1].size, members[1].mode, members[2].target], ['wood\n', 5, 0o644, 'notes.txt']);
+  assert.deepEqual(ctx.archive(`${HOME}/camp.tar`), members);
+  assert.deepEqual(ctx.archive(`${HOME}/link.tgz`), members);
+});
+
+test('archive gives null for a file that is not a tar archive and for a missing path', () => {
+  const ctx = context([], { tree: archiveTree() });
+  assert.equal(ctx.archive(`${HOME}/readme.txt`), null);
+  assert.equal(ctx.archive(`${HOME}/notes.txt.gz`), null);
+  assert.equal(ctx.archive(`${HOME}/forest`), null);
+  assert.equal(ctx.archive(`${HOME}/nothing.tar`), null);
+});
+
+test('gzipped gives the original text of gzip data, and null for anything else', () => {
+  const ctx = context([], { tree: archiveTree() });
+  assert.equal(ctx.gzipped(`${HOME}/notes.txt.gz`), 'wood\n');
+  assert.equal(ctx.gzipped(`${HOME}/readme.txt`), null);
+  assert.equal(ctx.gzipped(`${HOME}/nothing.gz`), null);
+  assert.equal(typeof ctx.gzipped(`${HOME}/camp.tgz`), 'string');
+});
+
+test('flag reads tar\'s letters with or without a dash, and the long options of the archive commands', () => {
+  const ctx = context([]);
+  assert.equal(ctx.flag(record('tar', ['czf', 'a.tgz', 'box']), 'z'), true);
+  assert.equal(ctx.flag(record('tar', ['czf', 'a.tgz', 'box']), 'x'), false);
+  assert.equal(ctx.flag(record('tar', ['-xvzf', 'a.tgz']), 'x'), true);
+  assert.equal(ctx.flag(record('tar', ['--extract', '--gzip', '--file=a.tgz']), 'z'), true);
+  assert.equal(ctx.flag(record('tar', ['--list', '--file', 'a.tgz']), 't'), true);
+  assert.equal(ctx.flag(record('gzip', ['--keep', 'a']), 'k'), true);
+  assert.equal(ctx.flag(record('du', ['--summarize', '--human-readable', 'd']), 's'), true);
+  assert.equal(ctx.flag(record('df', ['--human-readable']), 'h'), true);
+});
+
+test('paths leaves out tar\'s dashless letters', () => {
+  const ctx = context([]);
+  assert.deepEqual(ctx.paths(record('tar', ['czf', 'camp.tgz', 'camp'])), [`${HOME}/camp.tgz`, `${HOME}/camp`]);
+  assert.deepEqual(ctx.paths(record('tar', ['-czf', 'camp.tgz', 'camp'])), [`${HOME}/camp.tgz`, `${HOME}/camp`]);
 });

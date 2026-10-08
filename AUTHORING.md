@@ -78,6 +78,15 @@ The check context `ctx` (implemented in `src/game/checks.js`) sees only the port
   file (hard links) when their numbers are equal: `ctx.inode(a) === ctx.inode(b) && ctx.inode(a) !== null`.
 - `ctx.linkTarget(absPath)`: the target text of the symbolic link at that path, exactly as created
   (`'/home/hero/forest/cave/deep'`, `'../scroll.txt'`), or `null` if the path is not a link.
+- `ctx.archive(absPath)`: the members of the tar archive at that path (links followed; plain or gzip,
+  however it is named), in archive order, or `null` when the path is missing or not a tar archive.
+  Each member is `{ path, type, mode, owner, group, mtime, size }` plus `content` (a file) or `target`
+  (a link); `path` is the name exactly as `tar -t` lists it, so a directory ends with a slash
+  (`'camp/'`, `'camp/notes.txt'`). "the archive holds the notes" is
+  `ctx.archive(`${ctx.home}/camp.tgz`)?.some(m => m.path === 'camp/notes.txt') ?? false`.
+  A member keeps the owner and mode it had when stored; `tar -x` by the player makes the files theirs.
+- `ctx.gzipped(absPath)`: the original text of the gzip data at that path (`gzip FILE`, `tar -czf`),
+  or `null` if it is not gzip data. A `.tar.gz` gives the tar archive's text: use `ctx.archive` for it.
 - `ctx.ran(name, pred?)`: a command with that name exited 0 (and `pred(record)` holds).
   Every record has `user`, the user it ran as. `sudo chown mira f` gives two records: `sudo`
   (`user: 'hero'`, `asUser: 'root'`, the target even when sudo refused) and, if sudo ran it, `chown`
@@ -100,9 +109,11 @@ The check context `ctx` (implemented in `src/game/checks.js`) sees only the port
 - `ctx.onScreen(record)`: the record's output reached the screen: last stage of its pipeline, stdout not redirected.
 - `ctx.shown(absPath)`: like `ctx.read`, but the text reached the screen: the reader was the last stage and was not redirected into a file. Use it for notes like "cat prints the whole file".
 - `ctx.flag(record, letter)`: a short option letter, or the long option players type for it (`--all`, `--recursive`, `--lines=3`...).
+  tar's letters count with or without a dash: `tar czf a.tgz dir` and `tar --create --gzip --file=a.tgz dir`
+  both have `c`, `z` and `f`.
 - `ctx.piped(record)`: the absolute paths a plain `cat` (no options) piped straight into this stage, e.g. `cat a.txt | sort` gives sort `[a.txt]`; `[]` otherwise. Accept `cat file | cmd` wherever `cmd file` is accepted.
 - `ctx.read(absPath)`: a reading command (cat, less, more, head, tail) succeeded on that file.
-- `ctx.paths(record)`: its non-option arguments as absolute paths.
+- `ctx.paths(record)`: its non-option arguments as absolute paths (for `tar czf a.tgz dir`, the archive and `dir`).
 - `ctx.line`: the line's text as typed. Judge records and state first; use the text only for what
   leaves no record, like a variable assignment (`wish=gold`) or which `$` name was expanded.
 - `ctx.completions`: the Tab presses since the previous line, `[{ line, completed }]`. They come
