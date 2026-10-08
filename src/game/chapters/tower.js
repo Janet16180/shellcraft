@@ -51,8 +51,8 @@ const tildeOf = (path, home) => (isInside(path, home) ? `~${path.slice(home.leng
 
 // grep's first operand is its pattern, unless the pattern came with -e.
 const grepFiles = record => {
-  const all = operands(record.args);
-  return record.args.includes('-e') ? all : all.slice(1);
+  const at = record.args.findIndex(arg => arg === '-e' || arg === '--regexp');
+  return at < 0 ? operands(record.args).slice(1) : operands(record.args.filter((_, i) => i !== at + 1));
 };
 const grepPaths = (ctx, record) => grepFiles(record).map(arg => resolvePath(arg, record.cwd, ctx.home));
 // grep -r with no file searches the directory it ran in.
@@ -72,7 +72,11 @@ const grepShows = (ctx, path, word, wanted, pred = () => true) => ctx.ran('grep'
 function findShows(ctx, ext, names) {
   return ctx.ran('find', record => {
     const lines = outLines(record);
-    return ctx.hasPath(record, towerOf(ctx)) && lines.every(line => line.endsWith(ext))
+    // find's starting points come before its first test (-name ...); with none it starts at .
+    const end = record.args.findIndex(arg => arg.startsWith('-') || arg === '(' || arg === '!');
+    const roots = (end < 0 ? record.args : record.args.slice(0, end)).map(arg => resolvePath(arg, record.cwd, ctx.home));
+    const where = roots.length > 0 ? roots : [record.cwd];
+    return where.includes(towerOf(ctx)) && lines.length > 0 && lines.every(line => line.endsWith(ext))
       && names.every(name => lines.some(line => line.endsWith(`/${name}`)));
   });
 }

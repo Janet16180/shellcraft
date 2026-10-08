@@ -37,6 +37,14 @@ const TASKS = [
   ['awakening', 2, [], 'ls -d', false, /-d/],
   ['awakening', 3, [], 'cat --help', false, null],
   ['awakening', 3, [], 'whoami | cat', false, null],
+  ['forest', 3, ['cd forest/cave/deep'], 'cd ./..', true],
+  ['forest', 3, ['cd forest/cave/deep'], 'cd -- ..', true],
+  ['descent', 2, [], 'grep "^hero" /etc/passwd', true],
+  ['descent', 2, [], 'grep hero: /etc/passwd', true],
+  ['descent', 2, [], 'grep o /etc/passwd', false],
+  ['tower', 4, ['cd tower'], 'find -name "*.gem"', true],
+  ['tower', 3, [], 'grep -r -e gold tower', true],
+  ['tower', 3, ['cd tower'], 'grep -r -e gold', true],
 ];
 
 for (const [id, index, prefix, line, done, note] of TASKS) {
@@ -53,6 +61,9 @@ for (const [id, index, prefix, line, done, note] of TASKS) {
 
 // [chapter, seed, lines typed before (functions of the secret), the line, done?, expected note]
 const BOSSES = [
+  ['forest', 1, [({ target }) => `cd ${target}`, () => 'cd ..'], () => 'cd', false, /not straight from the lantern/],
+  ['library', 1, [], ({ tome }) => `tail ${tome} | tail -n 1`, true],
+  ['descent', 1, [() => 'cd /usr/local/bin'], ({ name }) => `./${name}`, false, /type only its name, from anywhere/],
   ['camp', 1, [() => 'mkdir camp/firepit'], ({ flint }) => `mv ${flint} camp/firepit/stone.txt`, false, /name/],
   ['camp', 1, [], ({ flint }) => `mv ${flint} camp/firepit`, false, /no firepit directory/],
 ];

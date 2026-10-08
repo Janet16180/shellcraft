@@ -94,14 +94,19 @@ function setupBoss(random, player) {
 
 function bossDone(ctx, { tome }) {
   const text = contentOf(ctx, tome);
-  return text !== null && printed(ctx, 'tail', tome, lastLines(text, 1));
+  if (text === null) return false;
+  const last = lastLines(text, 1);
+  // tail TOME | tail -n 1 works too: a last tail prints the line, and the pipeline began by reading the tome.
+  const tailedPipe = ctx.ran('tail', r => r.stage > 0 && r.stage === r.stages - 1 && r.stdout === last
+    && ctx.commands.some(first => first.pipeline === r.pipeline && first.stage === 0 && readsFile(ctx, first, tome)));
+  return printed(ctx, 'tail', tome, last) || tailedPipe;
 }
 
 function bossNear(ctx, { tome }) {
   let note = null;
   if (catted(ctx, tome)) note = 'The tome is far too long for cat: tail -n 1 prints only its last line.';
   else if (reading(ctx, 'head', tome)) note = 'head prints the beginning of the tome, but the password is in its last line: use tail -n 1.';
-  else if (reading(ctx, 'tail', tome) && !bossDone(ctx, { tome })) note = 'That did not print just the last line: give tail the option -n 1.';
+  else if (reading(ctx, 'tail', tome) && !bossDone(ctx, { tome }) && !ctx.commands.some(r => r.stage > 0)) note = 'That did not print just the last line: give tail the option -n 1.';
   return note;
 }
 

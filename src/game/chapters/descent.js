@@ -62,9 +62,14 @@ function setupBoss(random, { home, host = 'kernelia' }) {
 }
 
 const ranByName = (ctx, name) => ctx.ran(name);
+const onlyHero = (ctx, record) => {
+  const lines = record.stdout.split('\n').filter(Boolean);
+  return lines.length > 0 && lines.every(line => line.startsWith(`${ctx.home.split('/').pop()}:`));
+};
 
 function bossNear(ctx, { name, command }) {
   return ranByName(ctx, name) ? null : firstNote([
+    [() => ctx.tried(`./${name}`), `./${name} runs it from the directory you stand in. Since ${LOCAL_BIN} is in $PATH, type only its name, from anywhere: ${name}.`],
     [() => ctx.ran(command), `That ran it by its full path. Since ${LOCAL_BIN} is in $PATH, type only its name: ${name}.`],
     [() => ctx.ran('which', record => record.args.includes(name)), `which found it in ${LOCAL_BIN}, a directory in $PATH. Now type only its name to run it.`],
     [() => ctx.commands.some(record => record.status === 127 && !record.name.includes('/')), `bash found no command by that name. The last line of ${LOG} names the new command.`],
@@ -136,7 +141,8 @@ export default {
         'Search the file with `grep`, for your user name `hero`.',
         'grep hero /etc/passwd',
       ],
-      done: ctx => ctx.ran('grep', record => record.args.includes('hero') && (ctx.hasPath(record, PASSWD) || ctx.piped(record).includes(PASSWD))),
+      // Any pattern that picks only your line: hero, ^hero, hero: and so on.
+      done: ctx => ctx.ran('grep', record => ctx.hasPath(record, PASSWD) && onlyHero(ctx, record)),
       near: ctx => (ctx.shown(PASSWD) ? 'That printed every account. grep hero /etc/passwd prints only yours.' : null),
     },
     {
