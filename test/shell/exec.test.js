@@ -282,3 +282,22 @@ test('a script does not see the aliases of the shell that runs it', async () => 
   const b = await shell([put('/home/hero/s.sh', file('ll\n', { owner: 'hero', mode: 0o755 }))]);
   assert.equal((await run(b, "alias ll='ls -l'; ./s.sh")).err, './s.sh: line 1: ll: command not found\n');
 });
+
+const ORDER_CASES = [
+  ['cat a nope b', ['out', 'A\n'], ['err', 'cat: nope: No such file or directory\n'], ['out', 'B\n']],
+  ['cat -n a d b', ['out', '     1\tA\n'], ['err', 'cat: d: Is a directory\n'], ['out', '     2\tB\n']],
+  ['head a nope b', ['out', '==> a <==\nA\n'], ['err', "head: cannot open 'nope' for reading: No such file or directory\n"], ['out', '\n==> b <==\nB\n']],
+  ['tail -q a nope b', ['out', 'A\n'], ['err', "tail: cannot open 'nope' for reading: No such file or directory\n"], ['out', 'B\n']],
+  ['wc a nope b', ['out', '1 1 2 a\n'], ['err', 'wc: nope: No such file or directory\n'], ['out', '1 1 2 b\n2 2 4 total\n']],
+  ['grep . a nope b', ['out', 'a:A\n'], ['err', 'grep: nope: No such file or directory\n'], ['out', 'b:B\n']],
+  ['ls a nope b', ['err', "ls: cannot access 'nope': No such file or directory\n"], ['out', 'a  b\n']],
+];
+
+test('a command with several files writes its output and errors in the order it met them', async () => {
+  const b = await shell();
+  await run(b, 'echo A > a; echo B > b; mkdir d');
+  for (const [line, ...want] of ORDER_CASES) {
+    const got = (await b.run(line)).output.filter(c => c.stream !== 'note').map(c => [c.stream, c.text]);
+    assert.deepEqual(got, want, line);
+  }
+});

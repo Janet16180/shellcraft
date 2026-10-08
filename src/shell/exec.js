@@ -294,6 +294,26 @@ function noteCommand(sh, argv, r, where) {
   if (sh.background) sh.background.argv ??= argv;
 }
 
+// A result's chunks count only while they still are its text (a wrapper may have changed out or err).
+function inOrder(r, err) {
+  if (!r.chunks) return false;
+  const text = stream => r.chunks.filter(c => c.stream === stream).map(c => c.text).join('');
+  return text('out') === r.out && text('err') === err;
+}
+
+// Errors before output, unless the result says in which order it wrote them.
+function deliver(sh, sink, r, targets, line) {
+  const err = withNewline(r.err);
+  if (inOrder(r, err)) {
+    for (const c of r.chunks) {
+      if (c.stream === 'out') route(sh, sink, targets.out, c.text, r.html === null ? null : c.html);
+      else route(sh, sink, targets.err, shellMessage(sh, c.text, line), null);
+    }
+  } else route(sh, sink, targets.err, r.child ? err : shellMessage(sh, err, line), null);
+  if (r.note) sink.note(r.note);
+  if (!inOrder(r, err)) route(sh, sink, targets.out, r.out, r.html);
+}
+
 function runCommand(sh, cmd, stdin, place, sink) {
   const { sys } = sh;
   const { cwd, user } = sys;
@@ -306,10 +326,7 @@ function runCommand(sh, cmd, stdin, place, sink) {
     r = result('', '', substitutionStatus ?? 0);
   }
   else r = dispatch(sh, argv, streams, Object.fromEntries(values));
-  const err = withNewline(r.err);
-  route(sh, sink, opened.error ? base.err : streams.err, r.child ? err : shellMessage(sh, err, cmd.line), null);
-  if (r.note) sink.note(r.note);
-  route(sh, sink, streams.out, r.out, r.html);
+  deliver(sh, sink, r, { out: streams.out, err: opened.error ? base.err : streams.err }, cmd.line);
   const ran = argv.length > 0 && !opened.error;
   if (ran) noteCommand(sh, argv, r, { cwd, user, place, redirects: opened.records });
   return { status: r.status, piped: streams.out.kind === 'pipe' ? streams.out.buffer : '', abort: abort || Boolean(r.abort), external: ran && !BUILTINS.has(argv[0]) };

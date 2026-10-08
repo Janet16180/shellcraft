@@ -10,7 +10,7 @@ import { compareNames, baseName } from '../../backend/tree.js';
 import { can, canChangeEntries, canUnlink, canChmod, newMeta } from '../perms.js';
 import { parseOptions, mapLongOptions, optionFailure } from '../options.js';
 import { shellQuote, localeQuote } from '../quote.js';
-import { result, withNote, needInput } from '../result.js';
+import { result, withNote, needInput, ordered } from '../result.js';
 import { openInput, reason } from './text.js';
 
 const tryHelp = name => `Try '${name} --help' for more information.`;
@@ -34,18 +34,23 @@ function cat(args, { sys, stdin }) {
   const failed = optionFailure('cat', o, 1);
   if (failed) return failed;
   if (!o.rest.length && stdin == null) return needInput('cat');
-  const errs = [];
-  let text = '';
+  const chunks = [];
+  const lines = { n: 0, start: true };
   for (const f of o.rest.length ? o.rest : ['-']) {
     const input = openInput(sys, f, stdin);
-    if (input.code) errs.push(`cat: ${shellQuote(f)}: ${reason(input.code)}`);
-    else text += input.content;
+    if (input.code) chunks.push({ stream: 'err', text: `cat: ${shellQuote(f)}: ${reason(input.code)}\n` });
+    else chunks.push({ stream: 'out', text: o.flags.has('n') ? numbered(input.content, lines) : input.content });
   }
-  if (o.flags.has('n')) {
-    let n = 0;
-    text = text.split(/(?<=\n)/).filter(Boolean).map(l => `${String(++n).padStart(6)}\t${l}`).join('');
-  }
-  return errResult(text, errs);
+  return ordered(chunks, chunks.some(c => c.stream === 'err') ? 1 : 0);
+}
+
+// cat -n counts on across files; a file that ends mid-line continues that line.
+function numbered(text, lines) {
+  return text.split(/(?<=\n)/).filter(Boolean).map(l => {
+    const shown = lines.start ? `${String(++lines.n).padStart(6)}\t${l}` : l;
+    lines.start = l.endsWith('\n');
+    return shown;
+  }).join('');
 }
 
 // less names a file it cannot open in its own words and fails only when it

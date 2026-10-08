@@ -8,7 +8,7 @@ import { compareNames } from '../../backend/tree.js';
 import { can } from '../perms.js';
 import { parseOptions, mapLongOptions, optionFailure } from '../options.js';
 import { shellQuote, localeQuote } from '../quote.js';
-import { result, withNote, needInput } from '../result.js';
+import { result, withNote, needInput, ordered } from '../result.js';
 import { writeFile } from '../redirect.js';
 
 /**
@@ -77,9 +77,9 @@ function readError(which, f, code) {
 
 function readPart(which, f, a, { sys, stdin }, state) {
   const { content, code } = openInput(sys, f, stdin);
-  if (code) state.errs.push(readError(which, f, code));
-  if (state.headers && (!code || code === 'EISDIR')) state.out += `${state.printed++ ? '\n' : ''}==> ${f === '-' ? 'standard input' : f} <==\n`;
-  if (!code) state.out += selectPart(which, content, a);
+  const header = state.headers && (!code || code === 'EISDIR') ? `${state.printed++ ? '\n' : ''}==> ${f === '-' ? 'standard input' : f} <==\n` : '';
+  if (code) state.chunks.push({ stream: 'out', text: header }, { stream: 'err', text: `${readError(which, f, code)}\n` });
+  else state.chunks.push({ stream: 'out', text: header + selectPart(which, content, a) });
 }
 
 function headTail(which, args, ctx) {
@@ -88,9 +88,9 @@ function headTail(which, args, ctx) {
   if (a.error) return result('', a.error, 1);
   if (!a.o.rest.length && ctx.stdin == null) return needInput(which);
   const files = a.o.rest.length ? a.o.rest : ['-'];
-  const state = { out: '', errs: [], printed: 0, headers: (files.length > 1 && !a.o.flags.has('q')) || a.o.flags.has('v') };
+  const state = { chunks: [], printed: 0, headers: (files.length > 1 && !a.o.flags.has('q')) || a.o.flags.has('v') };
   for (const f of files) readPart(which, f, a, ctx, state);
-  const r = result(state.out, state.errs.join('\n'), state.errs.length ? 1 : 0);
+  const r = ordered(state.chunks, state.chunks.some(c => c.stream === 'err') ? 1 : 0);
   return a.follow ? withNote(r, 'tail -f would keep running and print new lines as the file grows (Ctrl+C stops it). Here it prints once.') : r;
 }
 
@@ -113,16 +113,20 @@ function wcWidth(inputs, fields) {
   return inputs.length === 1 && fields.length === 1 ? 1 : Math.max(irregular ? 7 : 1, String(total).length);
 }
 
+// wc names a file it cannot read where it meets it; a directory still gets a row of zeros.
 function wcRows(inputs, fields, width, labelled) {
   const row = (counts, label) => `${fields.map(k => String(counts[k]).padStart(width)).join(' ')}${label}\n`;
   const total = { l: 0, w: 0, m: 0, c: 0, L: 0 };
-  let out = '';
-  for (const input of inputs.filter(i => !i.code || i.code === 'EISDIR')) {
+  const chunks = [];
+  for (const input of inputs) {
+    if (input.code) chunks.push({ stream: 'err', text: `wc: ${shellQuote(input.name)}: ${reason(input.code)}\n` });
+    if (input.code && input.code !== 'EISDIR') continue;
     const counts = wcCounts(input.content ?? '');
     for (const k of WC_FIELDS) total[k] = k === 'L' ? Math.max(total.L, counts.L) : total[k] + counts[k];
-    out += row(counts, labelled ? ` ${input.name}` : '');
+    chunks.push({ stream: 'out', text: row(counts, labelled ? ` ${input.name}` : '') });
   }
-  return inputs.length > 1 ? out + row(total, ' total') : out;
+  if (inputs.length > 1) chunks.push({ stream: 'out', text: row(total, ' total') });
+  return chunks;
 }
 
 const WC_LONG = { '--lines': 'l', '--words': 'w', '--bytes': 'c', '--chars': 'm', '--max-line-length': 'L' };
@@ -136,9 +140,8 @@ function wc(args, { sys, stdin }) {
   const chosen = WC_FIELDS.filter(k => o.flags.has(k));
   const fields = chosen.length ? chosen : ['l', 'w', 'c'];
   const inputs = (o.rest.length ? o.rest : ['-']).map(name => ({ name, ...openInput(sys, name, stdin) }));
-  const errs = inputs.filter(i => i.code).map(i => `wc: ${shellQuote(i.name)}: ${reason(i.code)}`);
-  const out = wcRows(inputs, fields, wcWidth(inputs, fields), o.rest.length > 0);
-  return result(out, errs.join('\n'), errs.length ? 1 : 0);
+  const chunks = wcRows(inputs, fields, wcWidth(inputs, fields), o.rest.length > 0);
+  return ordered(chunks, inputs.some(i => i.code) ? 1 : 0);
 }
 
 function readLines(sys, name, files, stdin, separator) {
