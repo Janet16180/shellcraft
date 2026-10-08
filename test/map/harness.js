@@ -112,6 +112,20 @@ const crowd = [...impsAndStubborn, imp(4242, './shadow_daemon', 'daemon', 99.7),
 
 const daemon = [{ pid: 4242, ppid: 1, user: 'hero', tty: '?', stat: 'R', cpu: 99.7, mem: 12.4, cmd: './shadow_daemon', key: 'daemon' }];
 
+// Chapter 20: the busy workshop, with a few rooms and blades, and the player's forge jobs.
+const workshop = (doors, withJobs = false) => {
+  const tree = busyTree();
+  const mine = { owner: 'hero' };
+  const rooms = Object.fromEntries(['forge', 'store', 'yard', 'loft', 'cellar', 'kiln', 'shed', 'mill', 'well'].slice(0, doors).map(name => [name, dir({}, mine)]));
+  tree.children.home.children.hero.children.workshop = dir({ ...rooms, 'blade.txt': file('', mine), 'order.txt': file('', mine), 'temper.sh': file('', { ...mine, mode: 0o755 }) }, mine);
+  const jobs = withJobs ? [{ id: 1, pid: 4301, cmd: 'sleep 600', state: 'running', mark: '-' }, { id: 2, pid: 4302, cmd: 'sleep 300', state: 'stopped', mark: '+' }] : [];
+  return { obs: observe('/home/hero/workshop', { tree, jobs }) };
+};
+
+const job = (id, state, cmd) => ({ id, pid: 4240 + id, cmd, state, mark: ' ' });
+const jobs = [job(1, 'running', 'sleep 30'), job(2, 'stopped', 'sleep 100'), job(3, 'running', 'sleep 600')];
+const manyJobs = [...jobs, job(4, 'running', 'sleep 9'), job(5, 'stopped', 'sleep 8')];
+
 const CASES = {
   cottage: () => ({ obs: observe('/home/hero', { tree: busyTree() }) }),
   forest: () => ({ obs: observe('/home/hero/forest') }),
@@ -128,6 +142,9 @@ const CASES = {
   den: () => ({ obs: observe('/home/hero/den', { tree: actTwoTree() }), procs: impsAndStubborn }),
   disguised: () => ({ obs: observe('/home/hero/den', { tree: actTwoTree() }), procs: disguised }),
   crowd: () => ({ obs: observe('/home/hero', { tree: busyTree() }), procs: crowd }),
+  jobs: () => ({ obs: observe('/home/hero', { tree: busyTree(), jobs }) }),
+  'jobs-dungeon': () => ({ obs: observe('/usr/bin', { tree: busyTree(), jobs: manyJobs }) }),
+  'jobs-den': () => ({ obs: observe('/home/hero/den', { tree: actTwoTree(), jobs: jobs.slice(0, 2) }), procs: impsAndStubborn }),
   forge: () => ({ obs: observe('/home/hero/forge', { tree: actTwoTree() }) }),
   ore: () => ({ obs: observe('/home/hero/forge/ore', { tree: actTwoTree() }) }),
   guild: () => ({ obs: observe('/usr/local/bin', { tree: actTwoTree() }) }),
@@ -142,6 +159,8 @@ const CASES = {
   maze: () => links('/home/hero/maze'),
   vaults: () => links('/home/hero/maze/vaults'),
   study: () => links('/home/hero/memory'),
+  smithy: () => workshop(1),
+  'smithy-busy': () => workshop(9, true),
   mill: () => crown('/srv/mill'),
   bakery: () => crown('/srv/bakery'),
   stables: () => crown('/srv/stables'),

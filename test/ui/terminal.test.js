@@ -41,7 +41,7 @@ function page() {
   globalThis.getComputedStyle = () => ({ paddingLeft: '0', paddingRight: '0' });
   globalThis.requestAnimationFrame = fn => fn();
   globalThis.getSelection = () => ({ toString: () => '' });
-  const parts = Object.fromEntries(['out', 'screen', 'cmd', 'prompt', 'termTitle', 'keys', 'searchTail'].map(id => [id, element()]));
+  const parts = Object.fromEntries(['out', 'screen', 'cmd', 'prompt', 'termTitle', 'keys', 'searchTail', 'busy', 'runNote'].map(id => [id, element()]));
   parts.cmd.setAttribute('aria-label', 'Type a command and press Enter');
   const root = { querySelector: selector => parts[selector.slice(1)] };
   const sent = { lines: [], answers: [], completions: [] };
@@ -337,4 +337,50 @@ test('Ctrl+L clears the screen and keeps the line being typed', () => {
   key('l', { ctrlKey: true });
   assert.equal(parts.out.children.length, 0);
   assert.equal(parts.cmd.value, 'ls');
+});
+
+test('Ctrl+Z at the prompt does nothing, as in bash: the line stays and the browser does not undo it', () => {
+  const { parts, key } = page();
+  parts.cmd.value = 'sleep 5';
+  let prevented = false;
+  key('z', { ctrlKey: true, preventDefault: () => { prevented = true; } });
+  assert.equal(prevented, true);
+  assert.equal(parts.cmd.value, 'sleep 5');
+});
+
+test('the Ctrl+Z and Ctrl+R touch keys type nothing when no command runs: not at the prompt, a password prompt or a search', async () => {
+  const { terminal, parts, sent, key, settle } = page();
+  parts.cmd.value = 'ls';
+  touch(parts, 'C-z');
+  assert.equal(parts.cmd.value, 'ls');
+  parts.cmd.value = '';
+  touch(parts, 'C-r');
+  touch(parts, 'C-z');
+  assert.equal(parts.cmd.value, '');
+  key('Escape');
+  terminal.ask(ASK);
+  touch(parts, 'C-z');
+  touch(parts, 'C-r');
+  touch(parts, 'Enter');
+  await settle();
+  assert.deepEqual(sent.answers, ['']);
+});
+
+test('when a command starts or ends running the screen keeps its last line in view, though the task strip grew or shrank', () => {
+  const { terminal, parts } = page();
+  parts.screen.scrollHeight = 900;
+  parts.screen.scrollTop = 500;
+  terminal.running(true);
+  assert.equal(parts.screen.scrollTop, 900);
+  parts.screen.scrollHeight = 950;
+  terminal.running(false);
+  assert.equal(parts.screen.scrollTop, 950);
+});
+
+test('saying the terminal is not running when it was not leaves the scrollback where the player put it', () => {
+  const { terminal, parts } = page();
+  parts.screen.scrollHeight = 900;
+  parts.screen.scrollTop = 200;
+  terminal.running(false);
+  assert.equal(parts.screen.scrollTop, 200);
 });

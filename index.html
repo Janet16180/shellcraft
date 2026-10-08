@@ -66,10 +66,11 @@
     <section class="term window" id="term" aria-label="Terminal">
       <div class="termbar" aria-hidden="true"><i></i><i></i><i></i><span id="termTitle">hero@kernelia: ~</span></div>
       <p class="task-strip" id="now"></p>
+      <p class="task-strip run-note" id="runNote" hidden></p>
       <div class="screen" id="screen">
         <div id="out" role="log" aria-live="polite" aria-label="Terminal output"></div>
-        <div class="inputline"><span id="prompt"></span><input id="cmd" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Type a command and press Enter" aria-describedby="cmdHelp"><span id="searchTail" aria-live="polite" hidden></span></div>
-        <p class="sr-only" id="cmdHelp">Tab completes names. Up and Down bring back earlier lines, and Ctrl+R searches them. Press Escape, then Tab, to move out of the terminal.</p>
+        <div class="inputline"><span id="prompt"></span><span class="busy" id="busy" aria-hidden="true" hidden><i></i><i></i><i></i></span><input id="cmd" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Type a command and press Enter" aria-describedby="cmdHelp"><span id="searchTail" aria-live="polite" hidden></span></div>
+        <p class="sr-only" id="cmdHelp">Tab completes names. Up and Down bring back earlier lines, and Ctrl+R searches them. While a command runs, Ctrl+C stops it and Ctrl+Z pauses it. Press Escape, then Tab, to move out of the terminal.</p>
       </div>
       <div class="keys" id="keys" aria-label="Terminal keys">
         <button class="px-btn small" type="button" data-k="Tab">Tab</button>
@@ -81,7 +82,8 @@
         <button class="px-btn small" type="button" data-k="|">|</button>
         <button class="px-btn small" type="button" data-k="&gt;">&gt;</button>
         <button class="px-btn small" type="button" data-k="C-r" aria-label="Search earlier commands, Ctrl+R">Ctrl+R</button>
-        <button class="px-btn small" type="button" data-k="C-c">Ctrl+C</button>
+        <button class="px-btn small" type="button" data-k="C-c" aria-label="Ctrl+C, stop the line or the running command">Ctrl+C</button>
+        <button class="px-btn small" type="button" data-k="C-z" aria-label="Ctrl+Z, pause the running command">Ctrl+Z</button>
         <button class="px-btn small primary" type="button" data-k="Enter">Enter</button>
       </div>
     </section>

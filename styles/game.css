@@ -1117,6 +1117,18 @@ kbd {
   color: var(--muted);
 }
 
+/* While a command runs: one quiet line under the task, in the terminal's own colours. */
+.task-strip.run-note {
+  padding-block: 4px;
+  font-size: var(--size-small);
+  color: var(--muted);
+  background: rgba(111, 168, 255, 0.07);
+}
+
+.run-note kbd {
+  font-size: 12px;
+}
+
 .screen {
   flex: 1;
   tab-size: 8;
@@ -1152,6 +1164,11 @@ kbd {
 
 .ln.sys {
   color: var(--muted);
+}
+
+/* bash's job notices ([1] 2437, [1]+  Done ...) go to standard error but are news, not errors. */
+.ln.job {
+  color: var(--term-sep);
 }
 
 .ln.chapter {
@@ -1240,6 +1257,35 @@ kbd {
   caret-color: var(--accent);
 }
 
+/* While a command runs the prompt hides; three dots pulse in its place, like a terminal at work. */
+.busy {
+  display: inline-flex;
+  gap: 4px;
+  align-self: center;
+  margin-right: 10px;
+}
+
+.busy i {
+  width: 6px;
+  height: 6px;
+  background: var(--muted);
+  opacity: 0.8;
+  animation: busy 1.2s steps(1) infinite;
+}
+
+.busy i:nth-child(2) {
+  animation-delay: 0.4s;
+}
+
+.busy i:nth-child(3) {
+  animation-delay: 0.8s;
+}
+
+@keyframes busy {
+  0% { opacity: 1; }
+  33% { opacity: 0.25; }
+}
+
 /* Ctrl+R: the input holds only the search string and grows with it, so the match
    follows it as in bash's (reverse-i-search)`TEXT': MATCH. */
 .inputline input.searching {
@@ -1279,14 +1325,19 @@ kbd {
   }
 }
 
-/* Eleven keys in two rows on a 360px phone. */
+/* Twelve keys in two rows on a 360px phone. */
 @media (max-width: 400px) {
   .keys {
-    gap: 8px;
+    gap: 6px;
+    padding-inline: 10px;
+  }
+
+  .keys button {
+    min-width: 34px;
   }
 
   .keys .px-btn {
-    padding-inline: 8px;
+    padding-inline: 6px;
   }
 
   .keys .px-btn::before {

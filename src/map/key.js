@@ -7,8 +7,9 @@
 import * as overworld from './overworld.js';
 import * as dungeon from './dungeon.js';
 import { drawItem, drawPlayer, padlockDoor, darkDoor } from './things.js';
-import { makeCanvas } from './paint.js';
+import { makeCanvas, drawSprite } from './paint.js';
 import { drawCreature } from './creatureart.js';
+import { JOB_SPRITES } from './jobart.js';
 import { joinPath } from '../backend/tree.js';
 import { PLAYER } from '../backend/player.js';
 
@@ -54,6 +55,7 @@ const KEYS = {
   imp: { w: 26, h: 28, paint: ctx => drawCreature(ctx, { kind: 'imp', x: 13, y: 12 }, false) },
   'armoured-imp': { w: 30, h: 30, paint: ctx => drawCreature(ctx, { kind: 'armoured', x: 15, y: 14 }, false) },
   daemon: { w: 26, h: 30, paint: ctx => drawCreature(ctx, { kind: 'daemon', x: 13, y: 13 }, false) },
+  job: { w: 28, h: 24, paint: ctx => drawSprite(ctx, JOB_SPRITES.down, 2, 2, { scale: 2 }) },
 };
 
 /** The kinds drawKey knows, in a sensible legend order. */
@@ -66,7 +68,8 @@ export const KEY_KINDS = Object.keys(KEYS);
  * home, into the dungeon), item (a file), chained (a file you may not read),
  * runnable (a file you may run), twins (two names of one file, hard links, sharing a rune), hidden (a dotfile), dungeon-door (a directory
  * outside your home), home-door (the door back into your home, from /home), imp (a
- * process), armoured-imp (a process that ignores a polite kill), daemon (the Shadow Daemon).
+ * process), armoured-imp (a process that ignores a polite kill), daemon (the Shadow Daemon), job (one of the
+ * player's jobs, a worker with a hammer).
  *
  * @param {HTMLCanvasElement} canvas The canvas to paint on; its pixel size is used as is.
  * @param {string} kind One of KEY_KINDS.

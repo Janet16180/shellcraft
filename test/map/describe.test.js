@@ -86,3 +86,11 @@ test('links say where they lead, a dangling one that it leads nowhere, and a lin
   assert.match(home, /broken -> nowhere \(a broken link: it leads nowhere\)/);
   assert.match(describeRoom(observe('/home/hero/portal', { tree })), /\/home\/hero\/portal, Dark Cave/);
 });
+
+test('the player\'s jobs are described in every room, after what is in it', () => {
+  const jobs = [{ id: 1, pid: 4242, cmd: 'sleep 30', state: 'running', mark: '-' }, { id: 2, pid: 4243, cmd: 'sleep 100', state: 'stopped', mark: '+' }];
+  for (const cwd of ['/home/hero/forest', '/etc']) {
+    assert.match(describeRoom(observe(cwd, { jobs })), /\. Your jobs: %1 sleep 30 \(running\), %2 sleep 100 \(stopped\)\.$/, cwd);
+  }
+  assert.doesNotMatch(describeRoom(observe('/etc')), /jobs/);
+});
