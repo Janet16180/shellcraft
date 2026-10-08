@@ -82,8 +82,11 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
   written. The guild hall `/srv/guild` now comes from `realm()`. 2343 tests, difftest 0 failures.
 - Merged `slice/ui3` (sudo prompt fixes, Ctrl+R/A/E, keys under the map's ?, throne room and
   /srv service rooms). Chapter 19 The Scribe's Memory (`memory`) is written. 2412 tests.
-- Running agents: backend `slice/jobs` (job control) for chapter 20; frontend `slice/ui3` (art for
-  `~/portals`, `~/maze`, `~/memory`). Chapter 21 (tar) needs a `tar` engine after jobs.
+- Merged `slice/jobs` (job control: `&`, `jobs`, `fg`, `bg`, Ctrl+Z/C, real-time sleep; harness
+  `tick` and `keys`) and the art for ~/portals, ~/maze, ~/memory. Chapter 20 Background Tasks
+  (`errands`, area `~/workshop`) is written. 2554 tests.
+- Running agents: backend `slice/tar` (tar, gzip, file, du, df) for chapter 21; frontend
+  `slice/ui4` (running-command UX, Ctrl+Z key, jobs on the map, ~/workshop art).
 
 ## State at 2026-10-08, evening (act III started)
 
