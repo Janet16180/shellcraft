@@ -47,7 +47,7 @@ function firstOf(args, ...wanted) {
 
 const UNSIMULATED = new Set(['w', 'nl', 'cut', 'tr', 'du', 'df', 'stat', 'diff', 'tar', 'rev', 'seq', 'yes', 'od', 'xargs',
   'basename', 'dirname', 'realpath', 'tac', 'shuf', 'cmp', 'comm', 'paste', 'join', 'split', 'fold',
-  'expand', 'md5sum', 'sha256sum', 'base64', 'watch', 'free', 'uptime', 'lsblk', 'mount', 'apt', 'perl', 'gzip', 'whereis', 'stty', 'tput']);
+  'expand', 'md5sum', 'sha256sum', 'base64', 'watch', 'free', 'uptime', 'lsblk', 'mount', 'apt', 'perl', 'whereis', 'stty', 'tput']);
 const isAssignment = word => 'lit' in word.parts[0] && !word.parts[0].q && ASSIGNMENT.test(word.parts[0].lit);
 const withNewline = text => (text && !text.endsWith('\n') ? `${text}\n` : text);
 

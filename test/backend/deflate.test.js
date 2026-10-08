@@ -21,7 +21,7 @@ test('inflate gives back exactly the bytes deflate took, for text, runs, random 
     Array.from({ length: 3000 }, () => Math.floor(random() * 256)),
     Array.from({ length: 5000 }, () => Math.floor(random() * 4) + 97),
   ];
-  for (const bytes of samples) assert.deepEqual(inflate(deflate(bytes)), [...bytes]);
+  for (const bytes of samples) assert.deepEqual(inflate(deflate(bytes)).bytes, [...bytes]);
 });
 
 test('deflate makes long runs and repetitive text far smaller, and random bytes no smaller', () => {
@@ -33,11 +33,11 @@ test('deflate makes long runs and repetitive text far smaller, and random bytes 
   assert.ok(deflate(noise).length / 8 > 1900);
 });
 
-test('inflate refuses a damaged or cut stream instead of inventing data', () => {
+test('inflate refuses a cut or damaged stream instead of inventing data, and says which', () => {
   const bits = deflate(utf8('the river runs to the sea, the river runs\n'));
-  assert.equal(inflate(bits.slice(0, bits.length - 9)), null);
-  assert.equal(inflate([]), null);
-  assert.equal(inflate([1, 1, 1]), null);
+  assert.deepEqual(inflate(bits.slice(0, bits.length - 9)), { bytes: null, error: 'eof' });
+  assert.deepEqual(inflate([]), { bytes: null, error: 'eof' });
+  assert.deepEqual(inflate([1, 1, 1]), { bytes: null, error: 'corrupt' });
 });
 
 test('utf8 and fromUtf8 round-trip any string, a lone surrogate included', () => {

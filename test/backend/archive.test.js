@@ -68,8 +68,9 @@ test('gunzip tells text that is not gzip from gzip data that was damaged', () =>
   assert.deepEqual(gunzip('hello\n'), { error: 'format' });
   const packed = gzip('hello there, hello there\n');
   const damaged = packed.slice(0, 12) + (packed[12] === 'a' ? 'b' : 'a') + packed.slice(13);
-  assert.deepEqual(gunzip(damaged), { error: 'corrupt' });
-  assert.deepEqual(gunzip(packed.slice(0, 15)), { error: 'corrupt' });
+  assert.ok(['corrupt', 'crc', 'eof'].includes(gunzip(damaged).error));
+  assert.deepEqual(gunzip(packed.slice(0, 15)), { error: 'eof' });
+  assert.deepEqual(gunzip(packed.slice(0, -8) + '\0'.repeat(8)), { error: 'crc' });
 });
 
 test('gunzip reports the sizes gzip -l lists: compressed, uncompressed and the header and trailer bytes', () => {

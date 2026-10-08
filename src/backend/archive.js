@@ -213,22 +213,23 @@ export const isGzip = text => text.startsWith(GZIP_MAGIC.slice(0, 2));
  * Decompress gzip data.
  *
  * @param {string} text A file's content.
- * @returns {{text: string, name: string|null, mtime: number, size: number, overhead: number}|{error: 'format'|'corrupt'}}
+ * @returns {{text: string, name: string|null, mtime: number, size: number, overhead: number}|{error: 'format'|'eof'|'corrupt'|'crc'}}
  *   The original text, its stored name and time (ms), its size in bytes and
- *   the bytes of header and trailer; or `format` when it is not gzip data,
- *   `corrupt` when it is damaged.
+ *   the bytes of header and trailer; or why not: `format` when it is not
+ *   gzip data, `eof` when it is cut short, `corrupt` when the compressed
+ *   data is damaged, `crc` when it decompresses to something else than was stored.
  */
 export function gunzip(text) {
   if (!text.startsWith(GZIP_MAGIC)) return { error: 'format' };
   const named = text.length > HEADER && (charByte(text[3]) & NAME_FLAG) !== 0;
   const nameEnd = named ? text.indexOf(NUL, HEADER) : HEADER - 1;
   const bodyStart = nameEnd + 1;
-  if (nameEnd < 0 || text.length < bodyStart + TRAILER) return { error: 'corrupt' };
+  if (nameEnd < 0 || text.length < bodyStart + TRAILER) return { error: 'eof' };
   const trailer = text.slice(-TRAILER);
   const bits = unpackBits(text.slice(bodyStart, -TRAILER));
-  const bytes = bits && inflate(bits);
-  const intact = bytes !== null && crc32(bytes) === readWord32(trailer.slice(0, 4)) && bytes.length === readWord32(trailer.slice(4));
-  if (!intact) return { error: 'corrupt' };
+  const { bytes, error } = bits ? inflate(bits) : { bytes: null, error: 'corrupt' };
+  if (error) return { error };
+  if (crc32(bytes) !== readWord32(trailer.slice(0, 4)) || bytes.length !== readWord32(trailer.slice(4))) return { error: 'crc' };
   return {
     text: fromUtf8(bytes),
     name: named ? text.slice(HEADER, nameEnd) : null,

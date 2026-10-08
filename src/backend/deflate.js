@@ -292,11 +292,14 @@ function readData(r, lit, dist) {
   return symbol === END && !r.over ? out : null;
 }
 
+const failure = r => ({ bytes: null, error: r.over ? 'eof' : 'corrupt' });
+
 /**
  * Decompress what deflate() made.
  *
  * @param {number[]} bits The compressed stream.
- * @returns {number[]|null} The bytes, or null if the stream is damaged.
+ * @returns {{bytes: number[], error: null}|{bytes: null, error: 'eof'|'corrupt'}} The bytes; or
+ *   `eof` when the stream ends early, `corrupt` when it is damaged otherwise.
  */
 export function inflate(bits) {
   const r = reader(bits);
@@ -304,7 +307,8 @@ export function inflate(bits) {
   const type = r.value(2);
   const codes = type === DYNAMIC ? readDynamicCodes(r) : { lit: FIXED_LIT, dist: FIXED_DIST };
   const valid = final === 1 && (type === FIXED || type === DYNAMIC) && codes !== null;
-  return valid ? readData(r, decoder(codes.lit), decoder(codes.dist)) : null;
+  const bytes = valid ? readData(r, decoder(codes.lit), decoder(codes.dist)) : null;
+  return bytes ? { bytes, error: null } : failure(r);
 }
 
 /**
