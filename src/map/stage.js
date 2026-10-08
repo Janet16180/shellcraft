@@ -4,8 +4,8 @@
  * banners, shakes and bursts.
  */
 
-import { biomeFor } from './biomes.js';
-import { readRoom } from './room.js';
+import { placeOf } from './biomes.js';
+import { readRoom, realPath } from './room.js';
 import { layoutRoom, ART, STAND } from './layout.js';
 import { describeRoom } from './describe.js';
 import { createMotion } from './motion.js';
@@ -75,7 +75,8 @@ export function settle(stage, obs) {
   const room = readRoom(obs, state.revealed);
   state.obs = obs;
   state.scene = {
-    ...biomeFor(obs.cwd, obs.home),
+    ...placeOf(obs),
+    real: realPath(obs.tree, obs.cwd),
     room,
     layout: layoutRoom(room, { narrow: view.narrow, charPx: charWidth(stage) }),
     path: obs.cwd,

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readRoom, itemKind, picksOf } from '../../src/map/room.js';
+import { readRoom, itemKind, picksOf, realPath } from '../../src/map/room.js';
 import { file, dir, symlink } from '../../src/backend/spec.js';
 import { observe, sampleTree } from './fixtures.js';
 
@@ -153,4 +153,22 @@ test('standing in a directory reached through a link shows where it leads, and .
   assert.deepEqual(names(room.items), ['ancient_key.txt']);
   assert.equal(room.items[0].path, '/home/hero/portal/ancient_key.txt');
   assert.equal(room.exit, '/home/hero');
+});
+
+test('a link item knows its target and whether it leads anywhere, and is never runnable', () => {
+  const room = readRoom(observe('/home/hero', { tree: withPortals() }), none);
+  const [broken, portal, readme] = room.items;
+  assert.deepEqual([portal.link, portal.dangling, portal.runnable], ['/home/hero/forest/cave/deep', false, false]);
+  assert.deepEqual([broken.link, broken.dangling, broken.runnable], ['nowhere', true, false]);
+  assert.deepEqual([readme.link, readme.dangling], [null, false]);
+  assert.equal(itemKind(portal, 'cottage'), 'portal');
+  assert.equal(itemKind(broken, 'cottage'), 'portal');
+});
+
+test('the real path of a directory reached through a link is where the link leads', () => {
+  const tree = withPortals();
+  assert.equal(realPath(tree, '/home/hero/portal'), '/home/hero/forest/cave/deep');
+  assert.equal(realPath(tree, '/home/hero/forest'), '/home/hero/forest');
+  assert.equal(realPath(tree, '/'), '/');
+  assert.equal(realPath(tree, '/home/hero/broken'), '/home/hero/broken');
 });

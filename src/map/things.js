@@ -3,7 +3,7 @@
  * "+N" markers, the hero, the Shadow Daemon and particles.
  */
 
-import { GEMS, INK, TOON, DAEMON, PEOPLE } from './palette.js';
+import { GEMS, INK, TOON, DAEMON, PEOPLE, BROKEN_PORTAL } from './palette.js';
 import { SPRITES } from './sprites.js';
 import { itemKind } from './room.js';
 import { box, drawSprite } from './paint.js';
@@ -101,6 +101,10 @@ function sprite(kind, item, t) {
  * @param {number} i Index, to desynchronize the bobbing.
  */
 export function drawItem(ctx, item, biome, t, i) {
+  if (itemKind(item, biome) === 'portal') {
+    drawPortal(ctx, item, t, i);
+    return;
+  }
   const bob = Math.round(Math.sin(t / 450 + i) * 1.2);
   const x = item.x;
   const y = item.y + bob;
@@ -113,6 +117,31 @@ export function drawItem(ctx, item, biome, t, i) {
   }
   if (Object.hasOwn(PEOPLE, item.owner ?? '')) seal(ctx, x, y + 11, PEOPLE[item.owner].h);
   if (item.locked) chainItem(ctx, x, y);
+}
+
+const CRACK = [[5, 3], [6, 5], [7, 6], [7, 8], [6, 9], [7, 11], [8, 12], [8, 14], [7, 16]];
+
+/**
+ * Draw a symbolic link as a portal standing on the floor: a swirling purple
+ * one, or, when it leads nowhere, a cold grey one with a red crack.
+ *
+ * @param {CanvasRenderingContext2D} ctx The art canvas.
+ * @param {{x: number, y: number, hidden: boolean, dangling: boolean}} item The placed link.
+ * @param {number} t Animation clock in ms (frozen at 0 with reduced motion).
+ * @param {number} i Index, to desynchronize the swirls.
+ */
+export function drawPortal(ctx, { x, y, hidden, dangling }, t, i) {
+  const left = x + 1;
+  const top = y - 4;
+  const alpha = hidden ? 0.6 : 1;
+  const glow = dangling ? 'rgba(226, 67, 79, 0.18)' : `rgba(199, 146, 255, ${0.22 + 0.12 * Math.sin(t / 300 + i)})`;
+  box(ctx, glow, left - 2, top + 18, 18, 3);
+  box(ctx, glow, left, top + 20, 14, 1);
+  const frames = SPRITES.portal;
+  const frame = dangling ? frames[0] : frames[(Math.floor(t / 200) + i) % frames.length];
+  drawSprite(ctx, frame, left, top, { alpha, colours: dangling ? BROKEN_PORTAL : undefined });
+  if (dangling) CRACK.forEach(([cx, cy]) => box(ctx, INK.e, left + cx, top + cy, 1, 1));
+  else if (Math.sin(t / 260 + i * 3) > 0.7) box(ctx, INK.w, left + 12, top + 2, 1, 1);
 }
 
 function seal(ctx, x, y, colour) {

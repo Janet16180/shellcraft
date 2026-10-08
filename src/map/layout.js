@@ -184,3 +184,17 @@ export function fitLabel(text, max, suffix = '') {
   const body = chars.length <= room ? text : `${chars.slice(0, room - 1).join('')}…`;
   return body + suffix;
 }
+
+/**
+ * The label of an item: a symbolic link reads `name -> target` like ls -l when
+ * that fits whole, else its name alone; anything else its name. Cut with
+ * fitLabel when even the name does not fit.
+ *
+ * @param {{name: string, link?: string|null}} item The item.
+ * @param {number} max Characters available.
+ * @returns {string} The label.
+ */
+export function itemLabel({ name, link }, max) {
+  const full = link ? `${name} -> ${link}` : name;
+  return [...full].length <= max ? full : fitLabel(name, max);
+}

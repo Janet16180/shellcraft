@@ -22,7 +22,7 @@ import { logoSVG } from './logo.js';
 import { playIntro } from '../intro/player.js';
 import { playExplainer } from '../intro/explainer.js';
 import { EXPLAINERS } from '../intro/explainers.js';
-import { biomeFor, drawKey } from '../map/map.js';
+import { placeOf, drawKey } from '../map/map.js';
 
 const TABS = ['quest', 'spells', 'levels'];
 const TOAST_MS = 2600;
@@ -83,7 +83,7 @@ function show(ui, view) {
   doc.getElementById('now').innerHTML = nowHTML(view.chapter);
   doc.getElementById('spells').innerHTML = spellsHTML(view.spellbook);
   doc.getElementById('levels').innerHTML = chaptersHTML(view.chapters);
-  renderCrumbs(doc, view.prompt);
+  renderCrumbs(doc, view.prompt, placeOf(ui.session.observation()).name);
   ui.terminal.setPrompt(view.prompt);
   if (previous && view.rank.floor > previous.rank.floor) rankUp(ui, view.rank.title);
 }
@@ -106,13 +106,13 @@ function roomSettled(ui) {
   ui.doc.getElementById('picks').innerHTML = picksHTML(ui.picks);
 }
 
-function renderCrumbs(doc, { cwd, home }) {
+function renderCrumbs(doc, { cwd }, place) {
   const parts = cwd.split('/').filter(Boolean);
   const buttons = parts.map((part, i) => {
     const path = `/${parts.slice(0, i + 1).join('/')}`;
     return `<button type="button" data-cd="${esc(path)}">${esc(part)}</button>`;
   });
-  const area = `<span class="area">${esc(biomeFor(cwd, home).name)}</span>`;
+  const area = `<span class="area">${esc(place)}</span>`;
   const crumbs = doc.getElementById('crumbs');
   crumbs.innerHTML = `<span class="path"><button type="button" data-cd="/" aria-label="the root directory, /">/</button>${buttons.join('/')}</span>${area}`;
   // A deep path scrolls inside its line; show its end, where the player is.
