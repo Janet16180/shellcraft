@@ -95,3 +95,17 @@ test('wc takes --lines, --words, --bytes, --chars and --max-line-length', async 
   assert.equal((await run(b, 'wc --words --bytes readme.txt')).out, ' 3 26 readme.txt\n');
   assert.equal((await run(b, 'wc --chars --max-line-length readme.txt')).out, '26 16 readme.txt\n');
 });
+
+test('uniq INPUT OUTPUT writes OUTPUT, and - reads standard input', async () => {
+  const b = await withScroll();
+  assert.deepEqual((await run(b, 'uniq inv.txt out.txt')).out, '');
+  assert.equal((await run(b, 'cat out.txt')).out, 'b\na\nb\nc\na\n');
+  await run(b, 'sort inv.txt | uniq -c - counts.txt');
+  assert.equal((await run(b, 'cat counts.txt')).out, '      2 a\n      2 b\n      1 c\n');
+  const denied = await run(b, 'uniq inv.txt /etc/x');
+  assert.deepEqual([denied.err, denied.status], ['uniq: /etc/x: Permission denied\n', 1]);
+  const extra = await run(b, 'uniq inv.txt o.txt extra');
+  assert.deepEqual([extra.err, extra.status], ["uniq: extra operand ‘extra’\nTry 'uniq --help' for more information.\n", 1]);
+  await run(b, 'uniq nope o2.txt');
+  assert.equal((await run(b, 'ls o2.txt')).status, 2);
+});

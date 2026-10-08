@@ -104,3 +104,18 @@ export function writeTo(sys, target, text) {
   target.node.content += text;
   target.node.mtime = sys.now();
 }
+
+/**
+ * Write a whole file the way a program that opens it for writing does
+ * (uniq's OUTPUT): create or truncate it, then fill it.
+ *
+ * @param {object} sys The machine state.
+ * @param {string} path The path as typed.
+ * @param {string} text The new content.
+ * @returns {string|null} The reason it cannot be written (`Permission denied`), or null.
+ */
+export function writeFile(sys, path, text) {
+  const opened = openWrite(sys, path, false);
+  if (opened.target) writeTo(sys, opened.target, text);
+  return opened.error;
+}
