@@ -2,6 +2,7 @@ import { chunkLine, clears, columnsFor, displayPath, esc, promptHTML } from './o
 import { createHistory } from './history.js';
 
 const MAX_LINES = 600;
+const PASSWORD_LABEL = 'password';
 
 function append(t, cls, html) {
   const line = document.createElement('div');
@@ -30,7 +31,7 @@ function echo(t, line, suffix = '') {
 
 function setPrompt(t, prompt) {
   t.prompt = prompt;
-  t.promptEl.innerHTML = promptHTML(prompt);
+  if (!t.asking) t.promptEl.innerHTML = promptHTML(prompt);
   t.title.textContent = `${prompt.user}@${prompt.host}: ${displayPath(prompt.cwd, prompt.home)}`;
 }
 
@@ -40,12 +41,47 @@ function caretToEnd(t) {
 }
 
 function insert(t, text) {
+  if (t.asking) return;
   t.input.value = text;
   t.input.focus();
   caretToEnd(t);
 }
 
+// A program reads one line (sudo's password): the prompt takes the shell
+// prompt's place, and hidden input keeps what is typed in a buffer, never in
+// the field, so nothing shows, as in a real terminal.
+function ask(t, { prompt, hidden }) {
+  t.asking = { hidden, buffer: '', label: t.input.getAttribute('aria-label') };
+  t.promptEl.innerHTML = esc(prompt);
+  t.input.value = '';
+  if (hidden) {
+    t.input.type = 'password';
+    t.input.setAttribute('aria-label', PASSWORD_LABEL);
+  }
+  t.input.focus();
+}
+
+function endAsk(t) {
+  const { hidden, buffer, label } = t.asking;
+  const text = hidden ? buffer : t.input.value;
+  t.asking = null;
+  t.input.value = '';
+  t.input.type = 'text';
+  t.input.setAttribute('aria-label', label);
+  if (t.prompt) setPrompt(t, t.prompt);
+  return text;
+}
+
+function hide(t, typed) {
+  if (!t.asking?.hidden) return;
+  t.asking.buffer += typed;
+  t.input.value = '';
+}
+
+const answer = (t, text) => t.queue.add(() => t.onAnswer(text));
+
 function submit(t) {
+  if (t.asking) return answer(t, endAsk(t));
   const line = t.input.value;
   t.input.value = '';
   t.history.push(line);
@@ -69,6 +105,10 @@ async function complete(t) {
 }
 
 function cancel(t) {
+  if (t.asking) {
+    endAsk(t);
+    return answer(t, null);
+  }
   echo(t, t.input.value, '^C');
   t.input.value = '';
 }
@@ -87,8 +127,21 @@ const ACTIONS = {
   'C-l': t => t.out.replaceChildren(),
 };
 
+const NOTHING = () => {};
+
+function askingAction(t, event) {
+  const ctrl = event.ctrlKey && !event.altKey && !event.metaKey;
+  const key = event.key;
+  let action = null;
+  if (ctrl && key.toLowerCase() === 'c') action = ACTIONS['C-c'];
+  else if (key === 'Enter') action = ACTIONS.Enter;
+  else if (key === 'Backspace' && t.asking.hidden) action = () => { t.asking.buffer = t.asking.buffer.slice(0, -1); };
+  else if (['ArrowUp', 'ArrowDown'].includes(key) || (key === 'Tab' && !t.tabLeaves)) action = NOTHING;
+  return action;
+}
+
 // Tab completes names, so Escape hands Tab back to the page for keyboard users.
-function actionFor(t, event) {
+function commandAction(t, event) {
   const ctrl = event.ctrlKey && !event.altKey && !event.metaKey;
   const noSelection = t.input.selectionStart === t.input.selectionEnd;
   const key = event.key;
@@ -100,6 +153,8 @@ function actionFor(t, event) {
   else if (!ctrl) action = { Enter: ACTIONS.Enter, ArrowUp: ACTIONS.Up, ArrowDown: ACTIONS.Down }[key] ?? null;
   return action;
 }
+
+const actionFor = (t, event) => (t.asking && event.key !== 'Escape' ? askingAction(t, event) : commandAction(t, event));
 
 const PROBE = '0123456789';
 
@@ -129,6 +184,7 @@ function watchWidth(t) {
 
 function wire(t, root) {
   t.input.addEventListener('focus', () => { t.tabLeaves = false; });
+  t.input.addEventListener('input', () => hide(t, t.input.value));
   t.input.addEventListener('keydown', event => {
     const action = actionFor(t, event);
     if (!action) {
@@ -145,6 +201,7 @@ function wire(t, root) {
     const key = event.target.closest('button')?.dataset.k;
     if (!key) return;
     if (ACTIONS[key]) ACTIONS[key](t);
+    else if (t.asking?.hidden) hide(t, key);
     else t.input.value += key === '|' || key === '>' ? ` ${key} ` : key;
     t.input.focus();
   });
@@ -152,20 +209,24 @@ function wire(t, root) {
 
 /**
  * Wire the terminal pane: output, the input line, history, Tab completion,
- * Ctrl+C, Ctrl+L and the touch key row.
+ * Ctrl+C, Ctrl+L and the touch key row. `ask({prompt, hidden})` reads one
+ * line for a program (sudo's password) instead of a command: the prompt
+ * replaces the shell prompt, hidden input shows nothing and is labelled
+ * "password", and the line goes to onAnswer, not to history (Ctrl+C sends null).
  *
  * @param {object} opts
  * @param {HTMLElement} opts.root The terminal section holding #out, #screen, #cmd, #prompt, #termTitle and #keys.
  * @param {{add: (step: () => unknown) => Promise<unknown>}} opts.queue The page's one ordered queue: lines,
  *   Tab completions and resizes wait their turn in it, behind any other session call.
  * @param {(line: string) => Promise<void>} opts.onSubmit Runs a line the player entered.
+ * @param {(text: string|null) => Promise<void>} [opts.onAnswer] Sends the line typed at an ask() prompt, or null for Ctrl+C.
  * @param {(line: string) => Promise<{line: string, candidates: string[]}>} opts.onComplete Tab completion.
  * @param {() => void} [opts.onKey] Called on each printable key (the key click sound).
  * @param {(columns: number) => unknown} [opts.onResize] Told the width in characters at the start and when it changes.
- * @returns {{print: Function, printLine: Function, setPrompt: Function, insert: Function, focus: Function, clear: Function}}
+ * @returns {{print: Function, printLine: Function, setPrompt: Function, insert: Function, focus: Function, clear: Function, ask: Function}}
  *   The terminal's controls.
  */
-export function createTerminal({ root, queue, onSubmit, onComplete, onKey = () => {}, onResize = () => {} }) {
+export function createTerminal({ root, queue, onSubmit, onComplete, onAnswer = async () => {}, onKey = () => {}, onResize = () => {} }) {
   const t = {
     out: root.querySelector('#out'),
     screen: root.querySelector('#screen'),
@@ -178,6 +239,8 @@ export function createTerminal({ root, queue, onSubmit, onComplete, onKey = () =
     tabLeaves: false,
     onSubmit,
     onComplete,
+    onAnswer,
+    asking: null,
     onKey,
     onResize,
     columns: 0,
@@ -191,5 +254,6 @@ export function createTerminal({ root, queue, onSubmit, onComplete, onKey = () =
     insert: text => insert(t, text),
     focus: () => t.input.focus(),
     clear: () => t.out.replaceChildren(),
+    ask: request => ask(t, request),
   };
 }
