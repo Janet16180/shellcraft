@@ -6,7 +6,7 @@
 import { lookup, normalize } from '../fs.js';
 import { BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from '../builtins.js';
 import { can } from '../perms.js';
-import { pathFiles } from '../paths.js';
+import { pathFiles, resolve } from '../paths.js';
 import { manText, hasManPage, manEntries, shortHelpNote } from '../man.js';
 import { versionText } from '../versions.js';
 import { compilePosix } from '../../backend/regex.js';
@@ -132,18 +132,58 @@ function which(args, { sys }) {
   return r;
 }
 
+const KEYWORDS = new Set(['if', 'then', 'else', 'elif', 'fi', 'case', 'esac', 'for', 'select', 'while', 'until', 'do', 'done', 'in', 'function', 'time', '{', '}', '!', '[[', ']]', 'coproc']);
+const TYPE_USAGE = 'type: usage: type [-afptP] name [name ...]';
+
+function typeOptions(args) {
+  const flags = new Set();
+  let i = 0;
+  for (; i < args.length && /^-./.test(args[i]); i++) {
+    if (args[i] === '--') { i++; break; }
+    const bad = [...args[i].slice(1)].find(c => !'afptP'.includes(c));
+    if (bad) return { err: `bash: type: -${bad}: invalid option\n${TYPE_USAGE}` };
+    for (const c of args[i].slice(1)) flags.add(c);
+  }
+  return { flags, names: args.slice(i) };
+}
+
+function programFiles(sys, name) {
+  if (!name.includes('/')) return programsInPath(sys, name);
+  const r = resolve(sys, name);
+  return r.node?.type === 'file' && can(sys, r.node, 'x') ? [name] : [];
+}
+
+/** Every way bash could run `name`, in lookup order, as [kind, description]. */
+function typeMatches(sys, name, all) {
+  const found = [];
+  if (sys.aliases[name]) found.push(['alias', `aliased to \`${sys.aliases[name]}'`]);
+  if (KEYWORDS.has(name)) found.push(['keyword', 'a shell keyword']);
+  if (BASH_BUILTINS.has(name)) found.push(['builtin', 'a shell builtin']);
+  if (!all && found.length) return found;
+  if (!all && sys.hashed.has(name)) return [['file', `hashed (${sys.hashed.get(name)})`, sys.hashed.get(name)]];
+  return [...found, ...programFiles(sys, name).map(path => ['file', path, path])];
+}
+
+function typeLines(sys, name, flags) {
+  if (flags.has('P')) return programFiles(sys, name).slice(0, flags.has('a') ? undefined : 1);
+  const found = typeMatches(sys, name, flags.has('a')).slice(0, flags.has('a') ? undefined : 1);
+  if (flags.has('p')) return found[0]?.[0] === 'file' ? found.map(f => f[2]) : found.length ? [] : null;
+  if (!found.length) return null;
+  return found.map(([kind, what]) => (flags.has('t') ? kind : `${name} is ${what}`));
+}
+
 function type(args, { sys }) {
+  const o = typeOptions(args);
+  if (o.err) return result('', o.err, 2);
   const out = [];
   const errs = [];
-  for (const x of args) {
-    const path = findInPath(sys, x);
-    if (sys.aliases[x]) out.push(`${x} is aliased to \`${sys.aliases[x]}'`);
-    else if (BASH_BUILTINS.has(x)) out.push(`${x} is a shell builtin`);
-    else if (sys.hashed.has(x)) out.push(`${x} is hashed (${sys.hashed.get(x)})`);
-    else if (path) out.push(`${x} is ${path}`);
+  for (const x of o.names) {
+    const lines = typeLines(sys, x, o.flags);
+    if (lines) out.push(...lines);
+    else if (o.flags.has('t') || o.flags.has('p') || o.flags.has('P')) errs.push(null);
     else errs.push(`bash: type: ${x}: not found`);
   }
-  return result(out.map(l => `${l}\n`).join(''), errs.join('\n'), errs.length ? 1 : 0);
+  return result(out.map(l => `${l}\n`).join(''), errs.filter(Boolean).join('\n'), errs.length ? 1 : 0);
 }
 
 function alias(args, { sys }) {
