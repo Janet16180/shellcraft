@@ -22,6 +22,7 @@ import hall from './hall.js';
 import portals from './portals.js';
 import crown from './crown.js';
 import memory from './memory.js';
+import errands from './errands.js';
 
 
 /**
@@ -49,4 +50,5 @@ export default [
   portals,
   crown,
   memory,
+  errands,
 ];
