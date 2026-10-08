@@ -1,6 +1,6 @@
 /**
  * Decor for chapter 18's area of the overworld: ~/crown, the steward's
- * throne room. A tapestry with the crown over an empty throne at the head of
+ * throne room. A royal tapestry behind an empty throne at the head of
  * a red carpet, banners of the two factions, the crown on a cushion and a
  * sword stand, with candles that flicker.
  */
@@ -11,7 +11,7 @@ import { box } from './paint.js';
 const GOLD = { light: '#ffe9a8', mid: '#ffd36b', dark: '#c9a26b', deep: '#8a6a44' };
 const ROYAL = { cloth: '#5a2a8a', fold: '#45206b', velvet: '#b8303c', deep: '#7a2533' };
 const MARBLE = { line: 'rgba(11, 10, 18, 0.18)', shine: 'rgba(255, 255, 255, 0.06)' };
-const CANDLES = [[128, 46], [188, 46]];
+const CANDLES = [[128, 36], [188, 36]];
 
 function marble(ctx, wall) {
   for (let y = wall + 4; y < 200; y += 14) {
@@ -35,12 +35,11 @@ function tapestry(ctx, wall) {
   for (let fx = 140; fx < 184; fx += 8) box(ctx, ROYAL.fold, fx, top + 1, 2, h - 1);
   box(ctx, GOLD.mid, 136, top + h - 4, 48, 2);
   for (let fx = 137; fx < 184; fx += 4) box(ctx, GOLD.mid, fx, top + h - 2, 2, 3);
-  crownMark(ctx, 154, top + 8, GOLD.mid);
 }
 
 function throne(ctx, wall) {
   const x = 144;
-  const y = wall - 24;
+  const y = wall - 34;
   box(ctx, 'rgba(11, 10, 18, 0.35)', x - 6, y + 40, 44, 4);
   box(ctx, INK.k, x - 6, y + 34, 44, 8);
   box(ctx, GOLD.deep, x - 5, y + 35, 42, 6);
@@ -64,7 +63,7 @@ function throne(ctx, wall) {
 }
 
 function carpet(ctx, wall) {
-  const top = wall + 16;
+  const top = wall + 8;
   box(ctx, GOLD.dark, 142, top, 36, 200 - top);
   box(ctx, ROYAL.velvet, 144, top, 32, 200 - top);
   for (let y = top + 6; y < 200; y += 12) box(ctx, ROYAL.deep, 158, y, 4, 4);
