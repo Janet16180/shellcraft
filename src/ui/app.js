@@ -278,6 +278,7 @@ async function startChapter(ui, id, fresh, note = 'You jumped to this chapter, s
   hideCard(ui);
   await act(ui, async () => {
     show(ui, await ui.session.startChapter(id, { fresh }));
+    ui.terminal.abandon();
     showRoom(ui);
   });
   ui.terminal.clear();
@@ -471,6 +472,7 @@ function wireReset(ui) {
     run: async () => {
       await act(ui, async () => {
         show(ui, await ui.session.reset());
+        ui.terminal.abandon();
         showRoom(ui);
       });
       ui.terminal.clear();

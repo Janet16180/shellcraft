@@ -49,9 +49,14 @@ function insert(t, text) {
 
 // A program reads one line (sudo's password): the prompt takes the shell
 // prompt's place, and hidden input keeps what is typed in a buffer, never in
-// the field, so nothing shows, as in a real terminal.
+// the field, so nothing shows, as in a real terminal. The prompt is not in the
+// output log, so a hidden line there says it to screen readers.
 function ask(t, { prompt, hidden }) {
-  t.asking = { hidden, buffer: '', label: t.input.getAttribute('aria-label') };
+  const said = document.createElement('div');
+  said.className = 'ln sr-only';
+  said.innerHTML = esc(hidden ? `${prompt.trim()} (nothing you type shows)` : prompt);
+  t.out.append(said);
+  t.asking = { hidden, buffer: '', label: t.input.getAttribute('aria-label'), said };
   t.promptEl.innerHTML = esc(prompt);
   t.input.value = '';
   if (hidden) {
@@ -62,14 +67,19 @@ function ask(t, { prompt, hidden }) {
 }
 
 function endAsk(t) {
-  const { hidden, buffer, label } = t.asking;
+  const { hidden, buffer, label, said } = t.asking;
   const text = hidden ? buffer : t.input.value;
   t.asking = null;
+  said.remove();
   t.input.value = '';
   t.input.type = 'text';
   t.input.setAttribute('aria-label', label);
   if (t.prompt) setPrompt(t, t.prompt);
   return text;
+}
+
+function abandon(t) {
+  if (t.asking) endAsk(t);
 }
 
 function hide(t, typed) {
@@ -129,15 +139,32 @@ const ACTIONS = {
 
 const NOTHING = () => {};
 
+// At a program's prompt only Enter, Ctrl+C and Backspace act; history and Tab
+// do nothing, from the keyboard and from the touch keys alike.
+const ASKING = {
+  Enter: submit,
+  'C-c': cancel,
+  Backspace: t => { if (t.asking.hidden) t.asking.buffer = t.asking.buffer.slice(0, -1); },
+  Up: NOTHING,
+  Down: NOTHING,
+  Tab: NOTHING,
+};
+
 function askingAction(t, event) {
   const ctrl = event.ctrlKey && !event.altKey && !event.metaKey;
   const key = event.key;
   let action = null;
-  if (ctrl && key.toLowerCase() === 'c') action = ACTIONS['C-c'];
-  else if (key === 'Enter') action = ACTIONS.Enter;
-  else if (key === 'Backspace' && t.asking.hidden) action = () => { t.asking.buffer = t.asking.buffer.slice(0, -1); };
+  if (ctrl && key.toLowerCase() === 'c') action = ASKING['C-c'];
+  else if (key === 'Enter') action = ASKING.Enter;
+  else if (key === 'Backspace' && t.asking.hidden) action = ASKING.Backspace;
   else if (['ArrowUp', 'ArrowDown'].includes(key) || (key === 'Tab' && !t.tabLeaves)) action = NOTHING;
   return action;
+}
+
+function askingKey(t, key) {
+  if (ASKING[key]) ASKING[key](t);
+  else if (t.asking.hidden) hide(t, key);
+  else t.input.value += key;
 }
 
 // Tab completes names, so Escape hands Tab back to the page for keyboard users.
@@ -200,8 +227,8 @@ function wire(t, root) {
   root.querySelector('#keys').addEventListener('click', event => {
     const key = event.target.closest('button')?.dataset.k;
     if (!key) return;
-    if (ACTIONS[key]) ACTIONS[key](t);
-    else if (t.asking?.hidden) hide(t, key);
+    if (t.asking) askingKey(t, key);
+    else if (ACTIONS[key]) ACTIONS[key](t);
     else t.input.value += key === '|' || key === '>' ? ` ${key} ` : key;
     t.input.focus();
   });
@@ -213,6 +240,8 @@ function wire(t, root) {
  * line for a program (sudo's password) instead of a command: the prompt
  * replaces the shell prompt, hidden input shows nothing and is labelled
  * "password", and the line goes to onAnswer, not to history (Ctrl+C sends null).
+ * `abandon()` ends such a prompt without an answer, for when the session
+ * dropped the waiting line (a chapter loaded a new world).
  *
  * @param {object} opts
  * @param {HTMLElement} opts.root The terminal section holding #out, #screen, #cmd, #prompt, #termTitle and #keys.
@@ -223,7 +252,7 @@ function wire(t, root) {
  * @param {(line: string) => Promise<{line: string, candidates: string[]}>} opts.onComplete Tab completion.
  * @param {() => void} [opts.onKey] Called on each printable key (the key click sound).
  * @param {(columns: number) => unknown} [opts.onResize] Told the width in characters at the start and when it changes.
- * @returns {{print: Function, printLine: Function, setPrompt: Function, insert: Function, focus: Function, clear: Function, ask: Function}}
+ * @returns {{print: Function, printLine: Function, setPrompt: Function, insert: Function, focus: Function, clear: Function, ask: Function, abandon: Function}}
  *   The terminal's controls.
  */
 export function createTerminal({ root, queue, onSubmit, onComplete, onAnswer = async () => {}, onKey = () => {}, onResize = () => {} }) {
@@ -255,5 +284,6 @@ export function createTerminal({ root, queue, onSubmit, onComplete, onAnswer = a
     focus: () => t.input.focus(),
     clear: () => t.out.replaceChildren(),
     ask: request => ask(t, request),
+    abandon: () => abandon(t),
   };
 }
