@@ -10,7 +10,7 @@
  * the command).
  */
 
-import { hasGlob, expandPattern } from './glob.js';
+import { hasGlob, expandPattern, compileGlob } from './glob.js';
 import { evaluate } from './arith.js';
 import { braceExpand } from './brace.js';
 import { tokenize } from './lexer.js';
@@ -61,9 +61,50 @@ function arithmetic(expr, env) {
   return r.error ? '' : String(r.value);
 }
 
+const escapeGlob = text => text.replace(/[*?[\]\\]/g, '\\$&');
+const VAR_IN_PATTERN = /^\$(?:\{([A-Za-z_][A-Za-z0-9_]*|[0-9]+|[?$#!-])\}|([A-Za-z_][A-Za-z0-9_]*|[0-9?$#!-]))/;
+
+// The glob pattern of `${v#pattern}`: variables expanded, quoted text literal.
+function trimPattern(raw, env) {
+  let out = '';
+  let quote = null;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    const dollar = c === '$' && quote !== "'" ? VAR_IN_PATTERN.exec(raw.slice(i)) : null;
+    if (dollar) {
+      const value = env.lookupVar(dollar[1] ?? dollar[2]);
+      out += quote ? escapeGlob(value) : value;
+      i += dollar[0].length - 1;
+    } else if (c === quote) quote = null;
+    else if (!quote && (c === "'" || c === '"')) quote = c;
+    else if (c === '\\' && quote !== "'" && i + 1 < raw.length) out += `\\${raw[++i]}`;
+    else out += quote ? escapeGlob(c) : c;
+  }
+  return out;
+}
+
+// Remove the shortest or longest prefix (#, ##) or suffix (%, %%) that matches.
+function trimValue(value, op, pattern) {
+  const glob = compileGlob(pattern);
+  const longest = op.length === 2;
+  const sizes = [...Array(value.length + 1).keys()];
+  if (longest) sizes.reverse();
+  const cut = op[0] === '#'
+    ? sizes.find(n => glob.test(value.slice(0, n)))
+    : sizes.find(n => glob.test(value.slice(value.length - n)));
+  if (cut === undefined) return value;
+  return op[0] === '#' ? value.slice(cut) : value.slice(0, value.length - cut);
+}
+
+function varValue(part, env) {
+  const value = env.lookupVar(part.var);
+  if (part.op === 'length') return String([...value].length);
+  return part.op ? trimValue(value, part.op, trimPattern(part.pattern, env)) : value;
+}
+
 function partValue(part, env) {
   let value = '';
-  if ('var' in part) value = env.lookupVar(part.var);
+  if ('var' in part) value = varValue(part, env);
   else if ('cmd' in part) value = env.substitute(part.cmd).replace(/\n+$/, '');
   else if ('arith' in part) value = arithmetic(part.arith, env);
   return value;

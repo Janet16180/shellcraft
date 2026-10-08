@@ -82,3 +82,18 @@ test('brace expansion comes first, then tilde, variables and globs on each word'
 test('a redirection target that braces make into two words is ambiguous', () => {
   assert.deepEqual(expandTarget(words('{a,b}')[0], env()), { value: null, error: 'bash: {a,b}: ambiguous redirect' });
 });
+
+test('${v#pat} and ${v##pat} cut the shortest and longest matching prefix', () => {
+  const e = { ...env(), lookupVar: name => ({ V: 'dir/sub/file.tar.gz', P: 'dir', S: '*', W: 'a*b', X: 'a  b' })[name] ?? '' };
+  const ex = line => expandWords(words(line), e);
+  assert.deepEqual(ex('echo ${V#*/} ${V##*/} ${V#nomatch} "${V#d?r}"'), ['echo', 'sub/file.tar.gz', 'file.tar.gz', 'dir/sub/file.tar.gz', '/sub/file.tar.gz']);
+  assert.deepEqual(ex('echo ${V%.*} ${V%%.*} ${V%/*} ${V%}'), ['echo', 'dir/sub/file.tar', 'dir/sub/file', 'dir/sub', 'dir/sub/file.tar.gz']);
+  assert.deepEqual(ex(`echo "\${V#$P/}" "\${V#"$S"}" "\${V#$S}" "\${V#'d'*/}" "\${V#\\d}" x\${U#x}`), ['echo', 'sub/file.tar.gz', 'dir/sub/file.tar.gz', 'dir/sub/file.tar.gz', 'sub/file.tar.gz', 'ir/sub/file.tar.gz', 'x']);
+  assert.deepEqual(ex(`echo "\${W#a\\*}" "\${W#"a*"}" "\${W%%[*]*}"`), ['echo', 'b', 'b', 'a']);
+  assert.deepEqual(ex('echo ${X#a} "${X#a}"'), ['echo', 'b', '  b']);
+});
+
+test('${#v} is the length of the value', () => {
+  const e = { ...env(), lookupVar: name => ({ V: 'dir/sub/file.tar.gz' })[name] ?? '' };
+  assert.deepEqual(expandWords(words('echo ${#V} ${#U}'), e), ['echo', '19', '0']);
+});

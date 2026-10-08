@@ -6,6 +6,8 @@
  * the commands before it on the line:
  *   `{lit, q}`   literal text, q true when quoted (no globbing or splitting)
  *   `{var, q}`   a parameter: a name, a number, or one of `? $ # @ * -`
+ *   `{var, q, op, pattern}` `${v#pat}`, `##`, `%` or `%%`, the pattern as typed;
+ *                or op 'length' for `${#v}`
  *   `{cmd, q}`   a command substitution, with the inner line
  *   `{arith, q}` an arithmetic expansion `$(( ))`, with the expression
  *   `{tilde}`    a leading `~` or `~user`
@@ -41,6 +43,29 @@ function closingParen(line, start) {
   return depth === 0 ? i - 1 : -1;
 }
 
+// The `}` that closes a `${`, past quotes and backslashes in the pattern.
+function closingBrace(line, start) {
+  let quote = null;
+  let i = start;
+  for (; i < line.length && (quote || line[i] !== '}'); i++) {
+    if (quote && line[i] === quote) quote = null;
+    else if (!quote && (line[i] === "'" || line[i] === '"')) quote = line[i];
+    else if (line[i] === '\\' && quote !== "'") i++;
+  }
+  return i < line.length ? i : -1;
+}
+
+// `${#v}`, and `${v#pat}` with the other prefix and suffix removals.
+function scanBracedOp(line, i, q) {
+  const rest = line.slice(i + 1);
+  const length = /^\{#([A-Za-z_][A-Za-z0-9_]*|[0-9]+)\}/.exec(rest);
+  if (length) return { part: { var: length[1], q, op: 'length' }, end: i + 1 + length[0].length, error: null };
+  const trim = /^\{([A-Za-z_][A-Za-z0-9_]*|[0-9]+|[?$#!-])(##?|%%?)/.exec(rest);
+  const close = trim ? closingBrace(line, i + 1 + trim[0].length) : -1;
+  if (close < 0) return null;
+  return { part: { var: trim[1], q, op: trim[2], pattern: line.slice(i + 1 + trim[0].length, close) }, end: close + 1, error: null };
+}
+
 function scanDollar(line, i, q) {
   const rest = line.slice(i + 1);
   const braced = /^\{([A-Za-z_][A-Za-z0-9_]*|[0-9]+|[?$#@*-])\}/.exec(rest);
@@ -53,6 +78,7 @@ function scanDollar(line, i, q) {
     const close = closingParen(line, i + 2);
     scan = close < 0 ? { ...scan, error: unclosed(')') } : { part: { cmd: line.slice(i + 2, close), q }, end: close + 1, error: null };
   } else if (braced) scan = { part: { var: braced[1], q }, end: i + 1 + braced[0].length, error: null };
+  else if (rest.startsWith('{') && scanBracedOp(line, i, q)) scan = scanBracedOp(line, i, q);
   else if (name) scan = { part: { var: name[0], q }, end: i + 1 + name[0].length, error: null };
   return scan;
 }
