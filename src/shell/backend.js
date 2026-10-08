@@ -8,6 +8,7 @@ import { executeLine } from './exec.js';
 import { applyPatch } from './patch.js';
 import { complete } from './complete.js';
 import { varValue } from './vars.js';
+import { expandHistory } from './history.js';
 import { COMMANDS, BINARIES } from './commands/index.js';
 
 const CLEAR_MARK = '\u001b[2J';
@@ -33,8 +34,17 @@ function remembered(sys, line) {
   return !(ignoreSpace && /^\s/.test(line)) && !(ignoreDups && sys.history.at(-1) === line);
 }
 
-function runLine(sys, line) {
+// History expansion comes first: a missing event stops the line before it
+// is remembered or run, and $? stays as it was. An expanded line is echoed.
+function runLine(sys, typedLine) {
   const run = collector();
+  const history = expandHistory(typedLine, sys.history);
+  if (history.error) {
+    run.sink.write('err', `${history.error}\n`);
+    return { output: run.chunks, status: sys.lastStatus, commands: [], blocked: [] };
+  }
+  const { line } = history;
+  if (history.expanded) run.sink.write('err', `${line}\n`);
   const typed = line.trim() !== '';
   if (typed && remembered(sys, line)) sys.history.push(line);
   const status = typed ? executeLine({ sys, commands: COMMANDS, run }, line, run.sink) : sys.lastStatus;
