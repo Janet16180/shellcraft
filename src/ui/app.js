@@ -26,6 +26,8 @@ import { placeOf, drawKey } from '../map/map.js';
 
 const TABS = ['quest', 'spells', 'levels'];
 const TOAST_MS = 2600;
+// The page asks for a running command's end a moment after it is due by the backend's clock.
+const POLL_SLACK_MS = 50;
 const RANK_FLASH_MS = 3200;
 
 /**
@@ -49,6 +51,7 @@ export async function startApp({ doc, session, createMap, createIntroBackend, re
     queue: ui.queue,
     onSubmit: line => runLine(ui, line),
     onAnswer: async text => applyTurn(ui, await session.answer(text)),
+    onSignal: name => signalRunning(ui, name),
     onComplete: line => session.complete(line),
     onKey: () => sound.play('key'),
     onResize: resizeTerminal,
@@ -86,6 +89,7 @@ function show(ui, view) {
   doc.getElementById('levels').innerHTML = chaptersHTML(view.chapters);
   renderCrumbs(doc, view.prompt, placeOf(ui.session.observation()).name);
   ui.terminal.setPrompt(view.prompt);
+  if (!view.running) followRunning(ui, null);
   if (previous && view.rank.floor > previous.rank.floor) rankUp(ui, view.rank.title);
 }
 
@@ -179,10 +183,28 @@ function chapterBanner(ui) {
   ui.terminal.printLine('Read the Quest panel, then type commands here. Type hint if you get stuck.', 'sys');
 }
 
+// An empty line goes to the shell too: bash reports finished jobs before the next prompt.
 async function runLine(ui, line) {
   ui.doc.querySelector('.callout')?.remove();
-  if (!line.trim()) return;
   applyTurn(ui, await ui.session.submit(line));
+}
+
+// While a command runs (sleep 5, fg): Ctrl+C and Ctrl+Z go to it, and the page
+// asks for its end when it is due. The step checks again in the queue, as the
+// line may have ended meanwhile.
+function signalRunning(ui, name) {
+  return act(ui, async () => {
+    if (ui.view.running) applyTurn(ui, await ui.session.signal(name));
+  });
+}
+
+function followRunning(ui, running) {
+  clearTimeout(ui.pollTimer);
+  ui.terminal.running(Boolean(running));
+  if (running?.seconds === null || !running) return;
+  ui.pollTimer = setTimeout(() => act(ui, async () => {
+    if (ui.view.running) applyTurn(ui, await ui.session.poll());
+  }), running.seconds * 1000 + POLL_SLACK_MS);
 }
 
 function revealHint(ui) {
@@ -204,6 +226,7 @@ function applyTurn(ui, turn) {
   show(ui, turn.view);
   for (const event of turn.events) onEvent(ui, event);
   if (turn.result.input) ui.terminal.ask(turn.result.input);
+  followRunning(ui, turn.result.running);
 }
 
 const EVENTS = {

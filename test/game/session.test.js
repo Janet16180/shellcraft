@@ -899,10 +899,12 @@ test('a line whose command takes time runs: no task is judged until the line end
   const running = await session.submit('sleep 5; pwd');
   assert.deepEqual(running.result.running, { seconds: 5 });
   assert.deepEqual(running.events, []);
+  assert.equal(running.view.running, true);
   await assert.rejects(session.submit('pwd'), /still running/);
   await assert.rejects(session.answer('x'), /no line is waiting/);
   const done = await session.poll();
   assert.equal(done.result.running, undefined);
+  assert.equal(done.view.running, false);
   assert.deepEqual(done.result.output.map(c => c.text), ['/home/hero\n']);
   assert.deepEqual(kinds(done.events), ['task']);
 });
@@ -932,4 +934,14 @@ test('restarting the chapter abandons a running line', async () => {
   await session.startChapter('awakening');
   await assert.rejects(session.poll(), /no line is running/);
   assert.equal((await session.submit('pwd')).events.length, 1);
+});
+
+test('an empty line reaches the shell, which may report jobs, but gets no note about the task', async () => {
+  const chapters = fixtureChapters();
+  chapters[0].tasks[0].near = () => 'Look closer.';
+  const { session, backend } = await booted({ chapters });
+  const empty = await session.submit('');
+  assert.deepEqual(backend.lines.at(-1), '');
+  assert.equal(empty.result.output.some(c => c.tone === 'coach'), false);
+  assert.equal((await session.submit('ls')).result.output.some(c => c.tone === 'coach'), true);
 });

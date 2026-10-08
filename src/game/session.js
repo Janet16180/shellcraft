@@ -248,7 +248,8 @@ async function endTurn(s, { line, completions, before }, result) {
   const events = await advance(s, ctx);
   if (inBossRoom) effects.push(...uncover(s, ctx));
   const completed = events.some(e => e.kind === 'task' || e.kind === 'boss');
-  const note = (completed ? null : nearNote(s, ctx)) ?? coachNote(ctx);
+  // An empty line (Enter to see bash's job notices) gets no note about the task.
+  const note = (completed || !line.trim() ? null : nearNote(s, ctx)) ?? coachNote(ctx);
   const output = note === null ? result.output : [...result.output, { stream: 'note', tone: 'coach', text: terminalText(note) }];
   const [danger] = dangers(ctx);
   if (danger !== undefined) events.push(...await hurt(s, danger));
@@ -534,6 +535,7 @@ function view(s) {
     chapters: s.chapters.map((c, i) => ({ id: c.id, number: i + 1, act: c.act, title: c.title, status: status[i], current: i === s.index })),
     spellbook: s.chapters.flatMap((c, i) => (c.spells ?? []).map(spell => ({ ...spell, chapter: c.id, unlocked: canStart(status[i]) }))),
     prompt: { user, host, cwd, home },
+    running: Boolean(s.waiting?.running),
     concealed: s.concealed,
     boot: s.boot,
     dev: s.dev,
