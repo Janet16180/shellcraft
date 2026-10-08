@@ -61,11 +61,12 @@ function doorSpots(count, perRow) {
   });
 }
 
-function itemSpots(count, cols) {
+// step: how far apart a sparse row's items sit, widened for long names.
+function itemSpots(count, cols, step = SPARSE_ITEM_STEP) {
   return Array.from({ length: count }, (_, i) => {
     const row = Math.floor(i / cols);
     const inRow = Math.min(cols, count - row * cols);
-    const slot = Math.max(USABLE / cols, Math.min(SPARSE_ITEM_STEP, USABLE / inRow));
+    const slot = Math.max(USABLE / cols, Math.min(step, USABLE / inRow));
     const left = MARGIN + (USABLE - inRow * slot) / 2;
     return { row, cx: Math.round(left + slot * ((i % cols) + 0.5)), slot: Math.floor(slot) };
   });
@@ -94,9 +95,11 @@ function marker(fitted, spots, y) {
   return fitted.more ? { count: fitted.more, cx: spot.cx, y: y(spot), slot: spot.slot, area: itemArea(spot.cx, spot.slot, y(spot)) } : null;
 }
 
+const longestName = items => Math.max(0, ...items.map(item => [...item.name].length));
+
 // Fewer items per row when the longest name would be cut, down to a minimum.
 function columns({ cols, minCols }, items, charPx) {
-  const longest = Math.max(0, ...items.map(item => [...item.name].length));
+  const longest = longestName(items);
   let fitting = cols;
   while (fitting > minCols && USABLE / fitting < (longest + 1) * charPx) fitting -= 1;
   return fitting;
@@ -120,7 +123,8 @@ export function layoutRoom(room, { narrow = false, charPx = 0 } = {}) {
   const doors = fit(room.doors, cap.doors * doorRows);
   const items = fit(room.items, cap.cols * (3 - doorRows));
   const dSpots = doorSpots(doors.shown.length + (doors.more ? 1 : 0), cap.doors);
-  const iSpots = itemSpots(items.shown.length + (items.more ? 1 : 0), cap.cols);
+  const step = Math.max(SPARSE_ITEM_STEP, Math.ceil((longestName(items.shown) + 1) * charPx));
+  const iSpots = itemSpots(items.shown.length + (items.more ? 1 : 0), cap.cols, step);
   const exit = room.exit && { path: room.exit, ...box(EXIT.x, EXIT.y, EXIT.w, EXIT.h), hit: box(EXIT.x - 4, EXIT.y - 4, EXIT.w + EXIT.label, ART.height - EXIT.y + 4) };
 
   return {
@@ -183,4 +187,18 @@ export function fitLabel(text, max, suffix = '') {
   const chars = [...text];
   const body = chars.length <= room ? text : `${chars.slice(0, room - 1).join('')}…`;
   return body + suffix;
+}
+
+/**
+ * The label of an item: a symbolic link reads `name -> target` like ls -l when
+ * that fits whole, else its name alone; anything else its name. Cut with
+ * fitLabel when even the name does not fit.
+ *
+ * @param {{name: string, link?: string|null}} item The item.
+ * @param {number} max Characters available.
+ * @returns {string} The label.
+ */
+export function itemLabel({ name, link }, max) {
+  const full = link ? `${name} -> ${link}` : name;
+  return [...full].length <= max ? full : fitLabel(name, max);
 }

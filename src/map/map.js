@@ -17,7 +17,7 @@ import { INK, TOON } from './palette.js';
 import { SLOTS } from './creatures.js';
 import { CREATURE_BURST } from './creatureart.js';
 
-export { biomeFor } from './biomes.js';
+export { biomeFor, placeOf } from './biomes.js';
 export { layoutRoom } from './layout.js';
 export { describeRoom } from './describe.js';
 export { drawKey, KEY_KINDS } from './key.js';

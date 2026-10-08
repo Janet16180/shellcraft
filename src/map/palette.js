@@ -53,6 +53,8 @@ export const LABEL = {
   runnable: '#9be15d',
   hidden: '#c8c2e6',
   locked: '#ff8a94',
+  link: '#6fe0e8',
+  orphan: '#ff5c66',
   more: '#ffd348',
   creature: '#ffab8a',
   hover: '#ffd348',

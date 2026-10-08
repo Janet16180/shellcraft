@@ -4,7 +4,7 @@
  * that Z/2, 0/O and 1/l/I never look alike; the pixel font is for titles only.
  */
 
-import { fitLabel } from './layout.js';
+import { fitLabel, itemLabel } from './layout.js';
 import { LABEL, NIGHT, INK } from './palette.js';
 
 /** The font of every name label. */
@@ -52,7 +52,9 @@ function charsIn(g, view, slot) {
 
 function itemColour(item) {
   let colour = LABEL.item;
-  if (item.hidden) colour = LABEL.hidden;
+  if (item.dangling) colour = LABEL.orphan;
+  else if (item.link) colour = LABEL.link;
+  else if (item.hidden) colour = LABEL.hidden;
   else if (item.runnable) colour = LABEL.runnable;
   return colour;
 }
@@ -77,7 +79,7 @@ export function drawLabels(g, view, layout, ringed) {
     tag(g, view, text, sx(view, door.cx), sy(view, door.y - 2) - gap, { colour: door.hidden ? LABEL.hidden : LABEL.door, anchor: 'bottom', ring: ringed.includes(door.path) });
   }
   for (const item of layout.items) {
-    const text = fitLabel(item.name, charsIn(g, view, item.slot));
+    const text = itemLabel(item, charsIn(g, view, item.slot));
     tag(g, view, text, sx(view, item.cx), sy(view, item.y + item.h + 1) + gap, { colour: itemColour(item), ring: ringed.includes(item.path) });
   }
   if (layout.moreDoors) tag(g, view, `+${layout.moreDoors.count}`, sx(view, layout.moreDoors.cx), sy(view, layout.moreDoors.y + 15), { colour: LABEL.more, anchor: 'middle' });

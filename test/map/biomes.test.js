@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { biomeFor, BIOMES } from '../../src/map/biomes.js';
+import { biomeFor, placeOf, BIOMES } from '../../src/map/biomes.js';
+import { symlink } from '../../src/backend/spec.js';
+import { sampleTree, observe } from './fixtures.js';
 
 const HOME = '/home/hero';
 const at = path => biomeFor(path, HOME).biome;
@@ -112,4 +114,13 @@ test('the act III areas at home: the guild outpost, and the common hall with its
     assert.equal(biomeFor(`${HOME}/${area}`, HOME).realm, 'overworld', area);
   }
   assert.equal(biomeFor(`${HOME}/hall`, HOME).name, 'Common Hall');
+});
+
+test('a place reached through a link is named for where it really is', () => {
+  const tree = sampleTree();
+  tree.children.home.children.hero.children.portal = symlink('/home/hero/forest/cave/deep', { owner: 'hero' });
+  tree.children.home.children.hero.children.down = symlink('/etc', { owner: 'hero' });
+  assert.deepEqual(placeOf(observe('/home/hero/portal', { tree })), { realm: 'overworld', biome: 'cave', name: 'Dark Cave' });
+  assert.equal(placeOf(observe('/home/hero/down', { tree })).realm, 'dungeon');
+  assert.equal(placeOf(observe('/home/hero', { tree })).biome, 'cottage');
 });

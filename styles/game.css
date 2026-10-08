@@ -1161,6 +1161,18 @@ kbd {
   font-weight: 600;
 }
 
+/* Symbolic links: cyan like GNU ls (ln=01;36); one that leads nowhere red on black (or=40;31;01). */
+.c-link {
+  color: var(--term-link);
+  font-weight: 600;
+}
+
+.c-orphan {
+  color: var(--term-orphan);
+  background: var(--term-orphan-bg);
+  font-weight: 600;
+}
+
 .g-file {
   color: var(--term-file);
 }

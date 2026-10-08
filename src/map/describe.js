@@ -2,7 +2,7 @@
  * The map in words, for screen readers: the same facts the picture shows.
  */
 
-import { biomeFor } from './biomes.js';
+import { placeOf } from './biomes.js';
 import { readRoom } from './room.js';
 import { placeCreatures } from './creatures.js';
 
@@ -22,7 +22,9 @@ function doorName(door) {
 
 function itemName(item) {
   let note = '';
-  if (item.locked) note = ' (chained: you may not read it)';
+  if (item.dangling) note = ` -> ${item.link} (a broken link: it leads nowhere)`;
+  else if (item.link) note = ` -> ${item.link} (a link)`;
+  else if (item.locked) note = ' (chained: you may not read it)';
   else if (item.runnable) note = ' (you may run it)';
   return item.name + note;
 }
@@ -48,7 +50,7 @@ function contents(room) {
  */
 export function describeRoom(obs, { revealed = new Set() } = {}) {
   const room = readRoom(obs, revealed);
-  const { realm, name } = biomeFor(obs.cwd, obs.home);
+  const { realm, name } = placeOf(obs);
   const where = realm === 'overworld' ? 'inside your home' : 'in the dungeon, outside your home';
   const exit = room.exit ? `The exit .. leads to ${room.exit}.` : 'This is the root of everything: its .. leads back to / itself.';
   const creatures = placeCreatures(obs.procs).map(c => c.label);

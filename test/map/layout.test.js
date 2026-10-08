@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { layoutRoom, pickAt, fitLabel, findEntry, ART, HERO_REST } from '../../src/map/layout.js';
+import { layoutRoom, pickAt, fitLabel, itemLabel, findEntry, ART, HERO_REST } from '../../src/map/layout.js';
 import { readRoom } from '../../src/map/room.js';
 import { observe, sampleTree, crowded } from './fixtures.js';
 
@@ -199,4 +199,20 @@ test('however long the names, a row keeps at least three items on a narrow map a
   const rowOf = layout => layout.items.filter(i => i.y === layout.items[0].y).length;
   assert.equal(rowOf(layoutRoom(scrolls(names), { narrow: true, charPx: 6.5 })), 3);
   assert.equal(rowOf(layoutRoom(scrolls(names), { charPx: 4 })), 4);
+});
+
+test('a link is labelled name -> target when that fits, else by its name alone', () => {
+  const link = { name: 'portal', link: '/home/hero/forest/cave/deep' };
+  assert.equal(itemLabel(link, 40), 'portal -> /home/hero/forest/cave/deep');
+  assert.equal(itemLabel(link, 20), 'portal');
+  assert.equal(itemLabel({ name: 'a_very_long_link_name', link: 'x' }, 10), 'a_very_lo…');
+  assert.equal(itemLabel({ name: 'readme.txt', link: null }, 40), 'readme.txt');
+});
+
+test('an item alone or in a short row gets a slot wide enough for its whole name', () => {
+  const charPx = 6.5;
+  const [lone] = layoutRoom(scrolls(['ancient_key.txt']), { narrow: true, charPx }).items;
+  assert.ok(lone.slot >= 16 * charPx, `${lone.slot}`);
+  const pair = layoutRoom(scrolls(['ancient_key.txt', 'scroll_of_ages.txt']), { narrow: true, charPx }).items;
+  for (const item of pair) assert.ok(item.slot >= ([...item.name].length + 1) * charPx, `${item.name}: ${item.slot}`);
 });

@@ -5,6 +5,7 @@
  */
 
 import { isInside, joinPath } from '../backend/tree.js';
+import { realPath } from './room.js';
 
 /**
  * Every biome: its realm, the name shown to the player, and its colours. The
@@ -91,4 +92,15 @@ export function biomeFor(path, home) {
 
   const biome = isInside(path, home) ? overworldBiome(path, home) : dungeonBiome(path);
   return { realm: BIOMES[biome].realm, biome, name: BIOMES[biome].name };
+}
+
+/**
+ * The biome of an observation's working directory, by where it really is: a
+ * directory reached through a symbolic link looks like the place it leads to.
+ *
+ * @param {{tree: object, cwd: string, home: string}} obs The observation.
+ * @returns {{realm: 'overworld'|'dungeon', biome: string, name: string}} As biomeFor.
+ */
+export function placeOf({ tree, cwd, home }) {
+  return biomeFor(realPath(tree, cwd), home);
 }

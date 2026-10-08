@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { describeRoom } from '../../src/map/describe.js';
-import { dir, file } from '../../src/backend/spec.js';
+import { dir, file, symlink } from '../../src/backend/spec.js';
 import { observe, sampleTree, crowded } from './fixtures.js';
 
 test('it says where you are, in which realm, and what the doors and items are', () => {
@@ -73,4 +73,16 @@ test('it names the creatures the map shows, by PID and name', () => {
   assert.match(text, /Creatures here: 412 greedy_imp, 431 stubborn_imp, 4242 shadow_daemon\./);
   assert.doesNotMatch(text, /bash/);
   assert.doesNotMatch(describeRoom(observe('/home/hero')), /Creatures/);
+});
+
+test('links say where they lead, a dangling one that it leads nowhere, and a linked room is named for its real place', () => {
+  const tree = sampleTree();
+  Object.assign(tree.children.home.children.hero.children, {
+    portal: symlink('/home/hero/forest/cave/deep', { owner: 'hero' }),
+    broken: symlink('nowhere', { owner: 'hero' }),
+  });
+  const home = describeRoom(observe('/home/hero', { tree }));
+  assert.match(home, /portal -> \/home\/hero\/forest\/cave\/deep \(a link\)/);
+  assert.match(home, /broken -> nowhere \(a broken link: it leads nowhere\)/);
+  assert.match(describeRoom(observe('/home/hero/portal', { tree })), /\/home\/hero\/portal, Dark Cave/);
 });
