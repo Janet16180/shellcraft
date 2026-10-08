@@ -25,9 +25,13 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
 - Art (`slice/art`, merged): areas well, den, forge, ore, mirrors, the `/usr/local` guild wing,
   processes drawn as creatures labelled `PID name` (`src/map/creatures.js`).
 - The session playthrough plays all 14 chapters (3 seeds).
-- Engine (`slice/shell2`, not merged): playtest gaps closed (WORKLIST C5): `<` and `2>&1` in
+- Engine (`slice/shell2`, merged into `slice/ch5-9`): playtest gaps closed (WORKLIST C5): `<` and `2>&1` in
   `CommandRecord.redirects`, brace expansion, `!` history expansion, more long options, `printf`,
   `type -a/-t`, `uniq IN OUT`, `${v#pat}`/`%`, find and less error wording.
+- Two tester agents tried other correct lines and edge cases in every chapter (38 findings). All are
+  fixed and kept as rows in `test/game/chapters/alternatives.test.js`. New check helpers:
+  `ctx.shown`, `ctx.streams` (follows `2>&1`/`&>`), `ctx.onScreen`; `flag` knows long options;
+  `hasPath` counts `<` and a piped cat. 1930 tests, difftest 0 failures.
 
 ## State at 2026-10-07 (chapters 5 to 9, dev mode)
 
