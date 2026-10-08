@@ -15,6 +15,7 @@ import { bootText, restoredText } from './messages.js';
 import { createSound } from './sound.js';
 import { turnSounds } from './turnsounds.js';
 import { renderRoster, picksHTML } from './roster.js';
+import { keymapHTML } from './keymap.js';
 import { createQueue } from './queue.js';
 import { conceal, concealEffects } from './conceal.js';
 import { createToasts } from './toasts.js';
@@ -64,6 +65,7 @@ export async function startApp({ doc, session, createMap, createIntroBackend, re
     showRoom(ui);
   });
   renderRoster(doc.getElementById('rosterList'), drawKey, devicePixelRatio || 1, ui.view.prompt.home);
+  doc.getElementById('keymap').innerHTML = keymapHTML();
   showTitle(ui);
   if (Object.hasOwn(EXPLAINERS, explainer ?? '')) ui.explainer(EXPLAINERS[explainer], () => doc.getElementById('goBtn').focus());
 }
@@ -278,6 +280,7 @@ async function startChapter(ui, id, fresh, note = 'You jumped to this chapter, s
   hideCard(ui);
   await act(ui, async () => {
     show(ui, await ui.session.startChapter(id, { fresh }));
+    ui.terminal.abandon();
     showRoom(ui);
   });
   ui.terminal.clear();
@@ -471,6 +474,7 @@ function wireReset(ui) {
     run: async () => {
       await act(ui, async () => {
         show(ui, await ui.session.reset());
+        ui.terminal.abandon();
         showRoom(ui);
       });
       ui.terminal.clear();

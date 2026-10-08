@@ -36,13 +36,15 @@
             <canvas id="map" width="640" height="400" role="img" aria-label="Map of the directory you are in"></canvas>
             <div class="toast" id="toast" aria-hidden="true"></div>
           </div>
-          <div class="picks"><nav class="crumbs" id="crumbs" aria-label="Where you are"></nav><span class="sr-only" id="picksLabel">In this room:</span><div class="picklist" id="picks" role="group" aria-labelledby="picksLabel"></div><button class="px-btn small ghost keylink" id="keyBtn" type="button" aria-controls="roster" aria-label="What do these pictures mean?" title="What do these pictures mean?">?</button></div>
+          <div class="picks"><nav class="crumbs" id="crumbs" aria-label="Where you are"></nav><span class="sr-only" id="picksLabel">In this room:</span><div class="picklist" id="picks" role="group" aria-labelledby="picksLabel"></div><button class="px-btn small ghost keylink" id="keyBtn" type="button" aria-controls="roster" aria-label="What do the pictures and keys mean?" title="What do the pictures and keys mean?">?</button></div>
           <p class="sr-only" id="roomText" aria-live="polite"></p>
         </section>
 
         <details class="roster" id="roster">
-          <summary>Map key: what each picture really is</summary>
+          <summary>Map key: what each picture really is, and the terminal's keys</summary>
           <ul id="rosterList"></ul>
+          <h3 class="keymap-title">Keys in the terminal</h3>
+          <div id="keymap"></div>
         </details>
       </div>
 
@@ -66,8 +68,8 @@
       <p class="task-strip" id="now"></p>
       <div class="screen" id="screen">
         <div id="out" role="log" aria-live="polite" aria-label="Terminal output"></div>
-        <div class="inputline"><span id="prompt"></span><input id="cmd" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Type a command and press Enter" aria-describedby="cmdHelp"></div>
-        <p class="sr-only" id="cmdHelp">Tab completes names. Press Escape, then Tab, to move out of the terminal.</p>
+        <div class="inputline"><span id="prompt"></span><input id="cmd" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Type a command and press Enter" aria-describedby="cmdHelp"><span id="searchTail" aria-live="polite" hidden></span></div>
+        <p class="sr-only" id="cmdHelp">Tab completes names. Up and Down bring back earlier lines, and Ctrl+R searches them. Press Escape, then Tab, to move out of the terminal.</p>
       </div>
       <div class="keys" id="keys" aria-label="Terminal keys">
         <button class="px-btn small" type="button" data-k="Tab">Tab</button>
@@ -78,6 +80,7 @@
         <button class="px-btn small" type="button" data-k="-">-</button>
         <button class="px-btn small" type="button" data-k="|">|</button>
         <button class="px-btn small" type="button" data-k="&gt;">&gt;</button>
+        <button class="px-btn small" type="button" data-k="C-r" aria-label="Search earlier commands, Ctrl+R">Ctrl+R</button>
         <button class="px-btn small" type="button" data-k="C-c">Ctrl+C</button>
         <button class="px-btn small primary" type="button" data-k="Enter">Enter</button>
       </div>

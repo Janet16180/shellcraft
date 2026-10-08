@@ -12,6 +12,17 @@ map draws the working directory as a room: the original outdoor 8-bit style insi
 home, Ring Zero's Pixel Dungeon style outside it. Each chapter is lesson, guided quest, boss,
 adventure log. 14 chapters are planned (DESIGN.md section 4).
 
+## State at 2026-10-08 (UI and art for chapter 18: `slice/ui3`)
+
+- Branch `slice/ui3` (worktree `.scratch/wt/ui3`), not merged. The password prompt: the touch keys
+  obey it (no history, no Tab), a chapter load or reset ends a waiting prompt (`terminal.abandon()`),
+  and a hidden line in the output log reads the prompt to screen readers.
+- Terminal keys: Ctrl+R is bash's reverse-i-search (`src/ui/isearch.js`, checked against bash 5.2 in
+  `docs/verification/terminal-keys.md`), plus Ctrl+A, Ctrl+E and a Ctrl+R touch key. The keys are
+  listed under the map's `?` button (`src/ui/keymap.js`); a new key goes there too.
+- Map: `~/crown` is the Throne Room; `/srv/mill`, `bakery`, `stables`, `lighthouse` and `granary`
+  have rooms of their own (`src/map/crowndecor.js`, `src/map/servicedecor.js`).
+
 ## State at 2026-10-08 (engine for chapter 18, The Crown: `slice/sudo`)
 
 - Branch `slice/sudo` (worktree `.scratch/wt/sudo`), not merged: `sudo` follows the tree's policy

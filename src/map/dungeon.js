@@ -10,6 +10,7 @@ import { INK } from './palette.js';
 import { SPRITES } from './sprites.js';
 import { ART, HERO_REST } from './layout.js';
 import { box, drawSprite, makeCanvas, tile } from './paint.js';
+import { SERVICE_DECOR, SERVICE_AMBIENT } from './servicedecor.js';
 
 const TORCHES = [{ x: 2, y: 12 }, { x: 310, y: 12 }];
 const GLOW_BANDS = [[22, 0.2], [40, 0.1], [62, 0.045]];
@@ -242,6 +243,7 @@ const DECOR = {
   services,
   guildhall,
   guildarchive,
+  ...SERVICE_DECOR,
 };
 
 /**
@@ -263,15 +265,17 @@ export function background(ctx, { biome, layout }) {
 }
 
 /**
- * Paint what moves in a dungeon room: the torches, and a candle in the scriptorium.
+ * Paint what moves in a dungeon room: the torches, a candle in the scriptorium,
+ * and the moving parts of the guild's service rooms.
  *
  * @param {CanvasRenderingContext2D} ctx The art canvas.
- * @param {{biome: string}} scene The room.
+ * @param {{biome: string, layout: import('./layout.js').Layout}} scene The room.
  * @param {number} t Animation clock in ms (frozen at 0 with reduced motion).
  */
-export function ambient(ctx, { biome }, t) {
+export function ambient(ctx, { biome, layout }, t) {
   TORCHES.forEach((torch, i) => drawSprite(ctx, SPRITES.torch[(Math.floor(t / 200) + i * 2) % 3], torch.x, torch.y));
   if (biome === 'scriptorium') box(ctx, Math.floor(t / 250) % 2 ? INK.y : INK.o, 53, 147 + (Math.floor(t / 250) % 2), 1, 3);
+  SERVICE_AMBIENT[biome]?.(ctx, t, layout.wall);
 }
 
 /**

@@ -124,3 +124,18 @@ test('a place reached through a link is named for where it really is', () => {
   assert.equal(placeOf(observe('/home/hero/down', { tree })).realm, 'dungeon');
   assert.equal(placeOf(observe('/home/hero', { tree })).biome, 'cottage');
 });
+
+test('chapter 18\'s crown room at home is the steward\'s throne room', () => {
+  assert.equal(at(`${HOME}/crown`), 'throne');
+  assert.deepEqual(biomeFor(`${HOME}/crown`, HOME), { realm: 'overworld', biome: 'throne', name: 'Throne Room' });
+});
+
+test('each guild service under /srv has a room of its own, and an unknown one is the service wing', () => {
+  const rooms = { mill: 'The Mill', bakery: 'The Bakery', stables: 'The Stables', lighthouse: 'The Lighthouse', granary: 'The Granary' };
+  for (const [service, name] of Object.entries(rooms)) {
+    assert.deepEqual(biomeFor(`/srv/${service}`, HOME), { realm: 'dungeon', biome: service, name }, service);
+    assert.equal(at(`/srv/${service}/old`), service);
+  }
+  assert.equal(at('/srv/forge'), 'services');
+  assert.equal(at('/srv'), 'services');
+});

@@ -34,6 +34,7 @@ export const BIOMES = {
   strongroom: { realm: 'overworld', name: 'Strongroom', wall: ['#2c3038', '#3a3f49'], floor: '#555a64', door: '#16181d', trim: '#e0b84a' },
   records: { realm: 'overworld', name: 'Records Room', wall: ['#2f2238', '#3d2c48'], floor: '#6e5444', door: '#1a1020', trim: '#d9c8a0' },
   shared: { realm: 'overworld', name: 'Shared Room', wall: ['#3a2a1a', '#4b3722'], floor: '#8a7048', door: '#22160c', trim: '#c792ff' },
+  throne: { realm: 'overworld', name: 'Throne Room', wall: ['#3a1530', '#4a1c3e'], floor: '#6a6684', door: '#1e0b1a', trim: '#ffd36b' },
   hall: { realm: 'dungeon', name: 'Entrance Hall', accent: 'p' },
   archive: { realm: 'dungeon', name: 'Hall of Scrolls', accent: 'u' },
   scriptorium: { realm: 'dungeon', name: 'Scriptorium', accent: 'r' },
@@ -49,6 +50,11 @@ export const BIOMES = {
   guildarchive: { realm: 'dungeon', name: 'Guild Archive', accent: 'v' },
   workshop: { realm: 'dungeon', name: 'Workshop', accent: 'b' },
   pit: { realm: 'dungeon', name: 'Hall of Devices', accent: 'p' },
+  mill: { realm: 'dungeon', name: 'The Mill', accent: 'l' },
+  bakery: { realm: 'dungeon', name: 'The Bakery', accent: 'o' },
+  stables: { realm: 'dungeon', name: 'The Stables', accent: 'y' },
+  lighthouse: { realm: 'dungeon', name: 'The Lighthouse', accent: 'u' },
+  granary: { realm: 'dungeon', name: 'The Granary', accent: 'y' },
   corridor: { realm: 'dungeon', name: 'Dungeon Corridor', accent: 'd' },
 };
 
@@ -56,7 +62,7 @@ const OVERWORLD_AREAS = [
   ['forest/cave', 'cave'], ['forest/river', 'river'], ['forest', 'forest'], ['camp', 'camp'], ['junk', 'junk'],
   ['library', 'library'], ['tower', 'tower'], ['market', 'market'], ['gate', 'gate'], ['mirrors', 'mirrors'],
   ['well', 'well'], ['den', 'den'], ['forge/ore', 'ore'], ['forge', 'forge'],
-  ['guild', 'outpost'], ['hall/vault', 'strongroom'], ['hall/archive', 'records'], ['hall/shared', 'shared'], ['hall', 'commons'],
+  ['guild', 'outpost'], ['crown', 'throne'], ['hall/vault', 'strongroom'], ['hall/archive', 'records'], ['hall/shared', 'shared'], ['hall', 'commons'],
 ];
 
 const DUNGEON_ROOMS = [['/', 'hall'], ['/home', 'gatehouse']];
@@ -65,7 +71,8 @@ const DUNGEON_WINGS = [
   ['/home', 'quarters'], ['/var/log', 'scriptorium'], ['/var', 'cellar'], ['/etc', 'archive'], ['/tmp', 'scrap'],
   ['/root', 'vault'], ['/usr/bin', 'armory'], ['/usr/sbin', 'armory'], ['/usr/local', 'guild'], ['/bin', 'armory'], ['/sbin', 'armory'],
   ['/usr', 'workshop'], ['/dev', 'pit'],
-  ['/srv/guild/archive', 'guildarchive'], ['/srv/guild', 'guildhall'], ['/srv', 'services'],
+  ['/srv/guild/archive', 'guildarchive'], ['/srv/guild', 'guildhall'],
+  ...['mill', 'bakery', 'stables', 'lighthouse', 'granary'].map(service => [`/srv/${service}`, service]), ['/srv', 'services'],
 ];
 
 const firstMatch = (rules, path, place = at => at) => rules.find(([at]) => isInside(path, place(at)));

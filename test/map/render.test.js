@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createStage, settle } from '../../src/map/stage.js';
 import { paintFrame } from '../../src/map/render.js';
-import { symlink } from '../../src/backend/spec.js';
+import { dir, file, symlink } from '../../src/backend/spec.js';
 import { observe, sampleTree } from './fixtures.js';
 
 // A canvas whose 2D context accepts every drawing call and records nothing.
@@ -36,5 +36,18 @@ test('rooms holding symbolic links paint in the overworld and the dungeon', t =>
     const stage = createStage(fakeCanvas(), true);
     settle(stage, observe(cwd, { tree }));
     assert.doesNotThrow(() => paintFrame(stage, 0), cwd);
+  }
+});
+
+test('the crown chapter\'s throne room and every guild service room paint, at rest and moving', t => {
+  globalThis.document = { createElement: fakeCanvas };
+  t.after(() => delete globalThis.document);
+  const tree = sampleTree();
+  tree.children.home.children.hero.children.crown = dir({ 'sword.txt': file('', { owner: 'hero' }), 'order.txt': file('', { owner: 'hero' }) }, { owner: 'hero' });
+  tree.children.srv = dir(Object.fromEntries(['mill', 'bakery', 'stables', 'lighthouse', 'granary'].map(name => [name, dir({ 'config.txt': file('', { mode: 0o600 }) })])));
+  for (const cwd of ['/home/hero/crown', '/srv/mill', '/srv/bakery', '/srv/stables', '/srv/lighthouse', '/srv/granary']) {
+    const stage = createStage(fakeCanvas(), false);
+    settle(stage, observe(cwd, { tree }));
+    for (const ms of [0, 1234, 98765]) assert.doesNotThrow(() => paintFrame(stage, ms), `${cwd} at ${ms}`);
   }
 });
