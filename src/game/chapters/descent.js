@@ -137,7 +137,7 @@ export default {
         'grep hero /etc/passwd',
       ],
       done: ctx => ctx.ran('grep', record => record.args.includes('hero') && (ctx.hasPath(record, PASSWD) || ctx.piped(record).includes(PASSWD))),
-      near: ctx => (ctx.ran('cat', record => ctx.hasPath(record, PASSWD) && record.stage === record.stages - 1) ? 'That printed every account. grep hero /etc/passwd prints only yours.' : null),
+      near: ctx => (ctx.shown(PASSWD) ? 'That printed every account. grep hero /etc/passwd prints only yours.' : null),
     },
     {
       goal: 'Read only the last 3 lines of the package log `/var/log/dpkg.log` (`tail -n 3`: the newest lines are at the end)',
@@ -151,7 +151,7 @@ export default {
       near: ctx => (readsLastThree(ctx) ? null : firstNote([
         [() => ctx.ran('tail', record => ctx.hasPath(record, DPKG)), 'That printed a different number of lines. Add -n 3 to tail for the last 3.'],
         [() => ctx.ran('head', record => ctx.hasPath(record, DPKG)), 'head prints the first, oldest lines. The newest are at the end: use tail.'],
-        [() => ctx.read(DPKG), 'That printed the whole log. tail -n 3 prints only its last 3 lines.'],
+        [() => ctx.shown(DPKG), 'That printed the whole log. tail -n 3 prints only its last 3 lines.'],
       ])),
     },
     {

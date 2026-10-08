@@ -146,7 +146,7 @@ export default {
         'sort ~/market/inventory.txt',
       ],
       done: ctx => ctx.ran('sort', record => takes(ctx, record, inventoryOf(ctx))),
-      near: ctx => (ctx.read(inventoryOf(ctx)) ? 'cat prints the lines as they are. sort prints them in order.' : null),
+      near: ctx => (ctx.shown(inventoryOf(ctx)) ? 'cat prints the lines as they are. sort prints them in order.' : null),
     },
     {
       goal: 'Show each item once (`sort ~/market/inventory.txt | uniq`: the `|` sends what `sort` prints into `uniq`)',

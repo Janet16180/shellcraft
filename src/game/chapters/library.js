@@ -44,7 +44,7 @@ const reading = (ctx, name, path) => ctx.ran(name, record => readsFile(ctx, reco
 const printed = (ctx, name, path, text) => text !== null && ctx.ran(name, record => readsFile(ctx, record, path) && byLines(ctx, record) && record.stdout === text);
 const counted = (ctx, path) => ctx.ran('wc', record => readsFile(ctx, record, path) && ctx.flag(record, 'l'));
 const countedAll = (ctx, path) => ctx.ran('wc', record => readsFile(ctx, record, path) && !ctx.flag(record, 'l'));
-const catted = (ctx, path) => ctx.ran('cat', record => readsFile(ctx, record, path));
+const catted = (ctx, path) => ctx.ran('cat', record => readsFile(ctx, record, path) && record.stage === record.stages - 1);
 
 const headThree = ctx => printed(ctx, 'head', scrollOf(ctx), firstLines(contentOf(ctx, scrollOf(ctx)) ?? '', 3));
 const tailOne = ctx => printed(ctx, 'tail', scrollOf(ctx), lastLines(contentOf(ctx, scrollOf(ctx)) ?? '', 1));

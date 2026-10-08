@@ -88,7 +88,7 @@ function noMatchNote(ctx, path, word) {
   return missed ? `No line matched. grep matches the word exactly as you typed it: try ${word}.` : null;
 }
 
-const readNote = (ctx, path, what, line) => (ctx.read(path) ? `cat prints the whole ${what}. ${line} prints only the lines you need.` : null);
+const readNote = (ctx, path, what, line) => (ctx.shown(path) ? `cat prints the whole ${what}. ${line} prints only the lines you need.` : null);
 
 function caseNote(ctx) {
   const plain = ctx.tried('grep', r => ctx.hasPath(r, guestbookOf(ctx)) && !ctx.flag(r, 'i'));
@@ -162,7 +162,7 @@ function bossDone(ctx, { scale, dragon }) {
 function bossNear(ctx, { scale, dragon }) {
   const scaleName = scale.slice(scale.lastIndexOf('/') + 1);
   let note = null;
-  if (ctx.read(scale)) note = 'cat prints every line of the scale. grep NAME and the file\'s path prints only the line you need.';
+  if (ctx.shown(scale)) note = 'cat prints every line of the scale. grep NAME and the file\'s path prints only the line you need.';
   else if (ctx.ran('grep', r => recursive(ctx, r) && r.stdout.includes(nameLine(dragon)))) note = 'There is the line. Now grep the scale file itself: grep NAME and the path that grep printed before the colon.';
   else if (ctx.tried('grep', r => ctx.hasPath(r, scale) && r.status === 1)) note = 'No line matched. The line you want starts with NAME, in capital letters.';
   else if (ctx.ran('find', r => outLines(r).some(line => line.endsWith(`/${scaleName}`)))) note = 'Found it. Now use grep on that path to show the line that starts with NAME.';

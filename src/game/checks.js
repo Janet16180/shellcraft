@@ -120,6 +120,8 @@ export function makeContext({ commands, before, obs, completions = [], line = ''
     paths,
     hasPath,
     piped,
+    shown: path => commands.some(r => READERS.has(r.name) && hasPath(r, path) && readOk(r, path)
+      && r.stage === r.stages - 1 && !r.redirects.some(x => x.op === '>' || x.op === '>>')),
     read: path => commands.some(r => READERS.has(r.name) && hasPath(r, path) && readOk(r, path)),
   };
 }
