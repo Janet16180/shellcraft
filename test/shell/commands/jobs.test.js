@@ -558,3 +558,17 @@ test('disown %N, -a and -r, and a warning for a stopped job', async () => {
   assert.deepEqual(outcome(await run(b, 'disown')), ['', 'bash: disown: current: no such job\n', 1]);
   assert.deepEqual(outcome(await run(b, 'disown %9')), ['', 'bash: disown: %9: no such job\n', 1]);
 });
+
+test('the observation lists the jobs bash has: number, PID, command, mark and the state of the process', async () => {
+  const b = await shell();
+  const pid = pidOf(await run(b, 'sleep 100 &'));
+  await b.run('sleep 200');
+  await b.signal('TSTP');
+  const stopped = (await b.observe()).procs.find(p => p.cmd === 'sleep 200').pid;
+  await run(b, 'true &');
+  assert.equal((await run(b, 'kill %1')).err, '[3]-  Done                    true\n');
+  assert.deepEqual((await b.observe()).jobs, [
+    { id: 1, pid, cmd: 'sleep 100', state: 'done', mark: '-' },
+    { id: 2, pid: stopped, cmd: 'sleep 200', state: 'stopped', mark: '+' },
+  ]);
+});

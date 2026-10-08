@@ -84,6 +84,16 @@ The check context `ctx` (implemented in `src/game/checks.js`) sees only the port
   (`user: 'root'`, `via: 'sudo'`), sharing the pipeline place and redirections. "chown ran as root" is
   `ctx.ran('chown', r => r.user === 'root')`; a plain `chown` by the player has `user: 'hero'`.
 - `ctx.tried(name, pred?)`: same, any exit status.
+- `ctx.jobs`: the shell's jobs after the line, `[{ id, pid, cmd, state, mark }]`, `state` being
+  `'running'`, `'stopped'` or `'done'` (the process is gone, not yet reported) and `mark` `'+'`
+  (current), `'-'` (previous) or `' '`. `ctx.job(1)` is job `%1`, or `null`.
+- `ctx.ended(id)`: job `id` had a running or stopped process before the line and none after it
+  (`kill %1`, `kill -9 %1`, or it finished). A new job that took the number does not count.
+- `ctx.pressed(key, name?)`: the player pressed Ctrl+C (`'INT'`) or Ctrl+Z (`'TSTP'`) while a
+  command (named `name`, if given) ran in the foreground: `ctx.pressed('TSTP', 'sleep')`.
+  The record of that command has `signal: 'INT'|'TSTP'` and status 130 or 148. A command of a
+  job started with `&` has `background: true` and `job: N`: "started sleep in the background" is
+  `ctx.ran('sleep', r => r.background)`.
 - `ctx.hasPath(record, absPath)`: one of its non-option arguments resolves to `absPath`; for commands that read their input (cat, grep, sort, uniq, wc, head, tail...), also a file sent in with `<` or by a plain `cat` piped into it.
 - `ctx.streams(record)`: `{out, err}`, where the command's output and errors went after its redirections in typed order (`2>&1`, `&>` included); `null` is the screen.
 - `ctx.onScreen(record)`: the record's output reached the screen: last stage of its pipeline, stdout not redirected.

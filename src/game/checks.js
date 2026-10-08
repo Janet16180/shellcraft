@@ -89,6 +89,15 @@ export function streamsOf(record) {
   return { out, err };
 }
 
+const KEYS = ['INT', 'TSTP'];
+
+// A job that had a live process before the line and has none after it (the same job: same PID).
+function jobEnded(before, after, id) {
+  const was = (before.jobs ?? []).find(j => j.id === id && j.state !== 'done');
+  const now = (after.jobs ?? []).find(j => j.id === id && j.pid === was?.pid);
+  return Boolean(was) && (!now || now.state === 'done');
+}
+
 /**
  * Build the context a chapter's checks receive for one line.
  *
@@ -134,6 +143,13 @@ export function makeContext({ commands, before, obs, completions = [], line = ''
       return node?.type === 'symlink' ? node.target : null;
     },
     proc: key => obs.procs.find(p => p.key === key) ?? null,
+    jobs: obs.jobs ?? [],
+    job: id => (obs.jobs ?? []).find(j => j.id === id) ?? null,
+    ended: id => jobEnded(before, obs, id),
+    pressed: (key, name = null) => {
+      if (!KEYS.includes(key)) throw new Error(`pressed takes INT or TSTP, got ${key}`);
+      return commands.some(r => r.signal === key && (name === null || r.name === name));
+    },
     ran,
     tried: (name, pred = () => true) => commands.some(r => r.name === name && pred(r)),
     flag: (record, letter) => shortOptions(record.args).some(o => o.slice(1).includes(letter)) || longOptions(record).includes(letter),

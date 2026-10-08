@@ -82,7 +82,7 @@ export function createFakeBackend({ user = 'hero', host = 'kernelia', home = '/h
       return runWords(line, world, commands);
     },
     async observe() {
-      return structuredClone({ user, groups: [user], host, home, cwd: world.cwd, tree: world.tree, procs: world.procs });
+      return structuredClone({ user, groups: [user], host, home, cwd: world.cwd, tree: world.tree, procs: world.procs, jobs: [] });
     },
     async complete(line) {
       return { line, candidates: [] };

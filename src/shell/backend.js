@@ -12,7 +12,7 @@ import { groupNames, loginGids } from './accounts.js';
 import { expandHistory } from './history.js';
 import { COMMANDS, BINARIES } from './commands/index.js';
 import { saveState, restoreState, createTape } from './snapshot.js';
-import { expire, reap, notify } from './jobs.js';
+import { expire, reap, notify, markOf } from './jobs.js';
 
 const CLEAR_MARK = '\u001b[2J';
 
@@ -116,8 +116,15 @@ function observe(sys) {
     if (p.key !== undefined) rec.key = p.key;
     return rec;
   });
+  // A job's state is its process's: gone (done), stopped, or running, whatever bash has heard yet.
+  const jobs = sys.jobs.map(job => {
+    const proc = sys.procs.find(p => p.pid === job.pid);
+    let state = 'done';
+    if (proc) state = proc.stat.startsWith('T') ? 'stopped' : 'running';
+    return { id: job.id, pid: job.pid, cmd: job.text, state, mark: markOf(sys, job) };
+  });
   numberInodes(sys);
-  return { user: sys.user, groups: groupNames(sys), host: sys.host, home: sys.home, cwd: sys.cwd, tree: snapshot(sys.root), procs };
+  return { user: sys.user, groups: groupNames(sys), host: sys.host, home: sys.home, cwd: sys.cwd, tree: snapshot(sys.root), procs, jobs };
 }
 
 /**

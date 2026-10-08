@@ -152,6 +152,20 @@
  */
 
 /**
+ * A job of the player's shell, as `jobs` lists it. `state` is its process's:
+ * `running`, `stopped`, or `done` once the process is gone. A job stays in the
+ * list until bash has reported its end (`Done`, `Terminated`), so a job just
+ * killed shows `done` for a line, then leaves the list.
+ *
+ * @typedef {object} JobRecord
+ * @property {number} id The job number (`%1` is 1).
+ * @property {number} pid Its process.
+ * @property {string} cmd The command as `jobs` shows it, without `&`: 'sleep 100'.
+ * @property {'running'|'stopped'|'done'} state
+ * @property {'+'|'-'|' '} mark The current job (+, what fg and bg pick), the previous one (-), or neither.
+ */
+
+/**
  * Everything the game may look at between commands. The tree covers the paths
  * the world defines, not a whole real disk.
  *
@@ -163,6 +177,7 @@
  * @property {string} cwd Absolute working directory.
  * @property {TreeNode} tree The world, rooted at '/'.
  * @property {ProcRecord[]} procs
+ * @property {JobRecord[]} jobs The shell's jobs, by number.
  */
 
 /**
