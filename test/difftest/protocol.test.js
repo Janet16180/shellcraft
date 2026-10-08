@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { inputScript, splitOutput } from '../../difftest/protocol.js';
+import { inputScript, splitOutput, masked } from '../../difftest/protocol.js';
 
 const RS = '\u001e';
 
@@ -34,4 +34,10 @@ test('output splits back into one stdout, stderr, status and clock per line', ()
 
 test('a line whose end marker never came has a null status', () => {
   assert.equal(splitOutput(`${RS}B0 5${RS}x`, '', 1)[0].status, null);
+});
+
+test('masks replace what differs by nature, like PIDs, on both sides before they are compared', () => {
+  const masks = ['(?<=^\\[\\d+\\] )\\d+$'];
+  assert.equal(masked('[1] 4242\n[1]+  Done                    sleep 1\n', masks), '[1] PID\n[1]+  Done                    sleep 1\n');
+  assert.equal(masked('same\n', []), 'same\n');
 });
