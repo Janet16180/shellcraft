@@ -63,7 +63,7 @@ export function allocPid(sys, maxGap = 3) {
 }
 
 // Programs that run with their owner's rights (the s in -rwsr-xr-x).
-const SETUID = new Set(['sudo']);
+const SETUID = new Set(['sudo', 'su']);
 
 function baseTree(home, user, binaries, mtime) {
   const meta = mode => ({ ...ROOT_META, mode, mtime });

@@ -289,3 +289,39 @@ test('the sudo record says how authentication went: ok, failed, cancelled, not-n
   const nopass = await realm({ extra: [NOPASSWD] });
   assert.equal(sudoRecord(await nopass.run('sudo whoami')).auth, 'not-needed');
 });
+
+test('sudo su, sudo su -, sudo bash and sudo -s would open a root shell: a note, after the password', async () => {
+  const b = await realm({ extra: [NOPASSWD] });
+  for (const line of ['sudo su', 'sudo su -', 'sudo su - root', 'sudo bash', 'sudo -s', 'sudo sh', 'sudo bash -l']) {
+    const r = await run(b, line);
+    assert.deepEqual(outcome(r), ['', '', 1], line);
+    assert.match(r.note, /root shell/, line);
+  }
+  assert.deepEqual(outcome(await run(b, "sudo bash -c 'whoami'")), ['root\n', '', 0]);
+  const asked = await realm({ extra: [password('dragon')] });
+  assert.ok((await asked.run('sudo su')).input);
+  const r = await asked.answer('dragon');
+  assert.match(r.output.find(c => c.stream === 'note').text, /root shell/);
+  assert.equal(sudoRecord(r).auth, 'ok');
+});
+
+const SU_PROMPT = { prompt: 'Password: ', hidden: true };
+
+test('su asks for root\'s password, which Ubuntu locks: Authentication failure, status 1, and a note', async () => {
+  const b = await realm({ extra: [password('dragon')] });
+  for (const line of ['su', 'su -', 'su root -c whoami', 'su mira']) {
+    assert.deepEqual((await b.run(`${line}; echo s=$?`)).input, SU_PROMPT, line);
+    const r = await b.answer('dragon');
+    assert.deepEqual(r.output.filter(c => c.stream !== 'note').map(c => c.text), ['Password: \n', 'su: Authentication failure\n', 's=1\n'], line);
+    assert.match(r.output.find(c => c.stream === 'note').text, /sudo/, line);
+  }
+});
+
+test('su names a missing user at once, and Ctrl+C at its prompt ends the line with 130', async () => {
+  const b = await realm();
+  assert.deepEqual(outcome(await run(b, 'su nosuch')), ['', 'su: user nosuch does not exist or the user entry does not contain all the required fields\n', 1]);
+  assert.deepEqual(outcome(await run(b, 'su -z')), ['', "su: invalid option -- 'z'\nTry 'su --help' for more information.\n", 1]);
+  await b.run('su; echo after');
+  const r = await b.answer(null);
+  assert.deepEqual([r.output.map(c => c.text), r.status], [['Password: \n'], 130]);
+});

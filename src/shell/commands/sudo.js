@@ -9,7 +9,7 @@
  * `ctx.ask`; when no answer is ready yet the command stops and the line waits
  * for one (see `createSimBackend`).
  *
- * Not simulated: a root shell (-i, -s), the long list format (-ll), sudo's
+ * Not simulated: a root shell (-i, -s, and su or a bare shell as the command), the long list format (-ll), sudo's
  * environment handling (env_reset, SUDO_USER), and the rarer options, which
  * end with a note.
  */
@@ -100,7 +100,7 @@ const LONG = {
 const OTHER_LONG = ['--askpass', '--background', '--bell', '--close-from', '--chdir', '--preserve-env', '--edit', '--group', '--set-home',
   '--host', '--preserve-groups', '--prompt', '--chroot', '--role', '--stdin', '--type', '--command-timeout', '--other-user'];
 
-const ROOT_SHELL = 'sudo -i and sudo -s open a root shell, where every command runs as root until you type exit. The game does not simulate a root shell: put sudo in front of the one command that needs root instead.';
+export const ROOT_SHELL = 'sudo -i, sudo -s, sudo su and sudo bash open a root shell, where every command runs as root until you type exit. The game does not simulate a root shell: put sudo in front of the one command that needs root instead.';
 const noPassword = user => `Real sudo asks for ${user}'s password here. This world has not given ${user} a password, so the game skips that step.`;
 
 function longOption(arg, args, i, o) {
@@ -248,6 +248,14 @@ function refuse(job) {
   return result('', text, 1);
 }
 
+// su or a shell with nothing to run: a root shell, not simulated. `bash -c CMD` and `su -c CMD` run a command.
+function opensShell(name, args) {
+  const base = name.split('/').pop();
+  const runs = args.some(a => a === '-c' || a.startsWith('--command') || /^-[a-z]*c/.test(a));
+  if (base === 'su') return !runs;
+  return ['bash', 'sh', 'dash'].includes(base) && args.every(a => ['-', '-l', '-i', '-il', '-li', '--login'].includes(a));
+}
+
 function runCommand(job, ctx) {
   const { sys, me, target, opts } = job;
   const [name, ...args] = opts.command;
@@ -260,6 +268,7 @@ function runCommand(job, ctx) {
   if (!decision.allowed) return refuse(job);
   if (!opts.flags.has('k')) sys.sudoStamp = sys.now();
   if (!path) return notFound(name);
+  if (opensShell(name, args)) return withNote(result('', '', 1), ROOT_SHELL);
   logAuth(sys, [commandLog(job, null), `pam_unix(sudo:session): session opened for user ${target.name}(uid=${target.uid}) by ${me.name}(uid=${me.uid})`]);
   const r = ctx.runAs(who, () => ctx.program(path, args));
   logAuth(sys, [`pam_unix(sudo:session): session closed for user ${target.name}`]);
