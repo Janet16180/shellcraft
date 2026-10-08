@@ -43,10 +43,12 @@ function sleepTime(args) {
   return error ? { error: `${error}\n${SLEEP_HELP}` } : { ms: total * 1000 };
 }
 
-// What bash says after it waited for a foreground job. The ^Z the terminal
-// echoes ends its line where bash's notice starts with a newline.
-function report(ctx, stopped) {
+// What bash says after it waited for a foreground job: the jobs that ended
+// meanwhile (by `at`, the clock by default) and what else changed. The ^Z the
+// terminal echoes ends its line where bash's notice starts with a newline.
+function report(ctx, { stopped = false, at = ctx.sys.now() } = {}) {
   const { sys } = ctx;
+  expire(sys, at);
   if (!sys.flags.includes('i')) return;
   reap(sys);
   const text = notify(sys);
@@ -90,7 +92,7 @@ export function foreground(ctx, proc) {
     endProcess(sys, proc, { exit: proc.exitStatus ?? 0 });
     outcome = { status: proc.exitStatus ?? 0 };
   }
-  report(ctx, event.key === 'TSTP');
+  report(ctx, { stopped: event.key === 'TSTP' });
   return outcome;
 }
 
@@ -165,7 +167,7 @@ function fg(args, ctx) {
   makeCurrent(sys, job);
   ctx.tty(`${job.text}${wdNote(sys, job)}\n`);
   Object.assign(job, { foreground: true, state: 'running', notified: true });
-  if (!proc) report(ctx, false);
+  if (!proc) report(ctx);
   if (!proc) return result('', '', statusCode(job.status));
   continueProcess(sys, proc, { foreground: true });
   return keyed(result(), foreground(ctx, proc));
@@ -229,8 +231,7 @@ function waitAll(ctx) {
   for (const [i, job] of order.entries()) {
     if (i > 0 && job.state === 'running') warn(stoppedBefore(job.id));
     if (job.state !== 'running') continue;
-    expire(sys, Math.min(endOf(procOf(sys, job)), sys.now()));
-    report(ctx, false);
+    report(ctx, { at: Math.min(endOf(procOf(sys, job)), sys.now()) });
   }
   warn(sys.jobs.filter(j => j.state === 'stopped'));
   return { status: 0 };
@@ -253,8 +254,7 @@ function waitOne(ctx, job) {
   const proc = procOf(sys, job);
   const event = proc && endOf(proc) > sys.now() ? waitUntil(ctx, endOf(proc)) : { done: true };
   if (!event.done) return interrupted(event);
-  expire(sys);
-  report(ctx, false);
+  report(ctx);
   return { status: job.status ? statusCode(job.status) : 0 };
 }
 

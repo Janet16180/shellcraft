@@ -572,3 +572,11 @@ test('the observation lists the jobs bash has: number, PID, command, mark and th
     { id: 2, pid: stopped, cmd: 'sleep 200', state: 'stopped', mark: '+' },
   ]);
 });
+
+test('a job that ends while a foreground command runs is reported right after that command', async () => {
+  const { b, tick } = await timed();
+  await b.run('sleep 1 & sleep 2; echo up');
+  tick(2);
+  const r = await b.poll();
+  assert.deepEqual(r.output.map(c => c.text), ['[1]+  Done                    sleep 1\n', 'up\n']);
+});
