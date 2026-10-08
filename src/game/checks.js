@@ -39,6 +39,8 @@ const LONG_OPTIONS = {
   ls: { all: 'a', 'almost-all': 'A', directory: 'd', recursive: 'R', 'human-readable': 'h' },
   grep: { recursive: 'r', 'dereference-recursive': 'R', 'ignore-case': 'i', count: 'c', 'line-number': 'n', 'invert-match': 'v', 'word-regexp': 'w' },
   rm: { recursive: 'r', force: 'f', dir: 'd' },
+  tee: { append: 'a' },
+  sudo: { list: 'l', 'reset-timestamp': 'k', 'remove-timestamp': 'K' },
   cp: { recursive: 'r' },
   mkdir: { parents: 'p' },
   head: { lines: 'n' },

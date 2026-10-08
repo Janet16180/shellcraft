@@ -62,6 +62,15 @@ const dirUntouched = (ctx, config) => {
   return node?.owner === 'root' && node.group === 'root' && (node.mode & 0o777) === 0o755;
 };
 
+// What to undo on the service's directory: its owner and group, its mode, or both.
+function dirNote(node, dir) {
+  const fixes = [
+    (node.owner !== 'root' || node.group !== 'root') && `sudo chown root:root ${dir}`,
+    (node.mode & 0o777) !== 0o755 && `sudo chmod 755 ${dir}`,
+  ].filter(Boolean);
+  return `The order says to change nothing else, and the directory ${dir} changed. Put it back: ${fixes.join(', then ')}.`;
+}
+
 function bossDone(ctx, { config, keeper, group }) {
   const node = ctx.node(config);
   return node?.owner === keeper && node.group === group && (node.mode & 0o777) === 0o640 && dirUntouched(ctx, config);
@@ -75,7 +84,7 @@ function bossNear(ctx, secret) {
   if (!tried || bossDone(ctx, secret)) return passwordFirst(ctx, []);
   return passwordFirst(ctx, [
     [() => ['chown', 'chgrp', 'chmod'].some(name => asMe(ctx, name, r => r.status !== 0)), `config.txt is root's, so only root may change it: put sudo in front.`],
-    [() => !dirUntouched(ctx, config), `The order says to change nothing else, and the directory ${dirOf(config)} changed. Put it back: sudo chmod 755 ${dirOf(config)} (owner root, group root).`],
+    [() => !dirUntouched(ctx, config), dirNote(ctx.node(dirOf(config)), dirOf(config))],
     [() => node.owner !== keeper, `Its owner is ${node.owner}, but the order names ${keeper}: sudo chown ${keeper}:${group} ${config}.`],
     [() => node.group !== group, `Its group is ${node.group}, but the order names the ${group}: sudo chown ${keeper}:${group} ${config}.`],
     [() => (mode & 0o007) !== 0, `Everyone else may still use it (mode ${mode.toString(8)}). Read and write for the owner, read for the group, nothing for everyone else is 640: sudo chmod 640 ${config}.`],
@@ -129,7 +138,7 @@ export default {
         'The same `cat` line, with `sudo` in front.',
         'sudo cat /var/log/syslog',
       ],
-      done: ctx => READ_CMDS.some(name => asRoot(ctx, name, record => ctx.hasPath(record, SYSLOG))),
+      done: ctx => [...READ_CMDS, 'grep', 'wc'].some(name => asRoot(ctx, name, record => ctx.hasPath(record, SYSLOG))),
       near: ctx => passwordFirst(ctx, [
         [() => READ_CMDS.some(name => asMe(ctx, name, record => record.status !== 0 && ctx.hasPath(record, SYSLOG))), 'You may not read it, but root may: sudo cat /var/log/syslog.'],
       ]),
@@ -142,7 +151,7 @@ export default {
         'Put `sudo` in front of `whoami`.',
         'sudo whoami',
       ],
-      done: ctx => asRoot(ctx, 'whoami'),
+      done: ctx => asRoot(ctx, 'whoami') || asRoot(ctx, 'id'),
       near: ctx => passwordFirst(ctx, [[() => ctx.ran('whoami'), 'That is you. Put sudo in front to see who runs the command then.']]),
     },
     {
@@ -170,6 +179,7 @@ export default {
         [() => asMe(ctx, 'tee', record => ctx.hasPath(record, MOTD)), '/etc/motd is root\'s, so tee must run as root: | sudo tee -a /etc/motd.'],
         [() => asRoot(ctx, 'tee', record => !ctx.flag(record, 'a') && ctx.hasPath(record, MOTD)), 'Without -a, tee replaced the whole file with your line. Add -a to add to the end: run it again with sudo tee -a.'],
         [() => asRoot(ctx, 'tee', record => ctx.hasPath(record, MOTD)), `The line must be exactly ${STEWARD}`],
+        [() => ctx.ran('sudo', record => ['sh', 'bash'].includes(record.args.find(a => !a.startsWith('-')))) && motdText(ctx) !== motdBefore(ctx), 'That works too: sudo sh -c runs the whole line, >> included, as root. This task practises tee: echo ... | sudo tee -a /etc/motd.'],
       ]),
     },
     {
@@ -194,7 +204,7 @@ export default {
         '`sudo` with `-k`.',
         'sudo -k',
       ],
-      done: ctx => ctx.ran('sudo', record => ctx.flag(record, 'k')),
+      done: ctx => ctx.ran('sudo', record => ctx.flag(record, 'k') || ctx.flag(record, 'K')),
     },
   ],
   solve: [

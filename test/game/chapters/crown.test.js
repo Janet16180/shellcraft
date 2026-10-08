@@ -83,6 +83,10 @@ const NEAR_MISSES = [
   [CHOWN, [], 'chown mira ~/crown/sword.txt', 'sudo chown mira ~/crown/sword.txt'],
   [CHOWN, [], 'sudo chown oren ~/crown/sword.txt', 'sudo chown mira:smiths ~/crown/sword.txt'],
   [FORGET, [], 'sudo -l', 'sudo -k'],
+  [FORGET, [], 'sudo whoami', 'sudo -K'],
+  [TEE, [], 'echo The steward is hero. | sudo tee /etc/motd', 'echo "The steward is hero." | sudo tee --append /etc/motd > /dev/null'],
+  [SYSLOG, [], 'sudo ls /var/log', 'sudo grep kernel /var/log/syslog'],
+  [WHO, [], 'id', 'sudo id'],
 ];
 
 for (const [goal, prefix, miss, hit] of NEAR_MISSES) {
@@ -100,6 +104,7 @@ const NEAR_NOTES = [
   [TEE, [], 'echo The steward is hero. | sudo tee /etc/motd', /-a/],
   [CHOWN, [], 'chown mira ~/crown/sword.txt', /only root/i],
   [CHOWN, [], 'sudo chown oren ~/crown/sword.txt', /mira/],
+  [TEE, [], 'sudo bash -c "echo The steward is hero. >> /etc/motd"', /That works too/],
 ];
 
 for (const [goal, prefix, line, note] of NEAR_NOTES) {
@@ -149,6 +154,14 @@ test('the exact hint and a chmod beat the boss from anywhere', async () => {
     const { ctx } = await run(backend, `sudo chmod u=rw,g=r,o= ${secret.config}`);
     assert.ok(chapter.boss.done(ctx, secret), `seed ${seed}`);
   }
+});
+
+test('the boss note for a directory given away suggests chown root:root, not chmod', async () => {
+  const { backend, secret } = await startBoss(chapter, 1);
+  const dir = secret.config.replace(/\/config\.txt$/, '');
+  await type(backend, `sudo chown -R ${secret.keeper}:${secret.group} ${dir}`, PASS);
+  const { ctx } = await type(backend, `sudo chmod 640 ${secret.config}`, PASS);
+  assert.match(chapter.boss.near(ctx, secret), /sudo chown root:root/);
 });
 
 const BOSS_NOTES = [
