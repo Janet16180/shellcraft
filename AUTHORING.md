@@ -79,6 +79,10 @@ The check context `ctx` (implemented in `src/game/checks.js`) sees only the port
 - `ctx.linkTarget(absPath)`: the target text of the symbolic link at that path, exactly as created
   (`'/home/hero/forest/cave/deep'`, `'../scroll.txt'`), or `null` if the path is not a link.
 - `ctx.ran(name, pred?)`: a command with that name exited 0 (and `pred(record)` holds).
+  Every record has `user`, the user it ran as. `sudo chown mira f` gives two records: `sudo`
+  (`user: 'hero'`, `asUser: 'root'`, the target even when sudo refused) and, if sudo ran it, `chown`
+  (`user: 'root'`, `via: 'sudo'`), sharing the pipeline place and redirections. "chown ran as root" is
+  `ctx.ran('chown', r => r.user === 'root')`; a plain `chown` by the player has `user: 'hero'`.
 - `ctx.tried(name, pred?)`: same, any exit status.
 - `ctx.hasPath(record, absPath)`: one of its non-option arguments resolves to `absPath`; for commands that read their input (cat, grep, sort, uniq, wc, head, tail...), also a file sent in with `<` or by a plain `cat` piped into it.
 - `ctx.streams(record)`: `{out, err}`, where the command's output and errors went after its redirections in typed order (`2>&1`, `&>` included); `null` is the screen.
@@ -130,7 +134,43 @@ setup: (random, player) => [
 
 Node owners and groups are names; use digits (`owner: '1234'`) for a file whose owner has no
 account, which `ls -l` shows as a number. `accounts()` does not create homes. The base world ends with
-`login()`, so a fresh world resets the player's groups.
+`login()`, so a fresh world resets the player's groups. `accounts()` also writes `/etc/shadow` (mode
+640, `root:shadow`) with a made-up hash per person; it never holds the real password.
+
+### sudo and the player's password
+
+The policy is the tree's: `/etc/sudoers` (the base world has Ubuntu 24.04's, with `%sudo
+ALL=(ALL:ALL) ALL` and `@includedir /etc/sudoers.d`) and the files in `/etc/sudoers.d`. So the player
+is an administrator when they are in the group `sudo`: `accounts(player, { sudo: [player.user] })`, or
+`realm(player, { sudo: true })`, then `login()` (realm does it). Rules in `/etc/sudoers.d` may give less
+(least privilege): `%smiths ALL=(root) /usr/bin/chown` lets the smiths run only chown as root, and
+`sudo -l` lists it. Understood: `WHO HOST=(RUNAS) [NOPASSWD:] COMMANDS` with WHO a user, `%group` or
+ALL, COMMANDS ALL or full paths (optionally with exact arguments), plain `Defaults` lines.
+
+The password sudo asks for is the player's own, set with `password()` from spec.js. The machine keeps it
+outside the tree: it is in no file and not in the Observation. Set it in the setup of every chapter
+that uses sudo (a reload rebuilds the world from setup):
+
+```js
+import { password } from '../../backend/spec.js';
+import { realm } from '../people.js';
+
+setup: (random, player) => [
+  ...realm(player, { factions: ['smiths'], sudo: true }),   // hero in group sudo, logged in again
+  password('dragon'),
+],
+```
+
+Without a password, sudo skips the prompt with a note (chapter 11's `sudo ls` relies on this). With
+one, `sudo` prints `[sudo] password for hero: ` and the terminal reads a hidden line; three wrong
+tries end with `sudo: 3 incorrect password attempts`; Ctrl+C ends with `sudo: a password is required`.
+A correct password is remembered for 15 minutes of the game clock; `sudo -k` forgets it.
+
+Not simulated: a root shell (`sudo -i`, `sudo -s` end with a note: put sudo in front of the one
+command that needs root), `sudo -ll`, sudo's environment handling (`env_reset`, `SUDO_USER`), and
+options like `-E`, `-g`, `-D` (a note). Redirections belong to the player's shell, as in bash: `sudo
+echo x > /etc/f` is refused, `echo x | sudo tee /etc/f` works. sudo logs to `/var/log/auth.log` like
+Ubuntu (readable with `sudo cat`).
 
 ### Links
 
@@ -234,6 +274,12 @@ commands: `dev skip` finishes the next task (or the boss), `dev boss` jumps to t
 solve` prints the chapter's `solve` lines or `boss.solve`. Skipped parts pay no XP. Add
 `&explainer=perms` or `&explainer=links` (`?dev&explainer=links`) to open an explainer over the
 title screen.
+
+A line that asks for the password needs an answer in tests. `type(backend, line, { password: 'dragon' })`
+from `test/game/chapters/harness.js` answers each prompt in order (`{ password: ['wrong', 'dragon'] }`
+for several tries, `null` for Ctrl+C) and returns the parts of the line joined; a prompt the test did
+not answer raises. `play()` and the session playthrough answer with the password the chapter's setup
+sets (`passwordOf(chapter)`), so `solve` lines may use sudo.
 
 Each chapter test file runs against the real simulator (`createSimBackend`) and checks:
 1. The module passes the shared contract check (`assertChapter` from `test/helpers/`).
