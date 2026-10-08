@@ -9,6 +9,7 @@ import { baseWorld } from '../../src/game/world.js';
 import { createMemoryStore } from '../helpers/memory-store.js';
 import { fixtureChapters, fixtureWorld } from '../helpers/fixture-chapters.js';
 import { typeLine } from '../helpers/type-line.js';
+import { passwordOf } from './chapters/harness.js';
 
 const HOME = '/home/hero';
 const [AWAKENING, FOREST] = chapters;
@@ -27,11 +28,26 @@ async function bootSim({ chapters, baseWorld, seed = 1, store = createMemoryStor
   return { session, view };
 }
 
+// Keys that answer a password prompt with the one the chapter's setup sets.
+function keysFor(session, chapter) {
+  const password = passwordOf(chapter);
+  const submit = async line => {
+    let turn = await session.submit(line);
+    while (turn.result.input) {
+      if (password === null) throw new Error(`"${line}" asked for input and the chapter sets no password`);
+      turn = await session.answer(password);
+    }
+    return turn;
+  };
+  return { complete: line => session.complete(line), submit };
+}
+
 async function playChapter(session, chapter) {
+  const keys = keysFor(session, chapter);
   const turns = [];
-  for (const line of chapter.solve) turns.push(await typeLine(line, session));
+  for (const line of chapter.solve) turns.push(await typeLine(line, keys));
   const bossStart = turns.at(-1);
-  for (const line of chapter.boss.solve(bossStart.obs)) turns.push(await typeLine(line, session));
+  for (const line of chapter.boss.solve(bossStart.obs)) turns.push(await typeLine(line, keys));
   return { turns, bossStart, last: turns.at(-1) };
 }
 
