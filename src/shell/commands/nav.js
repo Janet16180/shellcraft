@@ -32,6 +32,8 @@ export function nameHTML(name, node, classify) {
   return (cls ? span(cls, name) : esc(name)) + (classify ? indicator(node) : '');
 }
 
+// bash's cd -L: `..` removes the name before it as typed (once that name is
+// known to be a directory), so a link leads back the way it came.
 function logicalResolve(sys, path) {
   const stack = path.startsWith('/') ? [] : sys.cwd.split('/').filter(Boolean);
   let failed = null;
@@ -41,7 +43,18 @@ function logicalResolve(sys, path) {
     if (part === '..') stack.pop();
     else stack.push(part);
   }
-  return failed ?? resolve(sys, `/${stack.join('/')}`);
+  const logical = `/${stack.join('/')}`;
+  return failed ?? { ...resolve(sys, logical), abs: logical };
+}
+
+const enterable = (sys, r) => !r.error && r.node.type === 'dir' && can(sys, r.node, 'x');
+
+// Like bash outside POSIX mode, when the path as typed leads nowhere, cd
+// tries the real one, and then stands at its real path.
+function target(sys, path, physical) {
+  const r = physical ? resolve(sys, path) : logicalResolve(sys, path);
+  const real = physical || enterable(sys, r) ? null : resolve(sys, path);
+  return real && enterable(sys, real) ? real : r;
 }
 
 function cd(rawArgs, { sys }) {
@@ -53,13 +66,14 @@ function cd(rawArgs, { sys }) {
   const home = varValue(sys, 'HOME');
   if (!args.length && !home) return result('', 'bash: cd: HOME not set', 1);
   if (back && !varValue(sys, 'OLDPWD')) return result('', 'bash: cd: OLDPWD not set', 1);
-  let target = args[0] ?? home;
-  if (back) target = varValue(sys, 'OLDPWD');
-  const r = logicalResolve(sys, target === '' ? '.' : target);
+  let typed = args[0] ?? home;
+  if (back) typed = varValue(sys, 'OLDPWD');
+  const physical = [...o.flags].filter(f => f !== 'e').at(-1) === 'P';
+  const r = target(sys, typed === '' ? '.' : typed, physical);
   let res = result(back ? `${r.abs}\n` : '');
-  if (r.error) res = result('', `bash: cd: ${target}: ${errorText(r.error)}`, 1);
-  else if (r.node.type !== 'dir') res = result('', `bash: cd: ${target}: Not a directory`, 1);
-  else if (!can(sys, r.node, 'x')) res = result('', `bash: cd: ${target}: Permission denied`, 1);
+  if (r.error) res = result('', `bash: cd: ${typed}: ${errorText(r.error)}`, 1);
+  else if (r.node.type !== 'dir') res = result('', `bash: cd: ${typed}: Not a directory`, 1);
+  else if (!can(sys, r.node, 'x')) res = result('', `bash: cd: ${typed}: Permission denied`, 1);
   else {
     sys.oldpwd = sys.cwd;
     sys.cwd = r.abs;

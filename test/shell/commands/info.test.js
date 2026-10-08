@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run, NOW } from '../helpers.js';
 import { formatDate } from '../../../src/shell/commands/info.js';
+import { put, symlink } from '../../../src/backend/spec.js';
 
 test('whoami, id, groups and hostname describe the user and machine', async () => {
   const b = await shell();
@@ -167,4 +168,12 @@ test('hostname options that look up the network say they are not simulated', asy
     assert.deepEqual([r.out, r.err, r.status], ['', '', 1]);
     assert.equal(r.note, `hostname ${option} looks up the network, which this game does not simulate.`);
   }
+});
+
+test('pwd shows the path through a link, pwd -P the real one', async () => {
+  const b = await shell([put('/home/hero/portal', symlink('/home/hero/forest', { owner: 'hero' }))]);
+  await run(b, 'cd portal');
+  assert.equal((await run(b, 'pwd')).out, '/home/hero/portal\n');
+  assert.equal((await run(b, 'pwd -L')).out, '/home/hero/portal\n');
+  assert.equal((await run(b, 'pwd -P')).out, '/home/hero/forest\n');
 });
