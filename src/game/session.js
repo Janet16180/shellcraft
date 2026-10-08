@@ -541,7 +541,7 @@ function view(s) {
     sound: s.save.sound,
     introSeen: s.save.introSeen,
     layout: s.save.layout,
-    chapters: s.chapters.map((c, i) => ({ id: c.id, number: i + 1, act: c.act, title: c.title, status: status[i], current: i === s.index })),
+    chapters: s.chapters.map((c, i) => ({ id: c.id, number: i + 1, act: c.act, title: c.title, recap: c.recap ?? [], status: status[i], current: i === s.index })),
     spellbook: s.chapters.flatMap((c, i) => (c.spells ?? []).map(spell => ({ ...spell, chapter: c.id, unlocked: canStart(status[i]) }))),
     prompt: { user, host, cwd, home },
     running: Boolean(s.waiting?.running),
