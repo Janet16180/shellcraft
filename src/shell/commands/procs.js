@@ -8,6 +8,7 @@ import { result, withNote } from '../result.js';
 import { SIGNAL_LIST, signalName, parseSignal, defaultAction, endsInteractiveShell, requestedSignal } from '../../backend/signals.js';
 import { processName, readSelection, selectedBy, killSelects } from '../../backend/process.js';
 import { REAL_OPTIONS } from '../real-options.js';
+import { stopProcess, continueProcess, endProcess } from '../jobs.js';
 import { optionFailure } from '../options.js';
 
 const KILL = parseSignal('KILL');
@@ -135,6 +136,8 @@ function signalShell(sys, sig, block) {
 
 /**
  * Deliver a signal to one process as the kernel would for the shell's user.
+ * A stopped process keeps a terminating signal pending until it is
+ * continued; only SIGKILL ends it at once.
  *
  * @param {object} sys The machine state.
  * @param {object} proc The target process.
@@ -145,13 +148,15 @@ function signalShell(sys, sig, block) {
 export function deliver(sys, proc, sig, block) {
   const denied = sys.user !== 'root' && proc.user !== sys.user;
   const ignored = proc.ignores.has(sig) && !UNCATCHABLE.has(sig);
+  const action = defaultAction(sig);
   let note = null;
   if (denied || sig === 0) note = null;
   else if (proc.pid === sys.shellPid) note = signalShell(sys, sig, block);
   else if (ignored) note = null;
-  else if (defaultAction(sig) === 'terminate') sys.procs = sys.procs.filter(p => p !== proc);
-  else if (defaultAction(sig) === 'stop') proc.stat = `T${proc.stat.slice(1)}`;
-  else if (defaultAction(sig) === 'continue' && proc.stat.startsWith('T')) proc.stat = `${proc.runStat}${proc.stat.slice(1)}`;
+  else if (action === 'terminate' && proc.stat.startsWith('T') && sig !== KILL) proc.pending ??= sig;
+  else if (action === 'terminate') endProcess(sys, proc, { signal: sig });
+  else if (action === 'stop') stopProcess(sys, proc, sig);
+  else if (action === 'continue') continueProcess(sys, proc);
   return { denied, note };
 }
 

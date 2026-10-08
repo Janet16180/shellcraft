@@ -10,13 +10,17 @@
 import { allocPid, makeProc, TERMINAL } from '../system.js';
 import { result, withNote } from '../result.js';
 import { builtinOptions } from '../builtins.js';
-import { findJobSpec, jobLine } from '../jobs.js';
+import { parseSignal } from '../../backend/signals.js';
+import { findJobSpec, jobLine, addJob, reap, notify, markOf, makeCurrent, refreshMarks, politePath, statusCode,
+  stopProcess, continueProcess, endProcess } from '../jobs.js';
 
 const SLEEP_HELP = "Try 'sleep --help' for more information.";
 const UNITS = { s: 1, m: 60, h: 3600, d: 86400 };
 // strtod's forms that coreutils accepts, with an optional unit.
 const INTERVAL = /^\s*(?:(\d+\.?\d*(?:e[+-]?\d+)?|\.\d+(?:e[+-]?\d+)?)|(inf(?:inity)?))([smhd]?)$/i;
-const INTERRUPTED = 130;
+const INT = parseSignal('INT');
+const TSTP = parseSignal('TSTP');
+const NO_JOB_CONTROL = name => result('', `bash: ${name}: no job control`, 1);
 
 function seconds(word) {
   const m = INTERVAL.exec(word);
@@ -39,10 +43,30 @@ function sleepTime(args) {
   return error ? { error: `${error}\n${SLEEP_HELP}` } : { ms: total * 1000 };
 }
 
+// What bash says after it waited for a foreground job. The ^Z the terminal
+// echoes ends its line where bash's notice starts with a newline.
+function report(ctx, stopped) {
+  const { sys } = ctx;
+  if (!sys.flags.includes('i')) return;
+  reap(sys);
+  const text = notify(sys);
+  if (stopped) ctx.tty(text.startsWith('\n') ? '^Z\n' : '^Z');
+  if (text) ctx.notice(stopped ? text.replace(/^\n/, '') : text);
+}
+
+// Ctrl+Z: the process stops and becomes a job (if it was not one), and loops are left.
+function suspend(ctx, proc) {
+  const { sys } = ctx;
+  if (!sys.jobs.some(j => j.pid === proc.pid)) addJob(sys, { pid: proc.pid, text: ctx.jobText, foreground: true });
+  stopProcess(sys, proc, TSTP);
+  if (ctx.loops > 0) ctx.jump('break', ctx.loops);
+}
+
 /**
  * Wait for a process the shell runs in the foreground, as bash's wait_for:
  * until it ends on the clock, or until the player presses a key. Ctrl+C
- * ends it and the whole line.
+ * ends it and the rest of the line; Ctrl+Z stops it as a job. Then bash
+ * says what changed among its jobs.
  *
  * @param {object} ctx The command context.
  * @param {object} proc The process, in `sys.procs`, with `endsAt`.
@@ -52,19 +76,25 @@ function sleepTime(args) {
 export function foreground(ctx, proc) {
   const { sys } = ctx;
   const event = ctx.hold(proc.endsAt ?? Infinity, proc.pid);
+  if (event.waiting) return { waiting: true, status: 0 };
   let outcome;
-  if (event.waiting) outcome = { waiting: true, status: 0 };
-  else if (event.key === 'INT') {
-    sys.procs = sys.procs.filter(p => p !== proc);
+  if (event.key === 'INT') {
+    endProcess(sys, proc, { signal: INT });
     ctx.tty('^C\n');
     ctx.cancel();
-    outcome = { status: INTERRUPTED, key: 'INT', abort: true };
+    outcome = { status: statusCode({ signal: INT }), key: 'INT', abort: true };
+  } else if (event.key === 'TSTP') {
+    suspend(ctx, proc);
+    outcome = { status: statusCode({ signal: TSTP }), key: 'TSTP' };
   } else {
-    sys.procs = sys.procs.filter(p => p !== proc);
+    endProcess(sys, proc, { exit: proc.exitStatus ?? 0 });
     outcome = { status: proc.exitStatus ?? 0 };
   }
+  report(ctx, event.key === 'TSTP');
   return outcome;
 }
+
+const keyed = (r, outcome) => ({ ...r, status: outcome.status, key: outcome.key, abort: outcome.abort });
 
 // In a background job, a sleep holds nothing: the job's process lives longer.
 function sleep(args, ctx) {
@@ -75,8 +105,7 @@ function sleep(args, ctx) {
   if (time.ms === 0 || ctx.background) return result();
   const proc = makeProc({ pid: allocPid(sys), ppid: sys.shellPid, user: sys.user, cmd: ['sleep', ...args].join(' '), tty: TERMINAL, stat: 'S+' });
   sys.procs.push({ ...proc, endsAt: sys.now() + time.ms });
-  const outcome = foreground(ctx, sys.procs.at(-1));
-  return { ...result('', '', outcome.status), key: outcome.key, abort: outcome.abort };
+  return keyed(result(), foreground(ctx, sys.procs.at(-1)));
 }
 
 /**
@@ -113,4 +142,59 @@ function jobs(args, { sys }) {
   return result(out, named.errors.join('\n'), named.errors.length ? 1 : 0);
 }
 
-export default { sleep, jobs };
+const wdNote = (sys, job) => (job.wd === sys.cwd ? '' : `\t(wd: ${politePath(sys, job.wd)})`);
+
+// The job a fg or bg spec names (the current job without one), or bash's complaint.
+function pickJob(sys, name, spec) {
+  const found = spec === undefined ? { job: sys.jobs.find(j => j.id === sys.jobMarks.current) ?? null, ambiguous: null } : findJobSpec(sys, spec);
+  let error = null;
+  if (found.ambiguous !== null) error = `bash: ${name}: ${found.ambiguous}: ambiguous job spec`;
+  else if (!found.job) error = `bash: ${name}: ${spec ?? 'current'}: no such job`;
+  else if (found.job.state === 'dead') error = `bash: ${name}: job has terminated`;
+  return { job: found.job, error };
+}
+
+function fg(args, ctx) {
+  const { sys } = ctx;
+  const opts = builtinOptions('fg', args, '');
+  if (opts.error) return result('', opts.error, 2);
+  if (ctx.background || !sys.flags.includes('i')) return NO_JOB_CONTROL('fg');
+  const { job, error } = pickJob(sys, 'fg', opts.rest[0]);
+  if (error) return result('', error, 1);
+  const proc = sys.procs.find(p => p.pid === job.pid);
+  makeCurrent(sys, job);
+  ctx.tty(`${job.text}${wdNote(sys, job)}\n`);
+  Object.assign(job, { foreground: true, state: 'running', notified: true });
+  if (!proc) report(ctx, false);
+  if (!proc) return result('', '', statusCode(job.status));
+  continueProcess(sys, proc, { foreground: true });
+  return keyed(result(), foreground(ctx, proc));
+}
+
+function bgOne(sys, job, out) {
+  const mark = markOf(sys, job);
+  out.push(`[${job.id}]${mark === ' ' ? ' ' : `${mark} `}${job.text} &${wdNote(sys, job)}\n`);
+  Object.assign(job, { foreground: false, state: 'running', notified: true });
+  const proc = sys.procs.find(p => p.pid === job.pid);
+  if (proc) continueProcess(sys, proc);
+  refreshMarks(sys);
+}
+
+function bg(args, { sys, background }) {
+  const opts = builtinOptions('bg', args, '');
+  if (opts.error) return result('', opts.error, 2);
+  if (background || !sys.flags.includes('i')) return NO_JOB_CONTROL('bg');
+  const out = [];
+  const errors = [];
+  let status = 0;
+  for (const spec of opts.rest.length ? opts.rest : [undefined]) {
+    const { job, error } = pickJob(sys, 'bg', spec);
+    if (error) status = 1;
+    if (error) errors.push(error);
+    else if (job.state === 'running') errors.push(`bash: bg: job ${job.id} already in background`);
+    else bgOne(sys, job, out);
+  }
+  return result(out.join(''), errors.join('\n'), status);
+}
+
+export default { sleep, jobs, fg, bg };

@@ -293,3 +293,47 @@ export function findJobSpec(sys, spec) {
   }
   return { job: id === null ? null : findJob(sys, id), ambiguous };
 }
+
+/**
+ * Stop a process, as SIGSTOP or SIGTSTP do: its clock pauses, keeping the
+ * time it still needs, and it leaves the terminal's foreground.
+ *
+ * @param {object} sys The machine state.
+ * @param {object} proc The process.
+ * @param {number} sig The signal that stopped it.
+ * @returns {void}
+ */
+export function stopProcess(sys, proc, sig) {
+  if (proc.endsAt !== undefined && proc.endsAt !== null) Object.assign(proc, { left: proc.endsAt - sys.now(), endsAt: null });
+  Object.assign(proc, { stat: `T${proc.stat.slice(1).replace('+', '')}`, stopSignal: sig });
+}
+
+/**
+ * End a process with an exit status or a signal, so its job can report it.
+ *
+ * @param {object} sys The machine state.
+ * @param {object} proc The process.
+ * @param {{exit?: number, signal?: number}} how How it ended.
+ * @returns {void}
+ */
+export function endProcess(sys, proc, how) {
+  sys.procs = sys.procs.filter(p => p !== proc);
+  noteExit(sys, proc, how);
+}
+
+/**
+ * Continue a stopped process (SIGCONT): its clock runs again from where it
+ * stopped, and a terminating signal that waited for it ends it now.
+ *
+ * @param {object} sys The machine state.
+ * @param {object} proc The process.
+ * @param {{foreground?: boolean}} [opts] Whether it gets the terminal (fg), shown as + in ps.
+ * @returns {void}
+ */
+export function continueProcess(sys, proc, { foreground = false } = {}) {
+  const rest = proc.stat.slice(1).replace('+', '');
+  if (isStopped(proc)) proc.stat = `${proc.runStat}${rest}`;
+  if (foreground) proc.stat = `${proc.stat[0]}${rest}+`;
+  if (proc.left !== undefined && proc.left !== null) Object.assign(proc, { endsAt: sys.now() + proc.left, left: null });
+  if (proc.pending) endProcess(sys, proc, { signal: proc.pending });
+}

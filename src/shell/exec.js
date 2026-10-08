@@ -206,6 +206,8 @@ function dispatch(sh, argv, streams, overlay) {
     jump: (kind, count) => { sh.jump = { kind, count }; },
     leave: status => { sh.exit = status; },
     tty: text => sh.run.sink.write('out', text),
+    notice: text => sh.run.sink.write('err', text),
+    jobText: sh.run.pipelineText,
     ask: prompt => sh.run.ask(prompt),
     hold: (until, pid) => sh.run.hold(until, pid),
     background: sh.background,
@@ -340,6 +342,7 @@ function runCompound(sh, cmd, stdin, place, sink) {
 function runPipeline(sh, item, sink, input) {
   const { pipeline } = item;
   const index = sh.run.depth === 0 ? sh.run.pipelines++ : -1;
+  if (sh.run.depth === 0 && !sh.background) sh.run.pipelineText = listText([{ ...item, next: null }]);
   let stdin = input;
   let status = 0;
   let abort = false;

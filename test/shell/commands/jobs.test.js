@@ -285,3 +285,136 @@ test('jobs with a job spec lists that job, and complains about one that does not
   assert.deepEqual(outcome(await run(b, 'jobs %s')), ['', 'bash: jobs: s: ambiguous job spec\nbash: jobs: %s: no such job\n', 1]);
   assert.deepEqual(outcome(await run(b, 'jobs -z')), ['', 'bash: jobs: -z: invalid option\njobs: usage: jobs [-lnprs] [jobspec ...] or jobs -x command [args]\n', 2]);
 });
+
+const STOPPED_100 = '[1]+  Stopped                 sleep 100\n';
+
+test('Ctrl+Z stops the foreground command as a job: ^Z, Stopped, status 148', async () => {
+  const b = await shell();
+  await b.run('sleep 100');
+  const r = await b.signal('TSTP');
+  assert.deepEqual(r.output, [{ stream: 'out', text: '^Z\n' }, { stream: 'err', text: STOPPED_100 }]);
+  assert.equal(r.status, 148);
+  assert.equal(r.running, undefined);
+  assert.deepEqual(r.commands.map(c => [c.name, c.status, c.signal]), [['sleep', 148, 'TSTP']]);
+  assert.equal((await run(b, 'jobs')).out, STOPPED_100);
+  assert.equal((await b.observe()).procs.find(p => p.cmd === 'sleep 100').stat, 'T');
+});
+
+test('after Ctrl+Z the rest of the line runs', async () => {
+  const b = await shell();
+  await b.run('sleep 100; echo after');
+  const r = await b.signal('TSTP');
+  assert.deepEqual(r.output.map(c => c.text), ['^Z\n', STOPPED_100, 'after\n']);
+  assert.equal(r.status, 0);
+});
+
+test('Ctrl+Z in a loop stops the job and leaves every loop', async () => {
+  const b = await shell();
+  await b.run('for i in 1 2; do sleep 100; echo i$i; done; echo end');
+  const r = await b.signal('TSTP');
+  assert.deepEqual(r.output.map(c => c.text), ['^Z\n', STOPPED_100, 'end\n']);
+});
+
+test('a stopped job keeps the time it still needs', async () => {
+  const { b, tick } = await timed();
+  await b.run('sleep 10');
+  tick(4);
+  await b.signal('TSTP');
+  tick(100);
+  assert.deepEqual((await b.run('fg')).running, { seconds: 6 });
+});
+
+test('fg brings the current job back: it prints the command, runs it to its end and forgets it', async () => {
+  const { b, tick } = await timed();
+  await b.run('sleep 100');
+  await b.signal('TSTP');
+  const started = await b.run('fg');
+  assert.deepEqual(started.output, [{ stream: 'out', text: 'sleep 100\n' }]);
+  assert.deepEqual(started.running, { seconds: 100 });
+  assert.equal((await b.observe()).procs.find(p => p.cmd === 'sleep 100').stat, 'S+');
+  tick(100);
+  const done = await b.poll();
+  assert.deepEqual(done.output, []);
+  assert.equal(done.status, 0);
+  assert.deepEqual(outcome(await run(b, 'jobs')), ['', '', 0]);
+});
+
+test('fg %N picks the job, and fg on a background job waits for it', async () => {
+  const { b, tick } = await timed();
+  await run(b, 'sleep 30 &');
+  await run(b, 'sleep 60 &');
+  const r = await b.run('fg %1');
+  assert.deepEqual([r.output[0].text, r.running], ['sleep 30\n', { seconds: 30 }]);
+  tick(30);
+  assert.equal((await b.poll()).status, 0);
+  assert.equal((await run(b, 'jobs')).out, '[2]+  Running                 sleep 60 &\n');
+});
+
+test('Ctrl+C on a job in the foreground ends it, and Ctrl+Z stops it again', async () => {
+  const b = await shell();
+  await run(b, 'sleep 100 &');
+  await run(b, 'sleep 200 &');
+  await b.run('fg %1');
+  const stopped = await b.signal('TSTP');
+  assert.deepEqual(stopped.output.map(c => c.text), ['^Z\n', '[1]+  Stopped                 sleep 100\n']);
+  assert.equal(stopped.status, 148);
+  await b.run('fg');
+  const ended = await b.signal('INT');
+  assert.deepEqual(ended.output, [{ stream: 'out', text: '^C\n' }]);
+  assert.equal(ended.status, 130);
+  assert.equal((await run(b, 'jobs')).out, '[2]+  Running                 sleep 200 &\n');
+});
+
+test('fg names the directory the job started in', async () => {
+  const b = await shell();
+  await run(b, 'sleep 100 &');
+  await run(b, 'cd /tmp');
+  assert.equal((await b.run('fg')).output[0].text, 'sleep 100\t(wd: ~)\n');
+  await b.signal('INT');
+});
+
+test('bg continues a stopped job in the background', async () => {
+  const { b, tick } = await timed();
+  await b.run('sleep 100');
+  await b.signal('TSTP');
+  assert.deepEqual(outcome(await run(b, 'bg')), ['[1]+ sleep 100 &\n', '', 0]);
+  assert.equal((await run(b, 'jobs')).out, '[1]+  Running                 sleep 100 &\n');
+  assert.equal((await b.observe()).procs.find(p => p.cmd === 'sleep 100').stat, 'S');
+  tick(100);
+  assert.equal((await run(b, '')).err, '[1]+  Done                    sleep 100\n');
+});
+
+test('bg with two stopped jobs: the newest stopped is current, bg %1 continues the other', async () => {
+  const b = await shell();
+  await b.run('sleep 100');
+  await b.signal('TSTP');
+  await b.run('sleep 200');
+  await b.signal('TSTP');
+  assert.equal((await run(b, 'jobs')).out, '[1]-  Stopped                 sleep 100\n[2]+  Stopped                 sleep 200\n');
+  assert.equal((await run(b, 'bg %1')).out, '[1]- sleep 100 &\n');
+  assert.equal((await run(b, 'jobs')).out, '[1]-  Running                 sleep 100 &\n[2]+  Stopped                 sleep 200\n');
+});
+
+test('fg and bg complain like bash when there is no such job', async () => {
+  const { b, tick } = await timed();
+  assert.deepEqual(outcome(await run(b, 'fg')), ['', 'bash: fg: current: no such job\n', 1]);
+  assert.deepEqual(outcome(await run(b, 'bg')), ['', 'bash: bg: current: no such job\n', 1]);
+  assert.deepEqual(outcome(await run(b, 'fg %3')), ['', 'bash: fg: %3: no such job\n', 1]);
+  assert.deepEqual(outcome(await run(b, 'fg 3')), ['', 'bash: fg: 3: no such job\n', 1]);
+  await run(b, 'sleep 100 &');
+  assert.deepEqual(outcome(await run(b, 'bg %1')), ['', 'bash: bg: job 1 already in background\n', 0]);
+  await run(b, 'sleep 1 &');
+  tick(2);
+  const r = await run(b, 'fg');
+  assert.deepEqual(outcome(r), ['', 'bash: fg: job has terminated\n[2]+  Done                    sleep 1\n', 1]);
+  await run(b, 'sleep 200 &');
+  assert.deepEqual(outcome(await run(b, 'fg %s')), ['', 'bash: fg: s: ambiguous job spec\n', 1]);
+  assert.deepEqual(outcome(await run(b, 'bg -x')), ['', 'bash: bg: -x: invalid option\nbg: usage: bg [job_spec ...]\n', 2]);
+});
+
+test('fg on a job killed earlier on the line reports how it ended', async () => {
+  const b = await shell();
+  await run(b, 'sleep 100 &');
+  const r = await run(b, 'kill -9 $!; fg');
+  assert.deepEqual(outcome(r), ['sleep 100\n', 'Killed\n', 137]);
+});

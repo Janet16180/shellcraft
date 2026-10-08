@@ -55,6 +55,10 @@
  *   gives `{name: 'sleep', args: ['30'], background: true, job: 1, ...}`.
  * @property {number|null} [job] With `background`: the job's number, as `jobs` shows it
  *   (null where the shell keeps no job table, in a script).
+ * @property {'INT'|'TSTP'} [signal] The key the player pressed while it ran in the
+ *   foreground: 'INT' (Ctrl+C) ended it, status 130; 'TSTP' (Ctrl+Z) stopped it as a
+ *   job, status 148. `sleep 100` then Ctrl+Z gives `{name: 'sleep', status: 148, signal: 'TSTP'}`;
+ *   `fg` then Ctrl+C gives `{name: 'fg', status: 130, signal: 'INT'}`.
  * @property {string} cwd Absolute working directory when it started.
  * @property {number} status Its exit status.
  * @property {string} stdout Everything it wrote to standard output, even if redirected or piped.
