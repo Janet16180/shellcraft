@@ -418,3 +418,143 @@ test('fg on a job killed earlier on the line reports how it ended', async () => 
   const r = await run(b, 'kill -9 $!; fg');
   assert.deepEqual(outcome(r), ['sleep 100\n', 'Killed\n', 137]);
 });
+
+test('kill %1 ends a running job; bash reports Terminated after the next line', async () => {
+  const b = await shell();
+  await run(b, 'sleep 100 &');
+  assert.deepEqual(outcome(await run(b, 'kill %1')), ['', '', 0]);
+  assert.equal((await b.observe()).procs.some(p => p.cmd === 'sleep 100'), false);
+  assert.equal((await run(b, '')).err, '[1]+  Terminated              sleep 100\n');
+});
+
+test('kill %1 on a stopped job continues it so it can end; this line still calls it Stopped', async () => {
+  const b = await shell();
+  await b.run('sleep 100');
+  await b.signal('TSTP');
+  assert.equal((await run(b, 'kill %1')).err, `\n${STOPPED_100}`);
+  assert.equal((await run(b, 'jobs')).out, '[1]+  Terminated              sleep 100\n');
+});
+
+test('kill -9 %1 reports Killed', async () => {
+  const b = await shell();
+  await run(b, 'sleep 100 &');
+  await run(b, 'kill -9 %1');
+  assert.equal((await run(b, 'echo')).err, '[1]+  Killed                  sleep 100\n');
+});
+
+test('kill -STOP %1 stops a job, reported after the next line; kill -CONT %1 lets it run on', async () => {
+  const { b, tick } = await timed();
+  await run(b, 'sleep 100 &');
+  await run(b, 'kill -STOP %1');
+  assert.deepEqual((await b.run('echo a')).output, [{ stream: 'out', text: 'a\n' }, { stream: 'err', text: `\n${STOPPED_100}` }]);
+  assert.match((await run(b, 'jobs -l')).out, /^\[1\]\+ +\d+ Stopped \(signal\) {8}sleep 100\n$/);
+  tick(50);
+  assert.deepEqual(outcome(await run(b, 'kill -CONT %1')), ['', '', 0]);
+  assert.equal((await run(b, 'jobs')).out, '[1]+  Running                 sleep 100 &\n');
+  tick(99);
+  assert.equal((await run(b, '')).err, '');
+  tick(1);
+  assert.equal((await run(b, '')).err, '[1]+  Done                    sleep 100\n');
+});
+
+test('kill with a job spec that names no job, or two', async () => {
+  const b = await shell();
+  assert.deepEqual(outcome(await run(b, 'kill %1')), ['', 'bash: kill: %1: no such job\n', 1]);
+  await run(b, 'sleep 100 &');
+  await run(b, 'sleep 200 &');
+  assert.deepEqual(outcome(await run(b, 'kill %0')), ['', 'bash: kill: %0: no such job\n', 1]);
+  assert.deepEqual(outcome(await run(b, 'kill %s')), ['', 'bash: kill: s: ambiguous job spec\n', 1]);
+  assert.deepEqual(outcome(await run(b, 'kill %- %3')), ['', 'bash: kill: %3: no such job\n', 1]);
+  assert.equal((await run(b, 'jobs')).out, '[1]-  Terminated              sleep 100\n[2]+  Running                 sleep 200 &\n');
+});
+
+test('a stopped process keeps SIGTERM sent by PID until it is continued', async () => {
+  const b = await shell();
+  await b.run('sleep 100');
+  await b.signal('TSTP');
+  const pid = (await b.observe()).procs.find(p => p.cmd === 'sleep 100').pid;
+  await run(b, `kill ${pid}`);
+  assert.equal((await run(b, 'jobs')).out, STOPPED_100);
+  await run(b, `kill -CONT ${pid}`);
+  assert.equal((await run(b, '')).err, '[1]+  Terminated              sleep 100\n');
+});
+
+test('a job killed on the line is reported after the next program the line runs', async () => {
+  const b = await shell();
+  await run(b, 'sleep 100 &');
+  const r = await b.run('kill %1; cat readme.txt; echo end');
+  assert.deepEqual(r.output.map(c => c.text), ['Dear apprentice,\nwelcome.\n', '[1]+  Terminated              sleep 100\n', 'end\n']);
+});
+
+test('wait waits for every running job, and reports each as it ends', async () => {
+  const { b, tick } = await timed();
+  await run(b, 'sleep 10 &');
+  await run(b, 'sleep 20 &');
+  const r = await b.run('wait; echo w$?');
+  assert.deepEqual(r.running, { seconds: 20 });
+  tick(20);
+  const done = await b.poll();
+  assert.deepEqual(done.output.map(c => c.text), ['[1]-  Done                    sleep 10\n', '[2]+  Done                    sleep 20\n', 'w0\n']);
+});
+
+test('wait %1 and wait PID return the status of that job, and report it', async () => {
+  const { b, tick } = await timed();
+  await run(b, 'sleep 10 &');
+  assert.deepEqual((await b.run('wait %1; echo s$?')).running, { seconds: 10 });
+  tick(10);
+  assert.deepEqual((await b.poll()).output.map(c => c.text), ['[1]+  Done                    sleep 10\n', 's0\n']);
+  await run(b, 'sleep 100 &');
+  assert.deepEqual((await run(b, 'kill $!; wait $!; echo s$?')).out, 's143\n');
+});
+
+test('Ctrl+C ends wait, and the jobs go on; Ctrl+Z does nothing to it', async () => {
+  const b = await shell();
+  await run(b, 'sleep 100 &');
+  await b.run('wait; echo after');
+  assert.deepEqual((await b.signal('TSTP')).running, { seconds: 100 });
+  const r = await b.signal('INT');
+  assert.deepEqual([r.output, r.status], [[{ stream: 'out', text: '^C\n' }], 130]);
+  assert.deepEqual(r.commands.map(c => [c.name, c.signal]), [['wait', 'INT']]);
+  assert.equal((await run(b, 'jobs')).out, '[1]+  Running                 sleep 100 &\n');
+});
+
+test('wait does not wait for a stopped job, and warns about it', async () => {
+  const b = await shell();
+  await b.run('sleep 100');
+  await b.signal('TSTP');
+  const pid = (await b.observe()).procs.find(p => p.cmd === 'sleep 100').pid;
+  assert.deepEqual(outcome(await run(b, 'wait')), ['', `bash: wait: warning: job 1[${pid}] stopped\n`, 0]);
+});
+
+test('wait without jobs returns at once; wait for a job or process the shell does not have fails', async () => {
+  const b = await shell();
+  assert.deepEqual(outcome(await run(b, 'wait')), ['', '', 0]);
+  assert.deepEqual(outcome(await run(b, 'wait %9')), ['', 'bash: wait: %9: no such job\n', 127]);
+  assert.deepEqual(outcome(await run(b, 'wait 123')), ['', 'bash: wait: pid 123 is not a child of this shell\n', 127]);
+});
+
+test('disown takes a job out of the table: no notice later, but the process runs on', async () => {
+  const { b, tick } = await timed();
+  const pid = pidOf(await run(b, 'sleep 10 &'));
+  assert.deepEqual(outcome(await run(b, 'disown')), ['', '', 0]);
+  assert.equal((await run(b, 'jobs')).out, '');
+  assert.ok((await b.observe()).procs.some(p => p.pid === pid));
+  tick(10);
+  assert.equal((await run(b, '')).err, '');
+});
+
+test('disown %N, -a and -r, and a warning for a stopped job', async () => {
+  const b = await shell();
+  await run(b, 'sleep 100 &');
+  await run(b, 'sleep 200 &');
+  await b.run('sleep 300');
+  await b.signal('TSTP');
+  const pid = (await b.observe()).procs.find(p => p.cmd === 'sleep 300').pid;
+  await run(b, 'disown %1');
+  assert.equal((await run(b, 'jobs')).out, '[2]-  Running                 sleep 200 &\n[3]+  Stopped                 sleep 300\n');
+  await run(b, 'disown -r');
+  assert.equal((await run(b, 'jobs')).out, '[3]+  Stopped                 sleep 300\n');
+  assert.deepEqual(outcome(await run(b, 'disown -a')), ['', `bash: warning: deleting stopped job 3 with process group ${pid}\n`, 0]);
+  assert.deepEqual(outcome(await run(b, 'disown')), ['', 'bash: disown: current: no such job\n', 1]);
+  assert.deepEqual(outcome(await run(b, 'disown %9')), ['', 'bash: disown: %9: no such job\n', 1]);
+});

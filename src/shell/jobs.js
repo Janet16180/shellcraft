@@ -157,10 +157,10 @@ export function noteExit(sys, proc, how) {
  * End the processes whose time has come on the clock, with their exit status.
  *
  * @param {object} sys The machine state.
+ * @param {number} [now] The time to end them by, in ms; the clock by default.
  * @returns {void}
  */
-export function expire(sys) {
-  const now = sys.now();
+export function expire(sys, now = sys.now()) {
   const done = sys.procs.filter(p => p.endsAt !== undefined && p.endsAt !== null && p.endsAt <= now);
   sys.procs = sys.procs.filter(p => !done.includes(p));
   for (const p of done) noteExit(sys, p, { exit: p.exitStatus ?? 0 });

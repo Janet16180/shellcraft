@@ -11,7 +11,7 @@ import { allocPid, makeProc, TERMINAL } from '../system.js';
 import { result, withNote } from '../result.js';
 import { builtinOptions } from '../builtins.js';
 import { parseSignal } from '../../backend/signals.js';
-import { findJobSpec, jobLine, addJob, reap, notify, markOf, makeCurrent, refreshMarks, politePath, statusCode,
+import { findJobSpec, jobLine, addJob, removeJob, reap, notify, expire, markOf, makeCurrent, refreshMarks, politePath, statusCode,
   stopProcess, continueProcess, endProcess } from '../jobs.js';
 
 const SLEEP_HELP = "Try 'sleep --help' for more information.";
@@ -197,4 +197,114 @@ function bg(args, { sys, background }) {
   return result(out.join(''), errors.join('\n'), status);
 }
 
-export default { sleep, jobs, fg, bg };
+const procOf = (sys, job) => sys.procs.find(p => p.pid === job.pid) ?? null;
+const endOf = proc => proc?.endsAt ?? (proc ? Infinity : -Infinity);
+
+// Hold the line until `until`. The shell ignores Ctrl+Z while it waits, and
+// Ctrl+C ends the wait and the line, not the jobs.
+function waitUntil(ctx, until) {
+  let event = ctx.hold(until);
+  while (event.key === 'TSTP') event = ctx.hold(until);
+  if (event.key === 'INT') {
+    ctx.tty('^C\n');
+    ctx.cancel();
+  }
+  return event;
+}
+
+const interrupted = event => (event.waiting ? { status: 0 } : { status: statusCode({ signal: INT }), key: 'INT', abort: true });
+
+// wait with no operand, as wait_for_background_pids: each time it waits for
+// the first running job and then reports what ended by then; it warns about
+// the stopped jobs before that one each time.
+function waitAll(ctx) {
+  const { sys } = ctx;
+  const order = sys.jobs.filter(j => j.state === 'running');
+  const stoppedBefore = id => sys.jobs.filter(j => j.state === 'stopped' && j.id < id);
+  const warn = jobs => jobs.forEach(j => ctx.notice(`bash: wait: warning: job ${j.id}[${j.pid}] stopped\n`));
+  const until = Math.max(-Infinity, ...order.map(j => endOf(procOf(sys, j))));
+  if (order.length) warn(stoppedBefore(order[0].id));
+  const event = order.length && until > sys.now() ? waitUntil(ctx, until) : { done: true };
+  if (!event.done) return interrupted(event);
+  for (const [i, job] of order.entries()) {
+    if (i > 0 && job.state === 'running') warn(stoppedBefore(job.id));
+    if (job.state !== 'running') continue;
+    expire(sys, Math.min(endOf(procOf(sys, job)), sys.now()));
+    report(ctx, false);
+  }
+  warn(sys.jobs.filter(j => j.state === 'stopped'));
+  return { status: 0 };
+}
+
+// The job a wait operand names: a job spec, or the PID of one.
+function waitTarget(sys, word) {
+  let found = { job: null, error: `bash: wait: \`${word}': not a pid or valid job spec`, status: 2 };
+  if (word.startsWith('%')) {
+    const { job, ambiguous } = findJobSpec(sys, word);
+    found = { job, error: ambiguous !== null ? `bash: wait: ${ambiguous}: ambiguous job spec` : `bash: wait: ${word}: no such job`, status: 127 };
+  } else if (/^\d+$/.test(word)) {
+    found = { job: sys.jobs.find(j => j.pid === Number(word)) ?? null, error: `bash: wait: pid ${word} is not a child of this shell`, status: 127 };
+  }
+  return found;
+}
+
+function waitOne(ctx, job) {
+  const { sys } = ctx;
+  const proc = procOf(sys, job);
+  const event = proc && endOf(proc) > sys.now() ? waitUntil(ctx, endOf(proc)) : { done: true };
+  if (!event.done) return interrupted(event);
+  expire(sys);
+  report(ctx, false);
+  return { status: job.status ? statusCode(job.status) : 0 };
+}
+
+function wait(args, ctx) {
+  const { sys } = ctx;
+  const opts = builtinOptions('wait', args, 'fnp');
+  if (opts.error) return result('', opts.error, 2);
+  if (opts.flags.size) return withNote(result('', '', 1), 'wait -n, -f and -p are not simulated: wait with no option waits for every job.');
+  if (ctx.background) return result();
+  if (!opts.rest.length) return keyed(result(), waitAll(ctx));
+  let outcome = { status: 0 };
+  for (const word of opts.rest) {
+    const { job, error, status } = waitTarget(sys, word);
+    if (!job) ctx.notice(`${error}\n`);
+    outcome = job ? waitOne(ctx, job) : { status };
+    if (outcome.waiting || outcome.key) break;
+  }
+  return keyed(result(), outcome);
+}
+
+// disown reads a number as a PID, anything else as a job spec.
+function disownTargets(sys, words) {
+  const named = { jobs: [], errors: [] };
+  for (const word of words) {
+    const byPid = /^\d+$/.test(word) ? sys.jobs.find(j => j.pid === Number(word)) : undefined;
+    const one = /^\d+$/.test(word) ? { jobs: byPid ? [byPid] : [], errors: byPid ? [] : [`bash: disown: ${word}: no such job`] }
+      : namedJobs(sys, 'disown', [word], { bothErrors: true });
+    named.jobs.push(...one.jobs);
+    named.errors.push(...one.errors);
+  }
+  return named;
+}
+
+function disown(args, { sys }) {
+  const opts = builtinOptions('disown', args, 'ahr');
+  if (opts.error) return result('', opts.error, 2);
+  const all = opts.flags.has('a') || (opts.flags.has('r') && !opts.rest.length);
+  let named = { jobs: [], errors: [] };
+  if (all) named.jobs = sys.jobs.filter(job => !opts.flags.has('r') || job.state === 'running');
+  else if (opts.rest.length) named = disownTargets(sys, opts.rest);
+  else named = { jobs: sys.jobs.filter(j => j.id === sys.jobMarks.current), errors: sys.jobMarks.current === null ? ['bash: disown: current: no such job'] : [] };
+  const warnings = [];
+  for (const job of named.jobs) {
+    if (opts.flags.has('h')) job.nohup = true;
+    else {
+      if (job.state === 'stopped') warnings.push(`bash: warning: deleting stopped job ${job.id} with process group ${job.pid}`);
+      removeJob(sys, job);
+    }
+  }
+  return result('', [...warnings, ...named.errors].join('\n'), named.errors.length ? 1 : 0);
+}
+
+export default { sleep, jobs, fg, bg, wait, disown };
