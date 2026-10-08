@@ -57,6 +57,11 @@ function putNode(sys, path, spec) {
 const ACCOUNT_OPS = {
   login: sys => { sys.gids = loginGids(sys); },
   password: (sys, op) => Object.assign(sys, { password: op.text, sudoStamp: null }),
+  endJobs: sys => {
+    const pids = sys.jobs.map(j => j.pid);
+    sys.procs = sys.procs.filter(p => !pids.includes(p.pid));
+    Object.assign(sys, { jobs: [], jobMarks: { current: null, previous: null } });
+  },
 };
 
 function applyOp(sys, op) {

@@ -240,6 +240,10 @@ own (`sleep 600` to stop with Ctrl+Z, `sleep 600 &` to `kill %1`). bash reports 
 the next line, so a lesson can say "press Enter". A job's commands run at once in the simulator;
 only its sleeps take time, so `sleep 3 && echo hi &` prints `hi` at once (real bash: after 3 s).
 
+A boss room that counts jobs should start with none: `endJobs()` from spec.js, in the boss setup's
+patch, ends every job of the shell (running or stopped) without a `Done` or `Terminated` notice, so
+the player's first `sleep 700 &` there is `[1]`.
+
 ### Archives
 
 `tar` and `gzip` write files whose text only the simulator reads (`src/backend/archive.js`): `cat`

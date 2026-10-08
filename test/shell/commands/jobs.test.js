@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run, NOW } from '../helpers.js';
+import { endJobs } from '../../../src/backend/spec.js';
 
 // A shell whose clock the test moves.
 async function timed() {
@@ -589,4 +590,17 @@ test('a job that ends while a foreground command runs is reported right after th
   tick(2);
   const r = await b.poll();
   assert.deepEqual(r.output.map(c => c.text), ['[1]+  Done                    sleep 1\n', 'up\n']);
+});
+
+test('the endJobs patch ends every job quietly, so the next job is %1 again', async () => {
+  const b = await shell();
+  await run(b, 'sleep 100 & sleep 200 &');
+  await b.run('sleep 300');
+  await b.signal('TSTP');
+  await b.load([endJobs()]);
+  const r = await run(b, 'jobs; ps');
+  assert.equal(r.err, '');
+  assert.doesNotMatch(r.out, /sleep|Done|Terminated|\[/);
+  assert.deepEqual((await b.observe()).jobs, []);
+  assert.match((await run(b, 'sleep 5 &')).err, /^\[1\] \d+\n$/);
 });

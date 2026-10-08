@@ -112,6 +112,7 @@ function patchOps(world, { put, get }) {
     },
     stop: op => { world.procs = world.procs.filter(p => p.key !== op.key); },
     cd: op => { world.cwd = op.path; },
+    endJobs: () => {},
   };
 }
 

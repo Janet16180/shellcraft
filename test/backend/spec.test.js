@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dir, file, symlink, link, put, remove, proc, stop, cd, login, password, validatePatch } from '../../src/backend/spec.js';
+import { dir, file, symlink, link, put, remove, proc, stop, cd, login, password, endJobs, validatePatch } from '../../src/backend/spec.js';
 
 test('a file defaults to mode 644 owned by root, with its group equal to its owner', () => {
   assert.deepEqual(file('hi\n'), { type: 'file', content: 'hi\n', mode: 0o644, owner: 'root', group: 'root' });
@@ -73,4 +73,8 @@ test("password sets the player's password; null leaves the account without one",
 
 test('a password must be non-empty text without a newline, or null', () => {
   for (const bad of ['', 'two\nlines', 42, undefined]) assert.throws(() => validatePatch([password(bad)]), /password/, String(bad));
+});
+
+test('endJobs is a patch operation with nothing to check', () => {
+  assert.deepEqual(validatePatch([endJobs()]), [{ op: 'endJobs' }]);
 });
