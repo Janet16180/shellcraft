@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run, runAll } from '../helpers.js';
-import { put, file } from '../../../src/backend/spec.js';
+import { put, file, dir } from '../../../src/backend/spec.js';
 
 test('man prints a page with a note about the pager, and errors like man-db', async () => {
   const b = await shell();
@@ -20,7 +20,7 @@ test('which finds programs in PATH; builtins without a program are not found', a
 });
 
 test('type tells aliases, builtins and programs apart', async () => {
-  const r = await run(await shell(), 'type ll cd ls nope');
+  const r = await run(await shell([put('/home/hero/.bashrc', file("alias ll='ls -alF'\n"))]), 'type ll cd ls nope');
   assert.equal(r.out, "ll is aliased to `ls -alF'\ncd is a shell builtin\nls is /usr/bin/ls\n");
   assert.equal(r.err, 'bash: type: nope: not found\n');
 });
@@ -204,4 +204,63 @@ test('which reads only -a and -s, and rejects anything else as debianutils does'
   assert.deepEqual(await run(b, 'which -- ls').then(r => [r.out, r.status]), ['/usr/bin/ls\n', 0]);
   assert.deepEqual(await run(b, 'which ls -a').then(r => [r.out, r.status]), ['/usr/bin/ls\n', 1]);
   assert.deepEqual(await run(b, 'which').then(r => [r.out, r.err, r.status]), ['', '', 1]);
+});
+
+test('bash -c runs a command line in a child shell, with a name and arguments after it', async () => {
+  const b = await shell();
+  assert.equal((await run(b, "bash -c 'echo $0 $# $1'")).out, 'bash 0\n');
+  assert.equal((await run(b, "bash -c 'echo $0 $# $1' spell fire")).out, 'spell 1 fire\n');
+  assert.equal((await run(b, "V=1 bash -c 'cd /tmp; echo [$V]'; pwd")).out, '[1]\n/home/hero\n');
+  const missing = await run(b, "bash -c 'nosuch'");
+  assert.deepEqual([missing.err, missing.status], ['bash: line 1: nosuch: command not found\n', 127]);
+  assert.equal((await run(b, "bash -c nosuch spell")).err, 'spell: line 1: nosuch: command not found\n');
+  const bare = await run(b, 'bash -c');
+  assert.deepEqual([bare.err, bare.status], ['bash: -c: option requires an argument\n', 2]);
+});
+
+test('source and . run a file in the current shell, with arguments as positional parameters', async () => {
+  const lines = "cd /tmp\nspell=fire\nalias zap='echo zap'\necho [$1] [$#]\n";
+  const b = await shell([put('/home/hero/s.sh', file(lines, { owner: 'hero' }))]);
+  assert.equal((await run(b, 'source s.sh A B')).out, '[A] [2]\n');
+  const after = await runAll(b, ['echo $#', 'echo $spell; pwd; zap']);
+  assert.equal(after.out, 'fire\n/tmp\nzap\n');
+  assert.equal((await run(b, '. /home/hero/s.sh')).out, '[] [0]\n');
+});
+
+test('source finds a readable file in PATH before the working directory', async () => {
+  const b = await shell([put('/usr/local', dir({ bin: dir({ s: file('echo path\n', { mode: 0o644 }) }) })), put('/home/hero/s', file('echo here\n', { owner: 'hero' }))]);
+  assert.equal((await run(b, 'source s')).out, 'path\n');
+  assert.equal((await run(b, 'source ./s')).out, 'here\n');
+});
+
+test('source fails like bash for a missing file, a directory, an unreadable file and no file', async () => {
+  const b = await shell();
+  const status = async line => run(b, line).then(r => [r.err, r.status]);
+  assert.deepEqual(await status('source nofile'), ['bash: nofile: No such file or directory\n', 1]);
+  assert.deepEqual(await status('source /tmp'), ['bash: source: /tmp: is a directory\n', 1]);
+  assert.deepEqual(await status('. /etc/shadow'), ['bash: /etc/shadow: Permission denied\n', 1]);
+  assert.deepEqual(await status('source'), ['bash: source: filename argument required\nsource: usage: source filename [arguments]\n', 2]);
+  assert.deepEqual(await status('.'), ['bash: .: filename argument required\n.: usage: . filename [arguments]\n', 2]);
+});
+
+test('source returns the status of the last command it ran', async () => {
+  const b = await shell([put('/home/hero/f.sh', file('true\nfalse\n', { owner: 'hero' }))]);
+  assert.equal((await run(b, 'source f.sh')).status, 1);
+});
+
+test('type -t names the kind, type -a lists every match, type -p and -P print paths', async () => {
+  const b = await shell([put('/home/hero/.bashrc', file("alias ll='ls -alF'\n"))]);
+  const t = await run(b, 'type -t ll echo ls if nope');
+  assert.deepEqual([t.out, t.err, t.status], ['alias\nbuiltin\nfile\nkeyword\n', '', 1]);
+  assert.equal((await run(b, 'type -a echo ll')).out, "echo is a shell builtin\necho is /usr/bin/echo\nll is aliased to `ls -alF'\n");
+  assert.equal((await run(b, 'type -at ls cd')).out, 'file\nbuiltin\n');
+  assert.equal((await run(b, 'type -a /usr/bin/ls')).out, '/usr/bin/ls is /usr/bin/ls\n');
+  assert.equal((await run(b, 'type if')).out, 'if is a shell keyword\n');
+  assert.equal((await run(b, 'type -p ls echo')).out, '/usr/bin/ls\n');
+  assert.equal((await run(b, 'type -P echo')).out, '/usr/bin/echo\n');
+  const nope = await run(b, 'type -a nope');
+  assert.deepEqual([nope.err, nope.status], ['bash: type: nope: not found\n', 1]);
+  const bad = await run(b, 'type -x ls');
+  assert.deepEqual([bad.out, bad.err, bad.status], ['', 'bash: type: -x: invalid option\ntype: usage: type [-afptP] name [name ...]\n', 2]);
+  assert.deepEqual([(await run(b, 'type -t')).status, (await run(b, 'type -a')).out], [0, '']);
 });

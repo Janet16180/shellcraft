@@ -8,6 +8,7 @@ import { restore } from '../world.js';
 import { NOTES } from './awakening.js';
 import { token } from '../rng.js';
 import { isInside, nodeAt } from '../../backend/tree.js';
+import { operands } from '../checks.js';
 
 const LANTERN = 'lantern_';
 
@@ -16,7 +17,7 @@ const deepOf = ctx => `${ctx.home}/forest/cave/deep`;
 const caveOf = ctx => `${ctx.home}/forest/cave`;
 const riverOf = ctx => `${ctx.home}/forest/river`;
 
-const climbsWithDots = record => /^\.\.(\/|$)/.test(record.args[0] ?? '');
+const climbsWithDots = record => /^(\.\/)*\.\.(\/|$)/.test(operands(record.args)[0] ?? '');
 const isAbsolute = record => (record.args[0] ?? '').startsWith('/');
 const lastCd = ctx => ctx.commands.findLast(record => record.name === 'cd');
 const usedTab = ctx => ctx.completions.some(tab => tab.completed !== tab.line);
@@ -47,7 +48,7 @@ function bossNear(ctx, target) {
   const step = lastCd(ctx);
   const cameHome = ctx.cwd === ctx.home && step?.status === 0 && ctx.before.cwd !== ctx.home;
   return cameHome && !wentHomeFromLantern(ctx, target)
-    ? 'You are home, but the lantern is not found yet. Its name starts with lantern_: ls ~/forest/river shows it.'
+    ? 'You are home, but not straight from the lantern. Walk into it (its name starts with lantern_: ls ~/forest/river), then go home from inside it with one command.'
     : null;
 }
 

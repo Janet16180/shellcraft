@@ -74,10 +74,16 @@ The check context `ctx` (implemented in `src/game/checks.js`) sees only the port
 - `ctx.home`, `ctx.cwd`, `ctx.node(absPath)`, `ctx.proc(key)`.
 - `ctx.ran(name, pred?)`: a command with that name exited 0 (and `pred(record)` holds).
 - `ctx.tried(name, pred?)`: same, any exit status.
-- `ctx.flag(record, letter)`: a short option letter was given (`-la` has `l` and `a`).
-- `ctx.hasPath(record, absPath)`: one of its non-option arguments resolves to `absPath`.
+- `ctx.hasPath(record, absPath)`: one of its non-option arguments resolves to `absPath`; for commands that read their input (cat, grep, sort, uniq, wc, head, tail...), also a file sent in with `<` or by a plain `cat` piped into it.
+- `ctx.streams(record)`: `{out, err}`, where the command's output and errors went after its redirections in typed order (`2>&1`, `&>` included); `null` is the screen.
+- `ctx.onScreen(record)`: the record's output reached the screen: last stage of its pipeline, stdout not redirected.
+- `ctx.shown(absPath)`: like `ctx.read`, but the text reached the screen: the reader was the last stage and was not redirected into a file. Use it for notes like "cat prints the whole file".
+- `ctx.flag(record, letter)`: a short option letter, or the long option players type for it (`--all`, `--recursive`, `--lines=3`...).
+- `ctx.piped(record)`: the absolute paths a plain `cat` (no options) piped straight into this stage, e.g. `cat a.txt | sort` gives sort `[a.txt]`; `[]` otherwise. Accept `cat file | cmd` wherever `cmd file` is accepted.
 - `ctx.read(absPath)`: a reading command (cat, less, more, head, tail) succeeded on that file.
 - `ctx.paths(record)`: its non-option arguments as absolute paths.
+- `ctx.line`: the line's text as typed. Judge records and state first; use the text only for what
+  leaves no record, like a variable assignment (`wish=gold`) or which `$` name was expanded.
 - `ctx.completions`: the Tab presses since the previous line, `[{ line, completed }]`. They come
   from the page's own terminal; a real terminal (termlab) would handle Tab inside bash and report
   none, so only use this where losing the task in that mode is acceptable (today: forest's Tab task).
@@ -139,6 +145,11 @@ that `near` note first, else a generic note from `src/game/coach.js`.
      in full the first time: "(`echo wood > ~/camp/supplies.txt`)". Later goals of the chapter
      that use it again name only the target (the user, 2026-10-07).
    - The full command line waits for hint 3.
+10. **Plain words for actions** (the user, 2026-10-07). Goals, hints and notes say what the
+    command does: "Remove the file", "List", "Read", not "Sweep up", "Throw away" or "Break up".
+    The story lives in the lesson and the boss briefing, never in place of the action. Name game
+    things by what they are in the terminal, in backticks: "the `.shard` files", "the directory
+    `~/junk/cobwebs`", not "the shards" or "the cobwebs".
 
 ## 4. Chapter tests (`test/game/chapters/<id>.test.js`)
 

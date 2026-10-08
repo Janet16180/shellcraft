@@ -6,8 +6,10 @@
 import { ART, findEntry } from './layout.js';
 import * as overworld from './overworld.js';
 import * as dungeon from './dungeon.js';
-import { drawItem, drawMore, drawPlayer, drawDaemon, drawParticles, drawFocus, padlockDoor } from './things.js';
-import { drawLabels, drawBubbles, drawBanner, drawVeil } from './overlay.js';
+import { drawItem, drawMore, drawPlayer, drawParticles, drawFocus, padlockDoor } from './things.js';
+import { drawLabels, drawCreatureLabels, drawBubbles, drawBanner, drawVeil } from './overlay.js';
+import { drawCreature } from './creatureart.js';
+import { hover, SLOTS } from './creatures.js';
 import { drawStairs } from './stairs.js';
 import { NIGHT, INK } from './palette.js';
 import { FLASH_MS } from './stage.js';
@@ -44,13 +46,17 @@ function paintRoom(stage, t, now) {
   if (layout.exit) painter.exit(ax, layout.exit, scene, t);
   const focus = state.focus === null ? null : findEntry(layout, state.focus);
   if (focus) drawFocus(ax, focus, t);
-  if (scene.daemon) paintDaemon(ax, state.daemon, t, now);
+  for (const creature of state.creatures) {
+    Object.assign(creature, hover(creature, t));
+    drawCreature(ax, creature, now < creature.flashUntil);
+  }
 }
 
-function paintDaemon(ax, daemon, t, now) {
-  daemon.x = 262 + Math.round(Math.sin(t / 700) * 10);
-  daemon.y = 70 + Math.round(Math.cos(t / 500) * 6);
-  drawDaemon(ax, daemon, now < daemon.flashUntil);
+function anchors(state) {
+  const heads = { daemon: { x: SLOTS[0].cx, y: SLOTS[0].cy - 16 } };
+  for (const c of [...state.creatures].reverse()) heads[c.key] = { x: c.x, y: c.y - 16 };
+  heads.player = { x: state.player.x, y: state.player.y - 28 };
+  return heads;
 }
 
 function paintArt(stage, t, now) {
@@ -82,11 +88,13 @@ function paintScreen(stage, now) {
   const shaking = !stage.reducedMotion && now < state.shakeUntil;
   const jitter = shaking ? Math.round((Math.random() * 2 - 1) * 2 * view.scale) : 0;
   g.drawImage(ax.canvas, view.ox + jitter, view.oy, ART.width * view.scale, ART.height * view.scale);
-  if (state.scene && !state.trip) drawLabels(g, view, state.scene.layout, ringed(state));
+  if (state.scene && !state.trip) {
+    drawLabels(g, view, state.scene.layout, ringed(state));
+    drawCreatureLabels(g, view, state.creatures);
+  }
   state.bubbles = state.bubbles.filter(b => b.until > now);
   if (state.banner && now - state.banner.start >= BANNER_MS) state.banner = null;
-  const anchors = { player: { x: state.player.x, y: state.player.y - 28 }, daemon: { x: state.daemon.x + 12, y: state.daemon.y - 4 } };
-  drawBubbles(g, view, state.bubbles, anchors);
+  drawBubbles(g, view, state.bubbles, anchors(state));
   if (state.banner) drawBanner(g, view, state.banner, bannerAlpha(state.banner, now, stage.reducedMotion));
   drawVeil(g, view, Math.max(0, ((state.flashUntil - now) / FLASH_MS) * 0.35), INK.e);
   drawVeil(g, view, state.fade);

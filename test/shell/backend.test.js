@@ -27,6 +27,24 @@ test('a run result has output chunks, a status, command records and blocked reas
   assert.equal(r.commands[1].stdout, 'Dear apprentice,\n');
 });
 
+test('< input redirection is recorded on the command that reads it, in a pipeline too', async () => {
+  const b = await shell();
+  const r = await b.run('sort < readme.txt | uniq; grep e < readme.txt | wc -l');
+  assert.deepEqual(r.commands.map(c => [c.name, c.redirects]), [
+    ['sort', [{ op: '<', target: '/home/hero/readme.txt' }]], ['uniq', []],
+    ['grep', [{ op: '<', target: '/home/hero/readme.txt' }]], ['wc', []],
+  ]);
+});
+
+test('2>&1 is recorded where it was typed, so its order against > shows', async () => {
+  const b = await shell();
+  const r = await b.run('ls nope > /dev/null 2>&1; ls nope 2>&1 > /dev/null');
+  assert.deepEqual(r.commands.map(c => c.redirects), [
+    [{ op: '>', target: '/dev/null' }, { op: '2>&', target: '1' }],
+    [{ op: '2>&', target: '1' }, { op: '>', target: '/dev/null' }],
+  ]);
+});
+
 test('an observation shows the user, host, home, working directory, tree and processes', async () => {
   const b = await shell([proc({ key: 'daemon', user: 'hero', cmd: './shadow_daemon', cpu: 99.7 })]);
   const obs = await b.observe();
@@ -329,4 +347,19 @@ test('cp and mv refuse to grow the tree past its depth limit', async () => {
   const moved = await run(b, `mv e ${path}/x`);
   assert.equal(moved.err, `mv: cannot move 'e' to '${path}/x': File name too long\n`);
   assert.equal((await run(b, `cp -r e ${Array(100).fill('d').join('/')}/copy`)).status, 0);
+});
+
+test('the shell starts at the first load and reads ~/.bashrc then, quietly', async () => {
+  const b = createSimBackend({ now: () => NOW });
+  await b.load([put('/home/hero/.bashrc', file("alias ll='ls -alF'\nspell=fire\ncd /home\nnosuch\n", { owner: 'hero' }))]);
+  const r = await run(b, 'type ll; echo $spell; pwd');
+  assert.deepEqual([r.out, r.err], ["ll is aliased to `ls -alF'\nfire\n/home\n", '']);
+  await b.load([put('/home/hero/.bashrc', file('spell=ice\n', { owner: 'hero' }))]);
+  assert.equal((await run(b, 'echo $spell; history')).out, 'fire\n    1  type ll; echo $spell; pwd\n    2  echo $spell; history\n');
+});
+
+test('without a ~/.bashrc the shell has no aliases', async () => {
+  const b = createSimBackend({ now: () => NOW });
+  await b.load([]);
+  assert.equal((await run(b, 'alias')).out, '');
 });

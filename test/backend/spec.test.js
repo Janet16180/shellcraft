@@ -33,6 +33,13 @@ test('a process without a key or a command raises', () => {
   assert.throws(() => validatePatch([proc({ key: 'k', user: 'hero' })]), /cmd/);
 });
 
+test('a process PID, when given, is a whole number from 2 to 4194304', () => {
+  for (const pid of [1, 0, 2.5, 4194305, '300']) {
+    assert.throws(() => validatePatch([proc({ key: 'k', user: 'hero', cmd: 'x', pid })]), /PID/, String(pid));
+  }
+  assert.doesNotThrow(() => validatePatch([proc({ key: 'k', user: 'hero', cmd: 'x', pid: 4194304 })]));
+});
+
 test('a node with a mode outside 0 to 7777 raises', () => {
   assert.throws(() => validatePatch([put('/x', file('', { mode: 0o10000 }))]), /mode/);
 });

@@ -52,10 +52,10 @@ export const remove = path => ({ op: 'remove', path });
 
 /**
  * Make sure a process is running. `key` names it for later patches; the
- * backend chooses the PID. `ignores` lists the signals (by name, like 'TERM')
+ * backend chooses the PID unless `pid` asks for one. `ignores` lists the signals (by name, like 'TERM')
  * the process survives; KILL and STOP can never be ignored.
  *
- * @param {{key: string, user: string, cmd: string, tty?: string, stat?: string, cpu?: number, mem?: number, ignores?: string[]}} spec The process.
+ * @param {{key: string, user: string, cmd: string, pid?: number, tty?: string, stat?: string, cpu?: number, mem?: number, ignores?: string[]}} spec The process.
  * @returns {{op: 'proc', proc: object}} The operation.
  */
 export const proc = spec => ({ op: 'proc', proc: spec });
@@ -82,12 +82,17 @@ function checkNode(node, where) {
   for (const [name, child] of Object.entries(node.children)) checkNode(child, `${where}/${name}`);
 }
 
+// Linux's pid_max on 64-bit systems; PID 1 is init.
+const MAX_PID = 4194304;
+const validPid = pid => Number.isInteger(pid) && pid >= 2 && pid <= MAX_PID;
+
 function checkOp(op) {
   if (!OPS.has(op.op)) throw new Error(`unknown patch operation: ${op.op}`);
   if ('path' in op && !op.path.startsWith('/')) throw new Error(`${op.op}: path must be absolute, got ${op.path}`);
   if (op.op === 'put') checkNode(op.node, op.path);
   if (op.op === 'proc' && !op.proc.key) throw new Error('proc: every process needs a key');
   if (op.op === 'proc' && !op.proc.cmd) throw new Error(`proc ${op.proc.key}: every process needs a cmd`);
+  if (op.op === 'proc' && 'pid' in op.proc && !validPid(op.proc.pid)) throw new Error(`proc ${op.proc.key}: PID must be a whole number from 2 to ${MAX_PID}, got ${op.proc.pid}`);
   const key = op.op === 'proc' ? op.proc.key : op.key;
   if (key === PLAYER_SHELL) throw new Error(`${op.op}: the key '${PLAYER_SHELL}' is reserved for the player's own shell`);
 }
@@ -99,7 +104,8 @@ function checkOp(op) {
  * @param {object[]} patch The operations, in the order they apply.
  * @returns {object[]} The same patch.
  * @throws {Error} If an operation is unknown, uses a relative path, has a mode
- *   outside 0 to 7777, describes a process without a key or a command, or uses
+ *   outside 0 to 7777, describes a process without a key or a command or
+ *   with a PID outside 2 to 4194304, or uses
  *   the key 'shell', which belongs to the player's own shell.
  */
 export function validatePatch(patch) {

@@ -674,6 +674,103 @@ kbd {
   color: var(--warn-text);
 }
 
+/* The permissions lesson: each part of the mode column has its own colour. */
+.lesson {
+  --perm-type: var(--c-mist);
+  --perm-owner: var(--c-gold);
+  --perm-group: var(--c-lilac);
+  --perm-other: var(--c-leaf);
+}
+
+.lesson .perm-line .perm-type,
+.lesson .perm-line .perm-owner,
+.lesson .perm-line .perm-group,
+.lesson .perm-line .perm-other {
+  font-weight: 700;
+}
+
+.lesson .perm-type { color: var(--perm-type); }
+.lesson .perm-owner { color: var(--perm-owner); }
+.lesson .perm-group { color: var(--perm-group); }
+.lesson .perm-other { color: var(--perm-other); }
+
+.perm-map {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.perm-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  background: var(--term-bg);
+  border-top: 3px solid currentColor;
+  text-align: center;
+}
+
+.perm-bits {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.perm-who {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* The chmod lesson's letters-and-numbers table. */
+.lesson .mono {
+  font-family: var(--font-mono);
+}
+
+.chmod-ways {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 0 0 12px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .chmod-ways {
+    font-size: 12px;
+  }
+
+  .chmod-ways th,
+  .chmod-ways td {
+    padding-right: 6px;
+  }
+}
+
+.chmod-ways code,
+.chmod-ways td {
+  white-space: nowrap;
+}
+
+.chmod-ways th,
+.chmod-ways td {
+  padding: 4px 10px 4px 0;
+  text-align: left;
+}
+
+.chmod-ways th {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.perm-means {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 /* The quest log: one framed row per task; the next one is gold, done ones are ticked. */
 .quest-log {
   list-style: none;

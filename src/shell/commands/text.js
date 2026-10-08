@@ -6,9 +6,10 @@ import { splitLines, byteLength, sizeOf } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
 import { compareNames } from '../../backend/tree.js';
 import { can } from '../perms.js';
-import { parseOptions, optionFailure } from '../options.js';
+import { parseOptions, mapLongOptions, optionFailure } from '../options.js';
 import { shellQuote, localeQuote } from '../quote.js';
 import { result, withNote, needInput } from '../result.js';
+import { writeFile } from '../redirect.js';
 
 /**
  * Open a file operand for reading, or standard input for `-`.
@@ -36,7 +37,13 @@ export function openInput(sys, f, stdin) {
  */
 export const reason = code => (code === 'EISDIR' ? 'Is a directory' : errorText(code));
 
-function headTailArgs(which, rawArgs) {
+const HEAD_LONG = { '--lines': 'n', '--bytes': 'c', '--quiet': 'q', '--silent': 'q', '--verbose': 'v' };
+const TAIL_LONG = { ...HEAD_LONG, '--follow': 'f' };
+
+function headTailArgs(which, typed) {
+  const long = mapLongOptions(which, typed, which === 'tail' ? TAIL_LONG : HEAD_LONG, /^$/, 'nc');
+  if (long.err || long.unsimulated) return { o: { ...long, flags: new Set(), vals: {}, rest: [] }, error: long.err };
+  const rawArgs = long.args;
   const takesValue = i => i > 0 && (rawArgs[i - 1] === '-n' || rawArgs[i - 1] === '-c');
   const args = rawArgs.flatMap((x, i) => {
     if (/^-\d+$/.test(x) && !takesValue(i)) return ['-n', x.slice(1)];
@@ -118,8 +125,11 @@ function wcRows(inputs, fields, width, labelled) {
   return inputs.length > 1 ? out + row(total, ' total') : out;
 }
 
+const WC_LONG = { '--lines': 'l', '--words': 'w', '--bytes': 'c', '--chars': 'm', '--max-line-length': 'L' };
+
 function wc(args, { sys, stdin }) {
-  const o = parseOptions('wc', args, 'lwcmL');
+  const long = mapLongOptions('wc', args, WC_LONG, /^$/);
+  const o = long.err || long.unsimulated ? long : parseOptions('wc', long.args, 'lwcmL');
   const failed = optionFailure('wc', o, 1);
   if (failed) return failed;
   if (!o.rest.length && stdin == null) return needInput('wc');
@@ -172,24 +182,32 @@ function sort(args, { sys, stdin }) {
   return result(sorted.map(l => l + sep).join(''));
 }
 
-function uniq(args, { sys, stdin }) {
-  const o = parseOptions('uniq', args, 'cdui');
-  const failed = optionFailure('uniq', o, 1);
-  if (failed) return failed;
-  if (!o.rest.length && stdin == null) return needInput('uniq');
-  const input = openInput(sys, o.rest[0] ?? '-', stdin);
-  if (input.code) return result('', `uniq: ${shellQuote(o.rest[0])}: ${reason(input.code)}`, 1);
-  const same = (x, y) => (o.flags.has('i') ? x.toLowerCase() === y.toLowerCase() : x === y);
+function uniqGroups(text, ignoreCase) {
+  const same = (x, y) => (ignoreCase ? x.toLowerCase() === y.toLowerCase() : x === y);
   const groups = [];
-  for (const line of splitLines(input.content)) {
+  for (const line of splitLines(text)) {
     const g = groups.at(-1);
     if (g && same(g.line, line)) g.n++;
     else groups.push({ line, n: 1 });
   }
-  let sel = groups;
+  return groups;
+}
+
+function uniq(args, { sys, stdin }) {
+  const o = parseOptions('uniq', args, 'cdui');
+  const failed = optionFailure('uniq', o, 1);
+  if (failed) return failed;
+  if (o.rest.length > 2) return result('', `uniq: extra operand ${localeQuote(o.rest[2])}\nTry 'uniq --help' for more information.`, 1);
+  if ((o.rest[0] ?? '-') === '-' && stdin == null) return needInput('uniq');
+  const input = openInput(sys, o.rest[0] ?? '-', stdin);
+  if (input.code) return result('', `uniq: ${shellQuote(o.rest[0])}: ${reason(input.code)}`, 1);
+  let sel = uniqGroups(input.content, o.flags.has('i'));
   if (o.flags.has('d')) sel = sel.filter(g => g.n > 1);
   if (o.flags.has('u')) sel = sel.filter(g => g.n === 1);
-  return result(sel.map(g => `${o.flags.has('c') ? `${String(g.n).padStart(7)} ` : ''}${g.line}\n`).join(''));
+  const out = sel.map(g => `${o.flags.has('c') ? `${String(g.n).padStart(7)} ` : ''}${g.line}\n`).join('');
+  const written = o.rest.length === 2 ? writeFile(sys, o.rest[1], out) : null;
+  if (o.rest.length === 2) return written ? result('', `uniq: ${shellQuote(o.rest[1])}: ${written}`, 1) : result();
+  return result(out);
 }
 
 export default {

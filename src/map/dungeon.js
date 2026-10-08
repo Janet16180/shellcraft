@@ -81,6 +81,21 @@ function weapons(ctx, wall) {
   });
 }
 
+function guild(ctx, wall) {
+  rack(ctx, wall, (x, y) => {
+    box(ctx, INK.w, x + 1, y + 3, 7, 5);
+    box(ctx, INK.G, x + 3, y + 5, 3, 3);
+  });
+  for (const x of [14, 298]) {
+    box(ctx, INK.k, x - 1, 0, 10, 31);
+    box(ctx, INK.g, x, 0, 8, 26);
+    box(ctx, INK.g, x, 26, 3, 4);
+    box(ctx, INK.g, x + 5, 26, 3, 4);
+    box(ctx, INK.y, x + 3, 8, 2, 8);
+    box(ctx, INK.y, x + 1, 11, 6, 2);
+  }
+}
+
 function desk(ctx) {
   box(ctx, INK.k, 18, 160, 48, 14);
   box(ctx, INK.b, 19, 160, 46, 4);
@@ -142,6 +157,10 @@ const DECOR = {
   quarters: bed,
   vault: ctx => big(ctx, SPRITES.chest, [[12, 150]]),
   armory: weapons,
+  guild: (ctx, wall) => {
+    guild(ctx, wall);
+    desk(ctx);
+  },
   workshop: ctx => big(ctx, SPRITES.anvil, [[18, 162]]),
   pit: ctx => big(ctx, SPRITES.rune, [[14, 156], [282, 156]], { alpha: 0.8 }),
   corridor: cobwebs,

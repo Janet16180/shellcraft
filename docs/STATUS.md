@@ -1,6 +1,6 @@
 # Shellcraft 2: status and handoff
 
-**A fresh session starts here.** Read this file, then `docs/WORKLIST.md` (every task left),
+**A fresh session starts here.** Read this file, `docs/APPROVED.md` (chapters the user approved), then `docs/WORKLIST.md` (every task left),
 `docs/DESIGN.md` (plan and architecture) and `AUTHORING.md` (code and content rules). Nothing
 from earlier conversations is needed.
 
@@ -11,6 +11,57 @@ Shellcraft 2 is the redesign of the user's browser game that teaches basic Linux
 map draws the working directory as a room: the original outdoor 8-bit style inside the player's
 home, Ring Zero's Pixel Dungeon style outside it. Each chapter is lesson, guided quest, boss,
 adventure log. 14 chapters are planned (DESIGN.md section 4).
+
+## State at 2026-10-08 (act II: chapters 10 to 14)
+
+- On `slice/ch5-9`, not merged: 10 The Descent (`/`, `/etc`, `/var/log`, `$PATH`, `which`, `type`),
+  11 The Sealed Gate (`ls -l` modes, `id`, `chmod +x`, `chmod a-w`, `chmod 600`, `/root`), 12 Well of Echoes
+  (variables, quotes, `$?`, `2>`, `/dev/null`, `&&`, `||`), 13 The Shadow Daemon (`ps`, `ps aux`,
+  `pgrep`, `kill`, `kill -9`; no job control) and 14 Forge Your Own Spell (scripts, `$1`, `for`).
+  Design and the teaching review: session file `ch10-14-design.md`.
+- Engine (`slice/shell`, merged): scripts by name on PATH, positional parameters, child shells,
+  `source`, `~/.bashrc`, `for`, `if`, `test`/`[`. Spec: `proc({pid})` fixes a PID (ch13 hints).
+  Checks: `ctx.line`, the typed line, for assignments that leave no record.
+- Art (`slice/art`, merged): areas well, den, forge, ore, mirrors, the `/usr/local` guild wing,
+  processes drawn as creatures labelled `PID name` (`src/map/creatures.js`).
+- The session playthrough plays all 14 chapters (3 seeds).
+- Engine (`slice/shell2`, merged into `slice/ch5-9`): playtest gaps closed (WORKLIST C5): `<` and `2>&1` in
+  `CommandRecord.redirects`, brace expansion, `!` history expansion, more long options, `printf`,
+  `type -a/-t`, `uniq IN OUT`, `${v#pat}`/`%`, find and less error wording.
+- Two tester agents tried other correct lines and edge cases in every chapter (38 findings). All are
+  fixed and kept as rows in `test/game/chapters/alternatives.test.js`. New check helpers:
+  `ctx.shown`, `ctx.streams` (follows `2>&1`/`&>`), `ctx.onScreen`; `flag` knows long options;
+  `hasPath` counts `<` and a piped cat. 1930 tests, difftest 0 failures.
+
+## State at 2026-10-07 (chapters 5 to 9, dev mode)
+
+- The user approved chapters 1 to 6 (`docs/APPROVED.md`). Their notes on 5 and 6: plain words for
+  actions, game things named in backticks (AUTHORING rule 10); sounds for discoveries (`ls -a`
+  showing hidden entries, `ls` finding a boss room's hidden things), creating and removing
+  (`src/ui/turnsounds.js`).
+
+- Branch `slice/ch5-9` (from main 035230a), not merged: chapters 5 The Cursed Junkyard (`rm`,
+  `rmdir`, `rm -r`), 6 Hall of Mirrors (`*`, `?`, `[ ]`, quotes; new area `~/mirrors` made by its
+  setup), 7 The Great Library (`head`, `tail`, `-n`, `wc -l`), 8 The Tower of Echoes (`grep`, `-i`,
+  `-r`, `find -name`) and 9 The Market of Pipes (`sort`, `|`, `uniq`, `uniq -c`, `>>`) are playable,
+  so all of act I is.
+- The user delegated the design of these chapters ("you don't need my approval"; they play and give
+  feedback). Design notes, the principles (fading clues, one idea per task, look before rm, bosses
+  that prove the skill) and the teaching review's changes: session file `ch5-9-design.md`; the
+  bosses' briefings are in each module.
+- Teaching review changes: bosses must prove the skill (ch7 boss needs `tail -n 1` on the tome, ch8
+  boss `grep` on the found `.scale` file, ch9 boss one `sort | uniq >` line); the lessons say that
+  bash expands patterns before the command runs and that `uniq` joins only neighbouring lines.
+- less/more and `rm -i` are lesson and field only: the simulator prints the file / answers yes.
+- Each chapter is fact-checked against local bash 5.2.21 and coreutils 9.4 (`docs/verification/`,
+  log R8), not the difftest Docker image. Simulator gaps found: `tee` and `find -mtime` missing,
+  `--lines` not simulated, `<` input not recorded on the command, `grep -r WORD FILE` prefixes the
+  file name (real grep does not, for one file), find's "paths must precede expression" wording.
+- Dev mode (merged to main): http://localhost:8765/?dev keeps its own save, opens every written
+  chapter, and adds `dev skip`, `dev boss`, `dev solve` (AUTHORING section 4).
+- The session playthrough plays all nine chapters in a row (3 seeds); a browser smoke run played
+  chapters 5-9 and their bosses in Chrome through dev mode; `node test/ui/layouts.js` reports no
+  problems. 1452 tests pass, lint is clean.
 
 ## State at 2026-10-07 (chapters 3 and 4)
 
@@ -116,13 +167,14 @@ node test/ui/layouts.js OUT_DIR        # both layouts at five window sizes, plus
 
 ## First steps of the next session
 
-1. The user plays chapters 3 and 4 on `slice/ch3-4` (`npm run serve`); fix their notes, then
+1. The user plays chapters 5 to 9 on `slice/ch5-9` (`npm run serve`, `?dev` to jump); fix their
+   notes, then merge. Earlier: the user plays chapters 3 and 4; fix their notes, then
    ask before merging. (`slice/layout` is merged: A1 to A3, G1, G2, G4 done.)
 2. G3: keyboard and screen reader pass of both layouts.
 3. engine: B1, hearts from `selectsProcess` (cases listed in WORKLIST B1).
 4. factcheck: verify `src/backend/process.js` (commit 6bb4c32) against Ubuntu.
 5. The user plays again; collect their feedback.
-6. Chapter 5 (The Cursed Junkyard), with the guidance rule above (WORKLIST D).
+6. Chapters 10 to 14 (act II), with the guidance rule (WORKLIST D); fill the simulator gaps above.
 
 ## The team
 

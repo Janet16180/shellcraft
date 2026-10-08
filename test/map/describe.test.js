@@ -59,3 +59,12 @@ test('a crowded room names the first entries and counts the rest', () => {
   assert.doesNotMatch(text, /f20\.txt/);
   assert.match(text, /and 10 more/);
 });
+
+test('it names the creatures the map shows, by PID and name', () => {
+  const proc = (pid, cmd, key) => ({ pid, ppid: 1, user: 'hero', tty: '?', stat: 'S', cpu: 0, mem: 0, cmd, key });
+  const procs = [proc(100, '-bash', 'shell'), proc(412, 'greedy_imp', 'greedy'), proc(431, 'stubborn_imp', 'stubborn'), proc(4242, './shadow_daemon', 'daemon')];
+  const text = describeRoom(observe('/home/hero', { procs }));
+  assert.match(text, /Creatures here: 412 greedy_imp, 431 stubborn_imp, 4242 shadow_daemon\./);
+  assert.doesNotMatch(text, /bash/);
+  assert.doesNotMatch(describeRoom(observe('/home/hero')), /Creatures/);
+});

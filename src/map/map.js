@@ -10,10 +10,12 @@
 
 import { pickAt, STAND } from './layout.js';
 import { picksOf } from './room.js';
-import { createStage, settle, fitCanvas, say, showBanner, shake, flash, burstAt } from './stage.js';
+import { createStage, settle, fitCanvas, say, showBanner, shake, flash, burstAt, creaturesWithKey } from './stage.js';
 import { paintFrame } from './render.js';
 import { journey } from './journey.js';
-import { INK, TOON, DAEMON } from './palette.js';
+import { INK, TOON } from './palette.js';
+import { SLOTS } from './creatures.js';
+import { CREATURE_BURST } from './creatureart.js';
 
 export { biomeFor } from './biomes.js';
 export { layoutRoom } from './layout.js';
@@ -25,7 +27,10 @@ const DUST = [INK.l, INK.s, INK.w];
 
 /**
  * The map animates travel, created, removed, reveal, unknown-command, guardian,
- * daemon-defied, daemon-killed and gate-opened, and ignores other kinds.
+ * proc-defied {key} (that creature flashes), proc-killed {key} (it bursts),
+ * daemon-defied and daemon-killed (the same, for key 'daemon') and
+ * gate-opened, and ignores other kinds. A creature whose process vanished
+ * between observations always bursts a little.
  *
  * @typedef {import('../game/effects.js').Effect} Effect
  */
@@ -37,7 +42,8 @@ const DUST = [INK.l, INK.s, INK.w];
  *   hidden files and the open gate.
  * @property {(effects: Effect[], obs: object) => Promise<void>} play Animate
  *   the effects of a line, then settle on obs. A newer call cuts an older one short.
- * @property {(text: string, who?: 'player'|'daemon') => void} say Show a speech bubble.
+ * @property {(text: string, who?: string) => void} say Show a speech bubble over the player (default)
+ *   or over the creature with that process key ('daemon', 'stubborn', ...).
  * @property {(title: string, sub?: string) => void} banner Show a banner across the room (the title in the pixel font).
  * @property {(name: string|null) => void} focus Ring the door or item with this name ('..' for the exit)
  *   in pulsing gold while it is on show; null clears it. show() clears it too.
@@ -58,6 +64,21 @@ function revealSparkle(stage, e) {
   [...scene.layout.doors, ...scene.layout.items].filter(x => x.hidden).forEach(x => burstAt(stage, x.path, [INK.w, INK.v]));
 }
 
+const DEFIED_MS = 600;
+
+function defied(stage, key) {
+  const until = performance.now() + DEFIED_MS;
+  stage.state.creatures.filter(c => c.key === key).forEach(c => { c.flashUntil = until; });
+  shake(stage);
+}
+
+function killed(stage, key) {
+  const found = creaturesWithKey(stage, key);
+  const fallback = { x: SLOTS[0].cx, y: SLOTS[0].cy, kind: key === 'daemon' ? 'daemon' : 'imp' };
+  for (const c of found.length ? found : [fallback]) stage.motion.burst(c.x, c.y, CREATURE_BURST[c.kind], 50, 2.4);
+  shake(stage);
+}
+
 const AFTER = {
   created: (stage, e) => burstAt(stage, e.path, SPARKLE),
   reveal: revealSparkle,
@@ -67,15 +88,10 @@ const AFTER = {
     shake(stage);
     say(stage, 'Ouch!');
   },
-  'daemon-defied': stage => {
-    stage.state.daemon.flashUntil = performance.now() + 600;
-    shake(stage);
-  },
-  'daemon-killed': stage => {
-    const { daemon } = stage.state;
-    stage.motion.burst(daemon.x + 12, daemon.y + 12, [DAEMON.body, DAEMON.eye, DAEMON.glow, TOON.y], 70, 2.4);
-    shake(stage);
-  },
+  'proc-defied': (stage, e) => defied(stage, e.key),
+  'proc-killed': (stage, e) => killed(stage, e.key),
+  'daemon-defied': stage => defied(stage, 'daemon'),
+  'daemon-killed': stage => killed(stage, 'daemon'),
   'gate-opened': stage => {
     stage.state.gateOpen = true;
     stage.state.scene.gateOpen = true;
@@ -88,7 +104,7 @@ function show(stage, obs) {
   const { state } = stage;
   state.token += 1;
   stage.motion.finish();
-  Object.assign(state, { fade: 0, trip: null, gateOpen: false, hover: null, focus: null, banner: null, bubbles: [], flashUntil: 0, shakeUntil: 0 });
+  Object.assign(state, { fade: 0, trip: null, gateOpen: false, hover: null, focus: null, banner: null, bubbles: [], flashUntil: 0, shakeUntil: 0, creatures: [], fallen: [] });
   Object.assign(state.player, STAND, { walking: false });
   state.revealed.clear();
   settle(stage, obs);

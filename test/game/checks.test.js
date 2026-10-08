@@ -22,6 +22,12 @@ test('the context carries the Tab completions since the previous line, none by d
   assert.deepEqual(context([]).completions, []);
 });
 
+test('the context carries the text of the line as typed, empty by default', () => {
+  const before = observation();
+  assert.equal(makeContext({ commands: [], before, obs: before, line: 'wish=gold' }).line, 'wish=gold');
+  assert.equal(makeContext({ commands: [], before, obs: before }).line, '');
+});
+
 test('node finds files and directories by absolute path in the observation after the line', () => {
   const ctx = context([]);
   assert.equal(ctx.node(`${HOME}/readme.txt`).content, 'Welcome, hero.\n');
@@ -70,9 +76,21 @@ test('flag finds a letter in short option clusters', () => {
   assert.equal(ctx.flag(record('ls', ['forest', '-a']), 'a'), true);
 });
 
-test('flag ignores long options, a lone dash and anything after --', () => {
+test('flag reads the long options players type as their short letter, per command', () => {
   const ctx = context([]);
-  assert.equal(ctx.flag(record('ls', ['--all']), 'a'), false);
+  assert.equal(ctx.flag(record('ls', ['--all']), 'a'), true);
+  assert.equal(ctx.flag(record('grep', ['--ignore-case', 'x']), 'i'), true);
+  assert.equal(ctx.flag(record('grep', ['--recursive', 'x']), 'r'), true);
+  assert.equal(ctx.flag(record('tail', ['--lines=3', 'f']), 'n'), true);
+  assert.equal(ctx.flag(record('wc', ['--lines']), 'l'), true);
+  assert.equal(ctx.flag(record('rm', ['--recursive', 'd']), 'r'), true);
+  assert.equal(ctx.flag(record('cat', ['--all']), 'a'), false, 'only the command\'s own long options');
+  assert.equal(ctx.flag(record('ls', ['--', '--all']), 'a'), false);
+});
+
+test('flag ignores unknown long options, a lone dash and anything after --', () => {
+  const ctx = context([]);
+  assert.equal(ctx.flag(record('ls', ['--color']), 'c'), false);
   assert.equal(ctx.flag(record('cat', ['-']), 'a'), false);
   assert.equal(ctx.flag(record('rm', ['--', '-a']), 'a'), false);
 });
@@ -102,6 +120,42 @@ test('hasPath is true when an operand resolves to the absolute path', () => {
   assert.equal(ctx.hasPath(record('cat', ['readme.txt'], { cwd: '/tmp' }), `${HOME}/readme.txt`), false);
 });
 
+test('piped lists the files a cat stage just before the command fed it, through chains of cat', () => {
+  const stage = (name, args, n, fields = {}) => record(name, args, { pipeline: 0, stage: n, stages: 3, ...fields });
+  const cat = stage('cat', ['ledger.txt'], 0);
+  const sort = stage('sort', [], 1);
+  const uniq = stage('uniq', [], 2);
+  const ctx = context([cat, sort, uniq]);
+  assert.deepEqual(ctx.piped(sort), [`${HOME}/ledger.txt`]);
+  assert.deepEqual(ctx.piped(uniq), []);
+  assert.deepEqual(ctx.piped(cat), []);
+  const chain = [stage('cat', ['a.txt'], 0), stage('cat', [], 1), stage('grep', ['x'], 2)];
+  assert.deepEqual(context(chain).piped(chain[2]), [`${HOME}/a.txt`]);
+  const failed = [stage('cat', ['a.txt'], 0, { status: 1 }), stage('grep', ['x'], 1)];
+  assert.deepEqual(context(failed).piped(failed[1]), []);
+  const redirected = [stage('cat', [], 0, { redirects: [{ op: '<', target: `${HOME}/a.txt` }] }), stage('grep', ['x'], 1)];
+  assert.deepEqual(context(redirected).piped(redirected[1]), [`${HOME}/a.txt`]);
+  const numbered = [stage('cat', ['-n', 'a.txt'], 0), stage('grep', ['x'], 1)];
+  assert.deepEqual(context(numbered).piped(numbered[1]), [], 'cat -n changes the lines');
+});
+
+test('hasPath counts a file sent in with < or a piped cat, only for commands that read their input', () => {
+  const stage = (name, args, n, fields = {}) => record(name, args, { pipeline: 0, stage: n, stages: 2, ...fields });
+  const file = `${HOME}/a.txt`;
+  assert.equal(context([]).hasPath(record('grep', ['x'], { redirects: [{ op: '<', target: file }] }), file), true);
+  const line = [stage('cat', ['a.txt'], 0), stage('tail', ['-n', '3'], 1)];
+  assert.equal(context(line).hasPath(line[1], file), true);
+  const ignored = [stage('cat', ['a.txt'], 0), stage('ls', [], 1)];
+  assert.equal(context(ignored).hasPath(ignored[1], file), false);
+});
+
+test('read counts a reader that failed on another file after printing this one whole', () => {
+  const r = record('cat', ['readme.txt', 'forest'], { status: 1, stdout: 'Hello\n' });
+  const tree = { type: 'dir', children: { home: { type: 'dir', children: { hero: { type: 'dir', children: { 'readme.txt': { type: 'file', content: 'Hello\n' } } } } } } };
+  assert.equal(context([r], { tree }).read(`${HOME}/readme.txt`), true);
+  assert.equal(context([record('cat', ['readme.txt'], { status: 1, stdout: '' })], { tree }).read(`${HOME}/readme.txt`), false);
+});
+
 test('read is true when a reading command succeeded on the file', () => {
   for (const name of ['cat', 'less', 'more', 'head', 'tail']) {
     assert.equal(context([record(name, ['readme.txt'])]).read(`${HOME}/readme.txt`), true, name);
@@ -118,4 +172,24 @@ test('read is false for a failed read, another file or a command that does not r
   assert.equal(context([record('cat', ['other.txt'])]).read(`${HOME}/readme.txt`), false);
   assert.equal(context([record('ls', ['readme.txt'])]).read(`${HOME}/readme.txt`), false);
   assert.equal(context([record('cat', [], { redirects: [{ op: '>', target: `${HOME}/readme.txt` }] })]).read(`${HOME}/readme.txt`), false);
+});
+
+test('streams follows redirections in typed order, null meaning the screen', () => {
+  const at = redirects => context([]).streams(record('ls', [], { redirects }));
+  const F = `${HOME}/f`;
+  assert.deepEqual(at([]), { out: null, err: null });
+  assert.deepEqual(at([{ op: '>', target: F }]), { out: F, err: null });
+  assert.deepEqual(at([{ op: '2>>', target: F }]), { out: null, err: F });
+  assert.deepEqual(at([{ op: '&>', target: F }]), { out: F, err: F });
+  assert.deepEqual(at([{ op: '>', target: F }, { op: '2>&', target: '1' }]), { out: F, err: F });
+  assert.deepEqual(at([{ op: '2>&', target: '1' }, { op: '>', target: F }]), { out: F, err: null });
+  assert.deepEqual(at([{ op: '2>', target: F }, { op: '>&', target: '2' }]), { out: F, err: F });
+  assert.deepEqual(at([{ op: '<', target: F }]), { out: null, err: null });
+});
+
+test('onScreen is the last stage with its output not sent elsewhere', () => {
+  const ctx = context([]);
+  assert.equal(ctx.onScreen(record('echo', [], { redirects: [{ op: '2>&', target: '1' }] })), true);
+  assert.equal(ctx.onScreen(record('echo', [], { redirects: [{ op: '>', target: `${HOME}/f` }] })), false);
+  assert.equal(ctx.onScreen(record('echo', [], { stage: 0, stages: 2 })), false);
 });

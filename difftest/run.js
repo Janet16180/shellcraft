@@ -21,7 +21,6 @@ import { TERMINAL } from '../src/shell/system.js';
 const HERE = import.meta.dirname;
 const ROOT = path.resolve(HERE, '..');
 const IMAGE = 'shellcraft-difftest';
-const ALIASES = { ll: 'ls -alF', la: 'ls -A' };
 const TIMEOUT_MS = 60_000;
 const LATEST_START_SECOND = 45;
 const ENV = [
@@ -64,7 +63,7 @@ async function runReal(c, index, world, worldTime, lines) {
   const { script, cds } = materialize(world, worldTime);
   mkdirSync(path.join(dir, 'out'));
   writeFileSync(path.join(dir, 'setup.sh'), script + loginRecord('hero', TERMINAL, worldTime));
-  writeFileSync(path.join(dir, 'input.sh'), inputScript(lines, { cds, aliases: ALIASES }));
+  writeFileSync(path.join(dir, 'input.sh'), inputScript(lines, { cds }));
   writeFileSync(path.join(dir, 'run.sh'), RUN_SH);
   const timer = setTimeout(() => spawnSync('docker', ['rm', '-f', name], { stdio: 'ignore' }), TIMEOUT_MS);
   const r = await docker(['run', '--rm', '-i', '--name', name, '--hostname', 'kernelia', '--network', 'none',

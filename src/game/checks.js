@@ -30,6 +30,32 @@ export function resolvePath(arg, cwd, home) {
   return `/${parts.join('/')}`;
 }
 
+/** Commands that read standard input when no file is named. */
+export const STDIN_READERS = new Set([...READERS, 'grep', 'sort', 'uniq', 'wc', 'cut', 'tr', 'nl', 'rev', 'tac']);
+
+/** The long options players type, per command, and the short letter each one means. */
+const LONG_OPTIONS = {
+  ls: { all: 'a', 'almost-all': 'A', directory: 'd', recursive: 'R', 'human-readable': 'h' },
+  grep: { recursive: 'r', 'dereference-recursive': 'R', 'ignore-case': 'i', count: 'c', 'line-number': 'n', 'invert-match': 'v', 'word-regexp': 'w' },
+  rm: { recursive: 'r', force: 'f', dir: 'd' },
+  cp: { recursive: 'r' },
+  mkdir: { parents: 'p' },
+  head: { lines: 'n' },
+  tail: { lines: 'n' },
+  wc: { lines: 'l', words: 'w', bytes: 'c', chars: 'm' },
+  sort: { unique: 'u', reverse: 'r', 'numeric-sort': 'n' },
+  uniq: { count: 'c', repeated: 'd', unique: 'u' },
+};
+
+function longOptions(record) {
+  const end = record.args.indexOf('--');
+  const map = LONG_OPTIONS[record.name] ?? {};
+  return (end < 0 ? record.args : record.args.slice(0, end))
+    .filter(a => a.startsWith('--') && a.length > 2)
+    .map(a => map[a.slice(2).split('=')[0]])
+    .filter(Boolean);
+}
+
 function shortOptions(args) {
   const end = args.indexOf('--');
   return (end < 0 ? args : args.slice(0, end)).filter(a => /^-[^-]/.test(a));
@@ -49,35 +75,69 @@ export function operands(args) {
   return end < 0 ? before : [...before, ...args.slice(end + 1)];
 }
 
+// Where stdout and stderr end up, following the redirections in typed order; null is the screen.
+export function streamsOf(record) {
+  let out = null;
+  let err = null;
+  for (const { op, target } of record.redirects) {
+    if (/^1?>>?$/.test(op)) out = target;
+    else if (/^2>>?$/.test(op)) err = target;
+    else if (/^&>>?$/.test(op)) { out = target; err = target; }
+    else if (op === '2>&' && target === '1') err = out;
+    else if (/^1?>&$/.test(op) && target === '2') out = err;
+  }
+  return { out, err };
+}
+
 /**
  * Build the context a chapter's checks receive for one line.
  *
- * @param {{commands: object[], before: object, obs: object, completions?: {line: string, completed: string}[]}} line
- *   The line's CommandRecords, the Observations before and after it, and the
- *   Tab completions made while typing it.
+ * @param {{commands: object[], before: object, obs: object, completions?: {line: string, completed: string}[], line?: string}} line
+ *   The line's CommandRecords, the Observations before and after it, the
+ *   Tab completions made while typing it, and its text as typed.
  * @returns {object} The context described in AUTHORING.md section 2.
  */
-export function makeContext({ commands, before, obs, completions = [] }) {
+export function makeContext({ commands, before, obs, completions = [], line = '' }) {
   const { home } = obs;
   const paths = record => operands(record.args).map(arg => resolvePath(arg, record.cwd, home));
-  const hasPath = (record, path) => paths(record).includes(path);
   const ran = (name, pred = () => true) => commands.some(r => r.name === name && r.status === 0 && pred(r));
-  const readsFrom = (record, path) => hasPath(record, path) || record.redirects.some(x => x.op === '<' && x.target === path);
+  const inputOf = record => record.redirects.find(x => x.op === '<')?.target ?? null;
+  const stageBefore = record => commands.find(r => r.pipeline === record.pipeline && r.stage === record.stage - 1) ?? null;
+  // The files a plain cat (no options, so the lines are unchanged) piped into this stage.
+  const piped = record => {
+    const cat = record.stage > 0 ? stageBefore(record) : null;
+    if (cat?.name !== 'cat' || cat.status !== 0 || cat.args.some(a => a.startsWith('-') && a !== '-' && a !== '--')) return [];
+    const files = paths(cat);
+    if (files.length > 0) return files;
+    return inputOf(cat) ? [inputOf(cat)] : piped(cat);
+  };
+  // A file the command names, or, for a command that reads its input, the file sent in with < or a piped cat.
+  const hasPath = (record, path) => paths(record).includes(path)
+    || (STDIN_READERS.has(record.name) && (inputOf(record) === path || piped(record).includes(path)));
+  const onScreen = record => record.stage === record.stages - 1 && streamsOf(record).out === null;
+  const nodeContent = path => nodeAt(obs.tree, path)?.content ?? nodeAt(before.tree, path)?.content ?? null;
+  // A reader that succeeded, or that failed on another file after it printed this whole file.
+  const readOk = (record, path) => record.status === 0 || (nodeContent(path) !== null && nodeContent(path) !== '' && record.stdout.includes(nodeContent(path)));
 
   return {
     commands,
     before,
     obs,
     completions,
+    line,
     home,
     cwd: obs.cwd,
     node: path => nodeAt(obs.tree, path),
     proc: key => obs.procs.find(p => p.key === key) ?? null,
     ran,
     tried: (name, pred = () => true) => commands.some(r => r.name === name && pred(r)),
-    flag: (record, letter) => shortOptions(record.args).some(o => o.slice(1).includes(letter)),
+    flag: (record, letter) => shortOptions(record.args).some(o => o.slice(1).includes(letter)) || longOptions(record).includes(letter),
     paths,
     hasPath,
-    read: path => commands.some(r => READERS.has(r.name) && r.status === 0 && readsFrom(r, path)),
+    piped,
+    streams: streamsOf,
+    onScreen,
+    shown: path => commands.some(r => READERS.has(r.name) && hasPath(r, path) && readOk(r, path) && onScreen(r)),
+    read: path => commands.some(r => READERS.has(r.name) && hasPath(r, path) && readOk(r, path)),
   };
 }

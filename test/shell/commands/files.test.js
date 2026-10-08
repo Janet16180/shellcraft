@@ -30,6 +30,19 @@ test('less and more print the file with a note about the pager', async () => {
   assert.match(r.note, /scrollable viewer/);
 });
 
+test('less and more report files they cannot open in their own words', async () => {
+  const b = await shell();
+  await run(b, 'echo s > secret; chmod 000 secret; mkdir d');
+  const less = await run(b, 'less secret');
+  assert.deepEqual([less.out, less.err, less.status], ['', 'secret: Permission denied\n', 1]);
+  assert.deepEqual(await run(b, 'less nope d').then(r => [r.err, r.status]), ['nope: No such file or directory\nd is a directory\n', 1]);
+  const mixed = await run(b, 'less secret readme.txt');
+  assert.deepEqual([mixed.out, mixed.err, mixed.status], ['Dear apprentice,\nwelcome.\n', 'secret: Permission denied\n', 0]);
+  const more = await run(b, 'more secret');
+  assert.deepEqual([more.err, more.status], ['more: cannot open secret: Permission denied\n', 0]);
+  assert.equal((await run(b, 'more d')).out, '\n*** d: directory ***\n\n');
+});
+
 test('touch creates an empty file and refuses where the user cannot write', async () => {
   const b = await shell();
   await run(b, 'touch new.txt');
@@ -76,6 +89,24 @@ test('rm refuses . and .., and files the user may not unlink', async () => {
   assert.equal((await run(b, 'rm /etc/hostname')).err, "rm: cannot remove '/etc/hostname': Permission denied\n");
 });
 
+test('rm takes --recursive, --force, --verbose and --dir', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'rm --force nope')).status, 0);
+  assert.equal((await run(b, 'rm --verbose --recursive --force forest/cave')).out, "removed 'forest/cave/bat.txt'\nremoved directory 'forest/cave'\n");
+  assert.equal((await home(b)).forest.children.cave, undefined);
+});
+
+test('rm -d removes an empty directory, but not a full one', async () => {
+  const b = await shell();
+  await run(b, 'mkdir empty');
+  const full = await run(b, 'rm -d forest');
+  assert.deepEqual([full.err, full.status], ["rm: cannot remove 'forest': Directory not empty\n", 1]);
+  assert.equal((await run(b, 'rm -dv empty readme.txt')).out, "removed directory 'empty'\nremoved 'readme.txt'\n");
+  assert.equal((await run(b, 'mkdir e2; rm --dir e2')).status, 0);
+  const h = await home(b);
+  assert.deepEqual([h.empty, h['readme.txt'], h.e2, typeof h.forest], [undefined, undefined, undefined, 'object']);
+});
+
 test('rm -v reports each removal and -i notes that the game answers yes', async () => {
   const r = await run(await shell(), 'rm -iv readme.txt');
   assert.equal(r.out, "removed 'readme.txt'\n");
@@ -115,7 +146,7 @@ test('a path through a file or a locked directory gives the matching error', asy
   assert.equal((await run(b, 'cat /root/secret.txt')).err, 'cat: /root/secret.txt: Permission denied\n');
 });
 
-test('cat options beyond -n, and touch -c, rm -d and mkdir -m, get a note', async () => {
+test('cat options beyond -n, and touch -c, rm -I and mkdir -m, get a note', async () => {
   const b = await shell();
   for (const [line, option] of [['cat -A readme.txt', '-A'], ['cat -E readme.txt', '-E'], ['cat -T readme.txt', '-T'], ['cat -v readme.txt', '-v'], ['cat --show-ends readme.txt', '--show-ends']]) {
     const r = await run(b, line);
@@ -123,6 +154,6 @@ test('cat options beyond -n, and touch -c, rm -d and mkdir -m, get a note', asyn
   }
   assert.equal((await run(b, 'touch -c nofile')).note, 'touch -c is a real option, but this game does not simulate it.');
   assert.equal((await run(b, 'ls nofile')).status, 2);
-  assert.equal((await run(b, 'rm -d forest')).note, 'rm -d is a real option, but this game does not simulate it.');
+  assert.equal((await run(b, 'rm -I forest')).note, 'rm -I is a real option, but this game does not simulate it.');
   assert.equal((await run(b, 'mkdir -m 700 d')).note, 'mkdir -m is a real option, but this game does not simulate it.');
 });

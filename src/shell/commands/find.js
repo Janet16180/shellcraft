@@ -115,6 +115,20 @@ function depthOption(t, v, ctx) {
   return p;
 }
 
+// A word where a predicate belongs: GNU find takes it for a path typed after
+// the expression. When that path exists, it was likely a pattern the shell
+// expanded, so find names the predicate before it.
+function strayWord(t, before, ctx) {
+  const last = before.findLast(x => /^[-(!]/.test(x));
+  const hint = last && resolve(ctx.sys, t).node ? `\nfind: possible unquoted pattern after predicate \`${last}'?` : '';
+  return `find: paths must precede expression: \`${t}'${hint}`;
+}
+
+function unknown(t, before, ctx) {
+  if (t === undefined) return 'find: invalid expression';
+  return t.startsWith('-') ? `find: unknown predicate \`${t}'` : strayWord(t, before, ctx);
+}
+
 function primary(t, tokens, i, ctx) {
   const v = WITH_VALUE.has(t) ? tokens[i] : undefined;
   const used = WITH_VALUE.has(t) ? 1 : 0;
@@ -122,7 +136,7 @@ function primary(t, tokens, i, ctx) {
   if (t === '-maxdepth' || t === '-mindepth') p = depthOption(t, v, ctx);
   else if (WITH_VALUE.has(t) && v === undefined) p = { error: `find: missing argument to \`${t}'` };
   else if (PRIMARIES[t]) p = PRIMARIES[t](v, ctx);
-  else p = { error: t === undefined ? 'find: invalid expression' : `find: unknown predicate \`${t}'` };
+  else p = { error: unknown(t, tokens.slice(0, i - 1), ctx) };
   return { ...p, used };
 }
 
@@ -214,7 +228,7 @@ function find(args, { sys }) {
   while (k < args.length && !args[k].startsWith('-') && args[k] !== '!' && args[k] !== '(') k++;
   const starts = k ? args.slice(0, k) : ['.'];
   const users = knownUsers(sys);
-  const ctx = { out: [], errs: [], maxDepth: Infinity, minDepth: 0, users };
+  const ctx = { sys, out: [], errs: [], maxDepth: Infinity, minDepth: 0, users };
   const parsed = parseExpression(args.slice(k), ctx);
   if (parsed.tooDeep) return withNote(result('', '', 1), `Real find accepts deeper nesting, but the game stops at ${MAX_GROUPS} levels of parentheses.`);
   if (parsed.error) return result('', parsed.error, 1);

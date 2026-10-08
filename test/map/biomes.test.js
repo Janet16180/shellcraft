@@ -27,6 +27,27 @@ test('home itself is the cottage and the original areas keep their biomes', () =
   for (const area of ['camp', 'library', 'tower', 'market', 'gate']) assert.equal(at(`${HOME}/${area}`), area);
 });
 
+test('the act II areas have biomes of their own', () => {
+  assert.equal(at(`${HOME}/mirrors`), 'mirrors');
+  assert.equal(at(`${HOME}/mirrors/inner`), 'mirrors');
+  assert.equal(at(`${HOME}/well`), 'well');
+  assert.equal(at(`${HOME}/well/stones`), 'well');
+  assert.equal(at(`${HOME}/den`), 'den');
+  assert.equal(at(`${HOME}/forge`), 'forge');
+  assert.equal(at(`${HOME}/forge/ore`), 'ore');
+  assert.equal(biomeFor(`${HOME}/well`, HOME).name, 'Wishing Well');
+  assert.equal(biomeFor(`${HOME}/den`, HOME).name, 'Imp Den');
+  assert.equal(biomeFor(`${HOME}/forge`, HOME).name, 'The Forge');
+  assert.equal(biomeFor(`${HOME}/mirrors`, HOME).name, 'Hall of Mirrors');
+});
+
+test('every overworld biome has its colours', () => {
+  for (const [id, biome] of Object.entries(BIOMES).filter(([, b]) => b.realm === 'overworld')) {
+    assert.equal(biome.wall.length, 2, id);
+    for (const colour of [...biome.wall, biome.floor, biome.door, biome.trim]) assert.match(colour, /^#[0-9a-f]{6}$/, id);
+  }
+});
+
 test('a directory the player makes at home looks like part of the cottage', () => {
   assert.equal(at(`${HOME}/notes`), 'cottage');
 });
@@ -42,6 +63,9 @@ test('system directories get rooms that say what they hold', () => {
   assert.equal(at('/home/alice'), 'quarters');
   assert.equal(at('/root'), 'vault');
   assert.equal(at('/usr/bin'), 'armory');
+  assert.equal(at('/usr/local/bin'), 'guild');
+  assert.equal(at('/usr/local'), 'guild');
+  assert.equal(biomeFor('/usr/local/bin', HOME).name, 'Guild of New Commands');
   assert.equal(at('/usr'), 'workshop');
   assert.equal(at('/dev'), 'pit');
   assert.equal(at('/opt/unknown'), 'corridor');

@@ -5,7 +5,9 @@
  */
 
 import { can } from './perms.js';
-import { byteLength, MAX_TREE_DEPTH } from './fs.js';
+import { byteLength, lookup, MAX_TREE_DEPTH } from './fs.js';
+import { varValue } from './vars.js';
+import { joinPath } from '../backend/tree.js';
 
 const MESSAGES = {
   ENOENT: 'No such file or directory', ENOTDIR: 'Not a directory', EACCES: 'Permission denied', ENAMETOOLONG: 'File name too long',
@@ -72,4 +74,17 @@ export function resolve(sys, path) {
   if (!error) parent = stack.length > 1 ? stack.at(-2).node : sys.root;
   const abs = `/${stack.slice(1).map(s => s.name).join('/')}`;
   return { abs, node: error ? null : node, parent, error };
+}
+
+/**
+ * The regular files named `name` in the directories of PATH, in PATH order.
+ *
+ * @param {object} sys The machine state.
+ * @param {string} name A command name without a slash.
+ * @returns {{path: string, node: object}[]} The files found, executable or not.
+ */
+export function pathFiles(sys, name) {
+  return varValue(sys, 'PATH').split(':').filter(Boolean).map(d => joinPath(d, name))
+    .map(path => ({ path, node: lookup(sys.root, path) }))
+    .filter(f => f.node?.type === 'file');
 }

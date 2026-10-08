@@ -191,7 +191,7 @@ async function shellTurn(s, line, completions) {
   const result = await s.backend.run(line);
   const after = await s.backend.observe();
   s.obs = after;
-  const ctx = makeContext({ commands: result.commands, before, obs: after, completions });
+  const ctx = makeContext({ commands: result.commands, before, obs: after, completions, line });
   const effects = [...lineEffects(ctx, result.blocked), ...(current(s).effects?.(ctx) ?? [])];
   const inBossRoom = s.phase === 'boss';
   const events = await advance(s, ctx);
@@ -219,7 +219,7 @@ function lists(ctx, path) {
 function uncover(s, ctx) {
   const found = s.concealed.filter(path => lists(ctx, path));
   s.concealed = s.concealed.filter(path => !found.includes(path));
-  return found.map(path => ({ kind: 'created', path, type: ctx.node(path)?.type ?? 'file' }));
+  return found.map(path => ({ kind: 'created', path, type: ctx.node(path)?.type ?? 'file', found: true }));
 }
 
 function nearNote(s, ctx) {

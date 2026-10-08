@@ -4,6 +4,7 @@
 
 import { biomeFor } from './biomes.js';
 import { readRoom } from './room.js';
+import { placeCreatures } from './creatures.js';
 
 const LISTED = 20;
 
@@ -45,5 +46,7 @@ export function describeRoom(obs, { revealed = new Set() } = {}) {
   const { realm, name } = biomeFor(obs.cwd, obs.home);
   const where = realm === 'overworld' ? 'inside your home' : 'in the dungeon, outside your home';
   const exit = room.exit ? `The exit .. leads to ${room.exit}.` : 'This is the root of everything: its .. leads back to / itself.';
-  return `You are at ${obs.cwd}, ${name}, ${where}. ${contents(room)} ${exit}`;
+  const creatures = placeCreatures(obs.procs).map(c => c.label);
+  const here = creatures.length ? ` Creatures here: ${creatures.join(', ')}.` : '';
+  return `You are at ${obs.cwd}, ${name}, ${where}. ${contents(room)} ${exit}${here}`;
 }

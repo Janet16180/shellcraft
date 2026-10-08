@@ -23,6 +23,26 @@ function busyTree() {
   return tree;
 }
 
+function actTwoTree() {
+  const tree = busyTree();
+  const mine = { owner: 'hero' };
+  const files = names => Object.fromEntries(names.map(n => [n, file('', mine)]));
+  const hero = tree.children.home.children.hero.children;
+  hero.mirrors = dir({ ...files(['shard_1.txt', 'shard_2.txt', 'reflection.txt']), inner: dir({}, mine) }, mine);
+  hero.well = dir({ ...files(['bucket.txt', 'errors.txt', 'words.txt']), stones: dir({}, mine) }, mine);
+  hero.den = dir(files(['nest.txt']), mine);
+  hero.forge = dir({ 'hello.sh': file('#!/bin/bash\n', { ...mine, mode: 0o755 }), 'smelt.sh': file('', mine), ore: dir(files(['iron.ore', 'gold.ore', 'mithril.ore']), mine) }, mine);
+  tree.children.usr.children.local = dir({ bin: dir({ greet: file('', { mode: 0o755 }), 'forge-tool': file('', { mode: 0o755 }) }) });
+  return tree;
+}
+
+const imp = (pid, cmd, key, cpu = 0.3) => ({ pid, ppid: 1, user: 'hero', tty: '?', stat: 'S', cpu, mem: 0.4, cmd, key });
+const shell = imp(100, '-bash', 'shell');
+const impsAndStubborn = [shell, imp(412, 'imp', 'imp'), imp(413, 'imp', 'imp2'), imp(420, './greedy_imp --eat', 'greedy', 88.1), imp(431, 'stubborn_imp', 'stubborn')];
+const disguised = [shell, imp(512, 'imp', 'imp'), imp(519, 'ghostly_imp', 'imp2'), imp(533, 'nibbler', 'daemon', 97.2), imp(540, 'imp', 'imp3')];
+
+const crowd = [...impsAndStubborn, imp(4242, './shadow_daemon', 'daemon', 99.7), imp(450, 'imp', 'imp9'), imp(451, 'imp', 'imp10')];
+
 const daemon = [{ pid: 4242, ppid: 1, user: 'hero', tty: '?', stat: 'R', cpu: 99.7, mem: 12.4, cmd: './shadow_daemon', key: 'daemon' }];
 
 const CASES = {
@@ -36,6 +56,14 @@ const CASES = {
   library: () => ({ obs: observe('/home/hero/library', { tree: busyTree() }) }),
   market: () => ({ obs: observe('/home/hero/market', { tree: busyTree() }) }),
   junk: () => ({ obs: observe('/home/hero/junk') }),
+  mirrors: () => ({ obs: observe('/home/hero/mirrors', { tree: actTwoTree() }) }),
+  well: () => ({ obs: observe('/home/hero/well', { tree: actTwoTree() }) }),
+  den: () => ({ obs: observe('/home/hero/den', { tree: actTwoTree() }), procs: impsAndStubborn }),
+  disguised: () => ({ obs: observe('/home/hero/den', { tree: actTwoTree() }), procs: disguised }),
+  crowd: () => ({ obs: observe('/home/hero', { tree: busyTree() }), procs: crowd }),
+  forge: () => ({ obs: observe('/home/hero/forge', { tree: actTwoTree() }) }),
+  ore: () => ({ obs: observe('/home/hero/forge/ore', { tree: actTwoTree() }) }),
+  guild: () => ({ obs: observe('/usr/local/bin', { tree: actTwoTree() }) }),
   hall: () => ({ obs: observe('/', { tree: busyTree() }) }),
   gatehouse: () => ({ obs: observe('/home') }),
   archive: () => ({ obs: observe('/etc') }),

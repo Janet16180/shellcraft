@@ -23,8 +23,8 @@ test('act I runs to the Market of Pipes and act II starts with the Descent', () 
   assert.deepEqual(chapters.map(chapter => chapter.act), [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
 });
 
-test('the first four chapters are playable and the rest are marked as coming soon', () => {
-  assert.deepEqual(chapters.map(chapter => Boolean(chapter.soon)), ORDER.map((_, i) => i >= 4));
+test('every chapter is playable', () => {
+  assert.deepEqual(chapters.map(chapter => Boolean(chapter.soon)), ORDER.map(() => false));
 });
 
 function proseOf(chapter) {
@@ -69,6 +69,14 @@ async function playThrough(session, chapter) {
 const kinds = list => list.map(x => x.kind);
 
 const PLAYABLE = chapters.filter(c => !c.soon);
+// Lines whose error is the lesson (junkyard: rmdir refuses a full directory; descent and gate: Permission denied).
+const EXPECTED_ERRORS = {
+  junkyard: ["rmdir: failed to remove 'junk/cobwebs': Directory not empty\n"],
+  descent: ['cat: /var/log/syslog: Permission denied\n'],
+  gate: ['bash: ./open_gate.sh: Permission denied\n', "ls: cannot open directory '/root': Permission denied\n"],
+  well: ["ls: cannot access '/home/hero/well/bucket.txt': No such file or directory\n", 'bash: cd: /home/hero/well/dry: No such file or directory\n'],
+  daemon: ['bash: kill: (1) - Operation not permitted\n'],
+};
 
 for (const seed of [1, 2, 3]) {
   test(`a session plays every playable chapter from boot to the last boss (seed ${seed})`, async () => {
@@ -80,7 +88,7 @@ for (const seed of [1, 2, 3]) {
     for (const [i, chapter] of PLAYABLE.entries()) {
       if (i > 0) await session.startChapter(chapter.id, { fresh: false });
       const played = await playThrough(session, chapter);
-      assert.deepEqual(played.errors, [], chapter.id);
+      assert.deepEqual(played.errors.map(e => e.text), EXPECTED_ERRORS[chapter.id] ?? [], chapter.id);
       assert.deepEqual(kinds(played.bossStart.events), ['task', 'boss-start'], chapter.id);
       assert.deepEqual(kinds(played.last.events), ['boss', 'chapter'], chapter.id);
       assert.equal(played.last.events[1].next, PLAYABLE[i + 1]?.id ?? null, chapter.id);

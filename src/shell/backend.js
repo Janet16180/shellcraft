@@ -3,11 +3,12 @@
  */
 
 import { createSystem, resizeTerminal } from './system.js';
-import { snapshot } from './fs.js';
+import { snapshot, lookup } from './fs.js';
 import { executeLine } from './exec.js';
 import { applyPatch } from './patch.js';
 import { complete } from './complete.js';
 import { varValue } from './vars.js';
+import { expandHistory } from './history.js';
 import { COMMANDS, BINARIES } from './commands/index.js';
 
 const CLEAR_MARK = '\u001b[2J';
@@ -33,12 +34,28 @@ function remembered(sys, line) {
   return !(ignoreSpace && /^\s/.test(line)) && !(ignoreDups && sys.history.at(-1) === line);
 }
 
-function runLine(sys, line) {
+// History expansion comes first: a missing event stops the line before it
+// is remembered or run, and $? stays as it was. An expanded line is echoed.
+function runLine(sys, typedLine) {
   const run = collector();
+  const history = expandHistory(typedLine, sys.history);
+  if (history.error) {
+    run.sink.write('err', `${history.error}\n`);
+    return { output: run.chunks, status: sys.lastStatus, commands: [], blocked: [] };
+  }
+  const { line } = history;
+  if (history.expanded) run.sink.write('err', `${line}\n`);
   const typed = line.trim() !== '';
   if (typed && remembered(sys, line)) sys.history.push(line);
   const status = typed ? executeLine({ sys, commands: COMMANDS, run }, line, run.sink) : sys.lastStatus;
   return { output: run.chunks, status, commands: run.records, blocked: run.blocked };
+}
+
+// What bash does when it starts: read ~/.bashrc, if there is one. Its output
+// is dropped, as the game shows the terminal only after the shell is ready.
+function startShell(sys) {
+  const run = collector();
+  if (lookup(sys.root, `${sys.home}/.bashrc`)) executeLine({ sys, commands: COMMANDS, run }, '. ~/.bashrc', run.sink);
 }
 
 function observe(sys) {
@@ -55,6 +72,13 @@ function observe(sys) {
  * simulated command), `/dev/null`, an empty home owned by the user, and the
  * system processes; the game adds its world with load().
  *
+ * The first load() is when the player's shell starts: after applying that
+ * patch, the shell reads `~/.bashrc` (if the patch made one) in the current
+ * shell, as bash does, so its aliases and variables are the player's. Its
+ * output is dropped and it is not recorded. Later loads change the files and
+ * processes only; the shell keeps its variables, aliases and history, and
+ * does not read `~/.bashrc` again.
+ *
  * Output chunks: 'out' and 'err' text ends in a newline like a real stream;
  * `html` (when present) is the same text coloured with the classes c-dir,
  * c-exe, g-file, g-sep, g-num and g-match. `clear` writes the real escape
@@ -68,8 +92,14 @@ function observe(sys) {
  */
 export function createSimBackend({ user = 'hero', host = 'kernelia', home = '/home/hero', now = () => Date.now(), random = Math.random } = {}) {
   const sys = createSystem({ user, host, home, now, random, binaries: BINARIES });
+  let started = false;
+  const load = patch => {
+    applyPatch(sys, patch);
+    if (!started) startShell(sys);
+    started = true;
+  };
   return {
-    load: async patch => applyPatch(sys, patch),
+    load: async patch => load(patch),
     run: async line => runLine(sys, line),
     observe: async () => observe(sys),
     complete: async line => complete(sys, line, Object.keys(COMMANDS)),

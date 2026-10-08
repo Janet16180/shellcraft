@@ -174,8 +174,8 @@ basics), Signposts (`ln -s`). Each needs the user's go-ahead.
 **Slice scope:** intro, chapters 1 and 2 with their boss rooms, the overworld rooms and the
 dungeon rooms (the descent to `/` must work), the whole simulator port with its fixes, the
 differential harness, hints, XP, hearts, sound, spellbook, save v2 (with migration of the v1
-save). Chapters 3 to 14 appeared in the chapter list as `soon`; chapters 3 and 4 are now
-written (2026-10-07), 5 to 14 are still `soon`.
+save). Chapters 3 to 14 appeared in the chapter list as `soon`; chapters 3 to 9 are now
+written (2026-10-07), 10 to 14 are still `soon`.
 
 ## 5. Progress rules (`src/game/progress.js`)
 

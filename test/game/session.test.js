@@ -384,7 +384,7 @@ test('a boss hides its hidden paths in the view until an ls lists their director
   assert.deepEqual((await session.submit('ls --help')).view.concealed, [`${HOME}/sign.txt`]);
   const listed = await session.submit('ls');
   assert.deepEqual(listed.view.concealed, []);
-  assert.ok(listed.effects.some(e => e.kind === 'created' && e.path === `${HOME}/sign.txt`), 'the file sparkles in when found');
+  assert.ok(listed.effects.some(e => e.kind === 'created' && e.found && e.path === `${HOME}/sign.txt`), 'the file sparkles in when found');
 });
 
 test('an ls that opens the boss room does not reveal what the room hides', async () => {
