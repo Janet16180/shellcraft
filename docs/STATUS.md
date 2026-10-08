@@ -157,11 +157,9 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
   each verified in real bash (docs/verification/<id>.md). `slice/tar` and `slice/ui4` merged.
   2676 tests, difftest 0 failures. Not yet played by the user; not merged into main.
 - A tester agent tried to break chapters 15 to 21 (50 findings, session file tester-act3.md). The
-  chapter-side fixes are in (guild, hall, portals, crown, memory, errands, travel). Engine-side ones
-  (same-line aliases, chmod u+x-r, cat output order, ^Z newline, tar --file= paths, su, getent,
-  find -xtype, /etc/skel, harness `before`, obs.aliases/vars, expanded ctx.line for `sudo !!`, sudo
-  `auth`, `endJobs()`) are on `slice/fixes3`; after it merges: memory checks by effect (M3, M4),
-  crown C2/C3, errands boss endJobs (E2).
+  fixes are in, chapter and engine (`slice/fixes3` merged): ctx.line is the line after history
+  expansion (ctx.typed the keys), obs.aliases/vars with ctx.alias/ctx.variable, sudo `auth`,
+  `endJobs()`. 2777 tests, difftest 0 failures.
 - `slice/ui5` merged: ~/travel camp, archives as chests, and the ending (5 steps after the last
   boss, replay from Chapters). TODO: the real Ring Zero link in `src/intro/endsteps.js`
   (`RING_ZERO_URL`).
