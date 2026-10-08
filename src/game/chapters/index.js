@@ -21,6 +21,7 @@ import guild from './guild.js';
 import hall from './hall.js';
 import portals from './portals.js';
 import crown from './crown.js';
+import memory from './memory.js';
 
 
 /**
@@ -47,4 +48,5 @@ export default [
   hall,
   portals,
   crown,
+  memory,
 ];
