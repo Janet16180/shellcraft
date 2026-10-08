@@ -65,6 +65,18 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
 - For the frontend: a `C-z` touch key (`data-k="C-z"`) would work at once (`src/ui/running.js`), and
   the key list under the map's `?` could name Ctrl+Z.
 
+## State at 2026-10-08 (UI and art for chapter 20: `slice/ui4`)
+
+- Branch `slice/ui4` (worktree `.scratch/wt/ui4`), not merged. While a command runs, three dots
+  pulse where the prompt was, the task strip adds "Running… Ctrl+C stops it, Ctrl+Z pauses it", and
+  the input's label says it to screen readers (`src/ui/running.js`). Ctrl+Z touch key; Ctrl+Z at a
+  prompt does nothing, as in bash. bash's job notices (`[1] 4242`, `Done`) show in teal, not error red.
+- Map: the player's jobs are workers at anvils in a row at the bottom-left of every room (at most 3,
+  then "+N"): hammering while running, asleep with a "z" while stopped, a burst when the process
+  ends (`src/map/jobs.js`, `jobart.js`). The room description lists them; the map key explains them.
+- `~/workshop` (chapter 20) is the biome `smithy`, "Busy Workshop": hearth with working bellows,
+  anvil with a glowing bar, quench barrel, a bench with an hourglass (`src/map/smithydecor.js`).
+
 ## State at 2026-10-08, morning (act III: chapters 15 and 16)
 
 - `slice/users` and `slice/explainer` are merged into `slice/act3`. Chapters name an explainer by
