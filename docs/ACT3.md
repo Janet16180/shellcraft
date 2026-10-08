@@ -127,3 +127,28 @@ Boss "The Faction Room": random faction (one of hero's) and random room name ~/h
 where that faction can enter, list, add and remove, and nobody else (except you) can even enter.
 Check: group == faction, mode exactly 0o770 (owner rwx, group rwx, others ---). Accept 0o770 and 0o2770? keep 770.
 Notes: wrong group, others still have x, group missing w, 777 rejected with explanation.
+
+# Ch17 "Portals" (id: portals) — file types, soft and hard links
+
+Explainer first: "Names are pointers" (`explainer: 'links'`).
+Lesson: the first character of `ls -l`: `-` file, `d` directory, `l` link (colour legend, like ch11's
+perm-map). A name points at data (an inode, `ls -i`). `ln -s TARGET NAME` makes a soft link: it points
+at a name, so `ls -l` shows `portal -> TARGET`. `ln TARGET NAME` makes a hard link: a second name for the
+same data; the second column of `ls -l` counts the names. Table: hard vs soft (from the explainer).
+
+Tasks (area `~/portals`, with `~/portals/scroll.txt`):
+1. Look at the types in your home: `ls -l ~` (first character: `-` or `d`).
+2. Make a portal to the deep cave: `ln -s ~/forest/cave/deep ~/portal` (new: clue `ln -s`).
+3. See where it points: `ls -l ~/portal` (shows `l` and `-> /home/hero/forest/cave/deep`).
+4. Step through it: `cd ~/portal`, then `ls` (the key is there); `pwd` shows the link's name.
+5. Make a second name for the scroll: `ln ~/portals/scroll.txt ~/portals/copy.txt`; compare `ls -li` (same inode, link count 2).
+6. Remove the first name: `rm ~/portals/scroll.txt`; read `copy.txt` (the data survived).
+7. Break a portal: `ln -s ~/portals/scroll.txt ~/portals/old_portal` was made in setup and now dangles
+   after task 6: `cat ~/portals/old_portal` fails although `ls -l` shows it (red).
+8. Fix it: point it at the surviving name (`ln -sf ~/portals/copy.txt ~/portals/old_portal` or rm + ln -s).
+Boss "The Portal Maze": `~/maze` holds 4–5 symlinks `gate_xxx` with random targets, one dangling and
+one leading to the treasure directory with `treasure.txt` (random token). Tasks in the briefing:
+find the portal that leads to the treasure (ls -l shows targets) and read the treasure through it,
+then repair the broken portal so it points at an existing target named in `~/maze/map.txt`.
+Checks: read treasure via a path through a symlink; the broken link now resolves to the named target.
+Engine needed: slice/links (in progress).
