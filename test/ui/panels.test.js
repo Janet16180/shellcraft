@@ -158,3 +158,9 @@ test('a chapter with an explainer gets a button to watch it, in every phase', ()
 test('a chapter without an explainer has no explainer button', () => {
   assert.doesNotMatch(questHTML(sampleView()), /explainerBtn/);
 });
+
+test('once the game is finished, the chapter list offers the ending again', () => {
+  const chapters = [{ id: 'awakening', number: 1, act: 1, title: 'The Awakening', status: 'cleared', current: true }];
+  assert.doesNotMatch(chaptersHTML(chapters), /endingBtn/);
+  assert.match(chaptersHTML(chapters, { ending: true }), /<button[^>]*id="endingBtn"[^>]*>Watch the ending<\/button>/);
+});

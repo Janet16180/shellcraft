@@ -1,0 +1,262 @@
+/* The ending (src/intro/ending.js), in Ring Zero's Pixel Dungeon look: a
+   brick wall lit by two wall torches, scanlines, gold titles with a rust
+   shadow and violet for what lies below. The pictures are a 320 x 200 canvas
+   scaled up without smoothing. Reduced motion turns the torches off (game.css)
+   and the player paints still frames. */
+
+.end-overlay {
+  align-items: flex-start;
+  /* The nav sticks to the window's bottom edge, with nothing scrolling past under it. */
+  padding-bottom: 0;
+  background:
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.22) 0 2px, transparent 2px 4px),
+    radial-gradient(circle at 44px 172px, rgba(240, 138, 42, 0.16) 0 56px, rgba(240, 138, 42, 0.08) 56px 110px, transparent 110px),
+    radial-gradient(circle at calc(100% - 44px) 172px, rgba(240, 138, 42, 0.16) 0 56px, rgba(240, 138, 42, 0.08) 56px 110px, transparent 110px),
+    linear-gradient(rgba(11, 10, 18, 0.6), rgba(11, 10, 18, 0.6)),
+    var(--brick) 0 0 / 64px 64px,
+    var(--c-ink);
+}
+
+.end-overlay::before,
+.end-overlay::after {
+  content: "";
+  position: fixed;
+  top: 132px;
+  left: 28px;
+  width: 32px;
+  height: 80px;
+  background: var(--torch) 0 0 / 96px 80px;
+  animation: torch 0.6s steps(3) infinite;
+}
+
+.end-overlay::after {
+  left: auto;
+  right: 28px;
+  animation-delay: -0.4s;
+}
+
+.ending {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1080px;
+  margin: auto;
+  padding: 18px 24px 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  grid-template-areas: "head head" "stage caption" "nav nav";
+  gap: 20px 28px;
+}
+
+/* The recap is a long read: the caption goes on top and the acts take the whole width. */
+.ending:has(.end-stage.reading) {
+  grid-template-areas: "head head" "caption caption" "stage stage" "nav nav";
+}
+
+.end-head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.end-stage {
+  grid-area: stage;
+  align-self: start;
+  line-height: 0;
+}
+
+.end-stage canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 320 / 200;
+  image-rendering: pixelated;
+}
+
+.end-caption {
+  grid-area: caption;
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+.end-caption h2 {
+  margin: 0 0 12px;
+  font-size: clamp(24px, 4vw, var(--size-h1));
+  color: var(--accent);
+  text-shadow: 0 3px 0 var(--c-rust), 3px 6px 0 var(--c-ink);
+}
+
+.end-caption p {
+  max-width: 60ch;
+  margin: 0 0 10px;
+}
+
+.end-caption b {
+  color: var(--magic);
+}
+
+.end-score dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  max-width: 420px;
+  margin: 16px 0 6px;
+}
+
+.end-score dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  background: var(--c-ink);
+  box-shadow: inset 0 0 0 3px var(--line);
+}
+
+.end-score dt {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.end-score dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1.2;
+  text-align: right;
+  color: var(--accent);
+}
+
+.end-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 20px;
+  margin-top: 18px;
+}
+
+.end-actions a.px-btn {
+  text-decoration: none;
+}
+
+.end-recap {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 22px;
+  padding: 16px 18px 8px;
+  line-height: 1.4;
+  background: var(--c-ink);
+}
+
+.end-act h3 {
+  margin: 0 0 8px;
+  padding-bottom: 6px;
+  font-size: var(--size-h2);
+  color: var(--magic);
+  border-bottom: 3px solid var(--line);
+}
+
+.end-act ol {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+}
+
+.end-act li {
+  display: flex;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.end-act .num {
+  flex: none;
+  min-width: 2ch;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.end-act .what b {
+  display: block;
+  font-size: 15px;
+}
+
+.end-act .spells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 3px;
+}
+
+.end-act code {
+  padding: 0 5px;
+  font-size: 12.5px;
+  color: var(--muted);
+  background: var(--panel);
+  white-space: nowrap;
+}
+
+.end-act code.fresh {
+  color: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent-deep);
+}
+
+.end-nav {
+  grid-area: nav;
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0 20px;
+  background: var(--panel);
+  border-top: 3px solid var(--line);
+}
+
+@media (max-width: 960px) {
+  .end-recap {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .ending,
+  .ending:has(.end-stage.reading) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "head" "stage" "caption" "nav";
+    padding: 14px 16px 0;
+    gap: 16px;
+  }
+
+  .ending:has(.end-stage.reading) {
+    grid-template-areas: "head" "caption" "stage" "nav";
+  }
+
+  .end-overlay::before,
+  .end-overlay::after {
+    display: none;
+  }
+
+  .end-caption {
+    font-size: 16px;
+  }
+
+  .end-score dd {
+    font-size: 20px;
+  }
+
+  .end-recap {
+    padding: 12px 12px 4px;
+  }
+}
+
+/* In the Chapters panel, once the game is finished. */
+.ending-again {
+  margin: 4px 0 22px;
+}

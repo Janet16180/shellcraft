@@ -20,9 +20,12 @@ import { createQueue } from './queue.js';
 import { conceal, concealEffects } from './conceal.js';
 import { createToasts } from './toasts.js';
 import { logoSVG } from './logo.js';
+import { wireConfirm } from './confirm.js';
 import { playIntro } from '../intro/player.js';
 import { playExplainer } from '../intro/explainer.js';
 import { EXPLAINERS } from '../intro/explainers.js';
+import { playEnding } from '../intro/ending.js';
+import { isFinale, endingOpen } from '../intro/endsteps.js';
 import { placeOf, drawKey } from '../map/map.js';
 
 const TABS = ['quest', 'spells', 'levels'];
@@ -88,7 +91,7 @@ function show(ui, view) {
   doc.getElementById('tab-quest').innerHTML = questHTML(view);
   doc.getElementById('now').innerHTML = nowHTML(view.chapter);
   doc.getElementById('spells').innerHTML = spellsHTML(view.spellbook);
-  doc.getElementById('levels').innerHTML = chaptersHTML(view.chapters);
+  doc.getElementById('levels').innerHTML = chaptersHTML(view.chapters, { ending: endingOpen(view.chapters) });
   renderCrumbs(doc, view.prompt, placeOf(ui.session.observation()).name);
   ui.terminal.setPrompt(view.prompt);
   if (!view.running) followRunning(ui, null);
@@ -249,9 +252,11 @@ const EVENTS = {
     noteHTML(ui, `Boss defeated. <b>+${xp} XP</b>`);
     ui.sound.play('ok');
   },
+  // The last chapter ends the game: the ending plays first, then its adventure log opens.
   chapter(ui, event) {
     ui.log = { ...event, rankUp: ui.rankUp };
-    afterMap(ui, () => openDebrief(ui));
+    if (isFinale(event, ui.view.chapters)) afterMap(ui, () => watchEnding(ui, () => openDebrief(ui)));
+    else afterMap(ui, () => openDebrief(ui));
   },
   'heart-lost'(ui, { reason }) {
     ui.terminal.printLine(`[Guardian] ${reason}`, 'note');
@@ -297,6 +302,20 @@ function openDebrief(ui) {
   };
   const next = card.querySelector('#nextBtn');
   if (next) next.onclick = () => startChapter(ui, next.dataset.ch, false);
+}
+
+// Cards hold the toasts back while the ending plays, too.
+function watchEnding(ui, then) {
+  const { doc, reducedMotion, sound } = ui;
+  ui.toasts.hold();
+  const after = next => () => {
+    ui.toasts.release();
+    next();
+  };
+  playEnding({ doc, view: ui.view, reducedMotion, sound, onDone: after(then), onPlayAgain: after(async () => {
+    await resetProgress(ui);
+    ui.terminal.focus();
+  }) });
 }
 
 async function startChapter(ui, id, fresh, note = 'You jumped to this chapter, so the world was set up fresh.') {
@@ -413,6 +432,7 @@ function wireControls(ui) {
     if (line) terminal.insert(line);
   });
   doc.getElementById('levels').addEventListener('click', event => {
+    if (event.target.closest('#endingBtn')) watchEnding(ui, () => doc.getElementById('endingBtn')?.focus());
     const button = event.target.closest('button[data-ch]');
     if (button && !button.disabled) startChapter(ui, button.dataset.ch, true);
   });
@@ -475,35 +495,23 @@ function wirePicks(ui) {
   for (const type of ['focusout', 'mouseleave']) list.addEventListener(type, () => ui.map.focus(null));
 }
 
-// A button that acts only on a second click, so one stray click never throws progress away.
-function wireConfirm(button, { label, confirm, run }) {
-  let armed = false;
-  const disarm = () => {
-    armed = false;
-    button.textContent = label;
-  };
-  button.addEventListener('click', async () => {
-    armed = !armed;
-    button.textContent = armed ? confirm : label;
-    if (!armed) await run();
+// Reset progress (from the HUD, or Play again at the end): back to chapter 1 with no XP.
+async function resetProgress(ui) {
+  await act(ui, async () => {
+    show(ui, await ui.session.reset());
+    ui.terminal.abandon();
+    showRoom(ui);
   });
-  button.addEventListener('blur', disarm);
+  ui.terminal.clear();
+  chapterBanner(ui);
+  showTab(ui.doc, 'quest');
 }
 
 function wireReset(ui) {
   wireConfirm(ui.doc.getElementById('resetBtn'), {
     label: 'Reset progress',
     confirm: 'Click again to erase all progress',
-    run: async () => {
-      await act(ui, async () => {
-        show(ui, await ui.session.reset());
-        ui.terminal.abandon();
-        showRoom(ui);
-      });
-      ui.terminal.clear();
-      chapterBanner(ui);
-      showTab(ui.doc, 'quest');
-    },
+    run: () => resetProgress(ui),
   });
   wireConfirm(ui.doc.getElementById('restartBtn'), {
     label: 'Restart chapter',
