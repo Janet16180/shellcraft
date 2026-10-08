@@ -8,8 +8,9 @@ import { createSimBackend } from '../../../src/shell/backend.js';
 import { assertChapterList } from '../../helpers/chapter.js';
 import { createMemoryStore } from '../../helpers/memory-store.js';
 import { typeLine } from '../../helpers/type-line.js';
+import { passwordOf } from './harness.js';
 
-const ORDER = ['awakening', 'forest', 'unseen', 'camp', 'junkyard', 'mirrors', 'library', 'tower', 'market', 'descent', 'gate', 'well', 'daemon', 'forge', 'guild', 'hall', 'portals'];
+const ORDER = ['awakening', 'forest', 'unseen', 'camp', 'junkyard', 'mirrors', 'library', 'tower', 'market', 'descent', 'gate', 'well', 'daemon', 'forge', 'guild', 'hall', 'portals', 'crown'];
 
 test('the chapter list passes the shared contract check', () => {
   assertChapterList(chapters);
@@ -20,7 +21,7 @@ test('the chapter list has the chapters of the design, in order', () => {
 });
 
 test('act I runs to the Market of Pipes, act II starts with the Descent and act III with the Guild', () => {
-  assert.deepEqual(chapters.map(chapter => chapter.act), [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3]);
+  assert.deepEqual(chapters.map(chapter => chapter.act), [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3]);
 });
 
 test('every chapter is playable', () => {
@@ -58,11 +59,22 @@ test('the names the player types in goals and notes are marked as code', () => {
   for (const name of ['`forest/cave/deep`', '`..`', '`cd -`', '`/home/hero`', '`~`']) assert.ok(marked.includes(name), name);
 });
 
+// Type a line, answering a password prompt with the one the chapter's setup sets.
+function keysFor(session, chapter) {
+  const submit = async line => {
+    let turn = await session.submit(line);
+    while (turn.result.input) turn = await session.answer(passwordOf(chapter));
+    return turn;
+  };
+  return { complete: line => session.complete(line), submit };
+}
+
 async function playThrough(session, chapter) {
   const turns = [];
-  for (const line of chapter.solve) turns.push(await typeLine(line, session));
+  const keys = keysFor(session, chapter);
+  for (const line of chapter.solve) turns.push(await typeLine(line, keys));
   const bossStart = turns.at(-1);
-  for (const line of chapter.boss.solve(session.observation())) turns.push(await typeLine(line, session));
+  for (const line of chapter.boss.solve(session.observation())) turns.push(await typeLine(line, keys));
   return { bossStart, last: turns.at(-1), errors: turns.flatMap(t => t.result.output.filter(c => c.stream === 'err')) };
 }
 
@@ -83,6 +95,7 @@ const EXPECTED_ERRORS = {
     "rm: cannot remove '/home/hero/hall/archive/old.txt': Permission denied\n",
   ],
   portals: ['cat: /home/hero/portals/old_portal: No such file or directory\n'],
+  crown: ['bash: /etc/motd: Permission denied\n'],
 };
 
 for (const seed of [1, 2, 3]) {

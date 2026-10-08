@@ -18,16 +18,6 @@ const PLANS = `${GUILD}/plans.txt`;
 const ARCHIVE = `${GUILD}/archive`;
 const OREN_GROUPS = ['oren', 'smiths'];
 
-const LEDGER_TEXT = `THE SCRIBES' LEDGER
-New member: hero, apprentice scribe. Welcome!
-Ink: 3 pots. Quills: 12. Candles: low.
-`;
-const PLANS_TEXT = 'Plans of the smiths: a new blade for the guild master.\n';
-const RULES_TEXT = `RULES OF THE GUILD
-1. Every scroll has an owner and a group.
-2. Smiths read what is for smiths. Scribes read what is for scribes.
-3. What is for everyone, anyone may read.
-`;
 const NOTICE_TEXT = 'Notice from hero: I joined the scribes today.\n';
 
 const guildOf = ctx => `${ctx.home}/guild`;
@@ -120,13 +110,6 @@ export default {
     const { home, user } = player;
     return [
       ...realm(player, { factions: ['scribes'] }),
-      put('/srv', dir({
-        guild: dir({
-          'ledger.txt': file(LEDGER_TEXT, { owner: 'tamsin', group: 'scribes', mode: 0o640 }),
-          'plans.txt': file(PLANS_TEXT, { owner: 'mira', group: 'smiths', mode: 0o640 }),
-          'rules.txt': file(RULES_TEXT),
-        }),
-      })),
       put(`${home}/guild`, dir({ 'notice.txt': file(NOTICE_TEXT, { owner: user, mode: 0o044 }) }, { owner: user })),
       cd(home),
     ];

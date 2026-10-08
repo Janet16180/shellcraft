@@ -3,8 +3,19 @@
  * their own as on Ubuntu, and two factions. Chapters call realm() so they all
  * describe the same machine; the player joins factions as the story goes on.
  */
-import { put, dir, login } from '../backend/spec.js';
+import { put, dir, file, login } from '../backend/spec.js';
 import { accounts } from './world.js';
+
+const LEDGER_TEXT = `THE SCRIBES' LEDGER
+New member: hero, apprentice scribe. Welcome!
+Ink: 3 pots. Quills: 12. Candles: low.
+`;
+const PLANS_TEXT = 'Plans of the smiths: a new blade for the guild master.\n';
+const RULES_TEXT = `RULES OF THE GUILD
+1. Every scroll has an owner and a group.
+2. Smiths read what is for smiths. Scribes read what is for scribes.
+3. What is for everyone, anyone may read.
+`;
 
 const USERS = [
   { name: 'mira', uid: 1001, group: 'mira' },
@@ -13,7 +24,8 @@ const USERS = [
 ];
 
 /**
- * The accounts, a fresh login and each person's home (mode 750).
+ * The accounts, a fresh login, each person's home (mode 750) and the guild
+ * hall in /srv (it replaces /srv).
  *
  * @param {{home: string, user: string}} player The player.
  * @param {{factions?: string[], sudo?: boolean}} [opts] The factions the player belongs to: 'smiths', 'scribes';
@@ -34,5 +46,12 @@ export function realm(player, { factions = [], sudo = false } = {}) {
     }),
     login(),
     ...USERS.map(({ name }) => put(`/home/${name}`, dir({}, { owner: name, group: name, mode: 0o750 }))),
+    put('/srv', dir({
+      guild: dir({
+        'ledger.txt': file(LEDGER_TEXT, { owner: 'tamsin', group: 'scribes', mode: 0o640 }),
+        'plans.txt': file(PLANS_TEXT, { owner: 'mira', group: 'smiths', mode: 0o640 }),
+        'rules.txt': file(RULES_TEXT),
+      }),
+    })),
   ];
 }

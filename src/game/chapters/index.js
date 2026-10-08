@@ -20,6 +20,7 @@ import forge from './forge.js';
 import guild from './guild.js';
 import hall from './hall.js';
 import portals from './portals.js';
+import crown from './crown.js';
 
 
 /**
@@ -45,4 +46,5 @@ export default [
   guild,
   hall,
   portals,
+  crown,
 ];
