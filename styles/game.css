@@ -1288,6 +1288,10 @@ kbd {
   .keys .px-btn {
     padding-inline: 8px;
   }
+
+  .keys .px-btn::before {
+    left: 2px;
+  }
 }
 
 .callout {
