@@ -5,7 +5,7 @@ import { newDir, newFile, lookup } from '../../src/shell/fs.js';
 
 const m = (owner, mode) => ({ owner, group: owner, mode, mtime: 0 });
 const sys = () => ({
-  user: 'hero', groups: ['hero'], cwd: '/h', umask: 0o022, now: () => 9,
+  user: 'hero', gids: [1000], cwd: '/h', umask: 0o022, now: () => 9,
   root: newDir({
     h: newDir({ 'a.txt': newFile('old\n', m('hero', 0o644)), 'ro.txt': newFile('x', m('hero', 0o444)), d: newDir({}, m('hero', 0o755)) }, m('hero', 0o755)),
     etc: newDir({}, m('root', 0o755)),

@@ -9,7 +9,7 @@ const tree = () => newDir({
   d: newDir({ 'b.txt': f(), 'a.txt': f(), 'B.txt': f(), '.h.txt': f(), 'c1': f(), 'c22': f(), 'my file': f(), sub: newDir({ 'x.md': f() }, meta) }, meta),
   locked: newDir({ 'in.txt': f() }, { ...meta, owner: 'root', mode: 0o700 }),
 }, meta);
-const sys = () => ({ root: tree(), cwd: '/d', user: 'hero', groups: ['hero'] });
+const sys = () => ({ root: tree(), cwd: '/d', user: 'hero', gids: [1000] });
 
 test('compileGlob matches whole names with * ? and bracket expressions', () => {
   assert.ok(compileGlob('*.txt').test('a.txt'));

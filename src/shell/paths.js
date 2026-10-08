@@ -55,7 +55,7 @@ function startStack(sys, path) {
 /**
  * Resolve a path for the shell's user.
  *
- * @param {{root: object, cwd: string, user: string, groups: string[]}} sys The machine state.
+ * @param {{root: object, cwd: string, user: string, gids: number[]}} sys The machine state.
  * @param {string} path Absolute or relative path, as typed.
  * @returns {{abs: string, node: object|null, parent: object|null, error: 'ENOENT'|'ENOTDIR'|'EACCES'|'ENAMETOOLONG'|null}}
  *   The absolute path; the node (null on error); the directory that holds or

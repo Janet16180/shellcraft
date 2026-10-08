@@ -4,6 +4,7 @@
  */
 
 import { allows } from '../backend/access.js';
+import { groupNames } from './accounts.js';
 
 const STICKY = 0o1000;
 
@@ -13,7 +14,7 @@ const STICKY = 0o1000;
  * @param {'r'|'w'|'x'} perm The permission.
  * @returns {boolean} Whether the shell's user has it.
  */
-export const can = (sys, node, perm) => allows(node, perm, { user: sys.user, groups: sys.groups });
+export const can = (sys, node, perm) => allows(node, perm, { user: sys.user, groups: groupNames(sys) });
 
 /**
  * Creating, renaming or removing entries needs write and search permission on the directory.

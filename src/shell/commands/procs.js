@@ -2,7 +2,8 @@
  * Processes and signals: ps, kill, pkill, killall, pgrep, top, htop.
  */
 
-import { allocPid, TERMINAL, knownUsers } from '../system.js';
+import { allocPid, TERMINAL } from '../system.js';
+import { knownUsers } from '../accounts.js';
 import { result, withNote } from '../result.js';
 import { SIGNAL_LIST, signalName, parseSignal, defaultAction, endsInteractiveShell, requestedSignal } from '../../backend/signals.js';
 import { processName, readSelection, selectedBy, killSelects } from '../../backend/process.js';

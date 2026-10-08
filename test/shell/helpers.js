@@ -66,3 +66,16 @@ export async function runAll(b, lines) {
   for (const line of lines) last = await run(b, line);
   return last;
 }
+
+/**
+ * Accounts for tests about users and groups: mira (1001, group smiths) and
+ * oren (1002, group scribes); hero is also in scribes. Put after world().
+ *
+ * @returns {object[]} The patch writing /etc/passwd and /etc/group.
+ */
+export function guild() {
+  return [
+    put('/etc/passwd', file('root:x:0:0:root:/root:/bin/bash\nhero:x:1000:1000:Hero,,,:/home/hero:/bin/bash\nmira:x:1001:1001::/home/mira:/bin/bash\noren:x:1002:1002::/home/oren:/bin/bash\n')),
+    put('/etc/group', file('root:x:0:\nhero:x:1000:\nsmiths:x:1001:\nscribes:x:1002:hero\n')),
+  ];
+}

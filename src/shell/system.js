@@ -7,20 +7,13 @@
 import { newDir, newFile, insert } from './fs.js';
 import { nameTable } from './table.js';
 import { initialVars, setVar } from './vars.js';
+import { loginGids } from './accounts.js';
 
 const ROOT_META = { owner: 'root', group: 'root' };
 
 /** The terminal the player's shell runs on. */
 export const TERMINAL = 'pts/0';
 
-/** The system accounts every machine has, with their home directories. */
-export const SYSTEM_HOMES = nameTable({ root: '/root', daemon: '/usr/sbin', bin: '/bin', sys: '/dev', nobody: '/nonexistent' });
-
-/**
- * @param {{user: string}} sys The machine state.
- * @returns {Set<string>} The user names the machine knows: the system accounts and the player.
- */
-export const knownUsers = sys => new Set([...Object.keys(SYSTEM_HOMES), sys.user]);
 const BINARY = '\u007fELF\u0002\u0001\u0001\u0000';
 
 /**
@@ -93,12 +86,13 @@ export function createSystem({ user, host, home, now, random, binaries }) {
   const started = now();
   const sys = {
     user, host, home, now, random,
-    groups: [user],
+    gids: [],
     root: baseTree(home, user, binaries, started), loginTime: started,
     cwd: home, oldpwd: null,
     vars: initialVars({ user, home, host }), aliases: nameTable(), history: [], hashed: new Map(),
     positional: { zero: 'bash', args: [] }, flags: 'himBHs', lastStatus: 0, umask: 0o022, procs: [], nextPid: 300, shellPid: 0, columns: 80,
   };
+  sys.gids = loginGids(sys);
   sys.procs = systemProcs(sys);
   return sys;
 }

@@ -5,7 +5,7 @@ import { newDir, newFile, MAX_TREE_DEPTH } from '../../src/shell/fs.js';
 
 const m = (owner, mode) => ({ owner, group: owner, mode, mtime: 0 });
 const sys = () => ({
-  user: 'hero', groups: ['hero'], cwd: '/home/hero',
+  user: 'hero', gids: [1000], cwd: '/home/hero',
   root: newDir({
     home: newDir({ hero: newDir({ 'a.txt': newFile('a', m('hero', 0o644)), d: newDir({}, m('hero', 0o755)) }, m('hero', 0o750)) }, m('root', 0o755)),
     root: newDir({ 'secret.txt': newFile('s', m('root', 0o644)) }, m('root', 0o700)),

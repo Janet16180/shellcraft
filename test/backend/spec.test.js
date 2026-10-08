@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dir, file, put, remove, proc, stop, cd, validatePatch } from '../../src/backend/spec.js';
+import { dir, file, put, remove, proc, stop, cd, login, validatePatch } from '../../src/backend/spec.js';
 
 test('a file defaults to mode 644 owned by root, with its group equal to its owner', () => {
   assert.deepEqual(file('hi\n'), { type: 'file', content: 'hi\n', mode: 0o644, owner: 'root', group: 'root' });
@@ -15,7 +15,7 @@ test('a directory keeps its children and takes the owner and mode it is given', 
 });
 
 test('a well-formed patch passes validation unchanged', () => {
-  const patch = [put('/home/hero/camp', dir()), remove('/home/hero/junk'), proc({ key: 'daemon', user: 'hero', cmd: './shadow' }), stop('daemon'), cd('/var/log')];
+  const patch = [put('/home/hero/camp', dir()), remove('/home/hero/junk'), proc({ key: 'daemon', user: 'hero', cmd: './shadow' }), stop('daemon'), cd('/var/log'), login()];
   assert.equal(validatePatch(patch), patch);
 });
 

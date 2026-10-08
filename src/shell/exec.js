@@ -25,7 +25,7 @@ import { manText, hasManPage, shortHelpNote } from './man.js';
 import { versionText } from './versions.js';
 import { varValue, setVar } from './vars.js';
 import { BUILTINS, BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from './builtins.js';
-import { SYSTEM_HOMES } from './system.js';
+import { homeOf } from './accounts.js';
 import { enterChild, leaveChild } from './subshell.js';
 import { runFor, runIf } from './compound.js';
 
@@ -75,7 +75,7 @@ function expansionEnv(sh, sink) {
     fail: message => errors.push(message),
     lookupVar: name => varValue(sys, name),
     positional: () => sys.positional.args,
-    homeOf: user => (user === sys.user ? sys.home : SYSTEM_HOMES[user] ?? null),
+    homeOf: user => (user === sys.user ? sys.home : homeOf(sys, user)),
     substitute: line => {
       if (sh.run.depth >= MAX_DEPTH) errors.push('bash: command substitution: maximum nesting level exceeded');
       const r = errors.length ? { out: '', err: '', status: 1 } : substitute(sh, line);
