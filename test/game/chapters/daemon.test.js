@@ -36,6 +36,12 @@ test('new commands get a clue in their first goal, and every goal names its targ
   assert.match(ROOT, /`kill -9`.*PID `1`.*`root`/);
 });
 
+test('the lesson compares kill and kill -9 side by side', () => {
+  assert.match(chapter.lesson, /<table class="chmod-ways kill-ways">/);
+  assert.match(chapter.lesson, /Who decides/);
+  assert.match(chapter.lesson, /the kernel: it removes the program at once/);
+});
+
 test('the lesson explains processes, PIDs, the ps aux columns, pgrep, TERM, KILL and root', () => {
   assert.match(chapter.lesson, /<b>process<\/b>.*<b>PID<\/b>/s);
   assert.match(chapter.lesson, /<code>USER<\/code>.*<code>PID<\/code>.*<code>%CPU<\/code>.*<code>COMMAND<\/code>/s);
@@ -120,7 +126,8 @@ const NEAR_NOTES = [
   [POLITE, [], 'kill -9 2431', /Restart chapter/],
   [POLITE, [], 'kill stubborn_imp', /kill 2431/],
   [POLITE, [], 'kill 2431', null],
-  [NINE, [], 'kill 2431', /Add -9/],
+  [NINE, [], 'kill 2431', /kill -9 2431/],
+  [NINE, ['kill 2431'], 'ps aux', /still running.*kill -9 2431/],
   [NINE, [], 'kill -9 2431', null],
 ];
 
@@ -201,7 +208,7 @@ test('the boss says so when a decoy imp is ended instead', async () => {
   assert.match(chapter.boss.near(ctx, secret), /ordinary imp.*almost all of the CPU/);
 });
 
-const NOT_COMMANDS = new Set(['~/den', 'bash', 'USER', 'PID', '%CPU', 'COMMAND', 'imp', 'greedy_imp', 'TERM', 'KILL', 'root', 'INT', 'cron', 'sshd', '/root']);
+const NOT_COMMANDS = new Set(['~/den', 'bash', 'USER', 'PID', '%CPU', 'COMMAND', 'imp', 'greedy_imp', 'TERM', 'KILL', 'root', 'INT', 'cron', 'sshd', '/root', 'stubborn_imp']);
 
 test('every command the chapter shows runs in the simulator', async () => {
   const lines = [

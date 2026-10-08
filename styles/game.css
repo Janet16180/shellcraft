@@ -1542,3 +1542,22 @@ kbd {
     transition: none !important;
   }
 }
+
+/* The kill table holds sentences, not short commands: let them wrap. */
+.chmod-ways.kill-ways {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+  white-space: normal;
+}
+
+.chmod-ways.kill-ways th:first-child,
+.chmod-ways.kill-ways td:first-child {
+  width: 22%;
+}
+
+.chmod-ways.kill-ways td {
+  white-space: normal;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
