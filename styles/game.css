@@ -578,6 +578,30 @@ kbd {
   color: var(--muted);
 }
 
+.keymap-title {
+  margin: 16px 0 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.keymap {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 14px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.keymap dt {
+  text-align: right;
+}
+
+.keymap dd {
+  margin: 0;
+  color: var(--muted);
+}
+
 
 .panelwrap {
   grid-area: panel;
@@ -1216,6 +1240,26 @@ kbd {
   caret-color: var(--accent);
 }
 
+/* Ctrl+R: the input holds only the search string and grows with it, so the match
+   follows it as in bash's (reverse-i-search)`TEXT': MATCH. */
+.inputline input.searching {
+  flex: 0 0 auto;
+  min-width: 2px;
+}
+
+#searchTail {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* bash 5.2 shows the match in standout (reverse video). */
+.isearch-hit {
+  background: var(--term-text);
+  color: var(--term-bg);
+}
+
 .keys {
   display: none;
   flex-wrap: wrap;
@@ -1232,6 +1276,17 @@ kbd {
 @media (pointer: coarse) {
   .keys {
     display: flex;
+  }
+}
+
+/* Eleven keys in two rows on a 360px phone. */
+@media (max-width: 400px) {
+  .keys {
+    gap: 8px;
+  }
+
+  .keys .px-btn {
+    padding-inline: 8px;
   }
 }
 
