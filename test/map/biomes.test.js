@@ -139,3 +139,10 @@ test('each guild service under /srv has a room of its own, and an unknown one is
   assert.equal(at('/srv/forge'), 'services');
   assert.equal(at('/srv'), 'services');
 });
+
+test('chapters 17 and 19 have their areas at home: the hall of portals, the maze with its vaults, the scribe\'s study', () => {
+  const areas = { portals: ['portals', 'Hall of Portals'], maze: ['maze', 'Portal Maze'], 'maze/vaults/vault_k4m': ['maze', 'Portal Maze'], memory: ['study', "Scribe's Study"] };
+  for (const [area, [biome, name]] of Object.entries(areas)) {
+    assert.deepEqual(biomeFor(`${HOME}/${area}`, HOME), { realm: 'overworld', biome, name }, area);
+  }
+});

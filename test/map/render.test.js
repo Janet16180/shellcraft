@@ -51,3 +51,21 @@ test('the crown chapter\'s throne room and every guild service room paint, at re
     for (const ms of [0, 1234, 98765]) assert.doesNotThrow(() => paintFrame(stage, ms), `${cwd} at ${ms}`);
   }
 });
+
+test('the hall of portals with its hard-linked names, the maze and the study paint, at rest and moving', t => {
+  globalThis.document = { createElement: fakeCanvas };
+  t.after(() => delete globalThis.document);
+  const tree = sampleTree();
+  const mine = { owner: 'hero' };
+  const twin = { ...file('A map.\n', mine), ino: 1847, links: 2 };
+  Object.assign(tree.children.home.children.hero.children, {
+    portals: dir({ 'scroll.txt': twin, 'copy.txt': { ...twin }, old_portal: symlink('/home/hero/portals/gone.txt', mine) }, mine),
+    maze: dir({ gate_k4m: symlink('/home/hero/maze/vaults/vault_x', mine), vaults: dir({}, { owner: 'hero', mode: 0o311 }) }, mine),
+    memory: dir({ 'request.txt': file('', mine) }, mine),
+  });
+  for (const cwd of ['/home/hero/portals', '/home/hero/maze', '/home/hero/maze/vaults', '/home/hero/memory']) {
+    const stage = createStage(fakeCanvas(), false);
+    settle(stage, observe(cwd, { tree }));
+    for (const ms of [0, 1234, 98765]) assert.doesNotThrow(() => paintFrame(stage, ms), `${cwd} at ${ms}`);
+  }
+});

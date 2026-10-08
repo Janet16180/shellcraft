@@ -10,6 +10,7 @@ import { box } from './paint.js';
 import { AREA_DECOR, AREA_AMBIENT } from './areadecor.js';
 import { HALL_DECOR, HALL_AMBIENT } from './halldecor.js';
 import { THRONE_DECOR, THRONE_AMBIENT } from './crowndecor.js';
+import { PORTAL_DECOR, PORTAL_AMBIENT } from './portaldecor.js';
 
 function tree(ctx, x, y) {
   box(ctx, '#5a3a1e', x + 6, y + 18, 4, 8);
@@ -91,6 +92,7 @@ const STATIC_DECOR = {
   ...AREA_DECOR,
   ...HALL_DECOR,
   ...THRONE_DECOR,
+  ...PORTAL_DECOR,
 };
 
 /**
@@ -162,6 +164,7 @@ export function ambient(ctx, { biome, layout, gateOpen }, t) {
   AREA_AMBIENT[biome]?.(ctx, t, layout.wall);
   HALL_AMBIENT[biome]?.(ctx, t, layout.wall);
   THRONE_AMBIENT[biome]?.(ctx, t, layout.wall);
+  PORTAL_AMBIENT[biome]?.(ctx, t, layout.wall);
 }
 
 /**

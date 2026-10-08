@@ -1,6 +1,6 @@
 /* global document, location, window, devicePixelRatio */
 import { createMap, drawKey, KEY_KINDS } from '../../src/map/map.js';
-import { dir, file } from '../../src/backend/spec.js';
+import { dir, file, symlink } from '../../src/backend/spec.js';
 import { observe, sampleTree, crowded } from './fixtures.js';
 
 const params = new URLSearchParams(location.search);
@@ -85,6 +85,24 @@ const crown = cwd => {
   return { obs: { ...observe(cwd, { tree }), groups: ['hero', 'sudo'] } };
 };
 
+// Chapters 17 and 19: the hall of portals with a hard link and a broken link, the boss maze, the study.
+const links = cwd => {
+  const tree = actThreeTree();
+  const mine = { owner: 'hero' };
+  const twin = ino => ({ ...file('A map.\n', mine), ino, links: 2 });
+  const hero = tree.children.home.children.hero.children;
+  hero.portals = dir({ 'scroll.txt': twin(1847), 'copy.txt': twin(1847), old_portal: symlink('/home/hero/portals/scroll.txt', mine) }, mine);
+  hero.maze = dir({
+    'map.txt': file('', mine),
+    gate_k4m: symlink('/home/hero/maze/vaults/vault_ad7', mine),
+    gate_fy3: symlink('/home/hero/maze/vaults/vault_wp9', mine),
+    gate_hu6: symlink('/home/hero/maze/vaults/vault_old', mine),
+    vaults: dir({ vault_ad7: dir({ 'treasure.txt': file('', mine) }, mine), vault_wp9: dir({}, mine) }, { owner: 'hero', mode: 0o311 }),
+  }, mine);
+  hero.memory = dir({ 'request.txt': file('', mine) }, mine);
+  return { obs: { ...observe(cwd, { tree }), groups: ['hero'] } };
+};
+
 const imp = (pid, cmd, key, cpu = 0.3) => ({ pid, ppid: 1, user: 'hero', tty: '?', stat: 'S', cpu, mem: 0.4, cmd, key });
 const shell = imp(100, '-bash', 'shell');
 const impsAndStubborn = [shell, imp(412, 'imp', 'imp'), imp(413, 'imp', 'imp2'), imp(420, './greedy_imp --eat', 'greedy', 88.1), imp(431, 'stubborn_imp', 'stubborn')];
@@ -120,6 +138,10 @@ const CASES = {
   homes: () => scribe('/home'),
   outpost: () => scribe('/home/hero/guild'),
   throne: () => crown('/home/hero/crown'),
+  portals: () => links('/home/hero/portals'),
+  maze: () => links('/home/hero/maze'),
+  vaults: () => links('/home/hero/maze/vaults'),
+  study: () => links('/home/hero/memory'),
   mill: () => crown('/srv/mill'),
   bakery: () => crown('/srv/bakery'),
   stables: () => crown('/srv/stables'),

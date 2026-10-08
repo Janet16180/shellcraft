@@ -34,6 +34,9 @@ export const BIOMES = {
   strongroom: { realm: 'overworld', name: 'Strongroom', wall: ['#2c3038', '#3a3f49'], floor: '#555a64', door: '#16181d', trim: '#e0b84a' },
   records: { realm: 'overworld', name: 'Records Room', wall: ['#2f2238', '#3d2c48'], floor: '#6e5444', door: '#1a1020', trim: '#d9c8a0' },
   shared: { realm: 'overworld', name: 'Shared Room', wall: ['#3a2a1a', '#4b3722'], floor: '#8a7048', door: '#22160c', trim: '#c792ff' },
+  portals: { realm: 'overworld', name: 'Hall of Portals', wall: ['#1c1838', '#28224e'], floor: '#3c3664', door: '#0e0b20', trim: '#c792ff' },
+  maze: { realm: 'overworld', name: 'Portal Maze', wall: ['#173a24', '#1f4a2e'], floor: '#7a7058', door: '#1a140c', trim: '#c792ff' },
+  study: { realm: 'overworld', name: "Scribe's Study", wall: ['#3a2618', '#4a3220'], floor: '#6e5238', door: '#1e120a', trim: '#e0b85a' },
   throne: { realm: 'overworld', name: 'Throne Room', wall: ['#3a1530', '#4a1c3e'], floor: '#6a6684', door: '#1e0b1a', trim: '#ffd36b' },
   hall: { realm: 'dungeon', name: 'Entrance Hall', accent: 'p' },
   archive: { realm: 'dungeon', name: 'Hall of Scrolls', accent: 'u' },
@@ -62,7 +65,7 @@ const OVERWORLD_AREAS = [
   ['forest/cave', 'cave'], ['forest/river', 'river'], ['forest', 'forest'], ['camp', 'camp'], ['junk', 'junk'],
   ['library', 'library'], ['tower', 'tower'], ['market', 'market'], ['gate', 'gate'], ['mirrors', 'mirrors'],
   ['well', 'well'], ['den', 'den'], ['forge/ore', 'ore'], ['forge', 'forge'],
-  ['guild', 'outpost'], ['crown', 'throne'], ['hall/vault', 'strongroom'], ['hall/archive', 'records'], ['hall/shared', 'shared'], ['hall', 'commons'],
+  ['guild', 'outpost'], ['crown', 'throne'], ['portals', 'portals'], ['maze', 'maze'], ['memory', 'study'], ['hall/vault', 'strongroom'], ['hall/archive', 'records'], ['hall/shared', 'shared'], ['hall', 'commons'],
 ];
 
 const DUNGEON_ROOMS = [['/', 'hall'], ['/home', 'gatehouse']];
