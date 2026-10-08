@@ -8,7 +8,9 @@
  */
 
 import { allocPid, makeProc, TERMINAL } from '../system.js';
-import { result } from '../result.js';
+import { result, withNote } from '../result.js';
+import { builtinOptions } from '../builtins.js';
+import { findJobSpec, jobLine } from '../jobs.js';
 
 const SLEEP_HELP = "Try 'sleep --help' for more information.";
 const UNITS = { s: 1, m: 60, h: 3600, d: 86400 };
@@ -64,15 +66,51 @@ export function foreground(ctx, proc) {
   return outcome;
 }
 
+// In a background job, a sleep holds nothing: the job's process lives longer.
 function sleep(args, ctx) {
   const { sys } = ctx;
   const time = sleepTime(args);
   if (time.error) return result('', time.error, 1);
-  if (time.ms === 0) return result();
+  if (ctx.background) ctx.background.ms += time.ms;
+  if (time.ms === 0 || ctx.background) return result();
   const proc = makeProc({ pid: allocPid(sys), ppid: sys.shellPid, user: sys.user, cmd: ['sleep', ...args].join(' '), tty: TERMINAL, stat: 'S+' });
   sys.procs.push({ ...proc, endsAt: sys.now() + time.ms });
   const outcome = foreground(ctx, sys.procs.at(-1));
   return { ...result('', '', outcome.status), key: outcome.key, abort: outcome.abort };
 }
 
-export default { sleep };
+/**
+ * The jobs a builtin's job specs name, with bash's complaints about the others.
+ *
+ * @param {object} sys The machine state.
+ * @param {string} name The builtin, for its messages.
+ * @param {string[]} specs The specs as typed.
+ * @param {{bothErrors?: boolean}} [opts] Also say "no such job" after "ambiguous job spec", as jobs and disown do.
+ * @returns {{jobs: object[], errors: string[]}} The jobs found, in the order named, and the error lines.
+ */
+export function namedJobs(sys, name, specs, { bothErrors = false } = {}) {
+  const jobs = [];
+  const errors = [];
+  for (const spec of specs) {
+    const { job, ambiguous } = findJobSpec(sys, spec);
+    if (job) jobs.push(job);
+    if (ambiguous !== null) errors.push(`bash: ${name}: ${ambiguous}: ambiguous job spec`);
+    if (!job && (ambiguous === null || bothErrors)) errors.push(`bash: ${name}: ${spec}: no such job`);
+  }
+  return { jobs, errors };
+}
+
+const JOB_FILTERS = { r: job => job.state === 'running', s: job => job.state === 'stopped', n: job => !job.notified };
+
+function jobs(args, { sys }) {
+  const opts = builtinOptions('jobs', args, 'lnprsx');
+  if (opts.error) return result('', opts.error, 2);
+  if (opts.flags.has('x')) return withNote(result('', '', 1), 'jobs -x runs a command with job specs replaced by PIDs; the game does not simulate it.');
+  const named = opts.rest.length ? namedJobs(sys, 'jobs', opts.rest, { bothErrors: true }) : { jobs: sys.jobs, errors: [] };
+  const shown = named.jobs.filter(job => Object.keys(JOB_FILTERS).every(f => !opts.flags.has(f) || JOB_FILTERS[f](job)));
+  const out = shown.map(job => (opts.flags.has('p') ? `${job.pid}\n` : jobLine(sys, job, { long: opts.flags.has('l') }))).join('');
+  for (const job of shown) job.notified = true;
+  return result(out, named.errors.join('\n'), named.errors.length ? 1 : 0);
+}
+
+export default { sleep, jobs };

@@ -51,6 +51,10 @@
  *   Both share the pipeline place, the redirections and stdout; sudo's status is
  *   the command's own, or 1 when sudo refused. So `ctx.ran('chown', r => r.user === 'root')`
  *   asks "did chown run as root?".
+ * @property {true} [background] On a command of a job started with `&`: `sleep 30 &`
+ *   gives `{name: 'sleep', args: ['30'], background: true, job: 1, ...}`.
+ * @property {number|null} [job] With `background`: the job's number, as `jobs` shows it
+ *   (null where the shell keeps no job table, in a script).
  * @property {string} cwd Absolute working directory when it started.
  * @property {number} status Its exit status.
  * @property {string} stdout Everything it wrote to standard output, even if redirected or piped.

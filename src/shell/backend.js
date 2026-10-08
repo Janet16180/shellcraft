@@ -12,6 +12,7 @@ import { groupNames, loginGids } from './accounts.js';
 import { expandHistory } from './history.js';
 import { COMMANDS, BINARIES } from './commands/index.js';
 import { saveState, restoreState, createTape } from './snapshot.js';
+import { expire, reap, notify } from './jobs.js';
 
 const CLEAR_MARK = '\u001b[2J';
 
@@ -55,18 +56,24 @@ function remembered(sys, line) {
 
 // History expansion comes first: a missing event stops the line before it
 // is remembered or run, and $? stays as it was. An expanded line is echoed.
+// Before the line the shell hears what its jobs did; before the next prompt
+// it says what changed.
 function runLine(sys, typedLine, events) {
   const run = collector(sys, events);
+  expire(sys);
+  reap(sys);
   const history = expandHistory(typedLine, sys.history);
-  if (history.error) {
-    run.sink.write('err', `${history.error}\n`);
-    return { output: run.chunks, status: sys.lastStatus, commands: [], blocked: [], waiting: null };
+  let status = sys.lastStatus;
+  if (history.error) run.sink.write('err', `${history.error}\n`);
+  else {
+    const { line } = history;
+    if (history.expanded) run.sink.write('err', `${line}\n`);
+    const typed = line.trim() !== '';
+    if (typed && remembered(sys, line)) sys.history.push(line);
+    if (typed) status = executeLine({ sys, commands: COMMANDS, run }, line, run.sink);
   }
-  const { line } = history;
-  if (history.expanded) run.sink.write('err', `${line}\n`);
-  const typed = line.trim() !== '';
-  if (typed && remembered(sys, line)) sys.history.push(line);
-  const status = typed ? executeLine({ sys, commands: COMMANDS, run }, line, run.sink) : sys.lastStatus;
+  const notices = run.waiting ? '' : notify(sys);
+  if (notices) run.sink.write('err', notices);
   return { output: run.chunks, status, commands: run.records, blocked: run.blocked, waiting: run.waiting };
 }
 
@@ -103,6 +110,7 @@ function startShell(sys) {
 }
 
 function observe(sys) {
+  expire(sys);
   const procs = sys.procs.map(p => {
     const rec = { pid: p.pid, ppid: p.ppid, user: p.user, tty: p.tty, stat: p.stat, cpu: p.cpu, mem: p.mem, cmd: p.cmd };
     if (p.key !== undefined) rec.key = p.key;

@@ -122,3 +122,166 @@ test('loading a world abandons a running line and ends its command, as closing t
   assert.equal((await b.observe()).procs.some(p => p.cmd === 'sleep 10'), false);
   assert.equal((await run(b, 'echo hi')).out, 'hi\n');
 });
+
+const pidOf = r => Number(/^\[\d+\] (\d+)\n$/.exec(r.err)?.[1]);
+
+test('a command with & starts a job: bash prints its number and PID, and the line ends at once', async () => {
+  const b = await shell();
+  const r = await run(b, 'sleep 30 &');
+  assert.match(r.err, /^\[1\] \d+\n$/);
+  assert.deepEqual([r.out, r.status, r.result.running], ['', 0, undefined]);
+  const proc = (await b.observe()).procs.find(p => p.pid === pidOf(r));
+  assert.deepEqual([proc.cmd, proc.stat, proc.tty, proc.user], ['sleep 30', 'S', 'pts/0', 'hero']);
+});
+
+test('$! is the PID of the last job started in the background', async () => {
+  const b = await shell();
+  assert.equal((await run(b, 'echo $!')).out, '\n');
+  const r = await run(b, 'sleep 30 &');
+  assert.equal((await run(b, 'echo $!')).out, `${pidOf(r)}\n`);
+});
+
+test('jobs lists running jobs with the current one marked + and the previous -', async () => {
+  const b = await shell();
+  await run(b, 'sleep 30 &');
+  assert.equal((await run(b, 'jobs')).out, '[1]+  Running                 sleep 30 &\n');
+  await run(b, 'sleep 60 &');
+  assert.equal((await run(b, 'jobs')).out, '[1]-  Running                 sleep 30 &\n[2]+  Running                 sleep 60 &\n');
+});
+
+test('a job that finishes on the clock is reported Done after the next line, then forgotten', async () => {
+  const { b, tick } = await timed();
+  await run(b, 'sleep 30 &');
+  tick(10);
+  assert.equal((await run(b, 'echo early')).err, '');
+  tick(20);
+  const r = await b.run('echo x');
+  assert.deepEqual(r.output, [{ stream: 'out', text: 'x\n' }, { stream: 'err', text: '[1]+  Done                    sleep 30\n' }]);
+  assert.deepEqual(outcome(await run(b, 'jobs')), ['', '', 0]);
+  assert.equal((await b.observe()).procs.some(p => p.cmd === 'sleep 30'), false);
+});
+
+test('pressing Enter on an empty line is enough to see the Done', async () => {
+  const { b, tick } = await timed();
+  await run(b, 'sleep 1 &');
+  tick(1);
+  assert.equal((await run(b, '')).err, '[1]+  Done                    sleep 1\n');
+});
+
+test('a job is not reported on the line that started it, even when it is over at once', async () => {
+  const b = await shell();
+  const r = await run(b, 'true &');
+  assert.match(r.err, /^\[1\] \d+\n$/);
+  assert.equal((await run(b, '')).err, '[1]+  Done                    true\n');
+});
+
+test('jobs reports a finished job itself, and then no notice follows', async () => {
+  const { b, tick } = await timed();
+  await run(b, 'sleep 2 &');
+  tick(3);
+  assert.deepEqual(outcome(await run(b, 'jobs')), ['[1]+  Done                    sleep 2\n', '', 0]);
+  assert.equal((await run(b, '')).err, '');
+});
+
+test('a job that fails is reported with its exit status', async () => {
+  const b = await shell();
+  await run(b, 'false &');
+  assert.equal((await run(b, '')).err, '[1]+  Exit 1                  false\n');
+});
+
+test('a job runs in a subshell: cd and variables in it do not reach the shell', async () => {
+  const b = await shell();
+  await run(b, 'cd /tmp &');
+  await run(b, 'x=1 &');
+  assert.equal((await run(b, 'pwd; echo "[$x]"')).out, '/home/hero\n[]\n');
+});
+
+test('what a job prints appears at once, after the job number', async () => {
+  const b = await shell();
+  const r = await b.run('echo hi &');
+  assert.deepEqual(r.output.map(c => c.stream), ['err', 'out']);
+  assert.equal(r.output[1].text, 'hi\n');
+});
+
+test('the line goes on after &', async () => {
+  const b = await shell();
+  const r = await run(b, 'sleep 5 & echo now');
+  assert.equal(r.out, 'now\n');
+  assert.match(r.err, /^\[1\] \d+\n$/);
+});
+
+test('bash reports finished jobs after each program the line runs, not after builtins', async () => {
+  const { b, tick } = await timed();
+  await run(b, 'sleep 1 &');
+  tick(2);
+  const r = await b.run('echo a; cat readme.txt; echo b');
+  assert.deepEqual(r.output, [
+    { stream: 'out', text: 'a\n' },
+    { stream: 'out', text: 'Dear apprentice,\nwelcome.\n' },
+    { stream: 'err', text: '[1]+  Done                    sleep 1\n' },
+    { stream: 'out', text: 'b\n' },
+  ]);
+});
+
+test('a job started in another directory says where, and the notice where you are now', async () => {
+  const { b, tick } = await timed();
+  await run(b, 'sleep 1 &');
+  await run(b, 'cd /tmp');
+  assert.equal((await run(b, 'jobs')).out, '[1]+  Running                 sleep 1 &  (wd: ~)\n');
+  tick(1);
+  assert.equal((await run(b, '')).err, '[1]+  Done                    sleep 1  (wd: ~)\n(wd now: /tmp)\n');
+});
+
+test('jobs shows the command as typed, with pipes, && and redirections', async () => {
+  const b = await shell();
+  await run(b, 'sleep 3 && echo hi &');
+  await run(b, 'sleep 1 | cat &');
+  await run(b, 'sleep 9 >/dev/null 2>&1 &');
+  assert.equal((await run(b, 'jobs')).out, [
+    '[1]   Running                 sleep 3 && echo hi &\n',
+    '[2]-  Running                 sleep 1 | cat &\n',
+    '[3]+  Running                 sleep 9 > /dev/null 2>&1 &\n',
+  ].join(''));
+});
+
+test('a job lives as long as the sleeps in it', async () => {
+  const { b, tick } = await timed();
+  await run(b, 'sleep 3 && sleep 2 &');
+  tick(4);
+  assert.equal((await run(b, '')).err, '');
+  tick(1);
+  assert.equal((await run(b, '')).err, '[1]+  Done                    sleep 3 && sleep 2\n');
+});
+
+test('sleep infinity in the background never ends by itself', async () => {
+  const { b, tick } = await timed();
+  await run(b, 'sleep infinity &');
+  tick(1e6);
+  assert.equal((await run(b, 'jobs')).out, '[1]+  Running                 sleep infinity &\n');
+});
+
+test('the commands of a job are recorded as run in the background, with the job number', async () => {
+  const b = await shell();
+  await run(b, 'sleep 1 &');
+  const r = await b.run('sleep 30 & echo now');
+  assert.deepEqual(r.commands.map(c => [c.name, c.background, c.job]), [['sleep', true, 2], ['echo', undefined, undefined]]);
+});
+
+test('jobs -l adds the PID, -p prints only PIDs, -r and -s pick running or stopped jobs', async () => {
+  const b = await shell();
+  const pid = pidOf(await run(b, 'sleep 30 &'));
+  assert.equal((await run(b, 'jobs -l')).out, `[1]+ ${String(pid).padStart(5)} Running                 sleep 30 &\n`);
+  assert.equal((await run(b, 'jobs -p')).out, `${pid}\n`);
+  assert.equal((await run(b, 'jobs -r')).out, '[1]+  Running                 sleep 30 &\n');
+  assert.equal((await run(b, 'jobs -s')).out, '');
+});
+
+test('jobs with a job spec lists that job, and complains about one that does not exist', async () => {
+  const b = await shell();
+  await run(b, 'sleep 30 &');
+  await run(b, 'sleep 60 &');
+  assert.equal((await run(b, 'jobs %1')).out, '[1]-  Running                 sleep 30 &\n');
+  assert.deepEqual(outcome(await run(b, 'jobs %1 %9')), ['[1]-  Running                 sleep 30 &\n', 'bash: jobs: %9: no such job\n', 1]);
+  assert.deepEqual(outcome(await run(b, 'jobs %s')), ['', 'bash: jobs: s: ambiguous job spec\nbash: jobs: %s: no such job\n', 1]);
+  assert.deepEqual(outcome(await run(b, 'jobs -z')), ['', 'bash: jobs: -z: invalid option\njobs: usage: jobs [-lnprs] [jobspec ...] or jobs -x command [args]\n', 2]);
+});

@@ -219,3 +219,37 @@ export function parse(tokens) {
   }
   return { list: next.error ? [] : list, error: next.error?.message ?? null, incomplete: next.error?.incomplete ?? false };
 }
+
+const DUPLICATIONS = new Set(['>&', '<&']);
+
+function redirectionText({ op, fd, target }) {
+  const prefix = fd === null || fd === undefined ? '' : String(fd);
+  return DUPLICATIONS.has(op) ? `${prefix}${op}${target.raw}` : `${prefix}${op} ${target.raw}`;
+}
+
+function commandText(cmd) {
+  let text;
+  if (cmd.type === 'for') text = `for ${cmd.name}${cmd.words ? ` in ${cmd.words.map(w => w.raw).join(' ')}` : ''}; do ${listText(cmd.body)}; done`;
+  else if (cmd.type === 'if') {
+    const branches = cmd.branches.map((b, i) => `${i ? 'elif' : 'if'} ${listText(b.cond)}; then ${listText(b.body)}`).join('; ');
+    text = `${branches}${cmd.otherwise ? `; else ${listText(cmd.otherwise)}` : ''}; fi`;
+  } else text = cmd.words.map(w => w.raw).join(' ');
+  return [text, ...cmd.redirs.map(redirectionText)].filter(Boolean).join(' ');
+}
+
+/**
+ * A list as bash prints it back in `jobs` and `fg`: words as typed, one
+ * space between them, a space after a redirection operator (`> /dev/null`)
+ * but none in a duplication (`2>&1`), and the operators between pipelines.
+ * Compound commands come out on one line.
+ *
+ * @param {object[]} items A list from parse() or parseNext().
+ * @returns {string} The text, without a final `;` or `&`.
+ */
+export function listText(items) {
+  return items.map((item, i) => {
+    const pipeline = `${item.negate ? '! ' : ''}${item.pipeline.map(commandText).join(' | ')}`;
+    const op = i === items.length - 1 ? '' : item.next;
+    return op === '&&' || op === '||' ? `${pipeline} ${op} ` : `${pipeline}${op ? `${op} ` : ''}`;
+  }).join('');
+}
