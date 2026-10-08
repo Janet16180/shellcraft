@@ -189,6 +189,10 @@ Without a password, sudo skips the prompt with a note (chapter 11's `sudo ls` re
 one, `sudo` prints `[sudo] password for hero: ` and the terminal reads a hidden line; three wrong
 tries end with `sudo: 3 incorrect password attempts`; Ctrl+C ends with `sudo: a password is required`.
 A correct password is remembered for 15 minutes of the game clock; `sudo -k` forgets it.
+The `sudo` record's `auth` says how that went: `'ok'`, `'not-needed'`, `'failed'` (three wrong
+tries), `'cancelled'` (Ctrl+C, or `-n`), `'not-allowed'` (the policy refused), or `null` (sudo
+stopped before, as for `-k` or `-i`); a near note can tell a wrong password from a refused command:
+`ctx.tried('sudo', r => r.auth === 'failed')`.
 
 Not simulated: a root shell (`sudo -i`, `sudo -s` end with a note: put sudo in front of the one
 command that needs root), `sudo -ll`, sudo's environment handling (`env_reset`, `SUDO_USER`), and

@@ -207,12 +207,12 @@ function authenticate(job, ctx) {
     }
     ctx.tty(`${prompt}\n`);
     if (answer.text === sys.password) outcome = { ok: true };
-    else if (answer.text === null) outcome = { err: failures ? `sudo: ${failures} incorrect password attempt${failures > 1 ? 's' : ''}` : 'sudo: a password is required' };
+    else if (answer.text === null) outcome = { outcome: 'cancelled', err: failures ? `sudo: ${failures} incorrect password attempt${failures > 1 ? 's' : ''}` : 'sudo: a password is required' };
     else {
       failures++;
       if (failures === 1) logAuth(sys, [`pam_unix(sudo:auth): authentication failure; logname=${me.name} uid=${me.uid} euid=0 tty=/dev/${TERMINAL} ruser=${me.name} rhost=  user=${me.name}`]);
       if (failures < TRIES) ctx.tty('Sorry, try again.\n');
-      else outcome = { err: `sudo: ${TRIES} incorrect password attempts`, log: `${TRIES} incorrect password attempts` };
+      else outcome = { outcome: 'failed', err: `sudo: ${TRIES} incorrect password attempts`, log: `${TRIES} incorrect password attempts` };
     }
   }
   if (outcome.log) logAuth(sys, [commandLog(job, outcome.log)]);
@@ -224,11 +224,15 @@ function authenticate(job, ctx) {
 function prove(job, ctx, needed) {
   const { sys, opts } = job;
   let r = null;
+  job.auth = 'not-needed';
   if (!needed || sys.user === 'root') return null;
   if (sys.password === null) job.note = noPassword(sys.user);
-  else if (opts.flags.has('n')) r = result('', 'sudo: a password is required', 1);
-  else {
+  else if (opts.flags.has('n')) {
+    job.auth = 'cancelled';
+    r = result('', 'sudo: a password is required', 1);
+  } else {
     const auth = authenticate(job, ctx);
+    job.auth = auth.ok ? 'ok' : auth.outcome ?? null;
     if (auth.waiting) r = { ...result('', '', 1), abort: true };
     else if (auth.err) r = result('', auth.err, 1);
   }
@@ -238,6 +242,7 @@ function prove(job, ctx, needed) {
 function refuse(job) {
   const { sys, me, target, rules } = job;
   const stranger = !rules.length;
+  job.auth = 'not-allowed';
   logAuth(sys, [commandLog(job, stranger ? 'user NOT in sudoers' : 'command not allowed')]);
   const text = stranger ? `${me.name} is not in the sudoers file.` : `Sorry, user ${me.name} is not allowed to execute '${job.shown}' as ${target.name} on ${sys.host}.`;
   return result('', text, 1);
@@ -264,7 +269,10 @@ function runCommand(job, ctx) {
 function maySudo(job, ctx, needed) {
   const stop = prove(job, ctx, needed);
   let r = stop;
-  if (!stop && !job.rules.length) r = result('', `Sorry, user ${job.me.name} may not run sudo on ${job.sys.host}.`, 1);
+  if (!stop && !job.rules.length) {
+    job.auth = 'not-allowed';
+    r = result('', `Sorry, user ${job.me.name} may not run sudo on ${job.sys.host}.`, 1);
+  }
   if (!stop && !job.rules.length) logAuth(job.sys, [commandLog(job, 'command not allowed')]);
   return r;
 }
@@ -311,16 +319,17 @@ function sudo(args, ctx) {
   const { sys } = ctx;
   const opts = parseSudo(args);
   const stop = early(opts, sys);
-  if (stop) return stop;
+  if (stop) return { ...stop, auth: null };
   const target = findUser(sys, opts.user ?? 'root');
-  if (!target) return result('', `sudo: unknown user ${opts.user}\nsudo: error initializing audit plugin sudoers_audit`, 1);
+  if (!target) return { ...result('', `sudo: unknown user ${opts.user}\nsudo: error initializing audit plugin sudoers_audit`, 1), auth: null };
   const policy = readPolicy(sys);
   const me = findUser(sys, sys.user);
-  const job = { sys, opts, target, policy, me, rules: rulesFor(sys, policy, sys.user, groupNames(sys)), shown: '', note: null };
+  const job = { sys, opts, target, policy, me, rules: rulesFor(sys, policy, sys.user, groupNames(sys)), shown: '', note: null, auth: null };
   let r;
   if (opts.flags.has('l')) r = list(job, ctx);
   else if (opts.flags.has('v') && !opts.command.length) r = validate(job, ctx);
   else r = runCommand(job, ctx);
+  r = { ...r, auth: job.auth, inner: r.inner ?? { asUser: target.name, ran: false } };
   return job.note && !r.abort ? withNote(r, [r.note, job.note].filter(Boolean).join(' ')) : r;
 }
 

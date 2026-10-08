@@ -44,6 +44,12 @@
  *   command that sudo ran.
  * @property {string} [asUser] On a `sudo` record only: the user sudo was asked to
  *   run the command as (`root`, or the user of `-u`), whether or not it ran.
+ * @property {'ok'|'failed'|'cancelled'|'not-needed'|'not-allowed'|null} [auth] On a `sudo` record only:
+ *   how it went with the password and the policy. 'ok': the player typed the right password;
+ *   'not-needed': no password was asked (NOPASSWD, remembered for 15 minutes, no password in this
+ *   world); 'failed': three wrong passwords; 'cancelled': Ctrl+C at the prompt, or `-n` when one
+ *   was needed; 'not-allowed': the policy refused (not in sudoers, or not that command), after any
+ *   password. null when sudo stopped before (a bad option, `--help`, `-k`, `-i`).
  * @property {string} [via] On a command another command ran for the player: that
  *   command's name (`sudo`). `sudo chown mira f` gives two records, in this order:
  *   `{name: 'sudo', args: ['chown', 'mira', 'f'], user: 'hero', asUser: 'root', status}`

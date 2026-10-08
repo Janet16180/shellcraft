@@ -283,6 +283,7 @@ function record(sh, argv, r, { cwd, user, place, redirects }) {
   if (sh.background) Object.assign(base, { background: true, job: sh.background.job?.id ?? null });
   const own = { name: argv[0], args: argv.slice(1), user, status: r.status, stdout: r.out, ...base };
   if (r.inner) own.asUser = r.inner.asUser;
+  if (r.auth !== undefined) own.auth = r.auth;
   if (r.key) own.signal = r.key;
   sh.run.records.push(own);
   if (r.inner?.ran) sh.run.records.push({ name: r.inner.name, args: r.inner.args, user: r.inner.asUser, via: argv[0], status: r.inner.status, stdout: r.out, ...base });

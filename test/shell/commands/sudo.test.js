@@ -267,3 +267,25 @@ test('sudo is a setuid program owned by root, with a manual page', async () => {
   assert.match((await run(b, 'ls -l /usr/bin/sudo')).out, /^-rwsr-xr-x 1 root root /);
   assert.match((await run(b, 'man sudo')).out, /^SUDO\(1\)[\s\S]*execute a command as another user/);
 });
+
+const sudoRecord = r => r.commands.findLast(c => c.name === 'sudo');
+
+test('the sudo record says how authentication went: ok, failed, cancelled, not-needed or not-allowed', async () => {
+  const b = await realm({ extra: [password('dragon')] });
+  await b.run('sudo whoami');
+  assert.equal(sudoRecord(await b.answer('dragon')).auth, 'ok');
+  assert.equal(sudoRecord((await b.run('sudo whoami'))).auth, 'not-needed');
+  await b.run('sudo -k whoami');
+  await b.answer('a');
+  await b.answer('b');
+  assert.deepEqual([sudoRecord(await b.answer('c'))].map(c => [c.auth, c.status, c.asUser]), [['failed', 1, 'root']]);
+  await b.run('sudo -k whoami');
+  assert.equal(sudoRecord(await b.answer(null)).auth, 'cancelled');
+  assert.equal(sudoRecord(await b.run('sudo -k; sudo -n whoami')).auth, 'cancelled');
+  assert.equal(sudoRecord(await b.run('sudo --version')).auth, null);
+  const stranger = await realm({ admin: false, extra: [password('dragon')] });
+  await stranger.run('sudo ls');
+  assert.deepEqual([sudoRecord(await stranger.answer('dragon'))].map(c => [c.auth, c.asUser]), [['not-allowed', 'root']]);
+  const nopass = await realm({ extra: [NOPASSWD] });
+  assert.equal(sudoRecord(await nopass.run('sudo whoami')).auth, 'not-needed');
+});
