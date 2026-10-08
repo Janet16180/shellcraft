@@ -15,6 +15,7 @@ export function sampleView(over = {}) {
       title: 'The Awakening',
       phase: 'quest',
       lesson: '<p>You wake up inside a terminal. Type <code>whoami</code>.</p>',
+      explainer: null,
       replay: false,
       tasks: [
         { goal: 'Ask the terminal who you are', tip: '`whoami` prints your user name.', done: true, next: false, hints: [] },

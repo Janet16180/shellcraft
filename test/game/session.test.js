@@ -163,7 +163,7 @@ test('solving the boss clears the chapter, pays the boss and the bonus, and open
   assert.equal(turn.view.chapter.phase, 'done');
   assert.equal(turn.view.xp, 70);
   assert.deepEqual(turn.view.chapters.map(c => [c.status, c.current]), [['cleared', true], ['open', false], ['soon', false]]);
-  assert.deepEqual(saved(store), { version: 2, chapter: 'forest', cleared: ['awakening'], xp: 70, sound: false, introSeen: false, layout: 'stacked', paid: { awakening: [0, 1] }, progress: null });
+  assert.deepEqual(saved(store), { version: 2, chapter: 'forest', cleared: ['awakening'], xp: 70, sound: false, introSeen: false, explainersSeen: [], layout: 'stacked', paid: { awakening: [0, 1] }, progress: null });
 });
 
 test('a cleared chapter can be started again while it is the current one', async () => {
@@ -653,16 +653,17 @@ test('setting sound to something other than a boolean raises', async () => {
   assert.throws(() => session.setSound('on'), /boolean/);
 });
 
-test('reset erases progress but keeps sound, the intro flag and the layout', async () => {
+test('reset erases progress but keeps sound, the intro and explainer flags and the layout', async () => {
   const { session, store, backend } = await booted();
   await clearAwakening(session);
   session.setSound(true);
   session.markIntroSeen();
+  session.markExplainerSeen('signs');
   session.setLayout('side');
   const view = await session.reset();
   assert.deepEqual([view.chapter.id, view.xp, view.chapter.replay], ['awakening', 0, false]);
   assert.deepEqual(saved(store), {
-    version: 2, chapter: 'awakening', cleared: [], xp: 0, sound: true, introSeen: true, layout: 'side', paid: {},
+    version: 2, chapter: 'awakening', cleared: [], xp: 0, sound: true, introSeen: true, explainersSeen: ['signs'], layout: 'side', paid: {},
     progress: { chapter: 'awakening', phase: 'quest', tasks: [false, false], hints: [0, 0], bossHints: 0 },
   });
   assert.equal(exists(await backend.observe(), `${HOME}/sign.txt`), false);
@@ -827,4 +828,36 @@ test('outside dev mode, dev is not a game command and nothing is skipped', async
   const turn = await session.submit('dev skip');
   assert.deepEqual(turn.events, []);
   assert.ok(turn.view.chapter.tasks.every(t => !t.done));
+});
+
+const EXPLAINER = { id: 'signs', title: 'Signs', draw: () => '', steps: [{ title: 'One', text: ['A sign.'], diagram: {} }] };
+
+function withExplainer() {
+  const chapters = fixtureChapters();
+  chapters[0].explainer = EXPLAINER;
+  return chapters;
+}
+
+test('a chapter without an explainer shows none in the view', async () => {
+  const { view } = await booted();
+  assert.equal(view.chapter.explainer, null);
+});
+
+test('a chapter\'s explainer is in the view, unseen until marked, and the mark is saved', async () => {
+  const { view, session, store } = await booted({ chapters: withExplainer() });
+  assert.equal(view.chapter.explainer.steps, EXPLAINER.steps);
+  assert.deepEqual([view.chapter.explainer.id, view.chapter.explainer.title, view.chapter.explainer.seen], ['signs', 'Signs', false]);
+  assert.equal(session.markExplainerSeen('signs').chapter.explainer.seen, true);
+  session.markExplainerSeen('signs');
+  assert.deepEqual(saved(store).explainersSeen, ['signs']);
+});
+
+test('a seen explainer stays seen after a reload', async () => {
+  const { view } = await booted({ chapters: withExplainer(), stored: v2({ explainersSeen: ['signs'] }) });
+  assert.equal(view.chapter.explainer.seen, true);
+});
+
+test('marking an explainer seen without an id raises', async () => {
+  const { session } = await booted();
+  for (const id of [undefined, '', 3]) assert.throws(() => session.markExplainerSeen(id), /explainer id/);
 });

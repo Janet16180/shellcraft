@@ -60,7 +60,8 @@ function clearedHTML() {
 /**
  * The Quest panel. In the quest: lesson, quest log, hints. In the boss room
  * the briefing comes first and the lesson folds away below; once cleared, the
- * way on comes first. The hints shown are the ones revealed for the next task,
+ * way on comes first. A chapter with an explainer gets a button to watch it
+ * again. The hints shown are the ones revealed for the next task,
  * or for the boss.
  *
  * @param {{chapter: object, hint: {level: number, cost: number}|null, hintLevels: number}} view The session View.
@@ -73,10 +74,12 @@ export function questHTML({ chapter, hint, hintLevels }) {
   let body = `<div class="lesson">${lesson}</div><ol class="quest-log" aria-label="Tasks">${tasks.map(taskRow).join('')}</ol>${hints}`;
   if (phase === 'boss') body = bossHTML(boss) + hints + lessonAgain;
   if (phase === 'done') body = clearedHTML() + lessonAgain;
+  const watch = chapter.explainer ? `<button class="px-btn small ghost explainer-btn" id="explainerBtn" type="button">Watch the explainer: ${esc(chapter.explainer.title)}</button>` : '';
   const replay = chapter.replay ? '<p class="replay">You cleared this chapter before, so replaying it pays no XP.</p>' : '';
   return `<div class="eyebrow">Chapter ${number} &middot; ${PHASE_TEXT[phase]}</div>
     <h2>${esc(title)}</h2>
     ${replay}
+    ${watch}
     ${body}`;
 }
 

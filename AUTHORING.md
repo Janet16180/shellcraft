@@ -126,6 +126,30 @@ Node owners and groups are names; use digits (`owner: '1234'`) for a file whose 
 account, which `ls -l` shows as a number. `accounts()` does not create homes. The base world ends with
 `login()`, so a fresh world resets the player's groups.
 
+### Explainers (optional)
+
+A chapter may add `explainer: EXPLAINERS.links` (from `src/intro/explainers.js`). It plays before
+the lesson the first time the chapter opens (the save remembers it in `explainersSeen`, like
+`introSeen`) and comes back from "Watch the explainer" in the Quest panel. The player moves with
+Back, Next and Skip; nothing moves on by itself. An explainer is
+`{ id, title, draw, steps }`, where `draw(diagram, timing)` returns the diagram's HTML, and each
+step is:
+
+```js
+{
+  title: '<code>ln</code> adds a second name',  // trusted HTML: code, kbd, b, em only
+  text: ['One to three short sentences, in plain words.'],
+  term: [{ type: 'ls -i', output: ['1847 copy.txt  1847 scroll.txt'] }], // optional; also user, cwd, fails, wait
+  diagram: { show: 'signs', ... },              // passed to draw
+  sound: 'create',                              // optional; default 'page', one cue per step
+}
+```
+
+`timing.at(i)` is when line `i` of `term` shows its output and `timing.end` when the strip is done,
+so the diagram moves in step with the terminal. Diagrams are CSS: the base style is the final
+frame, so reduced motion shows still frames. `assertChapter` checks a declared explainer with
+`assertExplainer`.
+
 ## 3. Content rules
 
 1. **Correct on the reference system** (Ubuntu 24.04, bash 5.2, coreutils 9.4, `LC_ALL=C.UTF-8`).
@@ -179,7 +203,9 @@ account, which `ls -l` shows as a number. `accounts()` does not create homes. Th
 To play a new chapter by hand, open the game with `?dev` (http://localhost:8765/?dev). Dev mode keeps
 its own save (the player's is untouched), opens every written chapter in Chapters, and adds terminal
 commands: `dev skip` finishes the next task (or the boss), `dev boss` jumps to the boss room, `dev
-solve` prints the chapter's `solve` lines or `boss.solve`. Skipped parts pay no XP.
+solve` prints the chapter's `solve` lines or `boss.solve`. Skipped parts pay no XP. Add
+`&explainer=perms` or `&explainer=links` (`?dev&explainer=links`) to open an explainer over the
+title screen.
 
 Each chapter test file runs against the real simulator (`createSimBackend`) and checks:
 1. The module passes the shared contract check (`assertChapter` from `test/helpers/`).

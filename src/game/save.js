@@ -12,6 +12,7 @@
  * @property {number} xp Total XP, a non-negative integer.
  * @property {boolean} sound Whether sound is on.
  * @property {boolean} introSeen Whether the intro was watched or skipped.
+ * @property {string[]} explainersSeen Ids of the chapter explainers watched or skipped, without duplicates.
  * @property {'stacked'|'side'} layout How the page is laid out: 'stacked' puts the map and the
  *   quest panel side by side above a full-width terminal; 'side' puts the terminal on the right.
  * @property {Object<string, number[]>} paid Per chapter id, the indices of the tasks that already
@@ -42,15 +43,17 @@ const isRecord = x => typeof x === 'object' && x !== null && !Array.isArray(x);
 const isCount = x => Number.isInteger(x) && x >= 0;
 const isV1Index = x => Number.isInteger(x) && x >= 0 && x < V1_IDS.length;
 const isHintCount = x => Number.isInteger(x) && x >= 0 && x <= HINT_LEVELS;
+const isIdList = x => Array.isArray(x) && x.every(id => typeof id === 'string');
 const isPaid = x => isRecord(x) && Object.values(x).every(list => Array.isArray(list) && list.every(isCount));
 
 /**
  * Progress for a new player.
  *
- * @returns {Save} No chapter chosen, nothing cleared, no XP, sound off, intro not seen, the default layout, no task paid.
+ * @returns {Save} No chapter chosen, nothing cleared, no XP, sound off, intro and explainers not seen,
+ *   the default layout, no task paid.
  */
 export function freshSave() {
-  return { chapter: null, cleared: [], xp: 0, sound: false, introSeen: false, layout: LAYOUTS[0], paid: {}, progress: null };
+  return { chapter: null, cleared: [], xp: 0, sound: false, introSeen: false, explainersSeen: [], layout: LAYOUTS[0], paid: {}, progress: null };
 }
 
 function parseJSON(text) {
@@ -76,7 +79,7 @@ function fromV2(data) {
   const valid = isRecord(data)
     && data.version === 2
     && (data.chapter === null || typeof data.chapter === 'string')
-    && Array.isArray(data.cleared) && data.cleared.every(id => typeof id === 'string')
+    && isIdList(data.cleared)
     && isCount(data.xp)
     && typeof data.sound === 'boolean'
     && typeof data.introSeen === 'boolean'
@@ -84,12 +87,14 @@ function fromV2(data) {
   return valid ? readV2(data) : null;
 }
 
-// Saves from before the layout choice or the paid record lack them; a broken one is not worth losing progress over.
-function readV2({ chapter, cleared, xp, sound, introSeen, layout, paid, progress = null }) {
+// Saves from before the layout choice, the paid record or the explainers lack them; a broken one is not
+// worth losing progress over.
+function readV2({ chapter, cleared, xp, sound, introSeen, explainersSeen, layout, paid, progress = null }) {
   const kept = progress && { chapter: progress.chapter, phase: progress.phase, tasks: progress.tasks, hints: progress.hints, bossHints: progress.bossHints };
   const shape = LAYOUTS.includes(layout) ? layout : LAYOUTS[0];
   const tasks = isPaid(paid) ? Object.fromEntries(Object.entries(paid).map(([id, list]) => [id, [...new Set(list)]])) : {};
-  return { chapter, cleared: [...new Set(cleared)], xp, sound, introSeen, layout: shape, paid: tasks, progress: kept };
+  const seen = isIdList(explainersSeen) ? [...new Set(explainersSeen)] : [];
+  return { chapter, cleared: [...new Set(cleared)], xp, sound, introSeen, explainersSeen: seen, layout: shape, paid: tasks, progress: kept };
 }
 
 function fromV1(data) {
@@ -130,6 +135,6 @@ export function parseSave({ v2, v1 }) {
  * @param {Save} save The progress to store.
  * @returns {string} JSON text with the format version.
  */
-export function serializeSave({ chapter, cleared, xp, sound, introSeen, layout, paid, progress }) {
-  return JSON.stringify({ version: 2, chapter, cleared, xp, sound, introSeen, layout, paid, progress });
+export function serializeSave({ chapter, cleared, xp, sound, introSeen, explainersSeen, layout, paid, progress }) {
+  return JSON.stringify({ version: 2, chapter, cleared, xp, sound, introSeen, explainersSeen, layout, paid, progress });
 }

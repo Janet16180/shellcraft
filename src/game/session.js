@@ -71,6 +71,7 @@ export function createSession({ backend, chapters, baseWorld, store, random, dev
     setSound: idle(on => setSound(s, on)),
     setLayout: idle(layout => setLayout(s, layout)),
     markIntroSeen: idle(() => updateSave(s, { introSeen: true })),
+    markExplainerSeen: idle(id => markExplainerSeen(s, id)),
     view: () => view(s),
     observation: () => {
       requireBooted(s);
@@ -417,6 +418,15 @@ function setLayout(s, layout) {
   return updateSave(s, { layout });
 }
 
+function markExplainerSeen(s, id) {
+  if (typeof id !== 'string' || id === '') throw new Error(`an explainer id must be non-empty text, got ${id}`);
+  return updateSave(s, { explainersSeen: [...new Set([...s.save.explainersSeen, id])] });
+}
+
+function explainerView(s, explainer) {
+  return explainer ? { ...explainer, seen: s.save.explainersSeen.includes(explainer.id) } : null;
+}
+
 function updateSave(s, fields) {
   requireBooted(s);
   Object.assign(s.save, fields);
@@ -442,6 +452,7 @@ function chapterView(s) {
     title: chapter.title,
     phase: s.phase,
     lesson: chapter.lesson,
+    explainer: explainerView(s, chapter.explainer),
     replay: s.replay,
     tasks: chapter.tasks.map((task, i) => ({
       goal: task.goal,

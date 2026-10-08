@@ -1,0 +1,1397 @@
+/* Chapter explainers (src/intro/explainer.js): a caption, a little terminal
+   and an animated diagram per step. Every rule below draws the step's final
+   state; animations only cover the time before it, with fill "backwards" and a
+   delay of --t0 (when the diagram starts) plus --d (when this piece moves). So
+   with reduced motion, which turns animation off, each step is a still frame
+   of its end. */
+
+/* Declared on each element, so it adds up that element's own --t0 and --d. */
+.explainer * {
+  --ex-at: calc(var(--t0, 0s) + var(--d, 0s));
+}
+
+.explainer {
+  width: 100%;
+  max-width: 1180px;
+  margin: auto;
+  padding: 18px 24px 0;
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-areas: "head head" "caption stage" "term stage" "nav nav";
+  gap: 18px 28px;
+}
+
+.ex-head {
+  grid-area: head;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ex-name {
+  margin: 4px 0 0;
+  font-size: var(--size-h2);
+  color: var(--accent);
+  text-shadow: 0 3px 0 var(--c-rust);
+}
+
+.ex-caption {
+  grid-area: caption;
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+.ex-caption h3 {
+  margin: 0 0 10px;
+  font-size: 19px;
+  color: var(--text);
+}
+
+.ex-caption h3 code {
+  font-size: 0.95em;
+}
+
+.ex-caption code,
+.ex-table code {
+  white-space: nowrap;
+}
+
+.ex-caption p {
+  margin: 0 0 10px;
+}
+
+.ex-term {
+  grid-area: term;
+  align-self: start;
+  position: relative;
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--term-bg);
+  box-shadow: inset 0 0 0 3px var(--line);
+}
+
+.ex-screen {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.ex-screen .ln {
+  min-height: 1.5em;
+}
+
+.ex-stage {
+  grid-area: stage;
+  align-self: start;
+  position: relative;
+  min-width: 0;
+  min-height: 480px;
+  padding: 20px 22px 54px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background:
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.16) 0 2px, transparent 2px 4px),
+    var(--panel-2);
+}
+
+.ex-diagram {
+  min-width: 0;
+}
+
+/* Until the diagram is on screen (on a phone it is below the caption), the strip and diagram wait. */
+.explainer.ex-waiting .ex-stage *,
+.explainer.ex-waiting .ex-screen * {
+  animation-play-state: paused;
+}
+
+.ex-again {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+}
+
+.ex-nav {
+  grid-area: nav;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0 20px;
+  background: var(--panel);
+  border-top: 3px solid var(--line);
+}
+
+/* Shared pieces. */
+
+.explainer .chip {
+  display: inline-block;
+  width: auto;
+  padding: 2px 8px;
+  font-family: var(--font-prose);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--muted);
+  background: var(--c-ink);
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+
+.explainer .chip.yes,
+.rung.match .chip,
+.cell.match .chip {
+  color: var(--c-ink);
+  background: var(--good);
+  box-shadow: none;
+}
+
+.explainer .chip.no,
+.rung.no .chip,
+.cell.no .chip {
+  color: var(--warn-text);
+  box-shadow: inset 0 0 0 2px var(--danger);
+}
+
+.ex-in,
+.ex-screen .k {
+  animation: ex-hidden 0.01s backwards;
+  animation-delay: var(--d, 0s);
+}
+
+.ex-pop {
+  animation: ex-pop 0.32s steps(4) backwards;
+  animation-delay: var(--ex-at);
+}
+
+@keyframes ex-hidden {
+  from, to { visibility: hidden; }
+}
+
+@keyframes ex-pop {
+  from { opacity: 0; transform: scale(0.6); }
+  60% { opacity: 1; transform: scale(1.08); }
+  to { transform: none; }
+}
+
+@keyframes ex-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { transform: none; }
+}
+
+@keyframes ex-draw {
+  from { transform: scaleX(0); }
+  to { transform: none; }
+}
+
+@keyframes ex-draw-down {
+  from { transform: scaleY(0); }
+  to { transform: none; }
+}
+
+@keyframes ex-flash {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent); }
+  30%, 70% { box-shadow: 0 0 0 4px var(--accent); background: var(--accent); color: var(--c-ink); }
+}
+
+/* Permissions: the file line, its three sets, the questions and the people. */
+
+.ex-file {
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  overflow-x: auto;
+  font-size: 19px;
+  line-height: 1.4;
+  text-align: center;
+  white-space: pre;
+  color: var(--term-text);
+  background: var(--term-bg);
+  box-shadow: inset 0 0 0 3px var(--line);
+}
+
+.ex-file .meta {
+  color: var(--muted);
+}
+
+.ex-sets {
+  display: grid;
+  grid-template-columns: minmax(0, 0.6fr) repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ex-set {
+  --tone: var(--perm-type);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 6px 14px;
+  text-align: center;
+  color: var(--text);
+  background: var(--c-night);
+  box-shadow: inset 0 4px 0 0 var(--tone), inset 0 0 0 2px var(--line);
+}
+
+.ex-set.perm-owner { --tone: var(--perm-owner); }
+.ex-set.perm-group { --tone: var(--perm-group); }
+.ex-set.perm-other { --tone: var(--perm-other); }
+
+.ex-set .bits {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--tone);
+}
+
+.ex-set .who {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tone);
+}
+
+.ex-set .name,
+.ex-set .means {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.ex-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.ex-person b {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 18px;
+}
+
+.ex-person small {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.ex-ladder {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rung {
+  --tone: var(--perm-owner);
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto 92px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--c-night);
+  box-shadow: inset 4px 0 0 0 var(--tone), inset 0 0 0 2px var(--line);
+  animation: ex-rise 0.3s steps(3) backwards;
+  animation-delay: var(--ex-at);
+}
+
+.rung[data-cls="group"] { --tone: var(--perm-group); }
+.rung[data-cls="other"] { --tone: var(--perm-other); }
+
+.rung.skip {
+  opacity: 0.5;
+}
+
+.rung.match {
+  background: var(--panel-2);
+  box-shadow: inset 4px 0 0 0 var(--tone), inset 0 0 0 3px var(--tone);
+}
+
+.rung .spot {
+  display: flex;
+  justify-content: center;
+  min-height: 36px;
+}
+
+.rung .q .n {
+  display: inline-block;
+  min-width: 1.6em;
+  margin-right: 8px;
+  text-align: center;
+  color: var(--c-ink);
+  background: var(--tone);
+}
+
+.rung .chip {
+  animation: ex-pop 0.32s steps(4) backwards;
+  animation-delay: calc(var(--ex-at) + 0.4s);
+}
+
+.rung .letters {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.rung .letters code {
+  font-size: 20px;
+  font-weight: 600;
+  color: inherit;
+}
+
+.rung .letters small {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rung.match .letters code {
+  color: var(--c-ink);
+  background: var(--tone);
+}
+
+/* The person stands on each rung while it is asked; only the last one stays. */
+.rung.no .marker {
+  opacity: 0;
+  animation: ex-visit 0.75s steps(1);
+  animation-delay: var(--ex-at);
+}
+
+.rung.match .marker {
+  animation: ex-pop 0.32s steps(4) backwards;
+  animation-delay: var(--ex-at);
+}
+
+@keyframes ex-visit {
+  from, to { opacity: 1; }
+}
+
+.verdict {
+  margin: 14px 0 0;
+  padding: 8px 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.verdict.yes {
+  color: var(--good);
+  box-shadow: inset 0 0 0 3px var(--good);
+}
+
+.verdict.no {
+  color: var(--warn-text);
+  box-shadow: inset 0 0 0 3px var(--danger);
+}
+
+.ex-walk {
+  display: grid;
+  grid-template-columns: max-content repeat(var(--cols), minmax(0, 1fr));
+  gap: 6px;
+  align-items: stretch;
+}
+
+.ex-walk .col-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+
+.ex-walk .col-head b {
+  font-family: var(--font-mono);
+}
+
+.ex-walk .rh {
+  --tone: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--tone);
+}
+
+.ex-walk .rh.perm-owner { --tone: var(--perm-owner); }
+.ex-walk .rh.perm-group { --tone: var(--perm-group); }
+.ex-walk .rh.perm-other { --tone: var(--perm-other); }
+
+.ex-walk .rh b {
+  min-width: 1.6em;
+  text-align: center;
+  color: var(--c-ink);
+  background: var(--tone);
+}
+
+.ex-walk .cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 44px;
+  padding: 6px;
+  background: var(--c-night);
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+
+.ex-walk .cell.skip {
+  opacity: 0.5;
+}
+
+.ex-walk .cell.match {
+  box-shadow: inset 0 0 0 3px var(--good);
+}
+
+.ex-walk .cell code {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ex-walk .verdict {
+  margin: 4px 0 0;
+  padding: 6px 4px;
+}
+
+/* Links: names are signposts, data is a parchment on the disk. */
+
+.ex-heads,
+.ex-signs {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  column-gap: 0;
+}
+
+.ex-heads {
+  margin-bottom: 12px;
+}
+
+.ex-heads span {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ex-signs {
+  row-gap: 30px;
+  align-items: center;
+}
+
+.sign-row {
+  grid-column: 1;
+  display: grid;
+  grid-template-columns: auto minmax(24px, 1fr);
+  align-items: center;
+}
+
+.sign-row > .sign,
+.sign-row > .ghost {
+  grid-area: 1 / 1;
+}
+
+.sign-row > .arrow {
+  grid-area: 1 / 2;
+}
+
+.sign {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.sign .board {
+  position: relative;
+  padding: 7px 26px 7px 12px;
+  background: var(--c-rust);
+  box-shadow: inset 0 -4px 0 0 var(--c-bark), inset 0 3px 0 0 rgba(244, 240, 228, 0.18);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+}
+
+.sign .board code {
+  padding: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--c-bone);
+  background: none;
+}
+
+.sign .post {
+  width: 8px;
+  height: 22px;
+  margin-left: 18px;
+  background: var(--c-bark);
+  box-shadow: inset 3px 0 0 0 var(--c-rust);
+}
+
+.arrow {
+  position: relative;
+  height: 4px;
+  margin: 0 12px 22px 6px;
+  background: var(--accent);
+  transform-origin: left;
+}
+
+.arrow::after {
+  content: "";
+  position: absolute;
+  right: -10px;
+  top: -6px;
+  border-left: 12px solid var(--accent);
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+}
+
+.sign-row .arrow {
+  animation: ex-draw 0.4s steps(5) backwards;
+  animation-delay: calc(var(--ex-at) + 0.3s);
+}
+
+.sign-row.new {
+  animation: ex-rise 0.35s steps(4) backwards;
+  animation-delay: var(--ex-at);
+}
+
+/* A removed name: the board falls and only its outline is left. */
+.sign-row.gone > .sign,
+.sign-row.gone > .arrow {
+  opacity: 0;
+  animation: ex-fall 0.6s steps(6);
+  animation-delay: var(--ex-at);
+}
+
+.sign-row.gone > .ghost {
+  animation: ex-pop 0.32s steps(4) backwards;
+  animation-delay: calc(var(--ex-at) + 0.5s);
+}
+
+@keyframes ex-fall {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(30px) rotate(12deg); }
+}
+
+.ghost {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  color: var(--muted);
+  box-shadow: inset 0 0 0 2px var(--c-slate);
+  outline: 2px dashed var(--c-slate);
+  outline-offset: -2px;
+}
+
+.ghost small {
+  font-family: var(--font-prose);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.block {
+  grid-column: 2;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 16px;
+  color: var(--c-bark);
+  background: var(--parchment);
+  box-shadow: inset 0 0 0 4px var(--parchment-edge), 6px 6px 0 0 rgba(0, 0, 0, 0.45);
+}
+
+.block .inode {
+  align-self: flex-start;
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-bone);
+  background: var(--c-plum);
+}
+
+.block .inode.marked {
+  animation: ex-flash 0.8s steps(4) backwards;
+  animation-delay: var(--ex-at);
+}
+
+.block .text {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.block .added {
+  display: block;
+  color: var(--c-moss);
+  font-weight: 600;
+  animation: ex-write 0.6s steps(12) backwards;
+  animation-delay: var(--ex-at);
+}
+
+@keyframes ex-write {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0); }
+}
+
+.explainer .tag {
+  align-self: flex-start;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.explainer .tag.ok {
+  color: var(--c-ink);
+  background: var(--good);
+}
+
+.explainer .tag.bad {
+  color: var(--c-bone);
+  background: var(--danger);
+}
+
+/* Soft links: a purple sign pointing at a grey name sign, then at a door. */
+
+.chain {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+.chain > .arrow {
+  flex: 1 1 28px;
+  min-width: 28px;
+  margin: 0 14px 24px 4px;
+}
+
+.node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.node > small,
+.aside > small {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+
+.sign.soft .board {
+  background: var(--c-plum);
+  box-shadow: inset 0 -4px 0 0 #43215f, inset 0 3px 0 0 rgba(244, 240, 228, 0.18);
+}
+
+.sign.name .board {
+  max-width: 190px;
+  background: var(--c-stone);
+  box-shadow: inset 0 -4px 0 0 var(--c-night), inset 0 3px 0 0 rgba(244, 240, 228, 0.12);
+}
+
+.sign.name .board code {
+  font-size: 14px;
+  color: var(--term-path);
+  white-space: normal;
+}
+
+.link-node.new {
+  animation: ex-rise 0.35s steps(4) backwards;
+  animation-delay: var(--ex-at);
+}
+
+.arrow.soft {
+  background: repeating-linear-gradient(to right, var(--magic) 0 8px, transparent 8px 12px);
+}
+
+.arrow.soft::after {
+  border-left-color: var(--magic);
+}
+
+.chain > .arrow.soft {
+  animation: ex-draw 0.4s steps(5) backwards;
+  animation-delay: var(--ex-at);
+}
+
+.arrow.plain {
+  background: var(--c-mist);
+}
+
+.arrow.plain::after {
+  border-left-color: var(--c-mist);
+}
+
+.door {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.door svg {
+  width: 50px;
+  height: auto;
+}
+
+/* Broken: the name is gone, the soft link turns red and points at nothing. */
+.ex-links.broken .chain {
+  justify-content: flex-start;
+}
+
+.ex-links.broken .chain > .arrow {
+  flex: 0 0 110px;
+}
+
+.ex-links.broken .sign.soft .board {
+  background: var(--danger);
+  box-shadow: inset 0 -4px 0 0 #8a1f2a;
+  animation: ex-redden 0.3s steps(3) backwards;
+  animation-delay: var(--ex-at);
+}
+
+@keyframes ex-redden {
+  from { background: var(--c-plum); box-shadow: inset 0 -4px 0 0 #43215f; }
+}
+
+.arrow.soft.snaps {
+  background: repeating-linear-gradient(to right, var(--danger) 0 8px, transparent 8px 12px);
+  animation: ex-snap 0.3s steps(3) backwards;
+  animation-delay: var(--ex-at);
+}
+
+.arrow.soft.snaps::after {
+  border-left-color: var(--danger);
+}
+
+@keyframes ex-snap {
+  from { filter: hue-rotate(70deg) saturate(0.6); }
+}
+
+.name-node.moved {
+  opacity: 0.55;
+  animation: ex-fade-out 0.5s steps(4) backwards;
+  animation-delay: var(--ex-at);
+}
+
+.name-node.moved .board {
+  clip-path: none;
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--c-slate);
+  outline: 2px dashed var(--danger);
+  outline-offset: -2px;
+}
+
+.name-node.moved .board code {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+@keyframes ex-fade-out {
+  from { opacity: 1; }
+}
+
+.ex-links.broken > .tag.bad {
+  display: inline-block;
+  margin: 12px 0 0;
+  font-size: 14px;
+}
+
+.aside {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  margin-top: 18px;
+  padding: 12px 14px;
+  background: var(--c-night);
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+
+.aside .sign .post {
+  display: none;
+}
+
+.aside > .arrow {
+  flex: 0 0 40px;
+  margin: 0 18px 0 4px;
+}
+
+.aside .door svg {
+  width: 36px;
+}
+
+.aside > small,
+.aside > .tag {
+  margin-left: 16px;
+}
+
+.aside.moved-to > small {
+  text-align: left;
+}
+
+.mini-block {
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-bark);
+  background: var(--parchment);
+  box-shadow: inset 0 0 0 3px var(--parchment-edge);
+}
+
+
+/* The teleport: walk into the portal at home, come out of it in the cave. */
+
+.ex-teleport {
+  --t: 0s;
+  --in: 37%;
+  --out: 60%;
+  --stop: 72%;
+  position: relative;
+  height: 300px;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  box-shadow: inset 0 0 0 3px var(--line);
+}
+
+.zone {
+  position: relative;
+  padding: 10px;
+}
+
+.zone::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 64px;
+}
+
+.zone.home {
+  background: linear-gradient(#24365a, #2f4a3a);
+}
+
+.zone.home::after {
+  background:
+    repeating-linear-gradient(to right, transparent 0 14px, rgba(0, 0, 0, 0.18) 14px 16px),
+    var(--c-moss);
+  box-shadow: inset 0 6px 0 0 var(--c-leaf);
+}
+
+.zone.cave {
+  background:
+    radial-gradient(circle at 30% 60%, rgba(199, 146, 255, 0.18), transparent 55%),
+    var(--c-ink);
+  box-shadow: inset 4px 0 0 0 var(--c-stone);
+}
+
+.zone.cave::after {
+  background:
+    repeating-linear-gradient(to right, transparent 0 22px, rgba(0, 0, 0, 0.3) 22px 24px),
+    var(--c-stone);
+  box-shadow: inset 0 6px 0 0 var(--c-slate);
+}
+
+.zone-name code {
+  font-size: 14px;
+  color: var(--term-path);
+  background: rgba(11, 10, 18, 0.75);
+}
+
+.portal {
+  position: absolute;
+  bottom: 56px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  translate: -50% 0;
+}
+
+.portal.in { left: var(--in); }
+.portal.out { left: var(--out); }
+
+.portal svg {
+  width: 72px;
+  height: auto;
+  filter: drop-shadow(0 0 6px var(--magic));
+  animation: ex-glow 1.6s steps(4) infinite alternate;
+}
+
+.portal code {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--magic);
+}
+
+@keyframes ex-glow {
+  to { filter: drop-shadow(0 0 14px var(--magic)); }
+}
+
+.sparks {
+  position: absolute;
+  left: 50%;
+  top: 36px;
+}
+
+.sparks i {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: var(--magic);
+  opacity: 0;
+  animation: ex-spark 0.5s steps(5);
+}
+
+.portal.in .sparks i { animation-delay: calc(var(--t) + 1.2s); }
+.portal.out .sparks i { animation-delay: calc(var(--t) + 1.55s); }
+.sparks i:nth-child(1) { --dx: -34px; --dy: -30px; }
+.sparks i:nth-child(2) { --dx: 34px; --dy: -26px; background: var(--accent); }
+.sparks i:nth-child(3) { --dx: -28px; --dy: 26px; background: var(--accent); }
+.sparks i:nth-child(4) { --dx: 30px; --dy: 30px; }
+
+@keyframes ex-spark {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translate(var(--dx), var(--dy)); }
+}
+
+.loot {
+  position: absolute;
+  left: 88%;
+  bottom: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  translate: -50% 0;
+}
+
+.loot svg {
+  width: 40px;
+  height: auto;
+  animation: ex-bob 1.2s steps(2) infinite;
+}
+
+.loot code {
+  font-size: 12px;
+}
+
+@keyframes ex-bob {
+  50% { transform: translateY(-4px); }
+}
+
+.walker {
+  position: absolute;
+  bottom: 58px;
+  z-index: 2;
+  width: 50px;
+  height: 60px;
+  translate: -50% 0;
+}
+
+.walker svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.walker .frame-b {
+  opacity: 0;
+}
+
+.walker.going {
+  left: var(--in);
+  opacity: 0;
+  animation: ex-walk-in 1.5s linear backwards;
+  animation-delay: var(--t);
+}
+
+@keyframes ex-walk-in {
+  from { left: 9%; opacity: 1; transform: none; }
+  80% { left: var(--in); opacity: 1; transform: none; }
+  to { left: var(--in); opacity: 0; transform: scale(0.1) rotate(180deg); }
+}
+
+.walker.arrived {
+  left: var(--stop);
+  animation: ex-walk-out 1.1s linear backwards;
+  animation-delay: calc(var(--t) + 1.55s);
+}
+
+@keyframes ex-walk-out {
+  from { left: var(--out); opacity: 0; transform: scale(0.1) rotate(-180deg); }
+  25% { left: var(--out); opacity: 1; transform: none; }
+  to { left: var(--stop); }
+}
+
+.walker.going .frame-b,
+.walker.arrived .frame-b {
+  animation: ex-step 0.3s steps(1) 4;
+}
+
+.walker.going .frame-b { animation-delay: var(--t); }
+.walker.arrived .frame-b { animation-delay: calc(var(--t) + 1.85s); animation-iteration-count: 3; }
+
+@keyframes ex-step {
+  50% { opacity: 1; }
+}
+
+.bubble {
+  position: absolute;
+  left: var(--stop);
+  bottom: 130px;
+  z-index: 3;
+  padding: 4px 10px;
+  font-family: var(--font-title);
+  font-size: 16px;
+  white-space: nowrap;
+  color: var(--c-ink);
+  background: var(--c-bone);
+  box-shadow: 0 0 0 3px var(--c-ink);
+  translate: -50% 0;
+  animation: ex-pop 0.32s steps(4) backwards;
+  animation-delay: calc(var(--t) + 2.7s);
+}
+
+.bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  margin-left: -6px;
+  border-top: 8px solid var(--c-bone);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+}
+
+/* The recap table. */
+
+.ex-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 6px;
+  font-size: 16px;
+}
+
+.ex-table th,
+.ex-table td {
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.ex-table thead th {
+  font-family: var(--font-title);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--c-bone);
+}
+
+.ex-table thead th.hard {
+  background: var(--c-rust);
+  box-shadow: inset 0 -4px 0 0 var(--c-bark);
+}
+
+.ex-table thead th.soft {
+  background: var(--c-plum);
+  box-shadow: inset 0 -4px 0 0 #43215f;
+}
+
+.ex-table thead td {
+  width: 34%;
+}
+
+.ex-table thead code {
+  display: table;
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--c-bone);
+  background: rgba(11, 10, 18, 0.5);
+}
+
+.ex-table tbody th {
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.ex-table tbody td {
+  background: var(--c-night);
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+
+.ex-table .chip {
+  font-size: 14px;
+}
+
+@media (max-width: 760px) {
+  .explainer {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: "head" "caption" "term" "stage" "nav";
+    padding: 14px 14px 0;
+    gap: 14px;
+  }
+
+  .ex-name {
+    font-size: 19px;
+  }
+
+  .ex-caption {
+    font-size: 16px;
+  }
+
+  .ex-caption h3 {
+    font-size: 17px;
+  }
+
+  .ex-screen {
+    font-size: 12.5px;
+  }
+
+  .ex-stage {
+    min-height: 0;
+    padding: 14px 10px 50px;
+  }
+
+  .ex-file {
+    margin-bottom: 14px;
+    padding: 8px 6px;
+    font-size: 13px;
+  }
+
+  .ex-file .meta {
+    display: none;
+  }
+
+  .ex-sets {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .ex-set .bits {
+    font-size: 26px;
+  }
+
+  .rung {
+    grid-template-columns: 30px minmax(0, 1fr) 62px;
+    grid-template-areas: "spot q letters" "spot chip letters";
+    gap: 4px 8px;
+    padding: 8px;
+    font-size: 14px;
+  }
+
+  .rung .spot { grid-area: spot; }
+  .rung .q { grid-area: q; }
+  .rung .chip { grid-area: chip; justify-self: start; }
+  .rung .letters { grid-area: letters; }
+
+  .rung .letters code {
+    font-size: 17px;
+  }
+
+  .ex-walk {
+    grid-template-columns: minmax(0, 62px) repeat(var(--cols), minmax(0, 1fr));
+    gap: 4px;
+    font-size: 13px;
+  }
+
+  .ex-walk .rh {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding-right: 0;
+    font-size: 11.5px;
+    line-height: 1.2;
+  }
+
+  .ex-walk .chip {
+    white-space: normal;
+    text-align: center;
+  }
+
+  .ex-walk .cell {
+    min-height: 38px;
+    padding: 4px 2px;
+  }
+
+  .ex-walk .chip {
+    padding: 1px 4px;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+
+  .ex-signs {
+    row-gap: 20px;
+  }
+
+  .sign .board {
+    padding: 6px 20px 6px 8px;
+  }
+
+  .sign .board code {
+    font-size: 14px;
+  }
+
+  .block {
+    padding: 10px;
+  }
+
+  .block .text {
+    font-size: 13px;
+  }
+
+  .chain {
+    flex-direction: column;
+  }
+
+  .chain > .arrow {
+    flex: 0 0 34px;
+    width: 4px;
+    height: 34px;
+    min-width: 0;
+    margin: 4px 0 14px;
+    transform-origin: top;
+  }
+
+  .chain > .arrow::after {
+    right: -6px;
+    top: auto;
+    bottom: -10px;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 12px solid var(--c-mist);
+    border-bottom: 0;
+  }
+
+  .chain > .arrow.soft {
+    background: repeating-linear-gradient(to bottom, var(--magic) 0 8px, transparent 8px 12px);
+    animation-name: ex-draw-down;
+  }
+
+  .chain > .arrow.soft::after {
+    border-top-color: var(--magic);
+  }
+
+  .chain > .arrow.soft.snaps {
+    background: repeating-linear-gradient(to bottom, var(--danger) 0 8px, transparent 8px 12px);
+  }
+
+  .chain > .arrow.soft.snaps::after {
+    border-top-color: var(--danger);
+  }
+
+  .ex-links.broken .chain {
+    align-items: center;
+  }
+
+  .sign.name .board {
+    max-width: 230px;
+  }
+
+  .aside {
+    padding: 10px;
+  }
+
+  .aside > .arrow {
+    flex-basis: 26px;
+    margin-right: 14px;
+  }
+
+  .aside > small,
+  .aside > .tag {
+    flex-basis: 100%;
+    margin: 4px 0 0;
+  }
+
+  .ex-teleport {
+    height: 240px;
+  }
+
+  .zone-name code {
+    font-size: 11px;
+  }
+
+  .ex-teleport {
+    --in: 30%;
+    --out: 58%;
+    --stop: 75%;
+  }
+
+  .portal svg {
+    width: 40px;
+  }
+
+  .portal code {
+    font-size: 11px;
+  }
+
+  .walker {
+    width: 32px;
+    height: 38px;
+  }
+
+  .loot {
+    left: 91%;
+  }
+
+  .loot svg {
+    width: 28px;
+  }
+
+  .loot code {
+    display: none;
+  }
+
+  .bubble {
+    bottom: 104px;
+    font-size: 13px;
+  }
+
+  .ex-table {
+    font-size: 13.5px;
+    border-spacing: 4px;
+  }
+
+  .ex-table th,
+  .ex-table td {
+    padding: 6px;
+  }
+
+  .ex-table thead th {
+    font-size: 14px;
+  }
+
+  .ex-table thead code {
+    display: inline-block;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ex-nav .dots {
+    display: none;
+  }
+}
