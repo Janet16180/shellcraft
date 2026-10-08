@@ -54,8 +54,10 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
 - Merged: `slice/sudo` (sudo with a hidden password prompt, `password()` op, `tee`, chown as root,
   records carry `user`) and the links art. Chapter 18 The Crown (`crown`, password `dragon`) is
   written. The guild hall `/srv/guild` now comes from `realm()`. 2343 tests, difftest 0 failures.
-- Running agents: backend `slice/jobs` (job control: `&`, `jobs`, `fg`, `bg`, Ctrl+Z, Ctrl+C) for
-  chapter 20; frontend `slice/ui3` (sudo prompt polish, Ctrl+R search, crown map art).
+- Merged `slice/ui3` (sudo prompt fixes, Ctrl+R/A/E, keys under the map's ?, throne room and
+  /srv service rooms). Chapter 19 The Scribe's Memory (`memory`) is written. 2412 tests.
+- Running agents: backend `slice/jobs` (job control) for chapter 20; frontend `slice/ui3` (art for
+  `~/portals`, `~/maze`, `~/memory`). Chapter 21 (tar) needs a `tar` engine after jobs.
 
 ## State at 2026-10-08, evening (act III started)
 
