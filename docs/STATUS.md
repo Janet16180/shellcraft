@@ -40,8 +40,11 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
   `ctx.inode`, `ctx.linkTarget`) and `slice/art3` (Guild wing, other homes with their owners,
   `~/guild`, `~/hall` rooms, dark door for x-without-r, portal sprite). Chapter 17 Portals
   (`portals`) is written. 2249 tests, difftest 0 failures.
-- Running agents: backend `slice/sudo` (sudo with a hidden password prompt, chown as root) for
-  chapter 18; frontend art on `slice/art3` (portals and broken links on the map, `c-link`/`c-orphan`).
+- Merged: `slice/sudo` (sudo with a hidden password prompt, `password()` op, `tee`, chown as root,
+  records carry `user`) and the links art. Chapter 18 The Crown (`crown`, password `dragon`) is
+  written. The guild hall `/srv/guild` now comes from `realm()`. 2343 tests, difftest 0 failures.
+- Running agents: backend `slice/jobs` (job control: `&`, `jobs`, `fg`, `bg`, Ctrl+Z, Ctrl+C) for
+  chapter 20; frontend `slice/ui3` (sudo prompt polish, Ctrl+R search, crown map art).
 
 ## State at 2026-10-08, evening (act III started)
 
