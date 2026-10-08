@@ -29,6 +29,7 @@ export function roster(home) {
     { kind: 'locked', name: 'Padlocked door', what: 'A directory you have no permission to enter.' },
     { kind: 'dark-door', name: 'Dark door', what: 'A directory you may enter but not list: it has x but no r for you.' },
     { kind: 'chained', name: 'Chained item', what: 'A file you have no permission to read.' },
+    { kind: 'twins', name: 'Matching runes', what: 'Two names of one file (hard links, made with <code>ln</code>): <code>ls -i</code> shows the same inode number.' },
   ];
 }
 

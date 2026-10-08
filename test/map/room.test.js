@@ -172,3 +172,22 @@ test('the real path of a directory reached through a link is where the link lead
   assert.equal(realPath(tree, '/'), '/');
   assert.equal(realPath(tree, '/home/hero/broken'), '/home/hero/broken');
 });
+
+test('a file with more than one name carries its inode as its twin mark; a file with one name has none', () => {
+  const tree = sampleTree();
+  const hero = tree.children.home.children.hero.children;
+  hero['scroll.txt'] = { ...file('A map.\n', { owner: 'hero' }), ino: 1847, links: 2 };
+  hero['copy.txt'] = { ...file('A map.\n', { owner: 'hero' }), ino: 1847, links: 2 };
+  hero['readme.txt'] = { ...hero['readme.txt'], ino: 12, links: 1 };
+  hero.old_portal = { ...symlink('scroll.txt', { owner: 'hero' }), ino: 1900, links: 1 };
+  const items = Object.fromEntries(readRoom(observe('/home/hero', { tree }), none).items.map(item => [item.name, item.twin]));
+  assert.deepEqual(items, { 'copy.txt': 1847, old_portal: null, 'readme.txt': null, 'scroll.txt': 1847 });
+});
+
+test('a directory never gets a twin mark, whatever its link count', () => {
+  const tree = sampleTree();
+  tree.children.home.children.hero.children.forest.ino = 40;
+  tree.children.home.children.hero.children.forest.links = 4;
+  const forest = readRoom(observe('/home/hero', { tree }), none).doors.find(door => door.name === 'forest');
+  assert.equal(forest.twin, null);
+});

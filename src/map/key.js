@@ -41,6 +41,13 @@ const KEYS = {
   item: { w: 24, h: 22, paint: ctx => drawItem(ctx, ITEM, 'cottage', 0, 0) },
   chained: { w: 24, h: 22, paint: ctx => drawItem(ctx, { ...ITEM, locked: true }, 'cottage', 0, 0) },
   runnable: { w: 24, h: 22, paint: ctx => drawItem(ctx, { ...ITEM, name: 'spell.sh', runnable: true }, 'cottage', 0, 0) },
+  twins: {
+    w: 46, h: 24,
+    paint: ctx => {
+      drawItem(ctx, { ...ITEM, x: 4, y: 6, name: 'scroll.txt', twin: 1847 }, 'cottage', 0, 0);
+      drawItem(ctx, { ...ITEM, x: 26, y: 6, name: 'copy.txt', twin: 1847 }, 'cottage', 0, 0);
+    },
+  },
   hidden: { w: 24, h: 22, paint: ctx => drawItem(ctx, { ...ITEM, name: '.secret_map', hidden: true }, 'cottage', 200, 0) },
   'dungeon-door': { w: 28, h: 36, paint: ctx => dungeon.door(ctx, { ...DOOR, x: 3, path: '/etc' }, { home: HOME }) },
   'home-door': { w: 36, h: 50, paint: ctx => dungeon.door(ctx, { ...DOOR, x: 7, path: HOME }, { home: HOME }) },
@@ -57,7 +64,7 @@ export const KEY_KINDS = Object.keys(KEYS);
  * Kinds: hero, door, locked (a padlocked door), dark-door (a door ajar on darkness:
  * x without r), exit (..), stairs-down (.. from
  * home, into the dungeon), item (a file), chained (a file you may not read),
- * runnable (a file you may run), hidden (a dotfile), dungeon-door (a directory
+ * runnable (a file you may run), twins (two names of one file, hard links, sharing a rune), hidden (a dotfile), dungeon-door (a directory
  * outside your home), home-door (the door back into your home, from /home), imp (a
  * process), armoured-imp (a process that ignores a polite kill), daemon (the Shadow Daemon).
  *

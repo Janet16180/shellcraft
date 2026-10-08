@@ -18,6 +18,8 @@ import { nodeAt, walkPath, compareNames, joinPath, parentOf } from '../backend/t
  * @property {string|null} link A symbolic link's target as written, or null for anything else.
  * @property {boolean} dangling A symbolic link that leads nowhere.
  * @property {boolean} runnable An item the player may execute.
+ * @property {number|null} twin For a file with more than one name (hard links), its inode number,
+ *   which every name of it shares; null otherwise.
  */
 
 /**
@@ -45,6 +47,7 @@ function entry(tree, dir, name, node, who) {
     link: isLink ? node.target : null,
     dangling: isLink && nodeAt(tree, path) === null,
     runnable: !isDir && !isLink && allows(node, 'x', who),
+    twin: node.type === 'file' && node.links > 1 ? node.ino : null,
   };
 }
 

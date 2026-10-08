@@ -7,6 +7,7 @@ import { GEMS, INK, TOON, DAEMON, PEOPLE, BROKEN_PORTAL } from './palette.js';
 import { SPRITES } from './sprites.js';
 import { itemKind } from './room.js';
 import { box, drawSprite } from './paint.js';
+import { twinRune } from './twins.js';
 
 const ITEM_SCALE = 2;
 
@@ -92,7 +93,8 @@ function sprite(kind, item, t) {
 /**
  * Draw an item: its sprite bobbing gently, a glow under anything the player
  * may run, a twinkle on hidden files, a wax seal in its owner's colour when a
- * person of the realm owns it, chains on anything they may not read.
+ * person of the realm owns it, a rune shared by the names of one file (hard
+ * links), chains on anything they may not read.
  *
  * @param {CanvasRenderingContext2D} ctx The art canvas.
  * @param {import('./layout.js').Placed} item The item.
@@ -116,7 +118,15 @@ export function drawItem(ctx, item, biome, t, i) {
     box(ctx, INK.w, x + 13, y - 1, 3, 1);
   }
   if (Object.hasOwn(PEOPLE, item.owner ?? '')) seal(ctx, x, y + 11, PEOPLE[item.owner].h);
+  if (item.twin !== null && item.twin !== undefined) rune(ctx, x + 12, y - 3, twinRune(item.twin));
   if (item.locked) chainItem(ctx, x, y);
+}
+
+// A small rune stone at the item's top right: names of one file share it.
+function rune(ctx, x, y, { colour, glyph }) {
+  box(ctx, INK.k, x - 1, y - 1, 9, 9);
+  box(ctx, INK.n, x, y, 7, 7);
+  glyph.forEach((row, gy) => [...row].forEach((bit, gx) => { if (bit === '1') box(ctx, colour, x + 1 + gx, y + 1 + gy, 1, 1); }));
 }
 
 const CRACK = [[5, 3], [6, 5], [7, 6], [7, 8], [6, 9], [7, 11], [8, 12], [8, 14], [7, 16]];
