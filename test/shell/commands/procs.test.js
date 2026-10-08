@@ -20,6 +20,14 @@ test('ps shows the terminal processes; ps aux and ps -ef show all', async () => 
   assert.match((await run(b, 'ps -ef')).out, /^UID {10}PID {4}PPID/);
 });
 
+test('ps -aux and ps -ux are read as BSD aux and ux, as procps does when there is no user x', async () => {
+  const b = await withProcs();
+  const shape = out => out.split('\n').map(l => l.split(/ +/).slice(0, 3).join(' ').replace(/ \d+ /, ' N '));
+  assert.deepEqual(shape((await run(b, 'ps -aux')).out), shape((await run(b, 'ps aux')).out));
+  assert.match((await run(b, 'ps -aux')).out, /shadow_daemon/);
+  assert.match((await run(b, 'ps -ux')).out, /^USER {9}PID %CPU/);
+});
+
 test('kill sends TERM by default and removes the process', async () => {
   const b = await withProcs();
   const r = await run(b, `kill ${await pidOf(b, 'sleeper')}`);

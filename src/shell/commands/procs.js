@@ -178,7 +178,9 @@ function ps(args, { sys }) {
   let all = false;
   let full = false;
   let user = false;
-  for (const x of args) {
+  for (const arg of args) {
+    // procps reads -aux as `-a -u x`, finds no user x, and falls back to BSD aux.
+    const x = /^-a?ux$/.test(arg) ? arg.slice(1) : arg;
     const dashed = x.startsWith('-');
     if (dashed && /[eA]/.test(x)) all = true;
     if (dashed && x.includes('f')) full = true;
