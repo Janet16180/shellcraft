@@ -30,14 +30,22 @@ const textIn = (ctx, path) => (ctx.node(path)?.type === 'file' ? ctx.node(path).
 const typed = (ctx, pattern) => pattern.test(ctx.line.trim());
 const uses = (ctx, name) => new RegExp(`\\$(${name}\\b|\\{${name}\\})`).test(ctx.line);
 
-const out = (record, ops = ['>', '>>']) => record.redirects.find(r => ops.includes(r.op.replace(/^1/, '')));
-const err = record => record.redirects.find(r => r.op === '2>' || r.op === '2>>');
+// &> sends both streams to one place, so it counts for each.
+const out = (record, ops = ['>', '>>', '&>', '&>>']) => record.redirects.find(r => ops.includes(r.op.replace(/^1/, '')));
+const err = record => record.redirects.find(r => ['2>', '2>>', '&>', '&>>'].includes(r.op));
 const errTo = (record, path) => err(record)?.target === path;
 const echoed = (ctx, text) => ctx.ran('echo', record => record.stdout === `${text}\n`);
 const listsBucket = (ctx, pred) => ctx.tried('ls', record => ctx.hasPath(record, bucketOf(ctx)) && record.status !== 0 && pred(record));
 const statusPrinted = ctx => (ctx.line.includes('$?') ? ctx.commands.find(r => r.name === 'echo' && /^\d+\n$/.test(r.stdout)) ?? null : null);
+// On one line, the command just before echo $? must be the ls of the bucket.
+const statusOfOther = ctx => {
+  const at = ctx.commands.indexOf(statusPrinted(ctx));
+  const prior = at > 0 ? ctx.commands[at - 1] : null;
+  return prior !== null && !(prior.name === 'ls' && ctx.hasPath(prior, bucketOf(ctx)));
+};
 
 const MISTYPED_ASSIGNMENT = [
+  [ctx => typed(ctx, /^wish=\S+\s+\S/), 'wish=gold in front of a command sets it only for that command, and $wish was read before that. Type wish=gold on its own line first.'],
   [ctx => typed(ctx, /^\$\{?wish\}?\s*=/), 'No $ when you make a variable: $wish asks for its value. Type wish=gold.'],
   [ctx => typed(ctx, /^wish\s+=|^wish=\s/), 'No spaces around =: with spaces, bash runs a command named wish. Type wish=gold.'],
 ];
@@ -165,8 +173,11 @@ export default {
         'Replace each `"` with `\'`.',
         'echo \'I wish for $wish\'',
       ],
-      done: ctx => echoed(ctx, 'I wish for $wish'),
-      near: ctx => (echoed(ctx, 'I wish for gold') ? 'Double quotes let $wish turn into its value. Use single quotes \' \' to keep it as it is.' : null),
+      done: ctx => echoed(ctx, 'I wish for $wish') && ctx.line.includes("'"),
+      near: ctx => firstNote([
+        [() => echoed(ctx, 'I wish for gold'), 'Double quotes let $wish turn into its value. Use single quotes \' \' to keep it as it is.'],
+        [() => echoed(ctx, 'I wish for $wish') && !ctx.line.includes("'"), 'That works too: a \\ keeps the next $ as it is. This task is about single quotes: echo \'I wish for $wish\'.'],
+      ]),
     },
     {
       goal: 'List `~/well/bucket.txt`, which is not there, and right after it print the exit status (`echo $?`)',
@@ -176,8 +187,9 @@ export default {
         'First `ls ~/well/bucket.txt`, then `echo $?`, with nothing in between.',
         'echo $?',
       ],
-      done: ctx => statusPrinted(ctx)?.stdout !== undefined && statusPrinted(ctx).stdout !== '0\n',
+      done: ctx => statusPrinted(ctx)?.stdout !== undefined && statusPrinted(ctx).stdout !== '0\n' && !statusOfOther(ctx),
       near: ctx => firstNote([
+        [() => statusOfOther(ctx), 'That is the status of another command. Run ls ~/well/bucket.txt, then echo $? straight after it.'],
         [() => statusPrinted(ctx)?.stdout === '0\n', '0 means the command just before echo worked. Type ls ~/well/bucket.txt first, then echo $? on the very next line.'],
         [() => ctx.ran('echo', record => record.stdout === '?\n' || record.stdout === '$?\n'), 'Write it as $? with nothing between: echo $?.'],
       ]),
