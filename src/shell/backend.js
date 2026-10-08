@@ -15,6 +15,9 @@ import { saveState, restoreState, createTape } from './snapshot.js';
 import { expire, reap, notify, markOf } from './jobs.js';
 
 const CLEAR_MARK = '\u001b[2J';
+// How much of the shell's state an observation carries: names in definition order, values cut.
+const MAX_NAMES = 256;
+const MAX_VALUE = 4096;
 
 function collector(sys, events = []) {
   const run = { chunks: [], records: [], blocked: [], depth: 0, pipelines: 0, waiting: null, taken: 0, cancelled: false };
@@ -109,6 +112,18 @@ function startShell(sys) {
   if (lookup(sys.root, `${sys.home}/.bashrc`)) executeLine({ sys, commands: COMMANDS, run }, '. ~/.bashrc', run.sink);
 }
 
+// The first names of a table, as plain objects (Object.fromEntries keeps `__proto__` an ordinary key).
+function shellState(sys) {
+  const first = table => Object.entries(table).slice(0, MAX_NAMES);
+  const aliases = Object.fromEntries(first(sys.aliases).map(([name, text]) => [name, text.slice(0, MAX_VALUE)]));
+  const vars = Object.fromEntries(first(sys.vars).map(([name, v]) => {
+    const entry = { value: v.value.slice(0, MAX_VALUE), exported: v.exported };
+    if (v.value.length > MAX_VALUE) entry.truncated = true;
+    return [name, entry];
+  }));
+  return { aliases, vars };
+}
+
 function observe(sys) {
   expire(sys);
   const procs = sys.procs.map(p => {
@@ -124,7 +139,7 @@ function observe(sys) {
     return { id: job.id, pid: job.pid, cmd: job.text, state, mark: markOf(sys, job) };
   });
   numberInodes(sys);
-  return { user: sys.user, groups: groupNames(sys), host: sys.host, home: sys.home, cwd: sys.cwd, tree: snapshot(sys.root), procs, jobs };
+  return { user: sys.user, groups: groupNames(sys), host: sys.host, home: sys.home, cwd: sys.cwd, tree: snapshot(sys.root), procs, jobs, ...shellState(sys) };
 }
 
 /**

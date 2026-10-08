@@ -354,3 +354,14 @@ test('a value glued to tar\'s f or C is not read as option letters', () => {
   assert.equal(ctx.flag(record('tar', ['-xfa.tar', '-Czz']), 'z'), false);
   assert.equal(ctx.flag(record('tar', ['-xfa.tar', '-Czz']), 'C'), true);
 });
+
+test('alias and variable read the shell state after the line, or null', () => {
+  const ctx = context([], { aliases: { up: 'cd ..' }, vars: { realm: { value: 'Kernelia', exported: false } } });
+  assert.equal(ctx.alias('up'), 'cd ..');
+  assert.equal(ctx.alias('down'), null);
+  assert.deepEqual(ctx.variable('realm'), { value: 'Kernelia', exported: false });
+  assert.equal(ctx.variable('KEEPER'), null);
+  assert.equal(ctx.variable('constructor'), null);
+  assert.equal(ctx.alias('toString'), null);
+  assert.equal(context([]).alias('up'), null);
+});

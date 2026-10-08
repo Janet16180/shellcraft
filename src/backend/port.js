@@ -187,6 +187,18 @@
  * @property {TreeNode} tree The world, rooted at '/'.
  * @property {ProcRecord[]} procs
  * @property {JobRecord[]} jobs The shell's jobs, by number.
+ * @property {Record<string, string>} aliases The player's shell's aliases, name to text:
+ *   `alias up='cd ..'` gives `{up: 'cd ..'}`.
+ * @property {Record<string, ShellVar>} vars The player's shell's variables, exported or not:
+ *   `realm=Kernelia` gives `{realm: {value: 'Kernelia', exported: false}}`. No special
+ *   parameters (`$?`, `$$`) and no positional ones (`$1`); the password is in no variable.
+ *   Both tables hold at most the first 256 names (in the order the shell made them), and a
+ *   value is cut to 4096 characters (a variable cut so has `truncated: true`). A script or
+ *   `bash -c` has a shell of its own: what it sets is not here.
+ */
+
+/**
+ * @typedef {{value: string, exported: boolean, truncated?: true}} ShellVar
  */
 
 /**

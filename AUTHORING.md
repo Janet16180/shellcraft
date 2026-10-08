@@ -93,6 +93,12 @@ The check context `ctx` (implemented in `src/game/checks.js`) sees only the port
   (`user: 'root'`, `via: 'sudo'`), sharing the pipeline place and redirections. "chown ran as root" is
   `ctx.ran('chown', r => r.user === 'root')`; a plain `chown` by the player has `user: 'hero'`.
 - `ctx.tried(name, pred?)`: same, any exit status.
+- `ctx.alias(name)`: the text of the player's shell's alias after the line (`'cd ..'` after
+  `alias up='cd ..'`, or after `source ~/.bashrc` that holds it), or `null`. `ctx.variable(name)`: the
+  shell's variable, `{ value, exported }`, or `null`: `ctx.variable('realm')?.exported === false` is
+  "made, not exported". Judge the effect with these rather than the text of `.bashrc`. They read the
+  Observation's `aliases` and `vars` (src/backend/port.js; at most 256 names, values cut to 4096
+  characters); what a script or `bash -c` sets is its own shell's and is not there.
 - `ctx.jobs`: the shell's jobs after the line, `[{ id, pid, cmd, state, mark }]`, `state` being
   `'running'`, `'stopped'` or `'done'` (the process is gone, not yet reported) and `mark` `'+'`
   (current), `'-'` (previous) or `' '`. `ctx.job(1)` is job `%1`, or `null`.

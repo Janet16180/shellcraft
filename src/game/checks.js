@@ -200,6 +200,8 @@ export function makeContext({ commands, before, obs, completions = [], line = ''
     gzipped: path => gzippedText(nodeAt(obs.tree, path)),
     proc: key => obs.procs.find(p => p.key === key) ?? null,
     jobs: obs.jobs ?? [],
+    alias: name => (obs.aliases && Object.hasOwn(obs.aliases, name) ? obs.aliases[name] : null),
+    variable: name => (obs.vars && Object.hasOwn(obs.vars, name) ? obs.vars[name] : null),
     job: id => (obs.jobs ?? []).find(j => j.id === id) ?? null,
     ended: id => jobEnded(before, obs, id),
     pressed: (key, name = null) => {
