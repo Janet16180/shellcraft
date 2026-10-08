@@ -31,6 +31,27 @@ export function padlockDoor(ctx, { x, y, w, h }) {
   drawSprite(ctx, SPRITES.padlock, x + w / 2 - 7, y + h / 2 - 8, { scale: 2 });
 }
 
+const QUERY = ['.lll.', 'l...l', '....l', '..ll.', '..l..', '.....', '..l..'];
+
+/**
+ * Show a door the player may enter but not list (x without r): it stands ajar
+ * on darkness, with a question mark where the room should be.
+ *
+ * @param {CanvasRenderingContext2D} ctx The art canvas.
+ * @param {{x: number, y: number, w: number, h: number}} door The door box.
+ * @param {string} leaf Colour of the door leaf, swung open against the frame.
+ */
+export function darkDoor(ctx, { x, y, w, h }, leaf) {
+  box(ctx, INK.k, x + 1, y + 2, w - 2, h - 2);
+  box(ctx, leaf, x + 1, y + 2, 4, h - 2);
+  box(ctx, 'rgba(0, 0, 0, 0.4)', x + 4, y + 2, 1, h - 2);
+  const left = x + Math.round(w / 2) - 3;
+  const top = y + Math.round(h / 2) - 7;
+  QUERY.forEach((row, r) => [...row].forEach((ch, c) => {
+    if (ch === 'l') box(ctx, INK.l, left + c * 2 - 1, top + r * 2, 2, 2);
+  }));
+}
+
 function chainItem(ctx, x, y) {
   chain(ctx, x - 3, y + 10, x + 17, y + 4);
   drawSprite(ctx, SPRITES.padlock, x + 10, y + 8);

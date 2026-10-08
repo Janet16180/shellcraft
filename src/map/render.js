@@ -6,16 +6,18 @@
 import { ART, findEntry } from './layout.js';
 import * as overworld from './overworld.js';
 import * as dungeon from './dungeon.js';
-import { drawItem, drawMore, drawPlayer, drawParticles, drawFocus, padlockDoor } from './things.js';
+import { drawItem, drawMore, drawPlayer, drawParticles, drawFocus, padlockDoor, darkDoor } from './things.js';
 import { drawLabels, drawCreatureLabels, drawBubbles, drawBanner, drawVeil } from './overlay.js';
 import { drawCreature } from './creatureart.js';
 import { hover, SLOTS } from './creatures.js';
 import { drawStairs } from './stairs.js';
 import { NIGHT, INK } from './palette.js';
+import { box } from './paint.js';
 import { FLASH_MS } from './stage.js';
 
 const PAINTERS = { overworld, dungeon };
 const BANNER_MS = 2800;
+const DARKNESS = 'rgba(11, 10, 18, 0.8)';
 
 function background(stage, scene) {
   const { state, bg } = stage;
@@ -36,9 +38,11 @@ function paintRoom(stage, t, now) {
   const { layout } = scene;
   ax.drawImage(background(stage, scene), 0, 0);
   painter.ambient(ax, scene, t);
+  if (layout.status === 'dark') box(ax, DARKNESS, 0, 0, ART.width, ART.height);
   for (const door of layout.doors) {
     painter.door(ax, door, scene, t);
     if (door.locked) padlockDoor(ax, door);
+    else if (door.dark) darkDoor(ax, door, painter.leafColour(scene));
   }
   if (layout.moreDoors) drawMore(ax, layout.moreDoors, 'door');
   layout.items.forEach((item, i) => drawItem(ax, item, scene.biome, t, i));

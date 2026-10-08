@@ -189,3 +189,10 @@ export function exit(ctx, { x, y, w, h }, { biome, path, home }) {
   if (toDungeon) box(ctx, 'rgba(240, 138, 42, 0.35)', x + 4, y + h - 4, w - 8, 4);
   for (let i = 0; i < 4; i++) box(ctx, toDungeon ? [INK.l, INK.s, INK.d, INK.n][i] : BIOMES[biome].trim, x + 2 + i * 2, y + 2 + i * 3, w - 4 - i * 4, 2);
 }
+
+/**
+ * The colour of a door leaf in this room, for a door drawn ajar.
+ *
+ * @returns {string} CSS colour.
+ */
+export const leafColour = () => TOON.k;

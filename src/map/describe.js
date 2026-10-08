@@ -13,7 +13,12 @@ function list(names) {
   return names.length > LISTED ? `${shown}, and ${names.length - LISTED} more` : shown;
 }
 
-const doorName = door => `${door.name}/${door.locked ? ' (padlocked: you may not enter)' : ''}`;
+function doorName(door) {
+  let note = '';
+  if (door.locked) note = ' (padlocked: you may not enter)';
+  else if (door.dark) note = ' (dark: you may enter but not list it)';
+  return `${door.name}/${note}`;
+}
 
 function itemName(item) {
   let note = '';

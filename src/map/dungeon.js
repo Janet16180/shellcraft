@@ -265,3 +265,10 @@ export function exit(ctx, { x, y, w, h }, { biome }) {
   for (let i = 0; i < 4; i++) box(ctx, [INK.l, INK.s, INK.d, INK.n][i], x + 2 + i * 2, y + 2 + i * 3, w - 4 - i * 4, 2);
   box(ctx, INK[BIOMES[biome].accent], x - 2, y - 2, w + 4, 1);
 }
+
+/**
+ * The colour of a door leaf in the dungeon, for a door drawn ajar.
+ *
+ * @returns {string} CSS colour.
+ */
+export const leafColour = () => INK.b;

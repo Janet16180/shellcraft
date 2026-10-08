@@ -12,7 +12,9 @@ import { nodeAt, compareNames, joinPath, parentOf } from '../backend/tree.js';
  * @property {string} name The real name, exactly as ls prints it.
  * @property {string} path Absolute path.
  * @property {boolean} hidden The name starts with a dot.
- * @property {boolean} locked A door the player may not enter, or an item they may not read.
+ * @property {boolean} locked A door the player may not enter (no x), or an item they may not read.
+ * @property {boolean} dark A door the player may enter but not list (x without r).
+ * @property {string} owner The owner's name, as ls -l prints it.
  * @property {boolean} runnable An item the player may execute.
  */
 
@@ -28,11 +30,14 @@ import { nodeAt, compareNames, joinPath, parentOf } from '../backend/tree.js';
 
 function entry(dir, name, node, who) {
   const isDir = node.type === 'dir';
+  const locked = !allows(node, isDir ? 'x' : 'r', who);
   return {
     name,
     path: joinPath(dir, name),
     hidden: name.startsWith('.'),
-    locked: !allows(node, isDir ? 'x' : 'r', who),
+    locked,
+    dark: isDir && !locked && !allows(node, 'r', who),
+    owner: node.owner,
     runnable: !isDir && allows(node, 'x', who),
   };
 }

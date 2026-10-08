@@ -27,6 +27,12 @@ test('locked doors and items say why', () => {
   assert.match(describeRoom(observe('/etc')), /shadow \(chained: you may not read it\)/);
 });
 
+test('a door with x but without r says you may enter but not see inside', () => {
+  const tree = sampleTree();
+  tree.children.tmp = dir({ blind: dir({}, { mode: 0o711 }) });
+  assert.match(describeRoom(observe('/tmp', { tree })), /blind\/ \(dark: you may enter but not list it\)/);
+});
+
 test('runnable items say so', () => {
   assert.match(describeRoom(observe('/usr/bin')), /cat \(you may run it\)/);
 });

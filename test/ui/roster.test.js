@@ -50,3 +50,9 @@ test('names in picks are escaped', () => {
 test('an empty room has no picks', () => {
   assert.equal(picksHTML([]), '');
 });
+
+test('the map key shows a dark door: one you may enter but not list', () => {
+  const dark = ROSTER.find(r => r.kind === 'dark-door');
+  assert.ok(dark);
+  assert.match(dark.what, /enter/);
+});
