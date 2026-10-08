@@ -172,7 +172,7 @@ test('a real command the game does not simulate gets a note saying so', async ()
 
 test('a bash builtin the game does not simulate is not reported as missing', async () => {
   const b = await shell();
-  for (const [line, name] of [['printf hi', 'printf'], ['read x', 'read']]) {
+  for (const [line, name] of [['ulimit -n', 'ulimit'], ['read x', 'read']]) {
     const r = await run(b, line);
     assert.deepEqual([r.out, r.err, r.status], ['', '', 1]);
     assert.equal(r.note, `${name} is built into bash, but this game does not simulate it.`);

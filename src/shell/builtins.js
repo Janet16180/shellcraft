@@ -12,7 +12,7 @@ export const BASH_BUILTINS = new Set(['.', ':', '[', 'alias', 'bg', 'bind', 'bre
   'help', 'history', 'jobs', 'kill', 'let', 'local', 'logout', 'mapfile', 'popd', 'printf', 'pushd', 'pwd', 'read', 'readarray', 'readonly',
   'return', 'set', 'shift', 'shopt', 'source', 'suspend', 'test', 'times', 'trap', 'true', 'type', 'typeset', 'ulimit', 'umask', 'unalias',
   'unset', 'wait']);
-export const BUILTINS = new Set(['cd', 'history', 'alias', 'export', 'exit', 'logout', 'type', 'echo', 'pwd', 'kill', 'true', 'false', 'help', 'unalias', 'unset', 'source', '.', 'break', 'continue', 'test', '[']);
+export const BUILTINS = new Set(['cd', 'history', 'alias', 'export', 'exit', 'logout', 'type', 'echo', 'pwd', 'kill', 'true', 'false', 'help', 'unalias', 'unset', 'source', '.', 'break', 'continue', 'test', '[', 'printf']);
 export const NO_BINARY = new Set(['cd', 'history', 'alias', 'export', 'exit', 'logout', 'type', 'help', 'unalias', 'unset', 'source', '.',
   'break', 'continue']);
 
@@ -26,6 +26,7 @@ export const BUILTIN_HELP = nameTable({
   break: ['break [n]', 'Exit for, while, or until loops.'],
   cd: ['cd [-L|[-P [-e]] [-@]] [dir]', 'Change the shell working directory.'],
   continue: ['continue [n]', 'Resume for, while, or until loops.'],
+  printf: ['printf [-v var] format [arguments]', 'Formats and prints ARGUMENTS under control of the FORMAT.'],
   exit: ['exit [n]', 'Exit the shell.'],
   export: ['export [-fn] [name[=value] ...] or export -p', 'Set export attribute for shell variables.'],
   help: ['help [-dms] [pattern ...]', 'Display information about builtin commands.'],
