@@ -2,6 +2,7 @@
 import { createMap, drawKey, KEY_KINDS } from '../../src/map/map.js';
 import { dir, file, symlink } from '../../src/backend/spec.js';
 import { observe, sampleTree, crowded } from './fixtures.js';
+import { packTar, gzip } from '../../src/backend/archive.js';
 
 const params = new URLSearchParams(location.search);
 const width = Number(params.get('w') ?? 640);
@@ -122,6 +123,26 @@ const workshop = (doors, withJobs = false) => {
   return { obs: observe('/home/hero/workshop', { tree, jobs }) };
 };
 
+// Chapter 21: the travel camp with the archives the chapter makes, and the room they unpack into.
+const travel = cwd => {
+  const tree = busyTree();
+  const mine = { owner: 'hero' };
+  const t = Date.UTC(2026, 9, 1, 12, 0);
+  const tar = packTar([
+    { path: 'library/', type: 'dir', mode: 0o755, owner: 'hero', group: 'hero', mtime: t },
+    { path: 'library/scroll_of_ages.txt', type: 'file', mode: 0o644, owner: 'hero', group: 'hero', mtime: t, content: 'Old words.\n' },
+  ]);
+  const unpacked = dir({ library: dir({ 'scroll_of_ages.txt': file('Old words.\n', mine), 'catalogue.txt': file('', mine) }, mine) }, mine);
+  tree.children.home.children.hero.children.travel = dir({
+    unpacked,
+    'library.tar': file(tar, mine),
+    'library.tar.gz': file(gzip(tar), mine),
+    'notes.txt.gz': file(gzip('Notes for the road.\n', { name: 'notes.txt' }), mine),
+    'packing_list.txt': file('', mine),
+  }, mine);
+  return { obs: observe(cwd, { tree }) };
+};
+
 const job = (id, state, cmd) => ({ id, pid: 4240 + id, cmd, state, mark: ' ' });
 const jobs = [job(1, 'running', 'sleep 30'), job(2, 'stopped', 'sleep 100'), job(3, 'running', 'sleep 600')];
 const manyJobs = [...jobs, job(4, 'running', 'sleep 9'), job(5, 'stopped', 'sleep 8')];
@@ -161,6 +182,9 @@ const CASES = {
   study: () => links('/home/hero/memory'),
   smithy: () => workshop(1),
   'smithy-busy': () => workshop(9, true),
+  departure: () => travel('/home/hero/travel'),
+  unpacked: () => travel('/home/hero/travel/unpacked'),
+  'unpacked-library': () => travel('/home/hero/travel/unpacked/library'),
   mill: () => crown('/srv/mill'),
   bakery: () => crown('/srv/bakery'),
   stables: () => crown('/srv/stables'),

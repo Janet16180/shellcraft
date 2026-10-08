@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readRoom, itemKind, picksOf, realPath } from '../../src/map/room.js';
 import { file, dir, symlink } from '../../src/backend/spec.js';
 import { observe, sampleTree } from './fixtures.js';
+import { packTar, gzip } from '../../src/backend/archive.js';
 
 const names = list => list.map(entry => entry.name);
 const none = new Set();
@@ -190,4 +191,57 @@ test('a directory never gets a twin mark, whatever its link count', () => {
   tree.children.home.children.hero.children.forest.links = 4;
   const forest = readRoom(observe('/home/hero', { tree }), none).doors.find(door => door.name === 'forest');
   assert.equal(forest.twin, null);
+});
+
+const packed = () => {
+  const mine = { owner: 'hero' };
+  const t = Date.UTC(2026, 9, 1, 12, 0);
+  const tar = packTar([
+    { path: 'library/', type: 'dir', mode: 0o755, owner: 'hero', group: 'hero', mtime: t },
+    { path: 'library/scroll.txt', type: 'file', mode: 0o644, owner: 'hero', group: 'hero', mtime: t, content: 'Old words.\n' },
+  ]);
+  const tree = sampleTree();
+  tree.children.home.children.hero.children.travel = dir({
+    'library.tar': file(tar, mine),
+    'library.tar.gz': file(gzip(tar), mine),
+    'notes.txt.gz': file(gzip('Notes.\n', { name: 'notes.txt' }), mine),
+    'disguised.dat': file(gzip(tar), mine),
+    'empty.tar': file('', mine),
+    'empty.tgz': file('', mine),
+    'empty.gz': file('', mine),
+    'plain.txt': file('Just text.\n', mine),
+  }, mine);
+  return readRoom(observe('/home/hero/travel', { tree }), none);
+};
+
+test('a tar archive is packed as tar, a compressed one as tgz, other gzip data as gzip, by what is inside', () => {
+  const pack = Object.fromEntries(packed().items.map(item => [item.name, item.pack]));
+  assert.equal(pack['library.tar'], 'tar');
+  assert.equal(pack['library.tar.gz'], 'tgz');
+  assert.equal(pack['notes.txt.gz'], 'gzip');
+  assert.equal(pack['disguised.dat'], 'tgz');
+  assert.equal(pack['plain.txt'], null);
+});
+
+test('a file that is no archive inside still looks packed when its name says so', () => {
+  const pack = Object.fromEntries(packed().items.map(item => [item.name, item.pack]));
+  assert.deepEqual([pack['empty.tar'], pack['empty.tgz'], pack['empty.gz']], ['tar', 'tgz', 'gzip']);
+});
+
+test('archives are chests, a compressed archive a strapped chest, and gzip data a tied bundle', () => {
+  const kind = Object.fromEntries(packed().items.map(item => [item.name, itemKind(item, 'departure')]));
+  assert.equal(kind['library.tar'], 'chest');
+  assert.equal(kind['library.tar.gz'], 'strapped');
+  assert.equal(kind['notes.txt.gz'], 'bundle');
+  assert.equal(kind['plain.txt'], 'scroll');
+});
+
+test('directories and links are never packed', () => {
+  const tree = withPortals();
+  tree.children.home.children.hero.children['box.tar'] = dir({}, { owner: 'hero' });
+  tree.children.home.children.hero.children['link.tar'] = symlink('readme.txt', { owner: 'hero' });
+  const room = readRoom(observe('/home/hero', { tree }), none);
+  assert.equal(room.doors.find(d => d.name === 'box.tar').pack, null);
+  assert.equal(room.items.find(i => i.name === 'link.tar').pack, null);
+  assert.equal(itemKind(room.items.find(i => i.name === 'link.tar'), 'cottage'), 'portal');
 });
