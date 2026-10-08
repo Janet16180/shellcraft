@@ -7,20 +7,25 @@
 const quote = s => `'${String(s).replace(/'/g, "'\\''")}'`;
 const join = (parent, name) => (parent === '/' ? `/${name}` : `${parent}/${name}`);
 const parentOf = path => path.slice(0, path.lastIndexOf('/')) || '/';
-const SYSTEM_FILES = new Set(['/etc/passwd', '/etc/group', '/etc/shadow', '/etc/gshadow', '/etc/hostname', '/etc/hosts', '/etc/resolv.conf']);
+const SYSTEM_FILES = new Set(['/etc/shadow', '/etc/gshadow', '/etc/hostname', '/etc/hosts', '/etc/resolv.conf']);
+const ACCOUNT_FILES = new Set(['/etc/passwd', '/etc/group']);
 const SYSTEM_DIRS = new Set(['/', '/bin', '/boot', '/dev', '/etc', '/lib', '/proc', '/run', '/sbin', '/sys', '/usr', '/var']);
 
 function build(path, node, out, parentFresh) {
   const system = SYSTEM_DIRS.has(path);
   if (SYSTEM_FILES.has(path)) return;
+  if (ACCOUNT_FILES.has(path)) {
+    out.accountFiles.push(`printf '%s' ${quote(node.content)} > ${quote(path)}`);
+    return;
+  }
   if (!parentFresh && !system) out.lines.push(`rm -rf -- ${quote(path)}`);
   if (system) out.lines.push(`mkdir -p -- ${quote(path)}`);
   else if (node.type === 'dir') out.lines.push(`mkdir -- ${quote(path)}`);
   else out.lines.push(`printf '%s' ${quote(node.content)} > ${quote(path)}`);
   out.lines.push(`chown ${quote(`${node.owner}:${node.group}`)} -- ${quote(path)}`);
   out.lines.push(`chmod ${node.mode.toString(8).padStart(4, '0')} -- ${quote(path)}`);
-  out.users.add(node.owner);
-  out.groups.add(node.group);
+  if (!/^\d+$/.test(node.owner)) out.users.add(node.owner);
+  if (!/^\d+$/.test(node.group)) out.groups.add(node.group);
   out.stamped.push(path);
   if (node.type === 'dir') for (const [name, child] of Object.entries(node.children)) build(join(path, name), child, out, !system);
 }
@@ -28,10 +33,12 @@ function build(path, node, out, parentFresh) {
 /**
  * Write the setup script for a patch, applying operations in order. `put`
  * replaces the path, `remove` deletes it (system directories like /etc are
- * kept and only get the patch's children; account and network files the
- * container manages, like /etc/passwd, are left alone), and every node the patch creates or
+ * kept and only get the patch's children; /etc/passwd and /etc/group are
+ * written first, before anything is owned, keeping their mode and owner;
+ * other account and network files the container manages, like /etc/shadow
+ * and /etc/hostname, are left alone), and every node the patch creates or
  * whose entries it changes gets the given mtime, as the simulator stamps them.
- * `proc` operations cannot be reproduced and are ignored; `cd` targets are
+ * `proc` and `login` operations are ignored (the shell logs in after the setup); `cd` targets are
  * returned for the caller to replay inside the shell, so OLDPWD behaves as in
  * the simulator.
  *
@@ -40,7 +47,7 @@ function build(path, node, out, parentFresh) {
  * @returns {{script: string, cds: string[]}} The root script and the directories to cd into, in order.
  */
 export function materialize(patch, mtimeMs) {
-  const out = { lines: [], users: new Set(), groups: new Set(), stamped: [] };
+  const out = { lines: [], accountFiles: [], users: new Set(), groups: new Set(), stamped: [] };
   const cds = [];
   for (const op of patch) {
     if (op.op === 'remove') out.lines.push(`rm -rf -- ${quote(op.path)}`);
@@ -54,7 +61,7 @@ export function materialize(patch, mtimeMs) {
     ...[...out.users].map(u => `getent passwd ${quote(u)} >/dev/null || useradd -M -N ${quote(u)}`),
   ];
   const stamps = [...new Set(out.stamped)].map(p => `[ ! -e ${quote(p)} ] || touch -h -d @${seconds} -- ${quote(p)}`);
-  return { script: ['set -e', ...accounts, ...out.lines, ...stamps].join('\n') + '\n', cds };
+  return { script: ['set -e', ...out.accountFiles, ...accounts, ...out.lines, ...stamps].join('\n') + '\n', cds };
 }
 
 /**

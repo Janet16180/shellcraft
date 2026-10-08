@@ -7,7 +7,7 @@
  * Ubuntu 24.04 server running rsyslog, cron and sshd. The backend owns /usr
  * and /dev, so they are not described here.
  */
-import { put, cd, dir, file } from '../backend/spec.js';
+import { put, cd, login, dir, file } from '../backend/spec.js';
 
 const SCROLL = [
   'THE SCROLL OF AGES', '==================',
@@ -332,8 +332,65 @@ function etc({ home, user, host }) {
     hosts: file(hosts(host)),
     motd: file(motd(home, host)),
     'os-release': file(OS_RELEASE),
-    passwd: file(`${SYSTEM_USERS}${user}:x:1000:1000:${capitalize(user)},,,:${home}:/bin/bash\n`),
+    passwd: file(passwdText({ home, user })),
   });
+}
+
+const passwdLine = (name, uid, gid, home) => `${name}:x:${uid}:${gid}:${capitalize(name)},,,:${home}:/bin/bash\n`;
+const passwdText = ({ home, user }) => `${SYSTEM_USERS}${passwdLine(user, 1000, 1000, home)}`;
+const fieldsOf = text => text.trim().split('\n').map(line => line.split(':'));
+
+function checkFree(kind, taken, name, id) {
+  if (taken.some(f => f[0] === name || f[2] === String(id))) throw new Error(`${kind} ${name} (${id}): the name or the id is taken`);
+}
+
+function newGroupLines(player, groupList) {
+  const base = fieldsOf(groups(player.user));
+  const lines = [];
+  for (const g of groupList) {
+    checkFree('group', [...base, ...fieldsOf(lines.join(''))], g.name, g.gid);
+    lines.push(`${g.name}:x:${g.gid}:${(g.members ?? []).join(',')}\n`);
+  }
+  return lines;
+}
+
+function newPasswdLines(player, userList, gidOf) {
+  const base = fieldsOf(passwdText(player));
+  const lines = [];
+  for (const u of userList) {
+    checkFree('user', [...base, ...fieldsOf(lines.join(''))], u.name, u.uid);
+    if (gidOf[u.group] === undefined) throw new Error(`user ${u.name}: unknown group ${u.group}`);
+    lines.push(passwdLine(u.name, u.uid, gidOf[u.group], u.home ?? `/home/${u.name}`));
+  }
+  return lines;
+}
+
+/**
+ * Write /etc/passwd and /etc/group with the base world's accounts plus new
+ * users and groups. Follow it with login() from spec.js when the player
+ * joins a group, so the running shell gets it, as a real login would.
+ * Homes are not created; put them in the same setup if the chapter needs them.
+ *
+ * @param {{home: string, user: string}} player The player's user name and home.
+ * @param {{users?: {name: string, uid: number, group: string, home?: string}[], groups?: {name: string, gid: number, members?: string[]}[]}} added
+ *   New users (primary group by name, home /home/NAME unless given) and new
+ *   groups (members by user name, the player included).
+ * @returns {object[]} The patch: put /etc/passwd, put /etc/group.
+ * @throws {Error} If home is not /home/USER, a name or id is taken, a primary
+ *   group or a member is unknown.
+ */
+export function accounts(player, { users = [], groups: groupList = [] } = {}) {
+  checkPlayer(player);
+  const groupLines = newGroupLines(player, groupList);
+  const gidOf = Object.fromEntries(fieldsOf(groups(player.user) + groupLines.join('')).map(f => [f[0], Number(f[2])]));
+  const passwdLines = newPasswdLines(player, users, gidOf);
+  const names = new Set(fieldsOf(passwdText(player) + passwdLines.join('')).map(f => f[0]));
+  const stranger = groupList.flatMap(g => g.members ?? []).find(m => !names.has(m));
+  if (stranger !== undefined) throw new Error(`group member ${stranger} is not a user`);
+  return [
+    put('/etc/passwd', file(passwdText(player) + passwdLines.join(''))),
+    put('/etc/group', file(groups(player.user) + groupLines.join(''))),
+  ];
 }
 
 function varLog({ home, host }) {
@@ -361,8 +418,8 @@ export const HOME_NAMES = Object.keys(HOME_ENTRIES);
 
 /**
  * The whole starting world: the dungeon outside home and the overworld inside
- * it. Loading it replaces /etc, /home, /root, /tmp and /var, then puts the
- * player at home.
+ * it. Loading it replaces /etc, /home, /root, /tmp and /var, logs the player
+ * in again (the groups of the new /etc/group), then puts the player at home.
  *
  * @param {{home: string, user: string, host: string}} player The player's user name, home and machine name.
  * @returns {object[]} The patch.
@@ -377,6 +434,7 @@ export function baseWorld(player) {
     put('/root', dir({}, { mode: 0o700 })),
     put('/tmp', dir({}, { mode: 0o1777 })),
     put('/var', dir({ log: varLog(player) })),
+    login(),
     cd(player.home),
   ];
 }

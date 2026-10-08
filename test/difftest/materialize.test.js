@@ -40,10 +40,19 @@ test('remove deletes, cd is returned for the shell, proc is ignored', () => {
   assert.deepEqual(cds, ['/tmp']);
 });
 
-test('account files the container manages are left alone', () => {
-  const { script } = materialize([put('/etc', dir({ passwd: file('x'), motd: file('hi\n') }))], T);
-  assert.doesNotMatch(script, /\/etc\/passwd/);
+test('account and network files the container manages are left alone', () => {
+  const { script } = materialize([put('/etc', dir({ shadow: file('x'), hostname: file('h\n'), motd: file('hi\n') }))], T);
+  assert.doesNotMatch(script, /\/etc\/shadow|\/etc\/hostname/);
   assert.match(script, /\/etc\/motd/);
+});
+
+test('the users and groups of /etc/passwd and /etc/group are written before anything is owned', () => {
+  const passwd = 'hero:x:1000:1000::/home/hero:/bin/bash\nmira:x:1001:1001::/home/mira:/bin/bash\n';
+  const { script } = materialize([put('/home/hero/f', file('', { owner: 'mira' })), put('/etc', dir({ passwd: file(passwd), group: file('mira:x:1001:\n') }))], T);
+  const written = script.indexOf("> '/etc/passwd'");
+  assert.ok(written > 0 && written < script.indexOf('getent') && written < script.indexOf("chown 'mira:mira'"));
+  assert.ok(script.indexOf("> '/etc/group'") < script.indexOf('getent'));
+  assert.ok(script.includes(`printf '%s' '${passwd}' > '/etc/passwd'`));
 });
 
 test('a child of a kept system directory is replaced, not merged', () => {
@@ -55,4 +64,10 @@ test('a child of a kept system directory is replaced, not merged', () => {
 test('the login record puts the user on the terminal at the given time, as utmpdump reads it', () => {
   assert.equal(loginRecord('hero', 'pts/0', T),
     "printf '%s\\n' '[7] [00000] [ts/0] [hero] [pts/0] [] [0.0.0.0] [2026-10-06T10:00:00,000000+00:00]' | utmpdump -r -o /run/utmp\n");
+});
+
+test('numeric owners and groups are used as ids, not created as accounts', () => {
+  const { script } = materialize([put('/srv/f', file('', { owner: '1234', group: '4321' }))], T);
+  assert.doesNotMatch(script, /useradd '1234'|groupadd '4321'/);
+  assert.match(script, /chown '1234:4321' -- '\/srv\/f'/);
 });
