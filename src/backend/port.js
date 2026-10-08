@@ -44,6 +44,12 @@
  *   command that sudo ran.
  * @property {string} [asUser] On a `sudo` record only: the user sudo was asked to
  *   run the command as (`root`, or the user of `-u`), whether or not it ran.
+ * @property {'ok'|'failed'|'cancelled'|'not-needed'|'not-allowed'|null} [auth] On a `sudo` record only:
+ *   how it went with the password and the policy. 'ok': the player typed the right password;
+ *   'not-needed': no password was asked (NOPASSWD, remembered for 15 minutes, no password in this
+ *   world); 'failed': three wrong passwords; 'cancelled': Ctrl+C at the prompt, or `-n` when one
+ *   was needed; 'not-allowed': the policy refused (not in sudoers, or not that command), after any
+ *   password. null when sudo stopped before (a bad option, `--help`, `-k`, `-i`).
  * @property {string} [via] On a command another command ran for the player: that
  *   command's name (`sudo`). `sudo chown mira f` gives two records, in this order:
  *   `{name: 'sudo', args: ['chown', 'mira', 'f'], user: 'hero', asUser: 'root', status}`
@@ -102,6 +108,9 @@
  * @property {OutputChunk[]} output What the terminal shows.
  * @property {number} status Exit status of the line (what `$?` becomes).
  * @property {CommandRecord[]} commands Every command that ran, in order.
+ * @property {string} [line] On the line's end: the line that ran, after history
+ *   expansion (`sudo !!` gives `sudo echo hi`, which bash echoes); the typed line
+ *   when nothing was expanded or the expansion failed.
  * @property {string[]} blocked Reasons the backend refused something a real
  *   system would have done, to protect the world (`rm -r ~`). Empty for a real backend
  *   that has no such guard.
@@ -178,6 +187,18 @@
  * @property {TreeNode} tree The world, rooted at '/'.
  * @property {ProcRecord[]} procs
  * @property {JobRecord[]} jobs The shell's jobs, by number.
+ * @property {Record<string, string>} aliases The player's shell's aliases, name to text:
+ *   `alias up='cd ..'` gives `{up: 'cd ..'}`.
+ * @property {Record<string, ShellVar>} vars The player's shell's variables, exported or not:
+ *   `realm=Kernelia` gives `{realm: {value: 'Kernelia', exported: false}}`. No special
+ *   parameters (`$?`, `$$`) and no positional ones (`$1`); the password is in no variable.
+ *   Both tables hold at most the first 256 names (in the order the shell made them), and a
+ *   value is cut to 4096 characters (a variable cut so has `truncated: true`). A script or
+ *   `bash -c` has a shell of its own: what it sets is not here.
+ */
+
+/**
+ * @typedef {{value: string, exported: boolean, truncated?: true}} ShellVar
  */
 
 /**

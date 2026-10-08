@@ -31,12 +31,13 @@ import { runFor, runIf } from './compound.js';
 import { allocPid, makeProc, TERMINAL } from './system.js';
 import { addJob, reap, notify } from './jobs.js';
 import { deepCopy } from './snapshot.js';
+import { nameTable } from './table.js';
 
 const MAX_DEPTH = 32;
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const CONTINUATION = 'In a real terminal, bash would wait for the rest of the command on a new line (a > prompt). Here the line ends where you pressed Enter.';
 // What a background job's subshell may change without the shell seeing it.
-const SUBSHELL_STATE = ['vars', 'aliases', 'cwd', 'oldpwd', 'umask', 'positional', 'flags', 'hashed', 'history', 'lastBackground'];
+const SUBSHELL_STATE = ['vars', 'aliases', 'expandAliases', 'cwd', 'oldpwd', 'umask', 'positional', 'flags', 'hashed', 'history', 'lastBackground'];
 const OWN_OPTIONS = new Set(['clear', 'find', 'which', 'sudo']);
 const helpNote = name => `Real bash prints a longer description here; help ${name} shows the same text.`;
 
@@ -234,12 +235,15 @@ function dispatch(sh, argv, streams, overlay) {
   return r;
 }
 
+// Bash expands aliases as it reads a command, so the table is the one the
+// shell had when the text was parsed (see runText), not when it runs.
 function aliasExpand(sh, words, seen = new Set()) {
+  const table = sh.frame.aliases;
   const first = words[0];
   const plain = first && first.parts.length === 1 && 'lit' in first.parts[0] && !first.parts[0].q;
   const name = plain ? first.parts[0].lit : null;
-  if (name === null || seen.has(name) || !(name in sh.sys.aliases)) return words;
-  const expanded = tokenize(sh.sys.aliases[name]).tokens.filter(t => t.type === 'word');
+  if (!table || name === null || seen.has(name) || !(name in table)) return words;
+  const expanded = tokenize(table[name]).tokens.filter(t => t.type === 'word');
   return [...aliasExpand(sh, expanded, new Set([...seen, name])), ...words.slice(1)];
 }
 
@@ -279,6 +283,7 @@ function record(sh, argv, r, { cwd, user, place, redirects }) {
   if (sh.background) Object.assign(base, { background: true, job: sh.background.job?.id ?? null });
   const own = { name: argv[0], args: argv.slice(1), user, status: r.status, stdout: r.out, ...base };
   if (r.inner) own.asUser = r.inner.asUser;
+  if (r.auth !== undefined) own.auth = r.auth;
   if (r.key) own.signal = r.key;
   sh.run.records.push(own);
   if (r.inner?.ran) sh.run.records.push({ name: r.inner.name, args: r.inner.args, user: r.inner.asUser, via: argv[0], status: r.inner.status, stdout: r.out, ...base });
@@ -288,6 +293,26 @@ function record(sh, argv, r, { cwd, user, place, redirects }) {
 function noteCommand(sh, argv, r, where) {
   if (sh.run.depth === 0) record(sh, argv, r, where);
   if (sh.background) sh.background.argv ??= argv;
+}
+
+// A result's chunks count only while they still are its text (a wrapper may have changed out or err).
+function inOrder(r, err) {
+  if (!r.chunks) return false;
+  const text = stream => r.chunks.filter(c => c.stream === stream).map(c => c.text).join('');
+  return text('out') === r.out && text('err') === err;
+}
+
+// Errors before output, unless the result says in which order it wrote them.
+function deliver(sh, sink, r, targets, line) {
+  const err = withNewline(r.err);
+  if (inOrder(r, err)) {
+    for (const c of r.chunks) {
+      if (c.stream === 'out') route(sh, sink, targets.out, c.text, r.html === null ? null : c.html);
+      else route(sh, sink, targets.err, shellMessage(sh, c.text, line), null);
+    }
+  } else route(sh, sink, targets.err, r.child ? err : shellMessage(sh, err, line), null);
+  if (r.note) sink.note(r.note);
+  if (!inOrder(r, err)) route(sh, sink, targets.out, r.out, r.html);
 }
 
 function runCommand(sh, cmd, stdin, place, sink) {
@@ -302,10 +327,7 @@ function runCommand(sh, cmd, stdin, place, sink) {
     r = result('', '', substitutionStatus ?? 0);
   }
   else r = dispatch(sh, argv, streams, Object.fromEntries(values));
-  const err = withNewline(r.err);
-  route(sh, sink, opened.error ? base.err : streams.err, r.child ? err : shellMessage(sh, err, cmd.line), null);
-  if (r.note) sink.note(r.note);
-  route(sh, sink, streams.out, r.out, r.html);
+  deliver(sh, sink, r, { out: streams.out, err: opened.error ? base.err : streams.err }, cmd.line);
   const ran = argv.length > 0 && !opened.error;
   if (ran) noteCommand(sh, argv, r, { cwd, user, place, redirects: opened.records });
   return { status: r.status, piped: streams.out.kind === 'pipe' ? streams.out.buffer : '', abort: abort || Boolean(r.abort), external: ran && !BUILTINS.has(argv[0]) };
@@ -445,6 +467,7 @@ function runText(sh, text, sink, textFrame) {
   let next = { end: 0, list: [], error: null };
   while (next.list && sh.exit === null && sh.run.waiting === null && !sh.run.cancelled) {
     next = parseNext(tokens, next.end);
+    textFrame.aliases = sh.sys.expandAliases ? nameTable(sh.sys.aliases) : null;
     if (next.error) syntaxError(sh, next.error, text, sink);
     if (next.error) status = 2;
     if (next.list) status = runList(sh, next.list, sink, null).status;

@@ -27,3 +27,16 @@ hero in or out of group `sudo`, password set with `chpasswd`, driven through a r
 Kept different on purpose: in the container auth.log showed `******` instead of `PWD=...` and an empty
 `logname=` (no login session there); the simulator writes what a real login session logs. The
 difftest world adds `Defaults !use_pty` so sudo does not relay the case's remaining input.
+
+## su (tester report C6), 2026-10-08
+
+Checked in the difftest image (root's shadow entry is `root:*:...`, locked, as on Ubuntu) with
+`script -qfc "bash --norc -i"` and input fed with pauses:
+- `su`, `su -`, `su root -c whoami`: `Password: ` (nothing echoed), then after about 3 seconds
+  `su: Authentication failure`, `$?` 1. The simulator answers at once (no delay).
+- Ctrl+C at su's prompt: the prompt line ends, no message, `$?` 130.
+- `su nosuch`: `su: user nosuch does not exist or the user entry does not contain all the required
+  fields`, 1. `su -z`: `su: invalid option -- 'z'` and `Try 'su --help' for more information.`, 1.
+- `/usr/bin/su` is setuid root (`-rwsr-xr-x`).
+- Kept different: su never switches users (the game knows no other user's password); `sudo su`,
+  `sudo su -`, `sudo bash` and `sudo -s` end with the root-shell note after the password.

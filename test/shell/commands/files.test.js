@@ -123,6 +123,18 @@ test('chmod sets octal and symbolic modes on files the user owns', async () => {
   assert.equal((await run(b, 'chmod q+z x')).err, "chmod: invalid mode: \u2018q+z\u2019\nTry 'chmod --help' for more information.\n");
 });
 
+test('a chmod clause may hold several operations, and may copy another class', async () => {
+  const b = await shell();
+  const mode = async (line, name) => { await run(b, line); return (await home(b))[name].mode; };
+  assert.equal(await mode('chmod 755 forest; chmod u+x-r forest', 'forest'), 0o355);
+  assert.equal(await mode('chmod u=rwx,go= readme.txt', 'readme.txt'), 0o700);
+  assert.equal(await mode('chmod a=r readme.txt', 'readme.txt'), 0o444);
+  assert.equal(await mode('chmod u+w,g=u,o=g-w readme.txt', 'readme.txt'), 0o664);
+  assert.equal(await mode('chmod =,u+rw readme.txt', 'readme.txt'), 0o600);
+  assert.equal(await mode('chmod go+u-x readme.txt', 'readme.txt'), 0o666);
+  for (const bad of ['u=gx', 'u+ug', 'u+x,', 'u']) assert.equal((await run(b, `chmod ${bad} readme.txt`)).status, 1, bad);
+});
+
 test('rm -r removes what it can and names each entry it cannot', async () => {
   const b = await shell([put('/srv', dir({ 'a.txt': file('x') }))]);
   const r = await run(b, 'rm -rf /srv');

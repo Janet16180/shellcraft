@@ -8,7 +8,7 @@
 import { exportedVars, setVar, varValue } from './vars.js';
 import { nameTable } from './table.js';
 
-const SHELL_STATE = ['vars', 'aliases', 'cwd', 'oldpwd', 'lastStatus', 'umask', 'positional', 'flags', 'hashed', 'history', 'jobs', 'jobMarks', 'lastBackground'];
+const SHELL_STATE = ['vars', 'aliases', 'expandAliases', 'cwd', 'oldpwd', 'lastStatus', 'umask', 'positional', 'flags', 'hashed', 'history', 'jobs', 'jobMarks', 'lastBackground'];
 const NON_INTERACTIVE = 'hB';
 
 /**
@@ -27,7 +27,7 @@ export function enterChild(sys, { zero, args, env }) {
   for (const [name, value] of Object.entries(inherited)) setVar(sys, name, value, true);
   setVar(sys, 'SHLVL', String(level + 1), true);
   setVar(sys, 'HOSTNAME', sys.host);
-  Object.assign(sys, { aliases: nameTable(), lastStatus: 0, positional: { zero, args }, flags: NON_INTERACTIVE, hashed: new Map(), history: [] });
+  Object.assign(sys, { aliases: nameTable(), expandAliases: false, lastStatus: 0, positional: { zero, args }, flags: NON_INTERACTIVE, hashed: new Map(), history: [] });
   Object.assign(sys, { jobs: [], jobMarks: { current: null, previous: null }, lastBackground: null });
   return saved;
 }

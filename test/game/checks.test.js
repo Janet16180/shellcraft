@@ -30,6 +30,13 @@ test('the context carries the text of the line as typed, empty by default', () =
   assert.equal(makeContext({ commands: [], before, obs: before }).line, '');
 });
 
+test('the context keeps the keys as typed apart from the line that ran, the same line by default', () => {
+  const before = observation();
+  const ctx = makeContext({ commands: [], before, obs: before, line: 'sudo echo hi', typed: 'sudo !!' });
+  assert.deepEqual([ctx.line, ctx.typed], ['sudo echo hi', 'sudo !!']);
+  assert.equal(makeContext({ commands: [], before, obs: before, line: 'ls' }).typed, 'ls');
+});
+
 test('node finds files and directories by absolute path in the observation after the line', () => {
   const ctx = context([]);
   assert.equal(ctx.node(`${HOME}/readme.txt`).content, 'Welcome, hero.\n');
@@ -323,4 +330,38 @@ test('paths leaves out tar\'s dashless letters', () => {
   const ctx = context([]);
   assert.deepEqual(ctx.paths(record('tar', ['czf', 'camp.tgz', 'camp'])), [`${HOME}/camp.tgz`, `${HOME}/camp`]);
   assert.deepEqual(ctx.paths(record('tar', ['-czf', 'camp.tgz', 'camp'])), [`${HOME}/camp.tgz`, `${HOME}/camp`]);
+});
+
+test('paths reads the archive and directory tar takes as option values, in their place', () => {
+  const ctx = context([]);
+  const paths = args => ctx.paths(record('tar', args));
+  const [tgz, camp, out] = [`${HOME}/camp.tgz`, `${HOME}/camp`, `${HOME}/out`];
+  assert.deepEqual(paths(['-t', '--file=camp.tgz']), [tgz]);
+  assert.deepEqual(paths(['--list', '--file=camp.tgz']), [tgz]);
+  assert.deepEqual(paths(['-tfcamp.tgz']), [tgz]);
+  assert.deepEqual(paths(['-czfcamp.tgz', 'camp']), [tgz, camp]);
+  assert.deepEqual(paths(['-xzf', 'camp.tgz', '-Cout']), [tgz, out]);
+  assert.deepEqual(paths(['-xzf', 'camp.tgz', '-C', 'out']), [tgz, out]);
+  assert.deepEqual(paths(['-xzf', 'camp.tgz', '--directory=out']), [tgz, out]);
+  assert.deepEqual(paths(['xzf', 'camp.tgz', '-Cout']), [tgz, out]);
+  assert.deepEqual(paths(['-c', '--file=camp.tgz', '--', '--file=x']), [tgz, `${HOME}/--file=x`]);
+});
+
+test('a value glued to tar\'s f or C is not read as option letters', () => {
+  const ctx = context([]);
+  assert.equal(ctx.flag(record('tar', ['-cfzt.tar', 'camp']), 'z'), false);
+  assert.equal(ctx.flag(record('tar', ['-cfzt.tar', 'camp']), 'f'), true);
+  assert.equal(ctx.flag(record('tar', ['-xfa.tar', '-Czz']), 'z'), false);
+  assert.equal(ctx.flag(record('tar', ['-xfa.tar', '-Czz']), 'C'), true);
+});
+
+test('alias and variable read the shell state after the line, or null', () => {
+  const ctx = context([], { aliases: { up: 'cd ..' }, vars: { realm: { value: 'Kernelia', exported: false } } });
+  assert.equal(ctx.alias('up'), 'cd ..');
+  assert.equal(ctx.alias('down'), null);
+  assert.deepEqual(ctx.variable('realm'), { value: 'Kernelia', exported: false });
+  assert.equal(ctx.variable('KEEPER'), null);
+  assert.equal(ctx.variable('constructor'), null);
+  assert.equal(ctx.alias('toString'), null);
+  assert.equal(context([]).alias('up'), null);
 });

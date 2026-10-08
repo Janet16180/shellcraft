@@ -61,6 +61,37 @@ test('aliases expand in the first word unless it is quoted', async () => {
   assert.equal((await run(b, "'ll'")).status, 127);
 });
 
+test('an alias made on a line works from the next line, as bash reads a whole line first', async () => {
+  const b = await shell();
+  const same = await run(b, "alias up='cd ..'; up");
+  assert.deepEqual([same.err, same.status], ['bash: up: command not found\n', 127]);
+  await run(b, 'cd forest');
+  assert.equal((await run(b, 'up; pwd')).out, '/home/hero\n');
+});
+
+test('a sourced file expands its aliases from its next line on, and they last after it', async () => {
+  const text = "alias one='echo one'\none\nalias two='echo two'; two\n";
+  const b = await shell([put('/home/hero/a.sh', file(text, { owner: 'hero' }))]);
+  const r = await run(b, 'source a.sh; one');
+  assert.deepEqual([r.out, r.err], ['one\n', 'bash: two: command not found\nbash: one: command not found\n']);
+  assert.equal((await run(b, 'one; two')).out, 'one\ntwo\n');
+});
+
+test('a command substitution reads its text when it runs, so it sees an alias made before it', async () => {
+  const b = await shell();
+  assert.equal((await run(b, "alias y='echo Y'; echo $(y)")).out, 'Y\n');
+});
+
+test('a script and bash -c expand aliases only after shopt -s expand_aliases', async () => {
+  const b = await shell([put('/home/hero/s.sh', file("alias up='echo UP'\nup\n", { owner: 'hero' }))]);
+  assert.equal((await run(b, 'bash s.sh')).err, 's.sh: line 2: up: command not found\n');
+  assert.equal((await run(b, "bash -c \"alias up='echo UP'\nup\"")).err, 'bash: line 2: up: command not found\n');
+  const on = await run(b, "bash -c \"shopt -s expand_aliases; alias up='echo UP'\nup\"");
+  assert.deepEqual([on.out, on.err], ['UP\n', '']);
+  const same = await run(b, "bash -c \"shopt -s expand_aliases; alias up='echo UP'; up\"");
+  assert.equal(same.err, 'bash: line 1: up: command not found\n');
+});
+
 test('NAME=value sets a variable for later lines', async () => {
   const b = await shell();
   await run(b, 'SPELL=lumos');
@@ -250,4 +281,23 @@ test('what a script changes stays in the script: variables, aliases and cd', asy
 test('a script does not see the aliases of the shell that runs it', async () => {
   const b = await shell([put('/home/hero/s.sh', file('ll\n', { owner: 'hero', mode: 0o755 }))]);
   assert.equal((await run(b, "alias ll='ls -l'; ./s.sh")).err, './s.sh: line 1: ll: command not found\n');
+});
+
+const ORDER_CASES = [
+  ['cat a nope b', ['out', 'A\n'], ['err', 'cat: nope: No such file or directory\n'], ['out', 'B\n']],
+  ['cat -n a d b', ['out', '     1\tA\n'], ['err', 'cat: d: Is a directory\n'], ['out', '     2\tB\n']],
+  ['head a nope b', ['out', '==> a <==\nA\n'], ['err', "head: cannot open 'nope' for reading: No such file or directory\n"], ['out', '\n==> b <==\nB\n']],
+  ['tail -q a nope b', ['out', 'A\n'], ['err', "tail: cannot open 'nope' for reading: No such file or directory\n"], ['out', 'B\n']],
+  ['wc a nope b', ['out', '1 1 2 a\n'], ['err', 'wc: nope: No such file or directory\n'], ['out', '1 1 2 b\n2 2 4 total\n']],
+  ['grep . a nope b', ['out', 'a:A\n'], ['err', 'grep: nope: No such file or directory\n'], ['out', 'b:B\n']],
+  ['ls a nope b', ['err', "ls: cannot access 'nope': No such file or directory\n"], ['out', 'a  b\n']],
+];
+
+test('a command with several files writes its output and errors in the order it met them', async () => {
+  const b = await shell();
+  await run(b, 'echo A > a; echo B > b; mkdir d');
+  for (const [line, ...want] of ORDER_CASES) {
+    const got = (await b.run(line)).output.filter(c => c.stream !== 'note').map(c => [c.stream, c.text]);
+    assert.deepEqual(got, want, line);
+  }
 });

@@ -11,10 +11,10 @@ test('every port method returns a promise', async () => {
   await Promise.all(calls);
 });
 
-test('a run result has output chunks, a status, command records and blocked reasons', async () => {
+test('a run result has output chunks, a status, command records, blocked reasons and the line that ran', async () => {
   const b = await shell();
   const r = await b.run('cat readme.txt | head -n 1 > /tmp/first; ls nope');
-  assert.deepEqual(Object.keys(r).sort(), ['blocked', 'commands', 'output', 'status']);
+  assert.deepEqual(Object.keys(r).sort(), ['blocked', 'commands', 'line', 'output', 'status']);
   assert.equal(r.status, 2);
   assert.deepEqual(r.blocked, []);
   assert.deepEqual(r.output, [{ stream: 'err', text: "ls: cannot access 'nope': No such file or directory\n" }]);
@@ -172,7 +172,7 @@ test('an empty line runs nothing and keeps the previous status', async () => {
   const b = await shell();
   await b.run('false');
   const r = await b.run('   ');
-  assert.deepEqual(r, { output: [], status: 1, commands: [], blocked: [] });
+  assert.deepEqual(r, { output: [], status: 1, commands: [], blocked: [], line: '   ' });
 });
 
 test('complete returns the completed line and the candidates when ambiguous', async () => {
@@ -386,4 +386,39 @@ test('a symbolic link and a hard link put by a patch show in the observation', a
   assert.deepEqual([hero.portal.type, hero.portal.target, hero.portal.size, hero.portal.links], ['symlink', '/home/hero/forest/cave', 22, 1]);
   assert.equal(hero['copy.txt'].ino, hero['readme.txt'].ino);
   assert.equal(hero['copy.txt'].links, 2);
+});
+
+test('the observation carries the shell\'s aliases and its variables with their exported flag', async () => {
+  const b = await shell();
+  await run(b, "alias up='cd ..'; realm=Kernelia; export KEEPER=mira");
+  const obs = await b.observe();
+  assert.equal(obs.aliases.up, 'cd ..');
+  assert.deepEqual(obs.vars.realm, { value: 'Kernelia', exported: false });
+  assert.deepEqual(obs.vars.KEEPER, { value: 'mira', exported: true });
+  assert.deepEqual(obs.vars.HOME, { value: '/home/hero', exported: true });
+  for (const special of ['?', '$', '#', '0', '1', '@', '-']) assert.equal(Object.hasOwn(obs.vars, special), false, special);
+});
+
+test('the observation sees only the player\'s shell, not what a script set', async () => {
+  const b = await shell();
+  await run(b, "bash -c 'inner=1; alias zz=ls'");
+  const obs = await b.observe();
+  assert.deepEqual([Object.hasOwn(obs.vars, 'inner'), Object.hasOwn(obs.aliases, 'zz')], [false, false]);
+});
+
+test('the observation keeps long values and many names within limits', async () => {
+  const b = await shell();
+  await run(b, `big=${'x'.repeat(5000)}; for i in ${Array.from({ length: 300 }, (_, i) => i).join(' ')}; do alias a$i=ls; done`);
+  const obs = await b.observe();
+  assert.deepEqual([obs.vars.big.value.length, obs.vars.big.truncated], [4096, true]);
+  assert.equal(Object.keys(obs.aliases).length, 256);
+  assert.equal(Object.hasOwn(obs.vars.HOME, 'truncated'), false);
+});
+
+test('an alias or variable named like an object member is an ordinary entry of the observation', async () => {
+  const b = await shell();
+  await run(b, "alias __proto__='ls'; constructor=c");
+  const obs = await b.observe();
+  assert.deepEqual([obs.aliases.__proto__, obs.vars.constructor], ['ls', { value: 'c', exported: false }]);
+  assert.equal(Object.getPrototypeOf(obs.aliases), Object.prototype);
 });

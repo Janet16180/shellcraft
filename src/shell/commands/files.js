@@ -10,7 +10,7 @@ import { compareNames, baseName } from '../../backend/tree.js';
 import { can, canChangeEntries, canUnlink, canChmod, newMeta } from '../perms.js';
 import { parseOptions, mapLongOptions, optionFailure } from '../options.js';
 import { shellQuote, localeQuote } from '../quote.js';
-import { result, withNote, needInput } from '../result.js';
+import { result, withNote, needInput, ordered } from '../result.js';
 import { openInput, reason } from './text.js';
 
 const tryHelp = name => `Try '${name} --help' for more information.`;
@@ -34,18 +34,23 @@ function cat(args, { sys, stdin }) {
   const failed = optionFailure('cat', o, 1);
   if (failed) return failed;
   if (!o.rest.length && stdin == null) return needInput('cat');
-  const errs = [];
-  let text = '';
+  const chunks = [];
+  const lines = { n: 0, start: true };
   for (const f of o.rest.length ? o.rest : ['-']) {
     const input = openInput(sys, f, stdin);
-    if (input.code) errs.push(`cat: ${shellQuote(f)}: ${reason(input.code)}`);
-    else text += input.content;
+    if (input.code) chunks.push({ stream: 'err', text: `cat: ${shellQuote(f)}: ${reason(input.code)}\n` });
+    else chunks.push({ stream: 'out', text: o.flags.has('n') ? numbered(input.content, lines) : input.content });
   }
-  if (o.flags.has('n')) {
-    let n = 0;
-    text = text.split(/(?<=\n)/).filter(Boolean).map(l => `${String(++n).padStart(6)}\t${l}`).join('');
-  }
-  return errResult(text, errs);
+  return ordered(chunks, chunks.some(c => c.stream === 'err') ? 1 : 0);
+}
+
+// cat -n counts on across files; a file that ends mid-line continues that line.
+function numbered(text, lines) {
+  return text.split(/(?<=\n)/).filter(Boolean).map(l => {
+    const shown = lines.start ? `${String(++lines.n).padStart(6)}\t${l}` : l;
+    lines.start = l.endsWith('\n');
+    return shown;
+  }).join('');
 }
 
 // less names a file it cannot open in its own words and fails only when it
@@ -260,13 +265,27 @@ function symbolicBits(who, perms, old, isDir) {
   return bits;
 }
 
+const SHIFT = { u: 6, g: 3, o: 0 };
+const CLAUSE = /^([ugoa]*)((?:[+\-=](?:[ugo]|[rwxXst]*))+)$/;
+const OPERATION = /([+\-=])([ugo]|[rwxXst]*)/g;
+
+// A copy like g=u takes the source class's rwx as they are at that point.
+function operationBits(who, perms, m, isDir) {
+  const copied = perms.length === 1 && perms in SHIFT;
+  if (!copied) return symbolicBits(who, perms, m, isDir);
+  const rwx = (m >> SHIFT[perms]) & 7;
+  return [...who].reduce((acc, w) => acc | (rwx << SHIFT[w]), 0);
+}
+
+// Clauses split by commas, each a class and one or more operations: u+x-r, go=, g=u.
 function parseSymbolic(mode, umask) {
-  const clauses = mode.split(',').map(c => /^([ugoa]*)([+\-=])([rwxXst]*)$/.exec(c));
+  const clauses = mode.split(',').map(c => CLAUSE.exec(c));
   if (clauses.some(c => !c)) return null;
-  return (old, isDir) => clauses.reduce((m, [, whoRaw, op, perms]) => {
+  const steps = clauses.flatMap(([, whoRaw, ops]) => [...ops.matchAll(OPERATION)].map(([, op, perms]) => ({ whoRaw, op, perms })));
+  return (old, isDir) => steps.reduce((m, { whoRaw, op, perms }) => {
     const who = !whoRaw || whoRaw.includes('a') ? 'ugo' : whoRaw;
-    const bits = symbolicBits(who, perms, old, isDir) & (whoRaw ? ~0 : ~umask);
-    const mask = [...who].reduce((acc, w) => acc | (7 << { u: 6, g: 3, o: 0 }[w]), 0);
+    const bits = operationBits(who, perms, m, isDir) & (whoRaw ? ~0 : ~umask);
+    const mask = [...who].reduce((acc, w) => acc | (7 << SHIFT[w]), 0);
     let next = (m & ~mask) | bits;
     if (op === '+') next = m | bits;
     if (op === '-') next = m & ~bits;

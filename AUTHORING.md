@@ -93,6 +93,12 @@ The check context `ctx` (implemented in `src/game/checks.js`) sees only the port
   (`user: 'root'`, `via: 'sudo'`), sharing the pipeline place and redirections. "chown ran as root" is
   `ctx.ran('chown', r => r.user === 'root')`; a plain `chown` by the player has `user: 'hero'`.
 - `ctx.tried(name, pred?)`: same, any exit status.
+- `ctx.alias(name)`: the text of the player's shell's alias after the line (`'cd ..'` after
+  `alias up='cd ..'`, or after `source ~/.bashrc` that holds it), or `null`. `ctx.variable(name)`: the
+  shell's variable, `{ value, exported }`, or `null`: `ctx.variable('realm')?.exported === false` is
+  "made, not exported". Judge the effect with these rather than the text of `.bashrc`. They read the
+  Observation's `aliases` and `vars` (src/backend/port.js; at most 256 names, values cut to 4096
+  characters); what a script or `bash -c` sets is its own shell's and is not there.
 - `ctx.jobs`: the shell's jobs after the line, `[{ id, pid, cmd, state, mark }]`, `state` being
   `'running'`, `'stopped'` or `'done'` (the process is gone, not yet reported) and `mark` `'+'`
   (current), `'-'` (previous) or `' '`. `ctx.job(1)` is job `%1`, or `null`.
@@ -114,8 +120,14 @@ The check context `ctx` (implemented in `src/game/checks.js`) sees only the port
 - `ctx.piped(record)`: the absolute paths a plain `cat` (no options) piped straight into this stage, e.g. `cat a.txt | sort` gives sort `[a.txt]`; `[]` otherwise. Accept `cat file | cmd` wherever `cmd file` is accepted.
 - `ctx.read(absPath)`: a reading command (cat, less, more, head, tail) succeeded on that file.
 - `ctx.paths(record)`: its non-option arguments as absolute paths (for `tar czf a.tgz dir`, the archive and `dir`).
-- `ctx.line`: the line's text as typed. Judge records and state first; use the text only for what
+  For tar, the archive and directory given as option values count too, where they were typed: `--file=a.tgz`,
+  `-fa.tgz`, `-czfa.tgz`, `--directory=out`, `-Cout`.
+- `ctx.line`: the line's text. Judge records and state first; use the text only for what
   leaves no record, like a variable assignment (`wish=gold`) or which `$` name was expanded.
+- `ctx.typed`: the keys as typed. It differs from `ctx.line` only for history expansion: the backend
+  reports the line that ran (`RunResult.line`: `sudo !!` ran `sudo echo hi`), and `ctx.line` becomes
+  that line once chapter 19 reads `!!` and `!N` from `ctx.typed` (until then both are the typed text).
+  Use `ctx.typed` to ask "did the player type `!!`?"
 - `ctx.completions`: the Tab presses since the previous line, `[{ line, completed }]`. They come
   from the page's own terminal; a real terminal (termlab) would handle Tab inside bash and report
   none, so only use this where losing the task in that mode is acceptable (today: forest's Tab task).
@@ -187,12 +199,18 @@ Without a password, sudo skips the prompt with a note (chapter 11's `sudo ls` re
 one, `sudo` prints `[sudo] password for hero: ` and the terminal reads a hidden line; three wrong
 tries end with `sudo: 3 incorrect password attempts`; Ctrl+C ends with `sudo: a password is required`.
 A correct password is remembered for 15 minutes of the game clock; `sudo -k` forgets it.
+The `sudo` record's `auth` says how that went: `'ok'`, `'not-needed'`, `'failed'` (three wrong
+tries), `'cancelled'` (Ctrl+C, or `-n`), `'not-allowed'` (the policy refused), or `null` (sudo
+stopped before, as for `-k` or `-i`); a near note can tell a wrong password from a refused command:
+`ctx.tried('sudo', r => r.auth === 'failed')`.
 
-Not simulated: a root shell (`sudo -i`, `sudo -s` end with a note: put sudo in front of the one
-command that needs root), `sudo -ll`, sudo's environment handling (`env_reset`, `SUDO_USER`), and
-options like `-E`, `-g`, `-D` (a note). Redirections belong to the player's shell, as in bash: `sudo
-echo x > /etc/f` is refused, `echo x | sudo tee /etc/f` works. sudo logs to `/var/log/auth.log` like
-Ubuntu (readable with `sudo cat`).
+Not simulated: a root shell (`sudo -i` and `sudo -s`, or `sudo su`, `sudo su -` and `sudo bash` after
+the password, end with a note: put sudo in front of the one command that needs root), `sudo -ll`,
+sudo's environment handling (`env_reset`, `SUDO_USER`), and options like `-E`, `-g`, `-D` (a note).
+`su` behaves as on Ubuntu, where root's password is locked: `Password: `, then `su: Authentication
+failure`, status 1, and a note pointing to sudo. Redirections belong to the player's shell, as in
+bash: `sudo echo x > /etc/f` is refused, `echo x | sudo tee /etc/f` works. sudo logs to
+`/var/log/auth.log` like Ubuntu (readable with `sudo cat`).
 
 ### Links
 
@@ -223,6 +241,10 @@ can wait for when a task needs the end (`sleep 20 &`), and long ones when it mus
 own (`sleep 600` to stop with Ctrl+Z, `sleep 600 &` to `kill %1`). bash reports a finished job after
 the next line, so a lesson can say "press Enter". A job's commands run at once in the simulator;
 only its sleeps take time, so `sleep 3 && echo hi &` prints `hi` at once (real bash: after 3 s).
+
+A boss room that counts jobs should start with none: `endJobs()` from spec.js, in the boss setup's
+patch, ends every job of the shell (running or stopped) without a `Done` or `Terminated` notice, so
+the player's first `sleep 700 &` there is `[1]`.
 
 ### Archives
 
@@ -331,6 +353,10 @@ from `test/game/chapters/harness.js` answers each prompt in order (`{ password: 
 for several tries, `null` for Ctrl+C) and returns the parts of the line joined; a prompt the test did
 not answer raises. `play()` and the session playthrough answer with the password the chapter's setup
 sets (`passwordOf(chapter)`), so `solve` lines may use sudo.
+
+`type()` judges a line against the observation after the line before it (or after the last
+`backend.load`), as the session does: a background job that ended while the test clock moved is
+`running` in `ctx.before`, so an empty line that shows its `Done` passes `ctx.ended(1)`.
 
 Commands that take time run on a test clock that stands still until the test moves it. `startChapter`
 returns a backend with `tick`: `await backend.tick(30)` lets 30 seconds pass, so a `sleep 30 &` job is

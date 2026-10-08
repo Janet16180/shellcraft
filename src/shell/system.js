@@ -63,7 +63,7 @@ export function allocPid(sys, maxGap = 3) {
 }
 
 // Programs that run with their owner's rights (the s in -rwsr-xr-x).
-const SETUID = new Set(['sudo']);
+const SETUID = new Set(['sudo', 'su']);
 
 function baseTree(home, user, binaries, mtime) {
   const meta = mode => ({ ...ROOT_META, mode, mtime });
@@ -126,7 +126,7 @@ export function createSystem({ user, host, home, now, random, binaries }) {
     password: null, sudoStamp: null,
     root: baseTree(home, user, binaries, started), loginTime: started,
     cwd: home, oldpwd: null,
-    vars: initialVars({ user, home, host }), aliases: nameTable(), history: [], hashed: new Map(),
+    vars: initialVars({ user, home, host }), aliases: nameTable(), expandAliases: true, history: [], hashed: new Map(),
     positional: { zero: 'bash', args: [] }, flags: 'himBHs', lastStatus: 0, umask: 0o022, procs: [], nextPid: 300, shellPid: 0, columns: 80, nextIno: FIRST_INODE,
     jobs: [], jobMarks: { current: null, previous: null }, exits: new Map(), lastBackground: null,
   };

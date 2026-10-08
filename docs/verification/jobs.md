@@ -52,7 +52,11 @@ Kept different on purpose:
 - A job is one process: `ps` shows `sleep 30` for `sleep 30 &`, and one `bash` for a job of several
   commands (`a | b &`, `a && b &`); `jobs -l` lists one PID per job.
 - The tty's echo of Ctrl+Z goes with bash's notice on one line pair (`^Z` then `[1]+  Stopped ...`),
-  as the real terminal shows it.
+  as the real terminal shows it. When another job ended meanwhile, bash's Done notice comes right
+  after the `^Z`, on its line, then a blank line and the Stopped notice: `sleep 1 &`, `sleep 30`,
+  two seconds, Ctrl+Z gave `^Z[1]   Done                    sleep 1\r\n\r\n[2]+  Stopped
+  sleep 30` (bash 5.2, 2026-10-08, script -qfc "bash --norc -i" with od -c). The simulator does
+  the same (tester report E5 thought otherwise).
 - Ctrl+Z while `wait` runs is ignored silently (real bash ignores SIGTSTP too; the terminal would
   echo `^Z`).
 - Racy cases are resolved one way: bash also gives a running foreground command a job slot, which

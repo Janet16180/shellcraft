@@ -7,7 +7,7 @@
  * a backend stores the world.
  */
 
-const OPS = new Set(['put', 'remove', 'proc', 'stop', 'cd', 'login', 'password']);
+const OPS = new Set(['put', 'remove', 'proc', 'stop', 'cd', 'login', 'password', 'endJobs']);
 const PLAYER_SHELL = 'shell';
 const MAX_MODE = 0o7777;
 
@@ -122,6 +122,15 @@ export const login = () => ({ op: 'login' });
  * @returns {{op: 'password', text: string|null}} The operation.
  */
 export const password = text => ({ op: 'password', text });
+
+/**
+ * End every job of the player's shell, running or stopped, without a word:
+ * their processes go, the job table empties (no Done or Terminated notice
+ * follows), and the next job is %1. A boss room starts clean with it.
+ *
+ * @returns {{op: 'endJobs'}} The operation.
+ */
+export const endJobs = () => ({ op: 'endJobs' });
 
 function checkNode(node, where) {
   if (node.type === 'link') throw new Error(`${where}: a hard link may only be the node a put places`);

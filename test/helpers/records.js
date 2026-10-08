@@ -32,7 +32,7 @@ export function sampleTree() {
  * @returns {object} The observation.
  */
 export function observation(fields = {}) {
-  return { user: 'hero', groups: ['hero'], host: 'kernelia', home: HOME, cwd: HOME, tree: sampleTree(), procs: [], jobs: [], ...fields };
+  return { user: 'hero', groups: ['hero'], host: 'kernelia', home: HOME, cwd: HOME, tree: sampleTree(), procs: [], jobs: [], aliases: {}, vars: {}, ...fields };
 }
 
 /**
