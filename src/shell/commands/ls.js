@@ -55,7 +55,13 @@ export function humanSize(bytes) {
   return text;
 }
 
-function modeString(node) {
+/**
+ * The ten letters of a mode as `ls -l` shows them: type, then rwx for owner, group and others.
+ *
+ * @param {{type: string, mode: number, dev?: string, unknown?: boolean}} node A node, or anything with its type and mode.
+ * @returns {string} For example `drwxr-xr-x` or `-rwsr-xr-x`.
+ */
+export function modeString(node) {
   if (node.unknown) return `${TYPE_LETTERS[node.type] ?? '-'}?????????`;
   const m = node.mode;
   const bit = (mask, ch) => (m & mask ? ch : '-');

@@ -21,7 +21,8 @@ const LONG = {
 };
 // Suffixes gunzip removes, and what it puts in their place.
 const SUFFIXES = [['.gz', ''], ['.tgz', '.tar'], ['.taz', '.tar'], ['-gz', ''], ['.z', ''], ['-z', ''], ['_z', ''], ['.Z', '']];
-const GUNZIP_ERRORS = {
+/** What gzip says about data it cannot decompress, by gunzip()'s error. */
+export const GUNZIP_ERRORS = {
   format: 'not in gzip format', eof: 'unexpected end of file', corrupt: 'invalid compressed data--format violated', crc: 'invalid compressed data--crc error',
 };
 const TO_TERMINAL = 'compressed data not written to a terminal. Use -f to force compression.\nFor help, type: gzip -h';
