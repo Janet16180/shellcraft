@@ -68,6 +68,7 @@ const NEAR_MISSES = [
   [HIDDEN, [], "echo 'echo $realm'", "bash -c 'echo $realm'"],
   [EXPORT, ['realm=Kernelia'], "bash -c 'echo $realm'", "export realm; bash -c 'echo $realm'"],
   [KEEP, [], SAVE_UP, `${SAVE_UP} && source ~/.bashrc`],
+  [KEEP, [SAVE_UP, 'echo "alias home=cd ~" >> ~/.bashrc'], 'cat ~/.bashrc', 'source ~/.bashrc'],
   [KEEP, [SAVE_UP], 'cat ~/.bashrc', '. ~/.bashrc'],
   [KEEP, ["echo \"alias up='cd ..'\" > ~/.bashrc"], 'source ~/.bashrc', null],
 ];
@@ -86,6 +87,8 @@ const NEAR_NOTES = [
   [EXPORT, ['realm=Kernelia'], "bash -c 'echo $realm'", /export realm/],
   [KEEP, [SAVE_UP], 'cat ~/.bashrc', /source/],
   [KEEP, ["echo \"alias up='cd ..'\" > ~/.bashrc"], 'source ~/.bashrc', />>/],
+  [HIDDEN, ['realm=Kernelia'], 'bash -c "echo $realm"', /single quotes/],
+  [HIDDEN, [], 'realm = Kernelia', /No spaces/],
 ];
 
 for (const [goal, prefix, line, note] of NEAR_NOTES) {

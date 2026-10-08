@@ -14,10 +14,14 @@ const firstNote = rules => rules.find(([when]) => when())?.[1] ?? null;
 const bashrcOf = ctx => `${ctx.home}/.bashrc`;
 const bashrc = ctx => ctx.node(bashrcOf(ctx))?.content ?? '';
 const kept = ctx => bashrc(ctx).includes('export EDITOR=nano');
-const sourced = ctx => ['source', '.'].some(name => ctx.ran(name, record => ctx.hasPath(record, bashrcOf(ctx))));
+// source returns the status of the file's last line, so a failing line elsewhere still loads the rest.
+const sourced = ctx => ['source', '.'].some(name => ctx.tried(name, record => ctx.hasPath(record, bashrcOf(ctx))));
 const typed = (ctx, pattern) => pattern.test(ctx.line.trim());
 const ranAny = ctx => ctx.commands.length > 0;
 const childEcho = (ctx, text) => ctx.ran('bash', record => record.args[0] === '-c' && /\$\{?realm\b/.test(record.args[1] ?? '') && record.stdout === `${text}\n`);
+// bash -c "echo $realm": your shell put the value in before the new bash started.
+const doubleQuoted = ctx => ctx.ran('bash', record => record.args[0] === '-c' && /\bKernelia\b/.test(record.args[1] ?? '') && /\$\{?realm/.test(ctx.line));
+const DOUBLE_NOTE = 'With double quotes, your shell replaced $realm before the new bash started, so that proves nothing. Use single quotes: bash -c \'echo $realm\'.';
 const UP_LINE = /^alias up=(['"])cd \.\.\1$/m;
 const REPLACED = 'Your .bashrc lost its first lines: > replaced the whole file. Press Restart chapter in the HUD to get it back, then add with >>.';
 
@@ -141,10 +145,11 @@ export default {
       hints: [
         'Two lines: make the variable, then ask a new bash to print it.',
         'First `realm=Kernelia`, then `bash -c` with `\'echo $realm\'` in single quotes.',
-        'bash -c \'echo $realm\'',
+        'realm=Kernelia; bash -c \'echo $realm\'',
       ],
       done: ctx => childEcho(ctx, ''),
-      near: ctx => (childEcho(ctx, 'Kernelia') ? 'realm is exported already, from an earlier try. Run unset realm, then make it again with realm=Kernelia.' : null),
+      // realm = Kernelia runs a command named realm.
+      near: ctx => (/^realm\s+=|^realm=\s/.test(ctx.line.trim()) ? 'No spaces around =: realm=Kernelia.' : null) ?? (doubleQuoted(ctx) ? DOUBLE_NOTE : null) ?? (childEcho(ctx, 'Kernelia') ? 'realm is exported already, from an earlier try. Run unset realm, then make it again with realm=Kernelia.' : null),
     },
     {
       goal: 'Hand `realm` down to new programs (`export realm`), then ask a new shell again',
@@ -152,10 +157,10 @@ export default {
       hints: [
         'Export it, then run the same `bash -c` line.',
         '`export realm`, then `bash -c \'echo $realm\'`.',
-        'export realm',
+        'export realm && bash -c \'echo $realm\'',
       ],
       done: ctx => childEcho(ctx, 'Kernelia'),
-      near: ctx => (childEcho(ctx, '') ? 'The new shell still sees nothing. Run export realm first (and realm=Kernelia, if it is gone).' : null),
+      near: ctx => (doubleQuoted(ctx) ? DOUBLE_NOTE : null) ?? (childEcho(ctx, '') ? 'The new shell still sees nothing. Run export realm first (and realm=Kernelia, if it is gone).' : null),
     },
     {
       goal: 'Keep `up` for every new shell: add the line `alias up=\'cd ..\'` to the end of `~/.bashrc`, then load it now (`source ~/.bashrc`)',
@@ -163,7 +168,7 @@ export default {
       hints: [
         'Use `echo` with the whole alias line in double quotes, and `>>`, never `>`.',
         `\`echo "alias up='cd ..'" >> ~/.bashrc\`, then \`source ~/.bashrc\`.`,
-        'source ~/.bashrc',
+        'echo "alias up=\'cd ..\'" >> ~/.bashrc && source ~/.bashrc',
       ],
       done: ctx => kept(ctx) && UP_LINE.test(bashrc(ctx)) && sourced(ctx),
       near: ctx => {
