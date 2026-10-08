@@ -7,7 +7,8 @@
 import { fitLabel } from './layout.js';
 import { LABEL, NIGHT, INK } from './palette.js';
 
-const MONO = '"IBM Plex Mono", ui-monospace, monospace';
+/** The font of every name label. */
+export const MONO = '"IBM Plex Mono", ui-monospace, monospace';
 const TITLE = '"Pixelify Sans", "IBM Plex Mono", monospace';
 
 /**
