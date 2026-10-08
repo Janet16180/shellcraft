@@ -23,6 +23,7 @@ import portals from './portals.js';
 import crown from './crown.js';
 import memory from './memory.js';
 import errands from './errands.js';
+import travel from './travel.js';
 
 
 /**
@@ -51,4 +52,5 @@ export default [
   crown,
   memory,
   errands,
+  travel,
 ];
