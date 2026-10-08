@@ -37,6 +37,11 @@ test('< reads a file into standard input', () => {
   assert.equal(openRedirects(sys(), [r('<', 'a.txt')], base()).streams.stdin, 'old\n');
 });
 
+test('< is recorded with its absolute path, like > and >>', () => {
+  assert.deepEqual(openRedirects(sys(), [r('<', 'a.txt'), r('>', 'b.txt')], base()).records, [{ op: '<', target: '/h/a.txt' }, { op: '>', target: '/h/b.txt' }]);
+  assert.deepEqual(openRedirects(sys(), [r('<', 'missing')], base()).records, []);
+});
+
 test('2> sends errors to a file and 2>&1 joins them to standard output', () => {
   const s = sys();
   const { streams } = openRedirects(s, [r('>', 'o.txt'), r('>&', '1', 2)], base());

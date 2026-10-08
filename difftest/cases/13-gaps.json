@@ -1,0 +1,3 @@
+[
+  { "name": "input redirection in pipelines", "world": "home", "lines": ["sort < market/inventory.txt | uniq", "grep o < market/inventory.txt | wc -l", "wc -l < readme.txt", "cat < nope | wc -l", "sort 0< readme.txt"] }
+]

@@ -34,7 +34,7 @@ function openRead(sys, path) {
   let error = r.error ? errorText(r.error) : null;
   if (!error && r.node.type === 'dir') error = 'Is a directory';
   else if (!error && !can(sys, r.node, 'r')) error = 'Permission denied';
-  return { input: error ? null : r.node.content, error };
+  return { input: error ? null : r.node.content, error, abs: r.abs };
 }
 
 function applyDup(fd, target, streams) {
@@ -44,10 +44,10 @@ function applyDup(fd, target, streams) {
   return { error: null, record: null };
 }
 
-function applyRead(sys, target, streams) {
-  const read = openRead(sys, target);
+function applyRead(sys, redir, streams) {
+  const read = openRead(sys, redir.target);
   streams.stdin = read.input;
-  return { error: read.error, record: null };
+  return { error: read.error, record: { op: `${redir.fd ?? ''}<`, target: read.abs } };
 }
 
 function applyWrite(sys, redir, fd, streams) {
@@ -64,7 +64,7 @@ function applyOne(sys, redir, streams) {
   const fd = redir.fd ?? (op.startsWith('<') ? 0 : 1);
   let applied;
   if ((op === '>&' || op === '<&') && /^\d$/.test(target)) applied = applyDup(fd, target, streams);
-  else if (op === '<') applied = applyRead(sys, target, streams);
+  else if (op === '<') applied = applyRead(sys, redir, streams);
   else applied = applyWrite(sys, redir, fd, streams);
   return { error: applied.error ? `bash: ${target}: ${applied.error}` : null, record: applied.record };
 }
@@ -76,7 +76,7 @@ function applyOne(sys, redir, streams) {
  * @param {{op: string, fd: number|null, target: string}[]} redirs Redirections with expanded targets.
  * @param {{stdin: string|null, out: object, err: object}} base Where the streams point before redirection.
  * @returns {{streams: {stdin: string|null, out: object, err: object}, error: string|null, records: {op: string, target: string}[]}}
- *   The streams, the first error (the command must not run), and the output redirections for the command record.
+ *   The streams, the first error (the command must not run), and the file redirections (`<`, `>`, `>>`...) for the command record.
  */
 export function openRedirects(sys, redirs, base) {
   const streams = { ...base };
