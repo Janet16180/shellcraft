@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run, guild } from '../helpers.js';
-import { put, dir, file } from '../../../src/backend/spec.js';
+import { put, dir, file, login } from '../../../src/backend/spec.js';
 
 const outcome = r => [r.out, r.err, r.status];
 const mine = { owner: 'hero' };
@@ -104,4 +104,32 @@ test('-R skips a directory it cannot read and fails on the contents of one it ca
     "chgrp: cannot read directory 'hall/nr': Permission denied\nchgrp: changing group of 'hall/nx/in': Permission denied\n", 1]);
   assert.equal(await ownerOf(b, 'hall/nr'), 'hero:hero');
   assert.equal(await ownerOf(b, 'hall/nx'), 'hero:scribes');
+});
+
+test('new files take the primary group from /etc/passwd', async () => {
+  const b = await shell([...guild(), put('/etc/passwd', file('hero:x:1000:1002::/home/hero:/bin/bash\n')), login()]);
+  await run(b, 'touch t; mkdir m; echo x > r; cp t c');
+  assert.equal((await run(b, 'ls -ld t m r c')).out.split('\n').filter(Boolean).map(l => l.split(/ +/).slice(2, 4).join(':')).join(' '),
+    'hero:scribes hero:scribes hero:scribes hero:scribes');
+});
+
+test('in a setgid directory new files take its group, and new directories stay setgid', async () => {
+  const b = await shell([...guild(), put('/home/hero/sg', dir({}, { owner: 'hero', group: 'scribes', mode: 0o2775 }))]);
+  await run(b, 'touch sg/t; mkdir sg/m; echo x > sg/r; cp readme.txt sg/c; cp -r forest sg/f');
+  const rows = (await run(b, 'ls -l sg')).out.split('\n').slice(1, -1).map(l => `${l.split(/ +/)[0]} ${l.split(/ +/)[3]}`);
+  assert.deepEqual(rows, ['-rw-r--r-- scribes', 'drwxr-sr-x scribes', 'drwxr-sr-x scribes', '-rw-r--r-- scribes', '-rw-r--r-- scribes']);
+});
+
+test('rm removes a write-protected file in a writable directory, and notes the question a terminal would ask', async () => {
+  const b = await shell([put('/home/hero/locked.txt', file('x\n', { owner: 'hero', mode: 0o444 })), put('/home/hero/empty', file('', { owner: 'hero', mode: 0o444 }))]);
+  const r = await run(b, 'rm locked.txt');
+  assert.deepEqual(outcome(r), ['', '', 0]);
+  assert.equal(r.note, 'In a real terminal, rm asks "rm: remove write-protected regular file \'locked.txt\'?" and waits for y or n. The game answers yes for you.');
+  assert.match((await run(b, 'rm empty')).note, /write-protected regular empty file 'empty'/);
+  assert.equal((await run(b, 'rm -f readme.txt')).note, '');
+});
+
+test('rm -f does not note anything about write-protected files', async () => {
+  const b = await shell([put('/home/hero/locked.txt', file('x\n', { owner: 'hero', mode: 0o444 }))]);
+  assert.equal((await run(b, 'rm -f locked.txt')).note, '');
 });
