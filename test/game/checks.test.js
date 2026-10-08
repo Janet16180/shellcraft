@@ -76,9 +76,21 @@ test('flag finds a letter in short option clusters', () => {
   assert.equal(ctx.flag(record('ls', ['forest', '-a']), 'a'), true);
 });
 
-test('flag ignores long options, a lone dash and anything after --', () => {
+test('flag reads the long options players type as their short letter, per command', () => {
   const ctx = context([]);
-  assert.equal(ctx.flag(record('ls', ['--all']), 'a'), false);
+  assert.equal(ctx.flag(record('ls', ['--all']), 'a'), true);
+  assert.equal(ctx.flag(record('grep', ['--ignore-case', 'x']), 'i'), true);
+  assert.equal(ctx.flag(record('grep', ['--recursive', 'x']), 'r'), true);
+  assert.equal(ctx.flag(record('tail', ['--lines=3', 'f']), 'n'), true);
+  assert.equal(ctx.flag(record('wc', ['--lines']), 'l'), true);
+  assert.equal(ctx.flag(record('rm', ['--recursive', 'd']), 'r'), true);
+  assert.equal(ctx.flag(record('cat', ['--all']), 'a'), false, 'only the command\'s own long options');
+  assert.equal(ctx.flag(record('ls', ['--', '--all']), 'a'), false);
+});
+
+test('flag ignores unknown long options, a lone dash and anything after --', () => {
+  const ctx = context([]);
+  assert.equal(ctx.flag(record('ls', ['--color']), 'c'), false);
   assert.equal(ctx.flag(record('cat', ['-']), 'a'), false);
   assert.equal(ctx.flag(record('rm', ['--', '-a']), 'a'), false);
 });
@@ -125,6 +137,23 @@ test('piped lists the files a cat stage just before the command fed it, through 
   assert.deepEqual(context(redirected).piped(redirected[1]), [`${HOME}/a.txt`]);
   const numbered = [stage('cat', ['-n', 'a.txt'], 0), stage('grep', ['x'], 1)];
   assert.deepEqual(context(numbered).piped(numbered[1]), [], 'cat -n changes the lines');
+});
+
+test('hasPath counts a file sent in with < or a piped cat, only for commands that read their input', () => {
+  const stage = (name, args, n, fields = {}) => record(name, args, { pipeline: 0, stage: n, stages: 2, ...fields });
+  const file = `${HOME}/a.txt`;
+  assert.equal(context([]).hasPath(record('grep', ['x'], { redirects: [{ op: '<', target: file }] }), file), true);
+  const line = [stage('cat', ['a.txt'], 0), stage('tail', ['-n', '3'], 1)];
+  assert.equal(context(line).hasPath(line[1], file), true);
+  const ignored = [stage('cat', ['a.txt'], 0), stage('ls', [], 1)];
+  assert.equal(context(ignored).hasPath(ignored[1], file), false);
+});
+
+test('read counts a reader that failed on another file after printing this one whole', () => {
+  const r = record('cat', ['readme.txt', 'forest'], { status: 1, stdout: 'Hello\n' });
+  const tree = { type: 'dir', children: { home: { type: 'dir', children: { hero: { type: 'dir', children: { 'readme.txt': { type: 'file', content: 'Hello\n' } } } } } } };
+  assert.equal(context([r], { tree }).read(`${HOME}/readme.txt`), true);
+  assert.equal(context([record('cat', ['readme.txt'], { status: 1, stdout: '' })], { tree }).read(`${HOME}/readme.txt`), false);
 });
 
 test('read is true when a reading command succeeded on the file', () => {

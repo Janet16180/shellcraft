@@ -30,6 +30,32 @@ export function resolvePath(arg, cwd, home) {
   return `/${parts.join('/')}`;
 }
 
+/** Commands that read standard input when no file is named. */
+export const STDIN_READERS = new Set([...READERS, 'grep', 'sort', 'uniq', 'wc', 'cut', 'tr', 'nl', 'rev', 'tac']);
+
+/** The long options players type, per command, and the short letter each one means. */
+const LONG_OPTIONS = {
+  ls: { all: 'a', 'almost-all': 'A', directory: 'd', recursive: 'R', 'human-readable': 'h' },
+  grep: { recursive: 'r', 'dereference-recursive': 'R', 'ignore-case': 'i', count: 'c', 'line-number': 'n', 'invert-match': 'v', 'word-regexp': 'w' },
+  rm: { recursive: 'r', force: 'f', dir: 'd' },
+  cp: { recursive: 'r' },
+  mkdir: { parents: 'p' },
+  head: { lines: 'n' },
+  tail: { lines: 'n' },
+  wc: { lines: 'l', words: 'w', bytes: 'c', chars: 'm' },
+  sort: { unique: 'u', reverse: 'r', 'numeric-sort': 'n' },
+  uniq: { count: 'c', repeated: 'd', unique: 'u' },
+};
+
+function longOptions(record) {
+  const end = record.args.indexOf('--');
+  const map = LONG_OPTIONS[record.name] ?? {};
+  return (end < 0 ? record.args : record.args.slice(0, end))
+    .filter(a => a.startsWith('--') && a.length > 2)
+    .map(a => map[a.slice(2).split('=')[0]])
+    .filter(Boolean);
+}
+
 function shortOptions(args) {
   const end = args.indexOf('--');
   return (end < 0 ? args : args.slice(0, end)).filter(a => /^-[^-]/.test(a));
@@ -60,9 +86,8 @@ export function operands(args) {
 export function makeContext({ commands, before, obs, completions = [], line = '' }) {
   const { home } = obs;
   const paths = record => operands(record.args).map(arg => resolvePath(arg, record.cwd, home));
-  const hasPath = (record, path) => paths(record).includes(path);
   const ran = (name, pred = () => true) => commands.some(r => r.name === name && r.status === 0 && pred(r));
-  const readsFrom = (record, path) => hasPath(record, path) || record.redirects.some(x => x.op === '<' && x.target === path);
+  const inputOf = record => record.redirects.find(x => x.op === '<')?.target ?? null;
   const stageBefore = record => commands.find(r => r.pipeline === record.pipeline && r.stage === record.stage - 1) ?? null;
   // The files a plain cat (no options, so the lines are unchanged) piped into this stage.
   const piped = record => {
@@ -70,9 +95,14 @@ export function makeContext({ commands, before, obs, completions = [], line = ''
     if (cat?.name !== 'cat' || cat.status !== 0 || cat.args.some(a => a.startsWith('-') && a !== '-' && a !== '--')) return [];
     const files = paths(cat);
     if (files.length > 0) return files;
-    const input = cat.redirects.find(x => x.op === '<');
-    return input ? [input.target] : piped(cat);
+    return inputOf(cat) ? [inputOf(cat)] : piped(cat);
   };
+  // A file the command names, or, for a command that reads its input, the file sent in with < or a piped cat.
+  const hasPath = (record, path) => paths(record).includes(path)
+    || (STDIN_READERS.has(record.name) && (inputOf(record) === path || piped(record).includes(path)));
+  const nodeContent = path => nodeAt(obs.tree, path)?.content ?? nodeAt(before.tree, path)?.content ?? null;
+  // A reader that succeeded, or that failed on another file after it printed this whole file.
+  const readOk = (record, path) => record.status === 0 || (nodeContent(path) !== null && nodeContent(path) !== '' && record.stdout.includes(nodeContent(path)));
 
   return {
     commands,
@@ -86,10 +116,10 @@ export function makeContext({ commands, before, obs, completions = [], line = ''
     proc: key => obs.procs.find(p => p.key === key) ?? null,
     ran,
     tried: (name, pred = () => true) => commands.some(r => r.name === name && pred(r)),
-    flag: (record, letter) => shortOptions(record.args).some(o => o.slice(1).includes(letter)),
+    flag: (record, letter) => shortOptions(record.args).some(o => o.slice(1).includes(letter)) || longOptions(record).includes(letter),
     paths,
     hasPath,
     piped,
-    read: path => commands.some(r => READERS.has(r.name) && r.status === 0 && readsFrom(r, path)),
+    read: path => commands.some(r => READERS.has(r.name) && hasPath(r, path) && readOk(r, path)),
   };
 }
