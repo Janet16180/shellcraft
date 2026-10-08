@@ -31,12 +31,13 @@ import { runFor, runIf } from './compound.js';
 import { allocPid, makeProc, TERMINAL } from './system.js';
 import { addJob, reap, notify } from './jobs.js';
 import { deepCopy } from './snapshot.js';
+import { nameTable } from './table.js';
 
 const MAX_DEPTH = 32;
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const CONTINUATION = 'In a real terminal, bash would wait for the rest of the command on a new line (a > prompt). Here the line ends where you pressed Enter.';
 // What a background job's subshell may change without the shell seeing it.
-const SUBSHELL_STATE = ['vars', 'aliases', 'cwd', 'oldpwd', 'umask', 'positional', 'flags', 'hashed', 'history', 'lastBackground'];
+const SUBSHELL_STATE = ['vars', 'aliases', 'expandAliases', 'cwd', 'oldpwd', 'umask', 'positional', 'flags', 'hashed', 'history', 'lastBackground'];
 const OWN_OPTIONS = new Set(['clear', 'find', 'which', 'sudo']);
 const helpNote = name => `Real bash prints a longer description here; help ${name} shows the same text.`;
 
@@ -234,12 +235,15 @@ function dispatch(sh, argv, streams, overlay) {
   return r;
 }
 
+// Bash expands aliases as it reads a command, so the table is the one the
+// shell had when the text was parsed (see runText), not when it runs.
 function aliasExpand(sh, words, seen = new Set()) {
+  const table = sh.frame.aliases;
   const first = words[0];
   const plain = first && first.parts.length === 1 && 'lit' in first.parts[0] && !first.parts[0].q;
   const name = plain ? first.parts[0].lit : null;
-  if (name === null || seen.has(name) || !(name in sh.sys.aliases)) return words;
-  const expanded = tokenize(sh.sys.aliases[name]).tokens.filter(t => t.type === 'word');
+  if (!table || name === null || seen.has(name) || !(name in table)) return words;
+  const expanded = tokenize(table[name]).tokens.filter(t => t.type === 'word');
   return [...aliasExpand(sh, expanded, new Set([...seen, name])), ...words.slice(1)];
 }
 
@@ -445,6 +449,7 @@ function runText(sh, text, sink, textFrame) {
   let next = { end: 0, list: [], error: null };
   while (next.list && sh.exit === null && sh.run.waiting === null && !sh.run.cancelled) {
     next = parseNext(tokens, next.end);
+    textFrame.aliases = sh.sys.expandAliases ? nameTable(sh.sys.aliases) : null;
     if (next.error) syntaxError(sh, next.error, text, sink);
     if (next.error) status = 2;
     if (next.list) status = runList(sh, next.list, sink, null).status;

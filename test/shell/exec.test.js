@@ -61,6 +61,37 @@ test('aliases expand in the first word unless it is quoted', async () => {
   assert.equal((await run(b, "'ll'")).status, 127);
 });
 
+test('an alias made on a line works from the next line, as bash reads a whole line first', async () => {
+  const b = await shell();
+  const same = await run(b, "alias up='cd ..'; up");
+  assert.deepEqual([same.err, same.status], ['bash: up: command not found\n', 127]);
+  await run(b, 'cd forest');
+  assert.equal((await run(b, 'up; pwd')).out, '/home/hero\n');
+});
+
+test('a sourced file expands its aliases from its next line on, and they last after it', async () => {
+  const text = "alias one='echo one'\none\nalias two='echo two'; two\n";
+  const b = await shell([put('/home/hero/a.sh', file(text, { owner: 'hero' }))]);
+  const r = await run(b, 'source a.sh; one');
+  assert.deepEqual([r.out, r.err], ['one\n', 'bash: two: command not found\nbash: one: command not found\n']);
+  assert.equal((await run(b, 'one; two')).out, 'one\ntwo\n');
+});
+
+test('a command substitution reads its text when it runs, so it sees an alias made before it', async () => {
+  const b = await shell();
+  assert.equal((await run(b, "alias y='echo Y'; echo $(y)")).out, 'Y\n');
+});
+
+test('a script and bash -c expand aliases only after shopt -s expand_aliases', async () => {
+  const b = await shell([put('/home/hero/s.sh', file("alias up='echo UP'\nup\n", { owner: 'hero' }))]);
+  assert.equal((await run(b, 'bash s.sh')).err, 's.sh: line 2: up: command not found\n');
+  assert.equal((await run(b, "bash -c \"alias up='echo UP'\nup\"")).err, 'bash: line 2: up: command not found\n');
+  const on = await run(b, "bash -c \"shopt -s expand_aliases; alias up='echo UP'\nup\"");
+  assert.deepEqual([on.out, on.err], ['UP\n', '']);
+  const same = await run(b, "bash -c \"shopt -s expand_aliases; alias up='echo UP'; up\"");
+  assert.equal(same.err, 'bash: line 1: up: command not found\n');
+});
+
 test('NAME=value sets a variable for later lines', async () => {
   const b = await shell();
   await run(b, 'SPELL=lumos');

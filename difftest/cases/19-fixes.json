@@ -1,0 +1,3 @@
+[
+  {"name": "an alias made on a line works from the next line", "world": "home", "lines": ["alias up='cd ..'; up; echo s$?", "cd forest; up; pwd", "alias y='echo Y'; echo $(y)", "printf '%s\\n' \"alias one='echo one'\" one \"alias two='echo two'; two\" > a.sh", "source a.sh; one", "one; two", "bash a.sh; echo s$?", "bash -c \"shopt -s expand_aliases; alias up='echo UP'\nup\"", "bash -c \"shopt -s expand_aliases; alias up='echo UP'; up\"", "shopt expand_aliases; shopt -p expand_aliases; bash -c 'shopt expand_aliases; echo s$?'", "shopt -s nope; echo s$?", "rm a.sh"]}
+]
