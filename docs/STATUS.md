@@ -12,6 +12,18 @@ map draws the working directory as a room: the original outdoor 8-bit style insi
 home, Ring Zero's Pixel Dungeon style outside it. Each chapter is lesson, guided quest, boss,
 adventure log. 14 chapters are planned (DESIGN.md section 4).
 
+## State at 2026-10-08, morning (act III: chapters 15 and 16)
+
+- `slice/users` and `slice/explainer` are merged into `slice/act3`. Chapters name an explainer by
+  id (`explainer: 'perms'`); `withExplainers` in src/main.js swaps in the explainer.
+- Written on `slice/act3`, not yet played by the user: 15 The Guild (`guild`: users, groups,
+  `id USER`, only one set of letters counts; boss: the one scroll oren may read) and 16 The Shared
+  Hall (`hall`: r/w/x on directories, removing needs w on the directory, `chgrp`; boss: a faction's
+  room, 770). The people are in `src/game/people.js` (`realm(player, { factions })`).
+- Running agents: backend `slice/links` (symlinks, hard links, inodes, `ln`, `readlink`) for
+  chapter 17; frontend art `slice/art3` (Guild Hall `/srv/guild`, other homes, `~/guild`, `~/hall`,
+  a portal sprite).
+
 ## State at 2026-10-08, evening (act III started)
 
 - Chapters 1 to 14 and all tester fixes are merged into main (6cae0b8). The user approved the
