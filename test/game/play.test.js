@@ -9,7 +9,8 @@ import { baseWorld } from '../../src/game/world.js';
 import { createMemoryStore } from '../helpers/memory-store.js';
 import { fixtureChapters, fixtureWorld } from '../helpers/fixture-chapters.js';
 import { typeLine } from '../helpers/type-line.js';
-import { passwordOf } from './chapters/harness.js';
+import { passwordOf, jobNotice } from './chapters/harness.js';
+import { sessionKeys, createClock } from '../helpers/session-keys.js';
 
 const HOME = '/home/hero';
 const [AWAKENING, FOREST] = chapters;
@@ -22,25 +23,16 @@ const savedIn = store => JSON.parse(store.getItem(SAVE_KEY));
 const bootReal = options => bootSim({ chapters, baseWorld, ...options });
 
 async function bootSim({ chapters, baseWorld, seed = 1, store = createMemoryStore() }) {
-  const backend = createSimBackend({ now: () => Date.UTC(2026, 9, 6, 12), random: createRandom(seed) });
+  const clock = createClock();
+  const backend = createSimBackend({ now: clock.now, random: createRandom(seed) });
   const session = createSession({ backend, chapters, baseWorld, store, random: createRandom(seed) });
+  session.tick = clock.tick;
   const view = await session.boot();
   return { session, view };
 }
 
-// Keys that answer a password prompt with the one the chapter's setup sets.
-function keysFor(session, chapter) {
-  const password = passwordOf(chapter);
-  const submit = async line => {
-    let turn = await session.submit(line);
-    while (turn.result.input) {
-      if (password === null) throw new Error(`"${line}" asked for input and the chapter sets no password`);
-      turn = await session.answer(password);
-    }
-    return turn;
-  };
-  return { complete: line => session.complete(line), submit };
-}
+// Keys that answer a password prompt with the one the chapter's setup sets, and let a running command end.
+const keysFor = (session, chapter) => sessionKeys(session, { password: passwordOf(chapter), tick: session.tick });
 
 async function playChapter(session, chapter) {
   const keys = keysFor(session, chapter);
@@ -52,7 +44,7 @@ async function playChapter(session, chapter) {
 }
 
 const kinds = list => list.map(x => x.kind);
-const unexpectedErrors = turns => turns.flatMap(t => t.result.output.filter(c => c.stream === 'err').map(c => c.text));
+const unexpectedErrors = turns => turns.flatMap(t => t.result.output.filter(c => c.stream === 'err' && !jobNotice(c.text)).map(c => c.text));
 
 async function playLines(session, lines) {
   const turns = [];

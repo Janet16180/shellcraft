@@ -91,11 +91,12 @@ export function streamsOf(record) {
 
 const KEYS = ['INT', 'TSTP'];
 
-// A job that had a live process before the line and has none after it (the same job: same PID).
+// A job (the same one: same PID) whose process ended during the line, or
+// whose end bash reported in it: live then done or gone, or done then gone.
 function jobEnded(before, after, id) {
-  const was = (before.jobs ?? []).find(j => j.id === id && j.state !== 'done');
+  const was = (before.jobs ?? []).find(j => j.id === id);
   const now = (after.jobs ?? []).find(j => j.id === id && j.pid === was?.pid);
-  return Boolean(was) && (!now || now.state === 'done');
+  return Boolean(was) && (was.state === 'done' ? !now : !now || now.state === 'done');
 }
 
 /**

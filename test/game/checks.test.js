@@ -251,10 +251,10 @@ test('pressed with anything but INT or TSTP is an authoring bug and raises', () 
   assert.throws(() => context([]).pressed('ctrl-z'), /INT or TSTP/);
 });
 
-test('ended tells that a job running or stopped before the line has no process after it', () => {
-  const before = { jobs: [job(1, 'running'), job(2, 'stopped'), job(3, 'running')] };
-  const ctx = context([], { jobs: [job(1, 'done'), job(3, 'running')] }, before);
-  assert.deepEqual([1, 2, 3, 4].map(id => ctx.ended(id)), [true, true, false, false]);
+test('ended tells that a job ended on the line: its process went, or bash reported its end', () => {
+  const before = { jobs: [job(1, 'running'), job(2, 'stopped'), job(3, 'running'), job(5, 'done'), job(6, 'done')] };
+  const ctx = context([], { jobs: [job(1, 'done'), job(3, 'running'), job(6, 'done')] }, before);
+  assert.deepEqual([1, 2, 3, 4, 5, 6].map(id => ctx.ended(id)), [true, true, false, false, true, false]);
 });
 
 test('ended does not count a new job that took the number of an old one', () => {

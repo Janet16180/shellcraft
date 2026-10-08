@@ -35,3 +35,45 @@ test("play answers with the password the chapter's setup sets", async () => {
   const { done, errors: errs } = await play(crown(), backend, ['sudo cat /etc/hostname', 'sudo cat /etc/hostname']);
   assert.deepEqual([done, errs], [[true], []]);
 });
+
+const plain = { setup: () => [], tasks: [{ done: ctx => ctx.pressed('TSTP') }] };
+const texts = result => result.output.map(c => c.text);
+
+test('a line that takes time runs to its end on the test clock unless keys are pressed', async () => {
+  const backend = await startChapter(plain);
+  const { result, ctx } = await type(backend, 'sleep 5; echo after');
+  assert.deepEqual([texts(result), result.running], [['after\n'], undefined]);
+  assert.ok(ctx.ran('sleep'));
+});
+
+test('keys press Ctrl+C or Ctrl+Z while the line runs, and a number waits that many seconds first', async () => {
+  const backend = await startChapter(plain);
+  const stopped = await type(backend, 'sleep 100', { keys: ['ctrl-z'] });
+  assert.deepEqual(texts(stopped.result), ['^Z\n', '[1]+  Stopped                 sleep 100\n']);
+  assert.ok(stopped.ctx.pressed('TSTP', 'sleep'));
+  assert.equal(stopped.ctx.job(1).state, 'stopped');
+  const ended = await type(backend, 'fg', { keys: [30, 'ctrl-c'] });
+  assert.deepEqual([texts(ended.result), ended.result.status], [['sleep 100\n', '^C\n'], 130]);
+});
+
+test('backend.tick moves the test clock, so background jobs end', async () => {
+  const backend = await startChapter(plain);
+  await type(backend, 'sleep 30 &');
+  await backend.tick(30);
+  const { result, ctx } = await type(backend, 'echo x');
+  assert.deepEqual(texts(result), ['x\n', '[1]+  Done                    sleep 30\n']);
+  assert.ok(ctx.ended(1));
+});
+
+test('a line that never ends by itself needs a key, and keys the line did not use are a test bug', async () => {
+  const backend = await startChapter(plain);
+  await assert.rejects(type(backend, 'sleep infinity'), /kept running/);
+  await assert.rejects(type(backend, 'echo hi', { keys: ['ctrl-c'] }), /did not use/);
+  assert.deepEqual(texts((await type(backend, 'echo ok')).result), ['ok\n']);
+});
+
+test('play presses the Ctrl+C and Ctrl+Z written at the end of a solve line', async () => {
+  const backend = await startChapter(plain);
+  const { done, errors: errs } = await play(plain, backend, ['sleep 100\u001a', 'fg\u0003']);
+  assert.deepEqual([done, errs], [[true], []]);
+});

@@ -430,10 +430,19 @@ function devSkipTasks(s, count) {
   });
 }
 
+// A solve line may end with the keys pressed while it runs: Ctrl+C (\u0003) and Ctrl+Z (\u001a).
+const KEY_NAMES = { '\u0003': 'Ctrl+C', '\u001a': 'Ctrl+Z' };
+function solveText(line) {
+  let end = line.length;
+  while (end > 0 && Object.hasOwn(KEY_NAMES, line[end - 1])) end--;
+  const keys = [...line.slice(end)].map(key => KEY_NAMES[key]);
+  return keys.length ? `${line.slice(0, end)}   (then ${keys.join(', ')})` : line;
+}
+
 function devSolve(s) {
   const chapter = current(s);
   if (s.phase === 'done') return 'This chapter is cleared.';
-  return (s.phase === 'boss' ? chapter.boss.solve(s.obs) : chapter.solve).join('\n');
+  return (s.phase === 'boss' ? chapter.boss.solve(s.obs) : chapter.solve).map(solveText).join('\n');
 }
 
 async function devSkip(s, command) {

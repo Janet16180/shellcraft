@@ -760,7 +760,7 @@ test('a chapter list with repeated ids raises', () => {
 // Dev mode (?dev): a separate save, every written chapter open, and dev commands.
 async function devSession(options = {}) {
   const store = createMemoryStore(options.stored ?? {});
-  const session = createSession({ backend: createFakeBackend(), chapters: fixtureChapters(), baseWorld: fixtureWorld, store, random: createRandom(1), dev: true });
+  const session = createSession({ backend: createFakeBackend(), chapters: options.chapters ?? fixtureChapters(), baseWorld: fixtureWorld, store, random: createRandom(1), dev: true });
   const view = await session.boot();
   return { store, session, view };
 }
@@ -812,6 +812,13 @@ test('dev solve prints the answer lines for the tasks, then for the boss', async
   const turn = await session.submit('dev boss');
   const lines = fixtureChapters()[0].boss.solve(turn.obs);
   assert.match(noteOf(await session.submit('dev solve')), new RegExp(lines[0]));
+});
+
+test('dev solve names the Ctrl+C and Ctrl+Z a solve line presses while it runs', async () => {
+  const chapters = fixtureChapters();
+  chapters[0].solve = ['sleep 100\u001a', 'fg\u0003'];
+  const { session } = await devSession({ chapters });
+  assert.equal(noteOf(await session.submit('dev solve')), 'sleep 100   (then Ctrl+Z)\nfg   (then Ctrl+C)');
 });
 
 test('dev with no command, or an unknown one, lists the dev commands', async () => {
