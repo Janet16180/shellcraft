@@ -153,3 +153,11 @@ test('chapter 20\'s workshop at home is the busy smithy, and /usr stays the dung
   assert.equal(at('/usr'), 'workshop');
   assert.equal(at(`${HOME}/workshops`), 'cottage');
 });
+
+test('chapter 21\'s travel camp at home is the departure camp, and its unpacked room the spilled chest', () => {
+  assert.deepEqual(biomeFor(`${HOME}/travel`, HOME), { realm: 'overworld', biome: 'departure', name: 'Travel Camp' });
+  assert.deepEqual(biomeFor(`${HOME}/travel/unpacked`, HOME), { realm: 'overworld', biome: 'unpacked', name: 'Unpacked Chest' });
+  assert.equal(at(`${HOME}/travel/unpacked/library`), 'unpacked');
+  assert.equal(at(`${HOME}/travel/bags`), 'departure');
+  assert.equal(at(`${HOME}/travels`), 'cottage');
+});

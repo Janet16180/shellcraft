@@ -6,6 +6,7 @@
 
 import { allows } from '../backend/access.js';
 import { nodeAt, walkPath, compareNames, joinPath, parentOf } from '../backend/tree.js';
+import { isGzip, gunzip, unpackTar } from '../backend/archive.js';
 
 /**
  * @typedef {object} Entry
@@ -20,6 +21,9 @@ import { nodeAt, walkPath, compareNames, joinPath, parentOf } from '../backend/t
  * @property {boolean} runnable An item the player may execute.
  * @property {number|null} twin For a file with more than one name (hard links), its inode number,
  *   which every name of it shares; null otherwise.
+ * @property {'tar'|'tgz'|'gzip'|null} pack What a file is packed as, like `file` tells it: a tar
+ *   archive, a compressed tar archive, other gzip data; by its content, else by its name; null for
+ *   anything else.
  */
 
 /**
@@ -48,7 +52,29 @@ function entry(tree, dir, name, node, who) {
     dangling: isLink && nodeAt(tree, path) === null,
     runnable: !isDir && !isLink && allows(node, 'x', who),
     twin: node.type === 'file' && node.links > 1 ? node.ino : null,
+    pack: node.type === 'file' ? packOf(name, node.content ?? '') : null,
   };
+}
+
+const PACK_NAMES = [[/\.(tar\.gz|tgz)$/, 'tgz'], [/\.tar$/, 'tar'], [/\.gz$/, 'gzip']];
+const PACK_CACHE_SIZE = 64;
+const packCache = new Map();
+
+function packByContent(content) {
+  if (isGzip(content)) {
+    const inner = gunzip(content).text;
+    return inner !== undefined && unpackTar(inner) !== null ? 'tgz' : 'gzip';
+  }
+  return unpackTar(content) !== null ? 'tar' : null;
+}
+
+// Unpacking is slow next to drawing, and a room keeps its files between frames.
+function packOf(name, content) {
+  if (!packCache.has(content)) {
+    if (packCache.size >= PACK_CACHE_SIZE) packCache.delete(packCache.keys().next().value);
+    packCache.set(content, packByContent(content));
+  }
+  return packCache.get(content) ?? PACK_NAMES.find(([pattern]) => pattern.test(name))?.[1] ?? null;
 }
 
 /**
@@ -88,18 +114,23 @@ export function readRoom(obs, revealed) {
 
 const KEY_WORD = /(^|[^a-z])key([^a-z]|$)/i;
 
+const PACKED_KINDS = { tar: 'chest', tgz: 'strapped', gzip: 'bundle' };
+
 /**
- * Which sprite an item is drawn as. A symbolic link is a portal; then the
- * name and permissions decide (gems, keys, runnable potions), then the place (log books in /var/log).
+ * Which sprite an item is drawn as. A symbolic link is a portal and an
+ * archive a chest (strapped when compressed; other gzip data a tied bundle);
+ * then the name and permissions decide (gems, keys, runnable potions), then
+ * the place (log books in /var/log).
  *
  * @param {Entry} item The item.
  * @param {string} biome Biome id of the room it lies in.
- * @returns {'portal'|'gem'|'key'|'fire'|'potion'|'book'|'void'|'scroll'} The sprite kind.
+ * @returns {'portal'|'chest'|'strapped'|'bundle'|'gem'|'key'|'fire'|'potion'|'book'|'void'|'scroll'} The sprite kind.
  */
 export function itemKind(item, biome) {
   const { name } = item;
   let kind = 'scroll';
   if (item.link) kind = 'portal';
+  else if (item.pack) kind = PACKED_KINDS[item.pack];
   else if (name.endsWith('.gem')) kind = 'gem';
   else if (KEY_WORD.test(name)) kind = 'key';
   else if (name.includes('campfire')) kind = 'fire';

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { describeRoom } from '../../src/map/describe.js';
 import { dir, file, symlink } from '../../src/backend/spec.js';
 import { observe, sampleTree, crowded } from './fixtures.js';
+import { packTar, gzip } from '../../src/backend/archive.js';
 
 test('it says where you are, in which realm, and what the doors and items are', () => {
   const text = describeRoom(observe('/home/hero/forest/river'));
@@ -93,4 +94,17 @@ test('the player\'s jobs are described in every room, after what is in it', () =
     assert.match(describeRoom(observe(cwd, { jobs })), /\. Your jobs: %1 sleep 30 \(running\), %2 sleep 100 \(stopped\)\.$/, cwd);
   }
   assert.doesNotMatch(describeRoom(observe('/etc')), /jobs/);
+});
+
+test('archives say what they are packed as, as file would', () => {
+  const mine = { owner: 'hero' };
+  const tar = packTar([{ path: 'camp/', type: 'dir', mode: 0o755, owner: 'hero', group: 'hero', mtime: 0 }]);
+  const tree = sampleTree();
+  tree.children.home.children.hero.children.travel = dir({
+    'camp.tar': file(tar, mine), 'camp.tgz': file(gzip(tar), mine), 'notes.gz': file(gzip('x\n'), mine),
+  }, mine);
+  const text = describeRoom(observe('/home/hero/travel', { tree }));
+  assert.match(text, /camp\.tar \(a tar archive, drawn as a chest\)/);
+  assert.match(text, /camp\.tgz \(a compressed tar archive, drawn as a strapped chest\)/);
+  assert.match(text, /notes\.gz \(gzip data, drawn as a tied bundle\)/);
 });

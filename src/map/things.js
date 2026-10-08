@@ -86,6 +86,9 @@ function sprite(kind, item, t) {
     book: [SPRITES.book],
     void: [SPRITES.void],
     scroll: [SPRITES.scroll],
+    chest: [SPRITES.packed],
+    strapped: [SPRITES.strapped],
+    bundle: [SPRITES.bundle],
   };
   return choices[kind];
 }

@@ -609,7 +609,7 @@ test('chapter-defined effects are added to the line effects', async () => {
 
 test('the view lists every chapter with its status and the spellbook with what is unlocked', async () => {
   const { view } = await booted();
-  assert.deepEqual(view.chapters, [
+  assert.deepEqual(view.chapters.map(({ recap: _recap, ...c }) => c), [
     { id: 'awakening', number: 1, act: 1, title: 'The Awakening', status: 'playing', current: true },
     { id: 'forest', number: 2, act: 1, title: 'The Whispering Forest', status: 'locked', current: false },
     { id: 'unseen', number: 3, act: 1, title: 'Things Unseen', status: 'soon', current: false },
@@ -951,4 +951,10 @@ test('an empty line reaches the shell, which may report jobs, but gets no note a
   assert.deepEqual(backend.lines.at(-1), '');
   assert.equal(empty.result.output.some(c => c.tone === 'coach'), false);
   assert.equal((await session.submit('ls')).result.output.some(c => c.tone === 'coach'), true);
+});
+
+test('the chapter list in the view carries each chapter\'s recap, empty for one not written yet', async () => {
+  const { view } = await booted();
+  const [awakening, forest] = fixtureChapters();
+  assert.deepEqual(view.chapters.map(c => c.recap), [awakening.recap, forest.recap, []]);
 });

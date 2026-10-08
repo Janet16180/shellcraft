@@ -109,17 +109,21 @@ function chapterRow({ id, number, title, status, current }) {
 
 /**
  * The Chapters panel, grouped by act. Locked and unwritten chapters are
- * disabled; the one you are in is marked as current.
+ * disabled; the one you are in is marked as current. Once the game is
+ * finished, a button at the end plays the ending again.
  *
  * @param {{id: string, number: number, act: number, title: string, status: string, current: boolean}[]} chapters From the View.
+ * @param {{ending?: boolean}} [opts] ending: the player may watch the ending again.
  * @returns {string} HTML.
  */
-export function chaptersHTML(chapters) {
+export function chaptersHTML(chapters, { ending = false } = {}) {
   const acts = [...new Set(chapters.map(c => c.act))];
-  return acts.map(act => {
+  const list = acts.map(act => {
     const rows = chapters.filter(c => c.act === act).map(chapterRow).join('');
     return `<h3 class="act">Act ${actName(act)}</h3><ul class="levels">${rows}</ul>`;
   }).join('');
+  const again = ending ? '<div class="ending-again"><button class="px-btn small" id="endingBtn" type="button">Watch the ending</button></div>' : '';
+  return list + again;
 }
 
 /**

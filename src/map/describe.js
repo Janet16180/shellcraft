@@ -21,12 +21,19 @@ function doorName(door) {
   return `${door.name}/${note}`;
 }
 
+const PACKS = {
+  tar: 'a tar archive, drawn as a chest',
+  tgz: 'a compressed tar archive, drawn as a strapped chest',
+  gzip: 'gzip data, drawn as a tied bundle',
+};
+
 function itemName(item) {
   let note = '';
   if (item.dangling) note = ` -> ${item.link} (a broken link: it leads nowhere)`;
   else if (item.link) note = ` -> ${item.link} (a link)`;
   else if (item.locked) note = ' (chained: you may not read it)';
   else if (item.runnable) note = ' (you may run it)';
+  else if (item.pack) note = ` (${PACKS[item.pack]})`;
   return item.name + note;
 }
 

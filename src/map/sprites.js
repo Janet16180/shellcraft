@@ -24,6 +24,10 @@ export const SPRITES = {
     toon(['....o...', '...oyo..', '..oyyo..', '..oyyyo.', '.oyyyyo.', '..kkkk..', '.k.kk.k.', '........']),
   ],
   ghost: toon(['....kkkk....', '..kkkkkkkk..', '.kkkkkkkkkk.', '.kkrrkkrrkk.', 'kkkrrkkrrkkk', 'kkkkkkkkkkkk', 'kkkkwwwwkkkk', 'kkkwkkkkwkkk', 'kkkkkkkkkkkk', 'kkkkkkkkkkkk', 'kk.kkk.kkk.k', 'k...k...k...']),
+  // Archives: a tar is a closed chest, a compressed one strapped tight with rope, other gzip data a tied bundle.
+  packed: ink(['........', '.kkkkkk.', 'kbbbbbbk', 'krrrrrrk', 'kyyyyyyk', 'kbbllbbk', 'kbbbbbbk', 'kkkkkkkk']),
+  strapped: ink(['..w..w..', '.kwkkwk.', 'kbwbbwbk', 'krwrrwrk', 'kywyywyk', 'kbwllwbk', 'kbwbbwbk', 'kkkkkkkk']),
+  bundle: toon(['.e....e.', '.edwde..', '..ekke..', '.edddde.', 'ekkkkkke', 'edwdddde', 'ekkkkkke', '.eeeeee.']),
   book: ink(['........', '.kk..kk.', 'kwwkkwwk', 'kwlwwlwk', 'kwwwwwwk', 'kwlwwlwk', 'kbbkkbbk', '.kk..kk.']),
   void: ink(['..pppp..', '.pkkkkp.', 'pkkvkkkp', 'pkkkkkkp', 'pkkkkvkp', 'pkkkkkkp', '.pkkkkp.', '..pppp..']),
   padlock: ink(['..lll..', '.l...l.', '.l...l.', 'kkkkkkk', 'kyyyyyk', 'kyykyyk', 'kyykyyk', 'koooook', 'kkkkkkk']),
