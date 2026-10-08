@@ -121,8 +121,9 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
 - Merged `slice/jobs` (job control: `&`, `jobs`, `fg`, `bg`, Ctrl+Z/C, real-time sleep; harness
   `tick` and `keys`) and the art for ~/portals, ~/maze, ~/memory. Chapter 20 Background Tasks
   (`errands`, area `~/workshop`) is written. 2554 tests.
-- Running agents: backend `slice/tar` (tar, gzip, file, du, df) for chapter 21; frontend
-  `slice/ui4` (running-command UX, Ctrl+Z key, jobs on the map, ~/workshop art).
+- Act III is written: 15 guild, 16 hall, 17 portals, 18 crown, 19 memory, 20 errands, 21 travel,
+  each verified in real bash (docs/verification/<id>.md). `slice/tar` and `slice/ui4` merged.
+  2676 tests, difftest 0 failures. Not yet played by the user; not merged into main.
 
 ## State at 2026-10-08, evening (act III started)
 
