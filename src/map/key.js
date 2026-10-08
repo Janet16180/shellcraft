@@ -6,7 +6,7 @@
 
 import * as overworld from './overworld.js';
 import * as dungeon from './dungeon.js';
-import { drawItem, drawPlayer, padlockDoor } from './things.js';
+import { drawItem, drawPlayer, padlockDoor, darkDoor } from './things.js';
 import { makeCanvas } from './paint.js';
 import { drawCreature } from './creatureart.js';
 import { joinPath } from '../backend/tree.js';
@@ -29,6 +29,13 @@ const KEYS = {
       padlockDoor(ctx, DOOR);
     },
   },
+  'dark-door': {
+    w: 26, h: 36,
+    paint: ctx => {
+      overworld.door(ctx, DOOR, COTTAGE);
+      darkDoor(ctx, DOOR, overworld.leafColour(COTTAGE));
+    },
+  },
   exit: { w: 32, h: 18, paint: ctx => overworld.exit(ctx, EXIT, COTTAGE) },
   'stairs-down': { w: 32, h: 18, paint: ctx => overworld.exit(ctx, EXIT, { ...COTTAGE, path: HOME }) },
   item: { w: 24, h: 22, paint: ctx => drawItem(ctx, ITEM, 'cottage', 0, 0) },
@@ -47,7 +54,8 @@ export const KEY_KINDS = Object.keys(KEYS);
 
 /**
  * Paint one key picture centred on a canvas, scaled up without smoothing.
- * Kinds: hero, door, locked (a padlocked door), exit (..), stairs-down (.. from
+ * Kinds: hero, door, locked (a padlocked door), dark-door (a door ajar on darkness:
+ * x without r), exit (..), stairs-down (.. from
  * home, into the dungeon), item (a file), chained (a file you may not read),
  * runnable (a file you may run), hidden (a dotfile), dungeon-door (a directory
  * outside your home), home-door (the door back into your home, from /home), imp (a

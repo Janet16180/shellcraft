@@ -45,6 +45,24 @@ test('a door the player may not enter is locked and an item they may not read is
   assert.equal(readRoom(observe('/home'), none).doors.find(d => d.name === 'alice').locked, true);
 });
 
+test('a door without x is locked; a door with x but without r is dark: you may enter but not see inside', () => {
+  const tree = sampleTree();
+  const mine = mode => dir({ 'key.txt': file('', { owner: 'hero' }) }, { owner: 'hero', mode });
+  tree.children.home.children.hero.children.hall = dir({ shut: mine(0o600), blind: mine(0o300), open: mine(0o700), peek: mine(0o400) }, { owner: 'hero' });
+  const doors = Object.fromEntries(readRoom(observe('/home/hero/hall', { tree }), none).doors.map(d => [d.name, d]));
+  assert.deepEqual([doors.shut.locked, doors.shut.dark], [true, false]);
+  assert.deepEqual([doors.peek.locked, doors.peek.dark], [true, false]);
+  assert.deepEqual([doors.blind.locked, doors.blind.dark], [false, true]);
+  assert.deepEqual([doors.open.locked, doors.open.dark], [false, false]);
+});
+
+test('every entry carries its owner, and items are never dark', () => {
+  const room = readRoom(observe('/home'), none);
+  assert.equal(room.doors.find(d => d.name === 'alice').owner, 'alice');
+  assert.equal(readRoom(observe('/etc'), none).items.find(i => i.name === 'shadow').owner, 'root');
+  assert.equal(readRoom(observe('/etc'), none).items.every(i => i.dark === false), true);
+});
+
 test('group membership decides access through the group bits', () => {
   const obs = observe('/var/log');
   assert.equal(readRoom(obs, none).items.find(i => i.name === 'auth.log').locked, true);

@@ -36,6 +36,46 @@ function actTwoTree() {
   return tree;
 }
 
+function actThreeTree() {
+  const tree = actTwoTree();
+  const person = name => ({ owner: name, group: name, mode: 0o750 });
+  const home = tree.children.home.children;
+  delete home.alice;
+  for (const name of ['mira', 'oren', 'tamsin']) home[name] = dir({}, person(name));
+  const scroll = (owner, group, mode) => file('', { owner, group, mode });
+  tree.children.srv = dir({
+    guild: dir({
+      'ledger.txt': scroll('tamsin', 'scribes', 0o640),
+      'plans.txt': scroll('mira', 'smiths', 0o640),
+      'rules.txt': file(''),
+      archive: dir({
+        'scroll_k4m.txt': scroll('oren', 'oren', 0o400),
+        'scroll_ad7.txt': scroll('mira', 'smiths', 0o604),
+        'scroll_fy3.txt': scroll('tamsin', 'scribes', 0o640),
+        'scroll_wp9.txt': scroll('mira', 'mira', 0o600),
+        'scroll_hu6.txt': scroll('oren', 'oren', 0o044),
+      }),
+    }),
+  });
+  const mine = { owner: 'hero' };
+  const hero = home.hero.children;
+  hero.guild = dir({ 'notice.txt': file('', { owner: 'hero', mode: 0o044 }), 'answer.txt': file('', mine) }, mine);
+  hero.hall = dir({
+    vault: dir({ 'key.txt': file('', mine) }, { owner: 'hero', mode: 0o600 }),
+    archive: dir({ 'old.txt': file('', mine), 'rules.txt': file('', mine) }, { owner: 'hero', mode: 0o555 }),
+    shared: dir({}, { owner: 'hero', group: 'scribes', mode: 0o770 }),
+    room_k4m: dir({ 'table.txt': file('', mine) }, mine),
+    'request.txt': file('', mine),
+  }, mine);
+  return tree;
+}
+
+const scribe = (cwd, edit) => {
+  const tree = actThreeTree();
+  edit?.(tree.children.home.children.hero.children);
+  return { obs: { ...observe(cwd, { tree }), groups: ['hero', 'scribes'] } };
+};
+
 const imp = (pid, cmd, key, cpu = 0.3) => ({ pid, ppid: 1, user: 'hero', tty: '?', stat: 'S', cpu, mem: 0.4, cmd, key });
 const shell = imp(100, '-bash', 'shell');
 const impsAndStubborn = [shell, imp(412, 'imp', 'imp'), imp(413, 'imp', 'imp2'), imp(420, './greedy_imp --eat', 'greedy', 88.1), imp(431, 'stubborn_imp', 'stubborn')];
@@ -65,6 +105,16 @@ const CASES = {
   ore: () => ({ obs: observe('/home/hero/forge/ore', { tree: actTwoTree() }) }),
   guild: () => ({ obs: observe('/usr/local/bin', { tree: actTwoTree() }) }),
   hall: () => ({ obs: observe('/', { tree: busyTree() }) }),
+  srv: () => scribe('/srv'),
+  guildhall: () => scribe('/srv/guild'),
+  guildarchive: () => scribe('/srv/guild/archive'),
+  homes: () => scribe('/home'),
+  outpost: () => scribe('/home/hero/guild'),
+  commons: () => scribe('/home/hero/hall'),
+  blind: () => scribe('/home/hero/hall', hero => { hero.hall.children.vault.mode = 0o300; }),
+  strongroom: () => scribe('/home/hero/hall/vault', hero => { hero.hall.children.vault.mode = 0o700; }),
+  records: () => scribe('/home/hero/hall/archive'),
+  shared: () => scribe('/home/hero/hall/shared', hero => { hero.hall.children.shared.children = { 'plan.txt': file('', { owner: 'hero' }) }; }),
   gatehouse: () => ({ obs: observe('/home') }),
   archive: () => ({ obs: observe('/etc') }),
   scriptorium: () => ({ obs: observe('/var/log') }),

@@ -8,6 +8,7 @@ import { INK, NIGHT, TOON } from './palette.js';
 import { ART } from './layout.js';
 import { box } from './paint.js';
 import { AREA_DECOR, AREA_AMBIENT } from './areadecor.js';
+import { HALL_DECOR, HALL_AMBIENT } from './halldecor.js';
 
 function tree(ctx, x, y) {
   box(ctx, '#5a3a1e', x + 6, y + 18, 4, 8);
@@ -87,6 +88,7 @@ const STATIC_DECOR = {
   market: ctx => awning(ctx),
   junk: (ctx, wall) => junk(ctx, wall),
   ...AREA_DECOR,
+  ...HALL_DECOR,
 };
 
 /**
@@ -156,6 +158,7 @@ export function ambient(ctx, { biome, layout, gateOpen }, t) {
   if (biome === 'river') ripples(ctx, t);
   if (biome === 'gate') gate(ctx, t, gateOpen);
   AREA_AMBIENT[biome]?.(ctx, t, layout.wall);
+  HALL_AMBIENT[biome]?.(ctx, t, layout.wall);
 }
 
 /**
@@ -189,3 +192,10 @@ export function exit(ctx, { x, y, w, h }, { biome, path, home }) {
   if (toDungeon) box(ctx, 'rgba(240, 138, 42, 0.35)', x + 4, y + h - 4, w - 8, 4);
   for (let i = 0; i < 4; i++) box(ctx, toDungeon ? [INK.l, INK.s, INK.d, INK.n][i] : BIOMES[biome].trim, x + 2 + i * 2, y + 2 + i * 3, w - 4 - i * 4, 2);
 }
+
+/**
+ * The colour of a door leaf in this room, for a door drawn ajar.
+ *
+ * @returns {string} CSS colour.
+ */
+export const leafColour = () => TOON.k;

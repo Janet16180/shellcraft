@@ -3,7 +3,7 @@
  * "+N" markers, the hero, the Shadow Daemon and particles.
  */
 
-import { GEMS, INK, TOON, DAEMON } from './palette.js';
+import { GEMS, INK, TOON, DAEMON, PEOPLE } from './palette.js';
 import { SPRITES } from './sprites.js';
 import { itemKind } from './room.js';
 import { box, drawSprite } from './paint.js';
@@ -31,6 +31,44 @@ export function padlockDoor(ctx, { x, y, w, h }) {
   drawSprite(ctx, SPRITES.padlock, x + w / 2 - 7, y + h / 2 - 8, { scale: 2 });
 }
 
+const QUERY = ['.lll.', 'l...l', '....l', '..ll.', '..l..', '.....', '..l..'];
+
+/**
+ * Show a door the player may enter but not list (x without r): it stands ajar
+ * on darkness, with a question mark where the room should be.
+ *
+ * @param {CanvasRenderingContext2D} ctx The art canvas.
+ * @param {{x: number, y: number, w: number, h: number}} door The door box.
+ * @param {string} leaf Colour of the door leaf, swung open against the frame.
+ */
+export function darkDoor(ctx, { x, y, w, h }, leaf) {
+  box(ctx, INK.k, x + 1, y + 2, w - 2, h - 2);
+  box(ctx, leaf, x + 1, y + 2, 4, h - 2);
+  box(ctx, 'rgba(0, 0, 0, 0.4)', x + 4, y + 2, 1, h - 2);
+  const left = x + Math.round(w / 2) - 3;
+  const top = y + Math.round(h / 2) - 7;
+  QUERY.forEach((row, r) => [...row].forEach((ch, c) => {
+    if (ch === 'l') box(ctx, INK.l, left + c * 2 - 1, top + r * 2, 2, 2);
+  }));
+}
+
+/**
+ * Draw a person of the realm (the hero's sprite in their colours) standing
+ * beside the door of their home.
+ *
+ * @param {CanvasRenderingContext2D} ctx The art canvas.
+ * @param {{x: number, y: number, w: number, h: number}} door The door box.
+ * @param {string} name A key of PEOPLE.
+ * @param {number} t Animation clock in ms.
+ */
+export function drawResident(ctx, { x, y, w, h }, name, t) {
+  const left = x + w - 2;
+  const top = y + h - 16 + Math.round(Math.sin(t / 340 + x) * 0.6);
+  box(ctx, 'rgba(0, 0, 0, 0.3)', left + 2, top + 23, 16, 3);
+  drawSprite(ctx, SPRITES.player, left, top, { scale: 2, colours: PEOPLE[name] });
+  drawSprite(ctx, SPRITES.legs[0], left, top + 22, { scale: 2 });
+}
+
 function chainItem(ctx, x, y) {
   chain(ctx, x - 3, y + 10, x + 17, y + 4);
   drawSprite(ctx, SPRITES.padlock, x + 10, y + 8);
@@ -53,7 +91,8 @@ function sprite(kind, item, t) {
 
 /**
  * Draw an item: its sprite bobbing gently, a glow under anything the player
- * may run, a twinkle on hidden files, chains on anything they may not read.
+ * may run, a twinkle on hidden files, a wax seal in its owner's colour when a
+ * person of the realm owns it, chains on anything they may not read.
  *
  * @param {CanvasRenderingContext2D} ctx The art canvas.
  * @param {import('./layout.js').Placed} item The item.
@@ -72,7 +111,15 @@ export function drawItem(ctx, item, biome, t, i) {
     box(ctx, INK.w, x + 14, y - 2, 1, 3);
     box(ctx, INK.w, x + 13, y - 1, 3, 1);
   }
+  if (Object.hasOwn(PEOPLE, item.owner ?? '')) seal(ctx, x, y + 11, PEOPLE[item.owner].h);
   if (item.locked) chainItem(ctx, x, y);
+}
+
+function seal(ctx, x, y, colour) {
+  box(ctx, INK.k, x - 1, y, 6, 4);
+  box(ctx, INK.k, x, y - 1, 4, 6);
+  box(ctx, colour, x, y, 4, 4);
+  box(ctx, 'rgba(255, 255, 255, 0.5)', x, y, 1, 1);
 }
 
 /**

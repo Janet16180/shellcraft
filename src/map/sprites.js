@@ -62,4 +62,12 @@ export const SPRITES = {
   bones: ink(['ww.....ww', '.ww...ww.', '...www...', '.ww...ww.', 'ww.....ww']),
   barrel: ink(['..kkkkkk..', '.krbbbbrk.', 'kssssssssk', 'krbbbbbbrk', 'krbbbbbbrk', 'kssssssssk', 'krbbbbbbrk', 'krbbbbbbrk', 'kssssssssk', '.krbbbbrk.', '..kkkkkk..']),
   crate: ink(['kkkkkkkkkkkk', 'kbbbbbbbbbbk', 'kbrbbbbbbrbk', 'kbbrbbbbrbbk', 'kbbbrbbrbbbk', 'kbbbbrrbbbbk', 'kbbbrbbrbbbk', 'kbbrbbbbrbbk', 'kbrbbbbbbrbk', 'kkkkkkkkkkkk']),
+  smithsMark: ink(['.......', 'kkkkkkk', '.kkkkkk', '...kkk.', '...kkk.', '..kkkkk', '.kkkkkk']),
+  scribesMark: ink(['.....kk', '....kkk', '...kkk.', '...kk..', '..k....', '.k.....', 'k......']),
+  // A symlink, ready for chapter 17: a swirling portal, three frames of one turn.
+  portal: [
+    ink(['.....kkkk.....', '...kkvvvvkk...', '..kvvvvvpvvk..', '..kvvvvvvpvk..', '.kvvppvvvvpvk.', '.kvppnppvvpvk.', 'kvpnnnnpvvpnvk', 'kvnnnnnnvvpnvk', 'kvnnpppnvvpnvk', 'kvnnpvwwvvpnvk', 'kvnpvvwwvpnnvk', 'kvnpvvnpppnnvk', 'kvnpvvnnnnnnvk', 'kvnpvvpnnnnpvk', '.kvpvvppnppvk.', '.kvpvvvvppvvk.', '..kvpvvvvvvk..', '..kvvpvvvvvk..', '...kkvvvvkk...', '.....kkkk.....']),
+    ink(['.....kkkk.....', '...kkvvvvkk...', '..kvvpppvvvk..', '..kvnnnppvvk..', '.kvnnnnnpvvvk.', '.kvnnpnnnpvvk.', 'kvnppppnnpvvvk', 'kvppvvvpnpvvvk', 'kvpvvvvpnpvvvk', 'kvvvvpwwnpvvvk', 'kvvvpnwwpvvvvk', 'kvvvpnpvvvvpvk', 'kvvvpnpvvvppvk', 'kvvvpnnppppnvk', '.kvvpnnnpnnvk.', '.kvvvpnnnnnvk.', '..kvvppnnnvk..', '..kvvvpppvvk..', '...kkvvvvkk...', '.....kkkk.....']),
+    ink(['.....kkkk.....', '...kkvvvvkk...', '..kvvnnnnvvk..', '..kvpppnnnvk..', '.kvpvvvpnnnvk.', '.kvvvvvvpnnvk.', 'kvvvvvvvpnnpvk', 'kvvvpppvpnnpvk', 'kvvpnnnvpnnpvk', 'kvvpnnwwpnnpvk', 'kvpnnpwwnnpvvk', 'kvpnnpvnnnpvvk', 'kvpnnpvpppvvvk', 'kvpnnpvvvvvvvk', '.kvnnpvvvvvvk.', '.kvnnnpvvvpvk.', '..kvnnnpppvk..', '..kvvnnnnvvk..', '...kkvvvvkk...', '.....kkkk.....']),
+  ],
 };

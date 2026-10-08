@@ -10,13 +10,14 @@
 
 import { drawPerms } from './perms.js';
 import { drawLinks } from './links.js';
+import { PEOPLE } from '../map/palette.js';
 
 const PLANS = { mode: '-rw-r-----', owner: 'mira', group: 'smiths', size: 812, name: 'plans.txt' };
 const NOTES = { mode: '----r--r--', owner: 'hero', group: 'hero', size: 40, name: 'notes.txt' };
 
 // The hero's sprite in other colours: h is the hat, r the robe.
-const MIRA = { user: 'mira', groups: ['mira', 'smiths'], colours: { h: '#e2434f', r: '#a24f34' } };
-const OREN = { user: 'oren', groups: ['oren', 'smiths'], colours: { h: '#8fd14f', r: '#2c5aa8' } };
+const MIRA = { user: 'mira', groups: ['mira', 'smiths'], colours: PEOPLE.mira };
+const OREN = { user: 'oren', groups: ['oren', 'smiths'], colours: PEOPLE.oren };
 const HERO = { user: 'hero', groups: ['hero'] };
 
 const perms = {

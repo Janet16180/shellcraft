@@ -26,7 +26,7 @@ const LABEL_ABOVE = 14;
 const ITEM_HIT = { above: 4, below: 20 };
 const ITEM_GAP = { oneDoorRow: 12, twoDoorRows: 6 };
 const EXIT = { x: 146, y: 186, w: 28, h: 14, label: 26 };
-const CAPACITY = { wide: { doors: 7, cols: 6 }, narrow: { doors: 5, cols: 4 } };
+const CAPACITY = { wide: { doors: 7, cols: 6, minCols: 4 }, narrow: { doors: 5, cols: 4, minCols: 3 } };
 
 /**
  * @typedef {import('./room.js').Entry & {kind: 'door'|'item', x: number, y: number, w: number, h: number,
@@ -94,15 +94,26 @@ function marker(fitted, spots, y) {
   return fitted.more ? { count: fitted.more, cx: spot.cx, y: y(spot), slot: spot.slot, area: itemArea(spot.cx, spot.slot, y(spot)) } : null;
 }
 
+// Fewer items per row when the longest name would be cut, down to a minimum.
+function columns({ cols, minCols }, items, charPx) {
+  const longest = Math.max(0, ...items.map(item => [...item.name].length));
+  let fitting = cols;
+  while (fitting > minCols && USABLE / fitting < (longest + 1) * charPx) fitting -= 1;
+  return fitting;
+}
+
 /**
  * Place a room's doors, items and exit.
  *
  * @param {import('./room.js').Room} room The room, from readRoom.
- * @param {{narrow?: boolean}} [opts] Narrow maps (small screens) get fewer, wider slots so labels stay readable.
+ * @param {{narrow?: boolean, charPx?: number}} [opts] Narrow maps (small screens) get fewer, wider slots so labels
+ *   stay readable. charPx is the width of one label character in art pixels; with it, a room of long item names
+ *   puts fewer items in a row so their labels fit whole.
  * @returns {Layout} The layout.
  */
-export function layoutRoom(room, { narrow = false } = {}) {
-  const cap = narrow ? CAPACITY.narrow : CAPACITY.wide;
+export function layoutRoom(room, { narrow = false, charPx = 0 } = {}) {
+  const base = narrow ? CAPACITY.narrow : CAPACITY.wide;
+  const cap = { ...base, cols: columns(base, room.items, charPx) };
   const doorRows = room.doors.length > cap.doors && room.items.length <= cap.cols ? 2 : 1;
   const wall = WALL + DOOR_ROW * (doorRows - 1);
   const itemTop = wall + (doorRows === 2 ? ITEM_GAP.twoDoorRows : ITEM_GAP.oneDoorRow);

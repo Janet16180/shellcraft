@@ -10,6 +10,7 @@ import { layoutRoom, ART, STAND } from './layout.js';
 import { describeRoom } from './describe.js';
 import { createMotion } from './motion.js';
 import { makeCanvas } from './paint.js';
+import { MONO } from './overlay.js';
 import { placeCreatures, vanished, hover } from './creatures.js';
 import { CREATURE_BURST } from './creatureart.js';
 
@@ -57,6 +58,12 @@ export function createStage(canvas, reducedMotion) {
   };
 }
 
+// The width of one label character in art pixels, as overlay.js measures it.
+function charWidth({ g, view }) {
+  g.font = `${view.font}px ${MONO}`;
+  return g.measureText('M').width / view.scale;
+}
+
 /**
  * Make an observation the current room, and describe it in the canvas's aria-label.
  *
@@ -70,9 +77,10 @@ export function settle(stage, obs) {
   state.scene = {
     ...biomeFor(obs.cwd, obs.home),
     room,
-    layout: layoutRoom(room, { narrow: view.narrow }),
+    layout: layoutRoom(room, { narrow: view.narrow, charPx: charWidth(stage) }),
     path: obs.cwd,
     home: obs.home,
+    user: obs.user,
     gateOpen: state.gateOpen,
   };
   settleCreatures(stage, obs.procs);
