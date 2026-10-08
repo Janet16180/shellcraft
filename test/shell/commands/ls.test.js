@@ -233,3 +233,8 @@ test('link counts: 2 plus subdirectories for a directory, the number of names fo
   await run(b, 'rm links/scroll.txt');
   assert.match((await run(b, 'ls -l links/copy.txt')).out, /^-rw-r--r-- 1 /);
 });
+
+test('ls -l lines up the files it was given with the directories it was given, as GNU ls sizes columns over every operand', async () => {
+  const r = await run(await shell(), 'ls -l readme.txt forest');
+  assert.match(r.out, /^-rw-r--r-- 1 hero hero {3}26 Oct {2}6 10:00 readme\.txt\n\nforest:\n/);
+});

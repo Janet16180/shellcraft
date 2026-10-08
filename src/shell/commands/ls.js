@@ -147,9 +147,10 @@ function longCells(e, opts, ctx) {
   };
 }
 
-function longRows(entries, names, opts, ctx) {
+function longRows(entries, names, opts, ctx, sizing) {
   const cells = entries.map(e => longCells(e, opts, ctx));
-  const width = key => Math.max(...cells.map(c => (c[key].text ?? c[key]).length));
+  const sized = sizing === entries ? cells : sizing.map(e => longCells(e, opts, ctx));
+  const width = key => Math.max(...sized.map(c => (c[key].text ?? c[key]).length));
   const w = { links: width('links'), owner: width('owner'), group: width('group'), size: width('size') };
   const id = (cell, n) => (cell.right ? cell.text.padStart(n) : cell.text.padEnd(n));
   return cells.map((c, i) => {
@@ -160,15 +161,17 @@ function longRows(entries, names, opts, ctx) {
   });
 }
 
-function formatEntries(entries, opts, ctx) {
+// `sizing` lists the entries the column widths are measured over: GNU ls
+// measures the files named on the command line together with the directories named.
+function formatEntries(entries, opts, ctx, sizing = entries) {
   const someQuoted = opts.quoting === 'shell' && entries.some(e => needsQuoting(e.name));
-  if (opts.inode) entries.forEach(e => e.node.unknown || inodeOf(ctx.sys, e.node));
-  const blockCtx = { ...ctx, inodeWidth: Math.max(...entries.map(e => String(e.node.ino ?? '?').length)) };
+  if (opts.inode) sizing.forEach(e => e.node.unknown || inodeOf(ctx.sys, e.node));
+  const blockCtx = { ...ctx, inodeWidth: Math.max(...sizing.map(e => String(e.node.ino ?? '?').length)) };
   const linked = entries.map(e => (e.node.type === 'symlink' ? { ...e, leadsTo: resolve(ctx.sys, e.path).node } : e));
   const names = linked.map(e => renderName(e, opts, someQuoted, blockCtx.inodeWidth));
   let block;
   if (opts.format === 'long') {
-    const rows = longRows(entries, names, opts, blockCtx);
+    const rows = longRows(entries, names, opts, blockCtx, sizing);
     block = { text: rows.map(r => r.text).join(''), html: rows.map(r => r.html).join('') };
   } else if (opts.format === 'columns') {
     block = { text: layoutColumns(names, ctx.width), html: layoutColumns(names, ctx.width, 'html') };
@@ -269,7 +272,7 @@ function listing(name, args, { sys, piped, env }) {
   let counts = null;
   const ctx = { sys, now: sys.now(), width: lineWidth(sys, piped, env), counts: () => (counts ??= linkCounts(sys.root)) };
   const sections = [];
-  if (files.length) sections.push(formatEntries(sortEntries(files, opts), opts, ctx));
+  if (files.length) sections.push(formatEntries(sortEntries(files, opts), opts, ctx, [...files, ...dirs]));
   const header = operands.length > 1 || files.length > 0;
   let minor = [];
   for (const d of sortEntries(dirs, opts)) {
