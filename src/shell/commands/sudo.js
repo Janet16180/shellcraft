@@ -162,10 +162,10 @@ function logAuth(sys, lines) {
 const commandLog = (job, event) => `    ${job.me.name} : ${event ? `${event} ; ` : ''}TTY=${TERMINAL} ; PWD=${job.sys.cwd} ; USER=${job.target.name} ; COMMAND=${job.shown}`;
 
 // What logging in as the target gives: its groups, and pam_umask's 002 for a
-// user whose primary group is their own (Ubuntu's USERGROUPS_ENAB).
+// user whose primary group is their own, same name and same id (Ubuntu's USERGROUPS_ENAB).
 function identity(sys, account) {
   const groups = memberGroups(sys, account);
-  const own = account.uid !== 0 && groups[0]?.name === account.name;
+  const own = account.uid !== 0 && account.uid === account.gid && groups[0]?.name === account.name;
   return { user: account.name, gids: groups.map(g => g.gid), umask: own ? 0o002 : 0o022 };
 }
 

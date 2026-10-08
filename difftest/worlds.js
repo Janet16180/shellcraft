@@ -105,6 +105,18 @@ const portals = () => [
   put('/home/hero/copy.txt', link('/home/hero/readme.txt')),
 ];
 
+// hero is in group sudo, and a rule of its own lets it skip the password,
+// which the case input cannot type. Without !use_pty, sudo would relay its
+// standard input, the rest of the case, to the command's terminal.
+const admins = () => [
+  ...accounts(PLAYER, {
+    users: [{ name: 'mira', uid: 1001, group: 'mira' }],
+    groups: [{ name: 'mira', gid: 1001 }, { name: 'smiths', gid: 1100, members: ['mira'] }],
+    sudo: ['hero'],
+  }),
+  put('/etc/sudoers.d', dir({ hero: file('Defaults !use_pty\nhero ALL=(ALL:ALL) NOPASSWD: ALL\n', { mode: 0o440 }) })),
+];
+
 /** @type {Record<string, () => object[]>} */
 export const WORLDS = {
   home: () => [home(), ...system()],
@@ -114,4 +126,5 @@ export const WORLDS = {
   loops: () => [home(), ...system(), loops()],
   guild: () => [home(), ...system(), ...people(), hall()],
   links: () => [home(), ...system(), ...portals()],
+  sudo: () => [home(), ...system(), ...admins()],
 };
