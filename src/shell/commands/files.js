@@ -49,7 +49,24 @@ function cat(args, { sys, stdin }) {
   return errResult(text, errs);
 }
 
-const pager = name => (args, ctx) => withNote(cat(args.filter(x => !x.startsWith('-')), ctx),
+// less names a file it cannot open in its own words and fails only when it
+// opened none; more says "cannot open", shows a directory as a banner and
+// always succeeds.
+function pagerFile(name, f, input) {
+  if (!input.code) return { out: input.content };
+  if (name === 'more') return input.code === 'EISDIR' ? { out: `\n*** ${f}: directory ***\n\n` } : { err: `more: cannot open ${f}: ${reason(input.code)}` };
+  return { err: input.code === 'EISDIR' ? `${f} is a directory` : `${f}: ${reason(input.code)}` };
+}
+
+function page(name, files, ctx) {
+  if (!files.length) return cat(files, ctx);
+  const shown = files.map(f => pagerFile(name, f, openInput(ctx.sys, f, ctx.stdin)));
+  const errs = shown.map(x => x.err).filter(Boolean);
+  const failed = name === 'less' && errs.length === files.length;
+  return result(shown.map(x => x.out ?? '').join(''), errs.join('\n'), failed ? 1 : 0);
+}
+
+const pager = name => (args, ctx) => withNote(page(name, args.filter(x => !x.startsWith('-')), ctx),
   `A real ${name} opens the file in a scrollable viewer: arrow keys or Space to move, / to search, q to quit. Here it simply prints the file.`);
 
 function touch(args, { sys }) {

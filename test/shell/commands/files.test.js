@@ -30,6 +30,19 @@ test('less and more print the file with a note about the pager', async () => {
   assert.match(r.note, /scrollable viewer/);
 });
 
+test('less and more report files they cannot open in their own words', async () => {
+  const b = await shell();
+  await run(b, 'echo s > secret; chmod 000 secret; mkdir d');
+  const less = await run(b, 'less secret');
+  assert.deepEqual([less.out, less.err, less.status], ['', 'secret: Permission denied\n', 1]);
+  assert.deepEqual(await run(b, 'less nope d').then(r => [r.err, r.status]), ['nope: No such file or directory\nd is a directory\n', 1]);
+  const mixed = await run(b, 'less secret readme.txt');
+  assert.deepEqual([mixed.out, mixed.err, mixed.status], ['Dear apprentice,\nwelcome.\n', 'secret: Permission denied\n', 0]);
+  const more = await run(b, 'more secret');
+  assert.deepEqual([more.err, more.status], ['more: cannot open secret: Permission denied\n', 0]);
+  assert.equal((await run(b, 'more d')).out, '\n*** d: directory ***\n\n');
+});
+
 test('touch creates an empty file and refuses where the user cannot write', async () => {
   const b = await shell();
   await run(b, 'touch new.txt');
