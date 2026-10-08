@@ -64,3 +64,13 @@ test('parentheses nested past 256 levels stop with a note instead of crashing', 
   assert.deepEqual([r.out, r.err, r.status], ['', '', 1]);
   assert.equal(r.note, 'Real find accepts deeper nesting, but the game stops at 256 levels of parentheses.');
 });
+
+test('a word where a predicate should be means a path came too late, often an unquoted pattern', async () => {
+  const b = await withTree();
+  const glob = await run(b, 'cd t; find . -name *');
+  assert.deepEqual([glob.out, glob.err, glob.status], ['', "find: paths must precede expression: `a.txt'\nfind: possible unquoted pattern after predicate `-name'?\n", 1]);
+  const two = await run(b, 'find . -name a.txt B.md');
+  assert.deepEqual([two.out, two.err, two.status], ['', "find: paths must precede expression: `B.md'\nfind: possible unquoted pattern after predicate `-name'?\n", 1]);
+  assert.equal((await run(b, 'find . -type f foo')).err, "find: paths must precede expression: `foo'\n");
+  assert.equal((await run(b, 'find . ! -name x a.txt')).err, "find: paths must precede expression: `a.txt'\nfind: possible unquoted pattern after predicate `-name'?\n");
+});
