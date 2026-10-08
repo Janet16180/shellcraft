@@ -14,7 +14,7 @@ import path from 'node:path';
 const IMAGE = 'shellcraft-difftest';
 const IN_CONTAINER = [
   'cat', 'cp', 'mv', 'mkdir', 'rm', 'rmdir', 'touch', 'grep', 'id', 'uname', 'who', 'whoami', 'ls', 'dir', 'tree', 'sort', 'uniq', 'wc', 'head', 'tail',
-  'pgrep', 'pkill', 'killall',
+  'pgrep', 'pkill', 'killall', 'chown', 'chgrp', 'groups',
 ];
 const ON_HOST = ['apropos', 'whatis'];
 const SEPARATOR = '\u001eNEXT\u001e';

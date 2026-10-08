@@ -41,7 +41,7 @@ function firstOf(args, ...wanted) {
   return args.slice(0, end).find(a => wanted.includes(a));
 }
 
-const UNSIMULATED = new Set(['w', 'nl', 'cut', 'tr', 'du', 'df', 'ln', 'stat', 'diff', 'tar', 'chown', 'rev', 'seq', 'yes', 'od', 'tee', 'xargs',
+const UNSIMULATED = new Set(['w', 'nl', 'cut', 'tr', 'du', 'df', 'ln', 'stat', 'diff', 'tar', 'rev', 'seq', 'yes', 'od', 'tee', 'xargs',
   'basename', 'dirname', 'realpath', 'readlink', 'tac', 'shuf', 'cmp', 'comm', 'paste', 'join', 'split', 'fold',
   'expand', 'md5sum', 'sha256sum', 'base64', 'sleep', 'watch', 'free', 'uptime', 'lsblk', 'mount', 'apt', 'perl', 'gzip', 'whereis', 'stty', 'tput']);
 const isAssignment = word => 'lit' in word.parts[0] && !word.parts[0].q && ASSIGNMENT.test(word.parts[0].lit);
