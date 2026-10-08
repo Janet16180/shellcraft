@@ -77,6 +77,24 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
 - `~/workshop` (chapter 20) is the biome `smithy`, "Busy Workshop": hearth with working bellows,
   anvil with a glowing bar, quench barrel, a bench with an hourglass (`src/map/smithydecor.js`).
 
+## State at 2026-10-08 (UI and art for chapter 21 and the ending: `slice/ui5`)
+
+- Branch `slice/ui5`, not merged. Map: `~/travel` is the biome `departure`, "Travel Camp" (dusk
+  sky, a loaded cart, a road up to a stairway down, lit in Ring Zero's colours), and
+  `~/travel/unpacked` the biome `unpacked`, an opened chest spilling coins and cloth
+  (`src/map/traveldecor.js`). An archive is a chest, a compressed one strapped with rope, other
+  gzip data a tied bundle: `readRoom` entries carry `pack` (`tar`, `tgz`, `gzip`), read from the
+  content with `src/backend/archive.js`, else from the name. Map key and room text explain them.
+- The ending (`src/intro/ending.js`, `endsteps.js`, `endscene.js`, `styles/ending.css`): when the
+  `chapter` event is for the last chapter of the list with `next: null`, five steps play (Back,
+  Next, Skip; still frames with reduced motion), then the chapter's adventure log. Steps: the camp,
+  the walk down into the kernel, what you learned (each act's chapters with the commands of their
+  recaps; the view's chapter list now carries `recap`), XP and rank, Ring Zero. Chapters offers
+  "Watch the ending" once the last chapter is cleared. "Play again" (click twice) runs the HUD's
+  Reset progress.
+- **For the lead:** `RING_ZERO_URL` in `src/intro/endsteps.js` is a placeholder
+  (`https://github.com/`, marked TODO): set the real address before publishing.
+
 ## State at 2026-10-08 (engine for chapter 21, Pack and Travel: `slice/tar`)
 
 - Branch `slice/tar`, merged into `slice/act3`. New commands: `tar` (`-c -x -t -v -f -z
