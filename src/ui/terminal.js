@@ -204,6 +204,9 @@ function interruptSearch(t) {
   t.input.value = '';
 }
 
+// At a prompt bash ignores the Ctrl+Z the terminal sends it; only a running command stops (running.js).
+const NOTHING = () => {};
+
 const SEARCHING = {
   'C-r': t => {
     t.search.state = searchOlder(t.search.state);
@@ -231,6 +234,7 @@ const SEARCHING = {
     return complete(t);
   },
   'C-l': t => t.out.replaceChildren(),
+  'C-z': NOTHING,
 };
 
 const SEARCH_KEYS = { Enter: 'Enter', Escape: 'Escape', ArrowLeft: 'Left', ArrowRight: 'Right', ArrowUp: 'Up', ArrowDown: 'Down', Tab: 'Tab' };
@@ -257,9 +261,8 @@ const ACTIONS = {
   'C-r': beginSearch,
   'C-a': t => moveCaret(t, 0),
   'C-e': t => moveCaret(t, t.input.value.length),
+  'C-z': NOTHING,
 };
-
-const NOTHING = () => {};
 
 // At a program's prompt only Enter, Ctrl+C and Backspace act; history and Tab
 // do nothing, from the keyboard and from the touch keys alike.
@@ -277,21 +280,23 @@ function askingAction(t, event) {
   const key = event.key;
   let action = null;
   if (ctrl && key.toLowerCase() === 'c') action = ASKING['C-c'];
-  else if (ctrl && key.toLowerCase() === 'r') action = NOTHING;
+  else if (ctrl && ['r', 'z'].includes(key.toLowerCase())) action = NOTHING;
   else if (key === 'Enter') action = ASKING.Enter;
   else if (key === 'Backspace' && t.asking.hidden) action = ASKING.Backspace;
   else if (['ArrowUp', 'ArrowDown'].includes(key) || (key === 'Tab' && !t.tabLeaves)) action = NOTHING;
   return action;
 }
 
+// Ctrl keys the prompt does not answer (the Ctrl+R touch key) type nothing.
 function askingKey(t, key) {
-  if (ASKING[key]) ASKING[key](t);
+  const action = ASKING[key] ?? (key.startsWith('C-') ? NOTHING : null);
+  if (action) action(t);
   else if (t.asking.hidden) hide(t, key);
   else t.input.value += key;
 }
 
-// Ctrl+L, Ctrl+R, Ctrl+A and Ctrl+E, as readline binds them.
-const LINE_KEYS = ['l', 'r', 'a', 'e'];
+// Ctrl+L, Ctrl+R, Ctrl+A and Ctrl+E, as readline binds them, and Ctrl+Z.
+const LINE_KEYS = ['l', 'r', 'a', 'e', 'z'];
 
 // Tab completes names, so Escape hands Tab back to the page for keyboard users.
 function commandAction(t, event) {
@@ -380,7 +385,8 @@ function wire(t, root) {
  * dropped the waiting line (a chapter loaded a new world).
  *
  * @param {object} opts
- * @param {HTMLElement} opts.root The terminal section holding #out, #screen, #cmd, #prompt, #searchTail, #termTitle and #keys.
+ * @param {HTMLElement} opts.root The terminal section holding #out, #screen, #cmd, #prompt, #searchTail, #termTitle, #keys,
+ *   and #busy and #runNote (the busy mark and task strip note while a command runs).
  * @param {{add: (step: () => unknown) => Promise<unknown>}} opts.queue The page's one ordered queue: lines,
  *   Tab completions and resizes wait their turn in it, behind any other session call.
  * @param {(line: string) => Promise<void>} opts.onSubmit Runs a line the player entered.
@@ -414,7 +420,9 @@ export function createTerminal({ root, queue, onSubmit, onComplete, onAnswer = a
     onResize,
     columns: 0,
   };
-  const running = wireRunning({ input: t.input, promptEl: t.promptEl, keys: root.querySelector('#keys') }, onSignal);
+  const running = wireRunning({
+    input: t.input, promptEl: t.promptEl, keys: root.querySelector('#keys'), busy: root.querySelector('#busy'), note: root.querySelector('#runNote'),
+  }, onSignal);
   wire(t, root);
   watchWidth(t);
   return {

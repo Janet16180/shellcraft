@@ -8,6 +8,10 @@ function element() {
   return {
     hidden: false,
     focused: 0,
+    innerHTML: '',
+    attributes: {},
+    setAttribute(name, value) { this.attributes[name] = String(value); },
+    getAttribute(name) { return this.attributes[name] ?? null; },
     addEventListener: (type, fn) => { (listeners[type] ??= []).push(fn); },
     focus() { this.focused++; },
     fire(type, fields = {}) {
@@ -24,7 +28,10 @@ const keydown = (key, more = {}) => ({ key, ctrlKey: false, altKey: false, metaK
 const button = k => ({ target: { closest: () => ({ dataset: { k } }) } });
 
 function setup() {
-  const parts = { input: element(), promptEl: element(), keys: element() };
+  const parts = { input: element(), promptEl: element(), keys: element(), busy: element(), note: element() };
+  parts.input.setAttribute('aria-label', 'Type a command and press Enter');
+  parts.busy.hidden = true;
+  parts.note.hidden = true;
   const sent = [];
   const later = [];
   const running = wireRunning(parts, name => sent.push(name));
@@ -81,4 +88,48 @@ test('when the command ends the prompt comes back and the keys are the terminal 
   parts.keys.fire('click', button('C-c'));
   assert.deepEqual(sent, []);
   assert.deepEqual(later, ['c', 'click']);
+});
+
+test('while a command runs a busy mark replaces the prompt and the task strip says which keys stop it', () => {
+  const { parts, running } = setup();
+  running.set(true);
+  assert.equal(parts.busy.hidden, false);
+  assert.equal(parts.note.hidden, false);
+  assert.match(parts.note.innerHTML, /Running/);
+  assert.match(parts.note.innerHTML, /<kbd>Ctrl\+C<\/kbd> stops it/);
+  assert.match(parts.note.innerHTML, /<kbd>Ctrl\+Z<\/kbd> pauses it/);
+});
+
+test('while a command runs the input is labelled with what is going on, for screen readers', () => {
+  const { parts, running } = setup();
+  running.set(true);
+  assert.match(parts.input.getAttribute('aria-label'), /A command is running.*Ctrl\+C stops it.*Ctrl\+Z pauses it/);
+  running.set(false);
+  assert.equal(parts.input.getAttribute('aria-label'), 'Type a command and press Enter');
+});
+
+test('when the command ends the busy mark and the strip note go, and the note is emptied', () => {
+  const { parts, running } = setup();
+  running.set(true);
+  running.set(false);
+  assert.equal(parts.busy.hidden, true);
+  assert.equal(parts.note.hidden, true);
+  assert.equal(parts.note.innerHTML, '');
+});
+
+test('saying the same state twice changes nothing, so the label is never lost', () => {
+  const { parts, running } = setup();
+  running.set(true);
+  running.set(true);
+  running.set(false);
+  running.set(false);
+  assert.equal(parts.input.getAttribute('aria-label'), 'Type a command and press Enter');
+  assert.equal(parts.promptEl.hidden, false);
+});
+
+test('the Ctrl+Z touch key sends SIGTSTP while a command runs', () => {
+  const { parts, sent, running } = setup();
+  running.set(true);
+  parts.keys.fire('click', button('C-z'));
+  assert.deepEqual(sent, ['TSTP']);
 });
