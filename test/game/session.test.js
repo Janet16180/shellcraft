@@ -893,3 +893,43 @@ test('restarting the chapter abandons a line waiting for input', async () => {
   await assert.rejects(session.answer('dragon'), /no line is waiting/);
   assert.equal((await session.submit('pwd')).events.length, 1);
 });
+
+test('a line whose command takes time runs: no task is judged until the line ends', async () => {
+  const { session } = await booted();
+  const running = await session.submit('sleep 5; pwd');
+  assert.deepEqual(running.result.running, { seconds: 5 });
+  assert.deepEqual(running.events, []);
+  await assert.rejects(session.submit('pwd'), /still running/);
+  await assert.rejects(session.answer('x'), /no line is waiting/);
+  const done = await session.poll();
+  assert.equal(done.result.running, undefined);
+  assert.deepEqual(done.result.output.map(c => c.text), ['/home/hero\n']);
+  assert.deepEqual(kinds(done.events), ['task']);
+});
+
+test('Ctrl+C reaches the running command and ends the line; Ctrl+Z stops it and the line goes on', async () => {
+  const { session } = await booted();
+  await session.submit('sleep 5; pwd');
+  const cancelled = await session.signal('INT');
+  assert.deepEqual([cancelled.result.output.map(c => c.text), cancelled.result.status, cancelled.events], [['^C\n'], 130, []]);
+  await session.submit('sleep 5; pwd');
+  const stopped = await session.signal('TSTP');
+  assert.deepEqual(stopped.result.output.map(c => c.text), ['^Z\n', '[1]+  Stopped                 sleep 5\n', '/home/hero\n']);
+  assert.deepEqual(kinds(stopped.events), ['task']);
+});
+
+test('signal and poll raise when no line runs, and while a line waits for input', async () => {
+  const { session } = await booted();
+  await assert.rejects(session.poll(), /no line is running/);
+  await assert.rejects(session.signal('INT'), /no line is running/);
+  await session.submit('sudo pwd');
+  await assert.rejects(session.signal('INT'), /no line is running/);
+});
+
+test('restarting the chapter abandons a running line', async () => {
+  const { session } = await booted();
+  await session.submit('sleep 5');
+  await session.startChapter('awakening');
+  await assert.rejects(session.poll(), /no line is running/);
+  assert.equal((await session.submit('pwd')).events.length, 1);
+});

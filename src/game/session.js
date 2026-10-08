@@ -19,7 +19,9 @@
  * @typedef {object} Turn
  * @property {RunResult} result What the terminal shows for the line. While
  *   `result.input` is set the line waits for one typed line (a password): send it
- *   with `answer`. Only the turn that ends the line judges tasks and awards anything.
+ *   with `answer`. While `result.running` is set a command runs: call `poll` after
+ *   `running.seconds`, or `signal('INT')` / `signal('TSTP')` for Ctrl+C / Ctrl+Z.
+ *   Only the turn that ends the line judges tasks and awards anything.
  * @property {Observation} obs The world after the line (and after any room the game loaded).
  * @property {Effect[]} effects What the map and the sound should play.
  * @property {GameEvent[]} events What the game awarded or took.
@@ -69,6 +71,8 @@ export function createSession({ backend, chapters, baseWorld, store, random, dev
     startChapter: (id, options) => exclusive(s, () => startChapter(s, id, options)),
     submit: line => exclusive(s, () => submit(s, line)),
     answer: text => exclusive(s, () => answer(s, text)),
+    signal: name => exclusive(s, () => signal(s, name)),
+    poll: () => exclusive(s, () => poll(s)),
     complete: line => exclusive(s, () => complete(s, line)),
     reset: () => exclusive(s, () => reset(s)),
     hint: idle(() => hint(s)),
@@ -184,6 +188,7 @@ async function complete(s, line) {
 
 async function submit(s, line) {
   requireBooted(s);
+  if (s.waiting?.running) throw new Error('the line before is still running; send poll() or signal() first');
   if (s.waiting) throw new Error('the line before is waiting for input; send it with answer()');
   const completions = s.completions;
   s.completions = [];
@@ -193,23 +198,44 @@ async function submit(s, line) {
   return answer ? gameTurn(s, answer(s)) : shellTurn(s, line, completions);
 }
 
-// A line that waits for typed input (sudo's password) is judged only when it ends.
+// A line that waits for typed input (sudo's password) or runs a command that
+// takes time (sleep 5) is judged only when it ends.
 async function shellTurn(s, line, completions) {
-  const result = await s.backend.run(line);
-  return result.input ? waitingTurn(s, { line, completions, before: s.obs }, result) : endTurn(s, { line, completions, before: s.obs }, result);
+  return nextTurn(s, { line, completions, before: s.obs }, await s.backend.run(line));
+}
+
+function nextTurn(s, pending, result) {
+  return result.input || result.running ? waitingTurn(s, pending, result) : endTurn(s, pending, result);
 }
 
 async function answer(s, text) {
   requireBooted(s);
-  if (!s.waiting) throw new Error('no line is waiting for input');
+  if (!s.waiting || s.waiting.running) throw new Error('no line is waiting for input');
   const pending = s.waiting;
   s.waiting = null;
-  const result = await s.backend.answer(text);
-  return result.input ? waitingTurn(s, pending, result) : endTurn(s, pending, result);
+  return nextTurn(s, pending, await s.backend.answer(text));
+}
+
+// While a line runs, the player's Ctrl+C ('INT') or Ctrl+Z ('TSTP') goes to its
+// command, and poll() asks whether it has ended by now.
+async function signal(s, name) {
+  requireBooted(s);
+  if (!s.waiting?.running) throw new Error('no line is running');
+  const pending = s.waiting;
+  s.waiting = null;
+  return nextTurn(s, pending, await s.backend.signal(name));
+}
+
+async function poll(s) {
+  requireBooted(s);
+  if (!s.waiting?.running) throw new Error('no line is running');
+  const pending = s.waiting;
+  s.waiting = null;
+  return nextTurn(s, pending, await s.backend.poll());
 }
 
 function waitingTurn(s, pending, result) {
-  s.waiting = pending;
+  s.waiting = { ...pending, running: Boolean(result.running) };
   return { result, obs: s.obs, effects: [], events: [], view: view(s) };
 }
 
