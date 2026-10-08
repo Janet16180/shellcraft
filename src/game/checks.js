@@ -128,6 +128,11 @@ export function makeContext({ commands, before, obs, completions = [], line = ''
     home,
     cwd: obs.cwd,
     node: path => nodeAt(obs.tree, path),
+    inode: path => nodeAt(obs.tree, path)?.ino ?? null,
+    linkTarget: path => {
+      const node = nodeAt(obs.tree, path, { follow: false });
+      return node?.type === 'symlink' ? node.target : null;
+    },
     proc: key => obs.procs.find(p => p.key === key) ?? null,
     ran,
     tried: (name, pred = () => true) => commands.some(r => r.name === name && pred(r)),

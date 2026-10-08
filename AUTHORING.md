@@ -71,7 +71,13 @@ export default {
 
 The check context `ctx` (implemented in `src/game/checks.js`) sees only the port's data:
 - `ctx.commands`: the `CommandRecord`s of this line; `ctx.obs` / `ctx.before`: observations after and before it.
-- `ctx.home`, `ctx.cwd`, `ctx.node(absPath)`, `ctx.proc(key)`.
+- `ctx.home`, `ctx.cwd`, `ctx.node(absPath)`, `ctx.proc(key)`. `ctx.node` follows symbolic links like `cat`
+  does (a dangling link gives `null`). `ctx.cwd` is the logical path, as `pwd` prints it: after `cd portal`
+  it is `~/portal`, not where the link leads.
+- `ctx.inode(absPath)`: the inode number the path leads to (links followed), or `null`. Two paths are one
+  file (hard links) when their numbers are equal: `ctx.inode(a) === ctx.inode(b) && ctx.inode(a) !== null`.
+- `ctx.linkTarget(absPath)`: the target text of the symbolic link at that path, exactly as created
+  (`'/home/hero/forest/cave/deep'`, `'../scroll.txt'`), or `null` if the path is not a link.
 - `ctx.ran(name, pred?)`: a command with that name exited 0 (and `pred(record)` holds).
 - `ctx.tried(name, pred?)`: same, any exit status.
 - `ctx.hasPath(record, absPath)`: one of its non-option arguments resolves to `absPath`; for commands that read their input (cat, grep, sort, uniq, wc, head, tail...), also a file sent in with `<` or by a plain `cat` piped into it.
@@ -145,7 +151,7 @@ setup: (random, { home }) => [
 
 In the Observation tree (`src/backend/port.js` TreeNode) every node has `ino` and `links`; a symbolic
 link is `{type: 'symlink', target, ...}`. `ctx.node(path)` follows links like `cat` would;
-`nodeAt(tree, path, { follow: false })` from tree.js gives the link itself.
+`ctx.inode(path)` and `ctx.linkTarget(path)` answer "same file?" and "where does this link point?".
 
 ### Explainers (optional)
 

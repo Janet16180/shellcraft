@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeContext } from '../../src/game/checks.js';
 import { HOME, observation, record } from '../helpers/records.js';
+import { symlink } from '../../src/backend/spec.js';
 
 const context = (commands, after = {}, before = {}) =>
   makeContext({ commands, before: observation(before), obs: observation(after) });
@@ -192,4 +193,39 @@ test('onScreen is the last stage with its output not sent elsewhere', () => {
   assert.equal(ctx.onScreen(record('echo', [], { redirects: [{ op: '2>&', target: '1' }] })), true);
   assert.equal(ctx.onScreen(record('echo', [], { redirects: [{ op: '>', target: `${HOME}/f` }] })), false);
   assert.equal(ctx.onScreen(record('echo', [], { stage: 0, stages: 2 })), false);
+});
+
+const linkedTree = () => {
+  const tree = observation().tree;
+  const hero = tree.children.home.children.hero.children;
+  hero['readme.txt'].ino = 1847;
+  hero.forest.children.cave.ino = 1900;
+  Object.assign(hero, {
+    'copy.txt': { ...hero['readme.txt'] },
+    portal: { ...symlink('forest/cave', { owner: 'hero' }), ino: 1950 },
+    broken: { ...symlink('nowhere', { owner: 'hero' }), ino: 1951 },
+  });
+  return tree;
+};
+
+test('inode gives the inode number a path leads to, so two names of one file compare equal', () => {
+  const ctx = context([], { tree: linkedTree() });
+  assert.equal(ctx.inode(`${HOME}/copy.txt`), ctx.inode(`${HOME}/readme.txt`));
+  assert.equal(ctx.inode(`${HOME}/portal`), 1900);
+  assert.equal(ctx.inode(`${HOME}/broken`), null);
+  assert.equal(ctx.inode(`${HOME}/nothing`), null);
+});
+
+test('linkTarget gives a symbolic link\'s text as created, and null for anything else', () => {
+  const ctx = context([], { tree: linkedTree() });
+  assert.equal(ctx.linkTarget(`${HOME}/portal`), 'forest/cave');
+  assert.equal(ctx.linkTarget(`${HOME}/broken`), 'nowhere');
+  assert.equal(ctx.linkTarget(`${HOME}/readme.txt`), null);
+  assert.equal(ctx.linkTarget(`${HOME}/nothing`), null);
+});
+
+test('node follows symbolic links like cat does', () => {
+  const ctx = context([], { tree: linkedTree() });
+  assert.equal(ctx.node(`${HOME}/portal`).type, 'dir');
+  assert.equal(ctx.node(`${HOME}/broken`), null);
 });
