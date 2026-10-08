@@ -197,7 +197,9 @@ The game teaches what real Linux does, so the simulator is tested against real b
   `/home/hero`, `LC_ALL=C.UTF-8`, `TZ=UTC`, fixed mtimes, no network), and compares stdout,
   stderr and status. Intended differences are listed with a reason. A case may list `mask`
   patterns (regular expressions, per line) whose matches both sides replace with `PID` before
-  comparing, for what differs by nature, like the PID in `[1] 4242`. A line whose command takes
+  comparing, for what differs by nature, like the PID in `[1] 4242`, or by design, like the size
+  of a gzip file (the simulator's compressed text is about an eighth longer than gzip's bytes;
+  plain tar sizes match). A line whose command takes
   time (`sleep 2`) runs to its end on the simulator's clock. Without Docker the suite
   reports "skipped", never "passed".
 - Known bugs in v1 (verified 2026-10-06): grep uses JavaScript regex, not POSIX BRE (`grep 'a+'`);

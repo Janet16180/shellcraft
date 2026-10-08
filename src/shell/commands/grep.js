@@ -108,15 +108,18 @@ function emitLine(line, pre, re, opts, acc) {
   acc.html += `${pre.html}${marked}${opts.sep}`;
 }
 
+// Like grep 3.11, a file with a NUL byte is binary: a match is reported on standard error, its lines are not printed.
 function searchSource(source, re, opts, acc) {
   const records = opts.nullData ? source.content.replace(/\0$/, '').split('\0') : splitLines(source.content);
   const silent = opts.quiet || opts.count || opts.listMatches || opts.listMissing || (opts.only && opts.invert);
+  const binary = !opts.nullData && source.content.includes('\0');
   let count = 0;
   records.forEach((line, i) => {
     if (count >= opts.max || re.test.test(line) === opts.invert) return;
     count++;
-    if (!silent) emitLine(line, prefix(source, i + 1, opts), re, opts, acc);
+    if (!silent && !binary) emitLine(line, prefix(source, i + 1, opts), re, opts, acc);
   });
+  if (binary && !silent && count > 0) acc.notices.push(`grep: ${source.label}: binary file matches`);
   return count;
 }
 
@@ -158,14 +161,14 @@ function grep(args, { sys, stdin }) {
   const { sources, errs } = gatherSources(sys, o.operands, recursive, stdin, f.has('R'));
   const opts = outputOptions(f, o, sources, recursive);
   const re = { test: compiled.regex, global: new RegExp(compiled.source, `${compiled.flags}g`) };
-  const acc = { text: '', html: '' };
+  const acc = { text: '', html: '', notices: [] };
   let selected = false;
   for (const source of sources) {
     const count = searchSource(source, re, opts, acc);
     selected ||= count > 0;
     summarize(source, count, opts, acc);
   }
-  const messages = [...(compiled.warning ? [`grep: warning: ${compiled.warning}`] : []), ...(f.has('s') ? [] : errs)];
+  const messages = [...(compiled.warning ? [`grep: warning: ${compiled.warning}`] : []), ...(f.has('s') ? [] : errs), ...acc.notices];
   const status = errs.length && !(opts.quiet && selected) ? 2 : Number(!selected);
   return result(acc.text, messages.join('\n'), status, acc.text ? acc.html : null);
 }

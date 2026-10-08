@@ -27,8 +27,15 @@ const SIX_MONTHS_MS = (31556952 / 2) * 1000;
 const UNITS = ['K', 'M', 'G', 'T'];
 
 const isExe = node => node.type === 'file' && (node.mode & 0o111) !== 0;
-// A short symbolic link keeps its target inside the inode and uses no blocks.
-const blocksOf = node => {
+/**
+ * The 1K blocks a node takes on ext4, as `ls -s` and du count them: 4 per
+ * started 4 KiB of a file, 4 for a directory, none for a device or a short
+ * symbolic link, which keeps its target inside the inode.
+ *
+ * @param {object} node A node.
+ * @returns {number} Its size in 1K blocks.
+ */
+export const blocksOf = node => {
   if (node.dev || node.type === 'symlink') return 0;
   return node.type === 'dir' ? 4 : Math.ceil(sizeOf(node) / 4096) * 4;
 };
@@ -55,7 +62,13 @@ export function humanSize(bytes) {
   return text;
 }
 
-function modeString(node) {
+/**
+ * The ten letters of a mode as `ls -l` shows them: type, then rwx for owner, group and others.
+ *
+ * @param {{type: string, mode: number, dev?: string, unknown?: boolean}} node A node, or anything with its type and mode.
+ * @returns {string} For example `drwxr-xr-x` or `-rwsr-xr-x`.
+ */
+export function modeString(node) {
   if (node.unknown) return `${TYPE_LETTERS[node.type] ?? '-'}?????????`;
   const m = node.mode;
   const bit = (mask, ch) => (m & mask ? ch : '-');

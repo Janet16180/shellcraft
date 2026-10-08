@@ -103,3 +103,13 @@ test('grep -R names a link that loops on itself', async () => {
   const b = await shell([put('/home/hero/t', dir({ loop: symlink('loop', mine) }, mine))]);
   assert.equal((await run(b, 'grep -R key t')).err, 'grep: t/loop: Too many levels of symbolic links\n');
 });
+
+test('a file with NUL bytes is binary: grep says on standard error that it matches instead of printing its lines', async () => {
+  const b = await shell([put('/home/hero/bin.dat', file('hello\0world\nhello again\n', { owner: 'hero' }))]);
+  assert.deepEqual(await run(b, 'grep hello bin.dat').then(r => [r.out, r.err, r.status]), ['', 'grep: bin.dat: binary file matches\n', 0]);
+  assert.deepEqual(await run(b, 'grep nothing bin.dat').then(r => [r.out, r.status]), ['', 1]);
+  assert.equal((await run(b, 'grep -c hello bin.dat')).out, '2\n');
+  assert.equal((await run(b, 'grep -l hello bin.dat readme.txt')).out, 'bin.dat\n');
+  await run(b, 'tar -cf a.tar readme.txt');
+  assert.equal((await run(b, 'grep -r . . 2>&1 | grep tar')).out, 'grep: ./a.tar: binary file matches\n');
+});
