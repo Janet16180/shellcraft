@@ -80,6 +80,45 @@ alias la='ls -A'
 export EDITOR=nano
 `;
 
+// Ubuntu 24.04's /etc/skel/.profile and .bash_logout, as the bash package ships them.
+const PROFILE = `# ~/.profile: executed by the command interpreter for login shells.
+# This file is not read by bash(1), if ~/.bash_profile or ~/.bash_login
+# exists.
+# see /usr/share/doc/bash/examples/startup-files for examples.
+# the files are located in the bash-doc package.
+
+# the default umask is set in /etc/profile; for setting the umask
+# for ssh logins, install and configure the libpam-umask package.
+#umask 022
+
+# if running bash
+if [ -n "$BASH_VERSION" ]; then
+    # include .bashrc if it exists
+    if [ -f "$HOME/.bashrc" ]; then
+\t. "$HOME/.bashrc"
+    fi
+fi
+
+# set PATH so it includes user's private bin if it exists
+if [ -d "$HOME/bin" ] ; then
+    PATH="$HOME/bin:$PATH"
+fi
+
+# set PATH so it includes user's private bin if it exists
+if [ -d "$HOME/.local/bin" ] ; then
+    PATH="$HOME/.local/bin:$PATH"
+fi
+`;
+
+const BASH_LOGOUT = `# ~/.bash_logout: executed by bash(1) when login shell exits.
+
+# when leaving the console clear the screen to increase privacy
+
+if [ "$SHLVL" = 1 ]; then
+    [ -x /usr/bin/clear_console ] && /usr/bin/clear_console -q
+fi
+`;
+
 const KEY = `    ,o.
    8   8=========
     'o'    ||  ||
@@ -335,6 +374,8 @@ function etc({ home, user, host }) {
     'os-release': file(OS_RELEASE),
     passwd: file(passwdText({ home, user })),
     shadow: shadowFile(passwdText({ home, user })),
+    // What useradd copies into a new home; cp /etc/skel/.bashrc ~ repairs a broken one.
+    skel: dir({ '.bashrc': file(BASHRC), '.profile': file(PROFILE), '.bash_logout': file(BASH_LOGOUT) }),
     sudoers: file(UBUNTU_SUDOERS, { mode: 0o440 }),
     'sudoers.d': dir({ README: file(SUDOERS_README, { mode: 0o440 }) }),
   });

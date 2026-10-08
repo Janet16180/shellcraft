@@ -241,3 +241,20 @@ test('on the simulator, accounts and login() put the player in the new group', a
   const r = await backend.run('id; id mira');
   assert.equal(r.output.map(c => c.text).join(''), 'uid=1000(hero) gid=1000(hero) groups=1000(hero),1002(scribes)\nuid=1001(mira) gid=1001(smiths) groups=1001(smiths)\n');
 });
+
+test('/etc/skel holds the files a new home starts with: the same .bashrc, a .profile and a .bash_logout', () => {
+  const world = baseWorld(PLAYER);
+  const skel = nodeIn(world, '/etc/skel');
+  assert.deepEqual(Object.keys(skel.children).sort(), ['.bash_logout', '.bashrc', '.profile']);
+  assert.equal(skel.children['.bashrc'].content, nodeIn(world, '/home/hero/.bashrc').content);
+  assert.equal(skel.children['.bashrc'].owner ?? 'root', 'root');
+});
+
+test('copying /etc/skel/.bashrc home repairs a replaced .bashrc', async () => {
+  const b = createSimBackend({ now: () => 0 });
+  await b.load(baseWorld(PLAYER));
+  await b.run('echo oops > ~/.bashrc');
+  const r = await b.run('cp /etc/skel/.bashrc ~/ && source ~/.bashrc');
+  assert.equal(r.status, 0);
+  assert.equal((await b.run('type ll')).output[0].text, "ll is aliased to `ls -alF'\n");
+});
