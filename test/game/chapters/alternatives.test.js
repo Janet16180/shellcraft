@@ -51,6 +51,8 @@ const TASKS = [
   ['well', 3, [], 'ls well/bucket.txt; echo $?', true],
   ['well', 5, [], 'ls well/bucket.txt &> /dev/null', true],
   ['well', 4, [], 'ls well/bucket.txt &> well/errors.txt', true],
+  ['forge', 3, ["echo '#!/bin/bash' > forge/hello.sh", "echo 'echo Hello from the forge' >> forge/hello.sh"], 'bash forge/hello.sh', false, /run it by its path/],
+  ['forge', 1, ["echo 'echo Hello from the forge' > forge/hello.sh"], 'cat forge/hello.sh', false, /must start with/],
   ['daemon', 3, [], 'pkill greedy_imp', true],
   ['daemon', 4, ['kill 2420'], 'pkill stubborn', true],
   ['daemon', 5, ['kill 2420', 'kill 2431'], 'pkill -9 stubborn', true],

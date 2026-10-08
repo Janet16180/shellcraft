@@ -8,6 +8,7 @@
 import { put, remove, stop, cd, dir, file } from '../../backend/spec.js';
 import { shuffle } from '../rng.js';
 import { resolvePath } from '../checks.js';
+import { nodeAt } from '../../backend/tree.js';
 
 const SIGN = `THE FORGE
 Here, commands are hammered into scripts:
@@ -35,6 +36,13 @@ const smelted = names => names.map(name => `Smelting ${name}.ore\n`).join('');
 const runsOf = (ctx, path) => ctx.commands.filter(record => record.name.includes('/') && resolvePath(record.name, record.cwd, ctx.home) === path);
 const ranScript = (ctx, path, pred = () => true) => runsOf(ctx, path).some(record => record.status === 0 && pred(record));
 const deniedScript = (ctx, path) => runsOf(ctx, path).some(record => record.status === 126);
+// bash FILE (or sh FILE) reads the script and runs it, x or not: it works, but it is not running it by its path.
+const tilde = (ctx, path) => `~${path.slice(ctx.home.length)}`;
+const viaShell = (ctx, path) => ['bash', 'sh'].some(name => ctx.tried(name, record => ctx.paths(record)[0] === path));
+const viaShellRule = (ctx, path) => [
+  () => viaShell(ctx, path),
+  `bash and a file reads the file and runs it, even without x. Here, run it by its path: chmod +x ${tilde(ctx, path)}, then ${tilde(ctx, path)}.`,
+];
 
 // Whether the file holds `row` with its $ words already swapped for their values (empty or not).
 function swapped(row, text) {
@@ -48,8 +56,11 @@ function swapped(row, text) {
 function writingNote(ctx, path, want) {
   const text = textIn(ctx, path);
   const name = path.slice(path.lastIndexOf('/') + 1);
+  const noShebang = text !== null && !text.startsWith(`${SHEBANG}\n`) && want.slice(1).some(row => text.startsWith(`${row}\n`));
+  const lostShebang = noShebang && (nodeAt(ctx.before.tree, path)?.content ?? '').startsWith(`${SHEBANG}\n`);
   return firstNote([
-    [() => text !== null && !text.startsWith(`${SHEBANG}\n`) && want.slice(1).some(row => text.startsWith(`${row}\n`)), `> replaced the whole file, so the ${SHEBANG} line is gone. Write it again with >, then add the next line with >>.`],
+    [() => lostShebang, `> replaced the whole file, so the ${SHEBANG} line is gone. Write it again with >, then add the next line with >>.`],
+    [() => noShebang, `${name} must start with the ${SHEBANG} line. Write it with >, then add the next line with >>.`],
     [() => text !== null && text.split('\n').filter(row => row === SHEBANG).length > 1, `${name} has the ${SHEBANG} line twice. Write it again with > to start over.`],
     [() => text !== null && want.some(row => swapped(row, text)), 'Double quotes swapped the $ word for its value while writing. Use single quotes so the file keeps it as typed.'],
   ]);
@@ -82,7 +93,8 @@ function bossNear(ctx, secret) {
   return bossDone(ctx, secret) ? null : firstNote([
     [() => deniedScript(ctx, path), 'Permission denied: it has no x yet. chmod +x ~/forge/smelt.sh first.'],
     [() => ranScript(ctx, path, record => record.cwd === ore), 'That worked, because you were in ~/forge/ore. Run it from your home directory too: the script must cd there itself.'],
-    [() => ranScript(ctx, path) && !text.includes('cd '), 'From here, *.ore matches nothing: a script starts where you are. Add the line cd ~/forge/ore before the loop.'],
+    viaShellRule(ctx, path),
+    [() => ranScript(ctx, path, record => record.stdout === '' || record.stdout.includes('*.ore')) && !text.includes('cd '), 'From here, *.ore matches nothing: a script starts where you are. Add the line cd ~/forge/ore before the loop.'],
     [() => ranScript(ctx, path), 'The script ran, but did not print Smelting and the name for every ore. Read it with cat ~/forge/smelt.sh.'],
     [() => writingNote(ctx, path, [SHEBANG, 'cd ~/forge/ore', LOOP]) !== null, writingNote(ctx, path, [SHEBANG, 'cd ~/forge/ore', LOOP])],
   ]);
@@ -158,6 +170,7 @@ export default {
       done: ctx => ranScript(ctx, script(ctx, 'hello.sh'), record => record.stdout === 'Hello from the forge\n'),
       near: ctx => firstNote([
         [() => deniedScript(ctx, script(ctx, 'hello.sh')), 'Permission denied: it has no x yet. chmod +x ~/forge/hello.sh first.'],
+        viaShellRule(ctx, script(ctx, 'hello.sh')),
         [() => ctx.tried('hello.sh'), 'Without a path, bash looks only in PATH. Type its path: ~/forge/hello.sh.'],
       ]),
     },
@@ -183,6 +196,7 @@ export default {
       done: ctx => ranScript(ctx, script(ctx, 'greet.sh'), record => record.args.length > 0 && record.stdout === `Hello, ${record.args[0]}\n`),
       near: ctx => firstNote([
         [() => deniedScript(ctx, script(ctx, 'greet.sh')), 'Permission denied: it has no x yet. chmod +x ~/forge/greet.sh first.'],
+        viaShellRule(ctx, script(ctx, 'greet.sh')),
         [() => ranScript(ctx, script(ctx, 'greet.sh'), record => record.args.length === 0), '$1 was empty, because no word came after the name. Add Tux: ~/forge/greet.sh Tux.'],
       ]),
     },
@@ -211,6 +225,7 @@ export default {
       done: ctx => ranScript(ctx, script(ctx, 'loop.sh'), record => record.cwd === oreOf(ctx) && record.stdout === smelted(ORES)),
       near: ctx => firstNote([
         [() => deniedScript(ctx, script(ctx, 'loop.sh')), 'Permission denied: it has no x yet. chmod +x ~/forge/loop.sh first.'],
+        viaShellRule(ctx, script(ctx, 'loop.sh')),
         [() => ranScript(ctx, script(ctx, 'loop.sh'), record => record.cwd !== oreOf(ctx)), 'The script started where you are, and there is no ore here. cd ~/forge/ore, then run it again.'],
         [() => writingNote(ctx, script(ctx, 'loop.sh'), [SHEBANG, LOOP]) !== null, writingNote(ctx, script(ctx, 'loop.sh'), [SHEBANG, LOOP])],
       ]),
