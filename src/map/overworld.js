@@ -8,6 +8,7 @@ import { INK, NIGHT, TOON } from './palette.js';
 import { ART } from './layout.js';
 import { box } from './paint.js';
 import { AREA_DECOR, AREA_AMBIENT } from './areadecor.js';
+import { HALL_DECOR, HALL_AMBIENT } from './halldecor.js';
 
 function tree(ctx, x, y) {
   box(ctx, '#5a3a1e', x + 6, y + 18, 4, 8);
@@ -87,6 +88,7 @@ const STATIC_DECOR = {
   market: ctx => awning(ctx),
   junk: (ctx, wall) => junk(ctx, wall),
   ...AREA_DECOR,
+  ...HALL_DECOR,
 };
 
 /**
@@ -156,6 +158,7 @@ export function ambient(ctx, { biome, layout, gateOpen }, t) {
   if (biome === 'river') ripples(ctx, t);
   if (biome === 'gate') gate(ctx, t, gateOpen);
   AREA_AMBIENT[biome]?.(ctx, t, layout.wall);
+  HALL_AMBIENT[biome]?.(ctx, t, layout.wall);
 }
 
 /**

@@ -87,3 +87,29 @@ test('a relative path is a bug and raises', () => {
   assert.throws(() => biomeFor('forest', HOME), /absolute/);
   assert.throws(() => biomeFor('/etc', '~'), /absolute/);
 });
+
+test('the guild wing under /srv has a hall, and an archive room of its own', () => {
+  assert.equal(at('/srv'), 'services');
+  assert.equal(at('/srv/guild'), 'guildhall');
+  assert.equal(at('/srv/guild/archive'), 'guildarchive');
+  assert.equal(at('/srv/guild/archive/old'), 'guildarchive');
+  assert.equal(biomeFor('/srv/guild', HOME).name, 'Guild Hall');
+  assert.equal(biomeFor('/srv/guild', HOME).realm, 'dungeon');
+});
+
+test('the homes of the other people are their quarters', () => {
+  for (const name of ['mira', 'oren', 'tamsin']) assert.equal(at(`/home/${name}`), 'quarters');
+});
+
+test('the act III areas at home: the guild outpost, and the common hall with its rooms', () => {
+  assert.equal(at(`${HOME}/guild`), 'outpost');
+  assert.equal(at(`${HOME}/hall`), 'commons');
+  assert.equal(at(`${HOME}/hall/room_k4m`), 'commons');
+  assert.equal(at(`${HOME}/hall/vault`), 'strongroom');
+  assert.equal(at(`${HOME}/hall/archive`), 'records');
+  assert.equal(at(`${HOME}/hall/shared`), 'shared');
+  for (const area of ['guild', 'hall', 'hall/vault', 'hall/archive', 'hall/shared']) {
+    assert.equal(biomeFor(`${HOME}/${area}`, HOME).realm, 'overworld', area);
+  }
+  assert.equal(biomeFor(`${HOME}/hall`, HOME).name, 'Common Hall');
+});

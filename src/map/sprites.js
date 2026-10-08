@@ -62,4 +62,6 @@ export const SPRITES = {
   bones: ink(['ww.....ww', '.ww...ww.', '...www...', '.ww...ww.', 'ww.....ww']),
   barrel: ink(['..kkkkkk..', '.krbbbbrk.', 'kssssssssk', 'krbbbbbbrk', 'krbbbbbbrk', 'kssssssssk', 'krbbbbbbrk', 'krbbbbbbrk', 'kssssssssk', '.krbbbbrk.', '..kkkkkk..']),
   crate: ink(['kkkkkkkkkkkk', 'kbbbbbbbbbbk', 'kbrbbbbbbrbk', 'kbbrbbbbrbbk', 'kbbbrbbrbbbk', 'kbbbbrrbbbbk', 'kbbbrbbrbbbk', 'kbbrbbbbrbbk', 'kbrbbbbbbrbk', 'kkkkkkkkkkkk']),
+  smithsMark: ink(['.......', 'kkkkkkk', '.kkkkkk', '...kkk.', '...kkk.', '..kkkkk', '.kkkkkk']),
+  scribesMark: ink(['.....kk', '....kkk', '...kkk.', '...kk..', '..k....', '.k.....', 'k......']),
 };

@@ -141,6 +141,81 @@ function cobwebs(ctx, wall) {
   drawSprite(ctx, SPRITES.bones, 26, 182, { scale: 2 });
 }
 
+function banner(ctx, x, top, colour, emblem) {
+  const h = 34;
+  box(ctx, INK.y, x - 2, top, 16, 2);
+  box(ctx, INK.k, x - 1, top + 2, 14, h);
+  box(ctx, colour, x, top + 2, 12, h - 4);
+  for (let i = 0; i < 6; i++) {
+    box(ctx, colour, x, top + h - 2, 6 - i, 1 + Math.floor(i / 2));
+    box(ctx, colour, x + 6 + i, top + h - 2, 6 - i, 1 + Math.floor(i / 2));
+  }
+  box(ctx, INK.y, x + 1, top + 4, 10, 1);
+  box(ctx, INK.w, x + 2, top + 9, 8, 10);
+  drawSprite(ctx, SPRITES[emblem], x + 2, top + 11);
+}
+
+function guildBanners(ctx, wall) {
+  const top = Math.max(2, wall - 50);
+  banner(ctx, 16, top, INK.e, 'smithsMark');
+  banner(ctx, 292, top, INK.p, 'scribesMark');
+}
+
+function longTable(ctx, wall) {
+  const top = Math.min(wall + 52, 112);
+  box(ctx, 'rgba(11, 10, 18, 0.35)', 40, top + 16, 240, 4);
+  for (const lx of [48, 156, 266]) box(ctx, INK.r, lx, top + 8, 6, 12);
+  box(ctx, INK.k, 38, top - 1, 244, 11);
+  box(ctx, INK.b, 39, top, 242, 6);
+  box(ctx, INK.r, 39, top + 6, 242, 3);
+  box(ctx, INK.o, 39, top, 242, 1);
+  for (const [bx, by] of [[44, top + 22], [180, top + 22]]) {
+    box(ctx, INK.k, bx, by, 96, 5);
+    box(ctx, INK.r, bx + 1, by + 1, 94, 3);
+  }
+  for (const cx of [70, 250]) {
+    box(ctx, INK.w, cx, top - 6, 3, 6);
+    box(ctx, INK.l, cx + 2, top - 6, 1, 6);
+  }
+  box(ctx, INK.l, 120, top - 2, 6, 2);
+  box(ctx, INK.w, 196, top - 3, 10, 3);
+}
+
+function services(ctx, wall) {
+  guildBanners(ctx, wall);
+  big(ctx, SPRITES.crate, [[24, 156], [276, 150]]);
+  big(ctx, SPRITES.barrel, [[44, 164]]);
+}
+
+function guildhall(ctx, wall) {
+  books(ctx, wall);
+  guildBanners(ctx, wall);
+  longTable(ctx, wall);
+}
+
+function pigeonholes(ctx, x, top, bottom) {
+  box(ctx, INK.k, x, top, 36, bottom - top);
+  for (let y = top + 1; y + 8 < bottom; y += 8) {
+    for (let cx = x + 1; cx < x + 35; cx += 7) {
+      box(ctx, INK.r, cx, y, 6, 7);
+      if ((cx * 3 + y) % 5 !== 0) {
+        box(ctx, INK.w, cx + 1, y + 2, 4, 4);
+        box(ctx, INK.l, cx + 2, y + 3, 2, 2);
+      }
+    }
+  }
+}
+
+function guildarchive(ctx, wall) {
+  scrolls(ctx, wall);
+  pigeonholes(ctx, 40, wall - 44, wall - 4);
+  pigeonholes(ctx, 244, wall - 44, wall - 4);
+  box(ctx, INK.k, 112, 162, 96, 22);
+  box(ctx, INK.p, 113, 163, 94, 20);
+  box(ctx, INK.v, 115, 165, 90, 1);
+  box(ctx, INK.v, 115, 180, 90, 1);
+}
+
 const DECOR = {
   hall: (ctx, wall) => {
     rugWithRing(ctx, wall);
@@ -164,6 +239,9 @@ const DECOR = {
   workshop: ctx => big(ctx, SPRITES.anvil, [[18, 162]]),
   pit: ctx => big(ctx, SPRITES.rune, [[14, 156], [282, 156]], { alpha: 0.8 }),
   corridor: cobwebs,
+  services,
+  guildhall,
+  guildarchive,
 };
 
 /**
