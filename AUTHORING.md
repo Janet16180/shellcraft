@@ -76,6 +76,7 @@ The check context `ctx` (implemented in `src/game/checks.js`) sees only the port
 - `ctx.tried(name, pred?)`: same, any exit status.
 - `ctx.flag(record, letter)`: a short option letter was given (`-la` has `l` and `a`).
 - `ctx.hasPath(record, absPath)`: one of its non-option arguments resolves to `absPath`.
+- `ctx.piped(record)`: the absolute paths a plain `cat` (no options) piped straight into this stage, e.g. `cat a.txt | sort` gives sort `[a.txt]`; `[]` otherwise. Accept `cat file | cmd` wherever `cmd file` is accepted.
 - `ctx.read(absPath)`: a reading command (cat, less, more, head, tail) succeeded on that file.
 - `ctx.paths(record)`: its non-option arguments as absolute paths.
 - `ctx.line`: the line's text as typed. Judge records and state first; use the text only for what

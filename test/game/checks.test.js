@@ -108,6 +108,25 @@ test('hasPath is true when an operand resolves to the absolute path', () => {
   assert.equal(ctx.hasPath(record('cat', ['readme.txt'], { cwd: '/tmp' }), `${HOME}/readme.txt`), false);
 });
 
+test('piped lists the files a cat stage just before the command fed it, through chains of cat', () => {
+  const stage = (name, args, n, fields = {}) => record(name, args, { pipeline: 0, stage: n, stages: 3, ...fields });
+  const cat = stage('cat', ['ledger.txt'], 0);
+  const sort = stage('sort', [], 1);
+  const uniq = stage('uniq', [], 2);
+  const ctx = context([cat, sort, uniq]);
+  assert.deepEqual(ctx.piped(sort), [`${HOME}/ledger.txt`]);
+  assert.deepEqual(ctx.piped(uniq), []);
+  assert.deepEqual(ctx.piped(cat), []);
+  const chain = [stage('cat', ['a.txt'], 0), stage('cat', [], 1), stage('grep', ['x'], 2)];
+  assert.deepEqual(context(chain).piped(chain[2]), [`${HOME}/a.txt`]);
+  const failed = [stage('cat', ['a.txt'], 0, { status: 1 }), stage('grep', ['x'], 1)];
+  assert.deepEqual(context(failed).piped(failed[1]), []);
+  const redirected = [stage('cat', [], 0, { redirects: [{ op: '<', target: `${HOME}/a.txt` }] }), stage('grep', ['x'], 1)];
+  assert.deepEqual(context(redirected).piped(redirected[1]), [`${HOME}/a.txt`]);
+  const numbered = [stage('cat', ['-n', 'a.txt'], 0), stage('grep', ['x'], 1)];
+  assert.deepEqual(context(numbered).piped(numbered[1]), [], 'cat -n changes the lines');
+});
+
 test('read is true when a reading command succeeded on the file', () => {
   for (const name of ['cat', 'less', 'more', 'head', 'tail']) {
     assert.equal(context([record(name, ['readme.txt'])]).read(`${HOME}/readme.txt`), true, name);

@@ -136,8 +136,8 @@ export default {
         'Search the file with `grep`, for your user name `hero`.',
         'grep hero /etc/passwd',
       ],
-      done: ctx => ctx.ran('grep', record => record.args.includes('hero') && ctx.hasPath(record, PASSWD)),
-      near: ctx => (ctx.read(PASSWD) ? 'That printed every account. grep hero /etc/passwd prints only yours.' : null),
+      done: ctx => ctx.ran('grep', record => record.args.includes('hero') && (ctx.hasPath(record, PASSWD) || ctx.piped(record).includes(PASSWD))),
+      near: ctx => (ctx.ran('cat', record => ctx.hasPath(record, PASSWD) && record.stage === record.stages - 1) ? 'That printed every account. grep hero /etc/passwd prints only yours.' : null),
     },
     {
       goal: 'Read only the last 3 lines of the package log `/var/log/dpkg.log` (`tail -n 3`: the newest lines are at the end)',

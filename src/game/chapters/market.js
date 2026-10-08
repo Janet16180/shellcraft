@@ -27,6 +27,10 @@ const isWrite = (redirect, ops) => ops.includes(redirect.op.replace(/^1/, ''));
 const writes = (record, path, ops = ['>', '>>']) => record.redirects.some(r => isWrite(r, ops) && r.target === path);
 const wroteTo = (ctx, path) => ctx.commands.some(record => writes(record, path));
 const stageOf = (ctx, record, offset) => ctx.commands.find(r => r.pipeline === record.pipeline && r.stage === record.stage + offset) ?? null;
+// The command read the file itself, or a plain cat piped it in.
+const takes = (ctx, record, path) => ctx.hasPath(record, path) || ctx.piped(record).includes(path);
+const failedPart = ctx => ctx.commands.some(record => record.status !== 0);
+const failedNote = path => `Part of that line failed: read the error above. The file to read is ${path}.`;
 const plainUniq = (ctx, record) => !['c', 'd', 'u'].some(letter => ctx.flag(record, letter));
 
 // A uniq that reads its input straight after a successful sort of the file, without -u.
@@ -34,13 +38,13 @@ function sortThenUniq(ctx, path, pred) {
   return ctx.ran('uniq', record => {
     const before = stageOf(ctx, record, -1);
     return ctx.paths(record).length === 0 && pred(record)
-      && before?.name === 'sort' && before.status === 0 && ctx.hasPath(before, path) && !ctx.flag(before, 'u');
+      && before?.name === 'sort' && before.status === 0 && takes(ctx, before, path) && !ctx.flag(before, 'u');
   });
 }
 
 // uniq on a file, or on input that sort did not prepare: the repeats are not neighbours.
 const unsortedUniq = ctx => ctx.tried('uniq', record => ctx.paths(record).length > 0 || (record.stage > 0 && stageOf(ctx, record, -1)?.name !== 'sort'));
-const sortedUnique = (ctx, path) => ctx.ran('sort', record => ctx.flag(record, 'u') && ctx.hasPath(record, path));
+const sortedUnique = (ctx, path) => ctx.ran('sort', record => ctx.flag(record, 'u') && takes(ctx, record, path));
 const neighbours = path => `uniq only joins equal lines that are next to each other, and here the repeats are apart. Sort first: sort ${path} | uniq.`;
 
 function appendTask(word, goal, tip, hints) {
@@ -70,7 +74,7 @@ function savedStock(ctx) {
 function countsPotions(ctx) {
   return ctx.ran('grep', record => {
     const next = stageOf(ctx, record, 1);
-    return record.args.includes('potion') && ctx.hasPath(record, inventoryOf(ctx))
+    return record.args.includes('potion') && takes(ctx, record, inventoryOf(ctx))
       && next?.name === 'wc' && next.status === 0 && ctx.flag(next, 'l') && ctx.paths(next).length === 0;
   });
 }
@@ -101,6 +105,7 @@ function bossNear(ctx, secret) {
   return bossDone(ctx, secret) ? null : firstNote([
     [() => right && sortedUnique(ctx, secret.ledger), 'sold.txt is right, and sort -u works too, but this room asks for sort and uniq joined by a |.'],
     [() => right, 'sold.txt is right, but this room asks for one line: sort the ledger, | uniq, then > into sold.txt.'],
+    [() => failedPart(ctx), failedNote('~/market/ledger.txt')],
     [() => unsortedUniq(ctx), neighbours('~/market/ledger.txt')],
     [() => wroteTo(ctx, sold), 'sold.txt should hold each item once, in order: sort the ledger, then | uniq, then > ~/market/sold.txt.'],
     [() => sortThenUniq(ctx, secret.ledger, record => plainUniq(ctx, record) && !wroteTo(ctx, sold)), 'That printed the list on the screen. Add > ~/market/sold.txt at the end to write it into the file.'],
@@ -140,7 +145,7 @@ export default {
         'Type `sort`, a space, and the path of the inventory.',
         'sort ~/market/inventory.txt',
       ],
-      done: ctx => ctx.ran('sort', record => ctx.hasPath(record, inventoryOf(ctx))),
+      done: ctx => ctx.ran('sort', record => takes(ctx, record, inventoryOf(ctx))),
       near: ctx => (ctx.read(inventoryOf(ctx)) ? 'cat prints the lines as they are. sort prints them in order.' : null),
     },
     {
@@ -153,6 +158,7 @@ export default {
       ],
       done: ctx => sortThenUniq(ctx, inventoryOf(ctx), record => plainUniq(ctx, record)),
       near: ctx => firstNote([
+        [() => failedPart(ctx), failedNote('~/market/inventory.txt')],
         [() => unsortedUniq(ctx), neighbours('~/market/inventory.txt')],
         [() => sortedUnique(ctx, inventoryOf(ctx)), 'sort -u works too, but this chapter practises sort | uniq.'],
         [() => sortThenUniq(ctx, inventoryOf(ctx), record => ctx.flag(record, 'c')), 'uniq -c counts them as well. To show each item once, use plain uniq.'],
@@ -168,6 +174,7 @@ export default {
       ],
       done: ctx => sortThenUniq(ctx, inventoryOf(ctx), record => ctx.flag(record, 'c')),
       near: ctx => firstNote([
+        [() => failedPart(ctx), failedNote('~/market/inventory.txt')],
         [() => unsortedUniq(ctx), neighbours('~/market/inventory.txt')],
         [() => sortThenUniq(ctx, inventoryOf(ctx), record => !ctx.flag(record, 'c')), 'Add -c to uniq to count each item: uniq -c.'],
       ]),
@@ -187,6 +194,7 @@ export default {
         const right = wrote && ctx.node(stock)?.content === STOCK;
         return savedStock(ctx) ? null : firstNote([
           [() => right, `stock.txt is right, but this chapter practises the pipe: ${SAVE_STOCK}.`],
+          [() => failedPart(ctx), failedNote('~/market/inventory.txt')],
           [() => unsortedUniq(ctx), neighbours('~/market/inventory.txt')],
           [() => ctx.commands.some(record => writes(record, stock, ['>>'])), '>> added the list to the end of what stock.txt already held. Use > to replace it.'],
           [() => wrote, 'stock.txt should hold each item once, in order: sort, then | uniq, then > and the path.'],
@@ -226,10 +234,10 @@ export default {
       near: ctx => {
         const inventory = inventoryOf(ctx);
         return firstNote([
-          [() => ctx.ran('grep', record => ctx.flag(record, 'c') && ctx.hasPath(record, inventory)), 'grep -c counts too, but this task practises the pipe: grep, a |, then wc -l.'],
-          [() => ctx.ran('wc', record => ctx.hasPath(record, inventory)), 'wc -l counted every line of the inventory. Let grep pick the potion lines first: grep, a |, then wc -l.'],
+          [() => ctx.ran('grep', record => ctx.flag(record, 'c') && takes(ctx, record, inventory)), 'grep -c counts too, but this task practises the pipe: grep, a |, then wc -l.'],
+          [() => ctx.ran('wc', record => takes(ctx, record, inventory)), 'wc -l counted every line of the inventory. Let grep pick the potion lines first: grep, a |, then wc -l.'],
           [() => ctx.ran('wc', record => !ctx.flag(record, 'l') && record.stage > 0), 'Add -l to wc so that it counts only lines.'],
-          [() => ctx.ran('grep', record => ctx.hasPath(record, inventory) && record.stages === 1), 'That printed the potion lines. Send them into wc -l with a |.'],
+          [() => ctx.ran('grep', record => takes(ctx, record, inventory) && record.stage === record.stages - 1), 'That printed the potion lines. Send them into wc -l with a |.'],
         ]);
       },
     },

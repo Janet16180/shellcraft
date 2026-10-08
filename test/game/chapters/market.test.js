@@ -98,12 +98,14 @@ const NEAR_MISSES = [
   [ONCE, [], 'sort -u market/inventory.txt', 'sort ~/market/inventory.txt | uniq'],
   [ONCE, [], 'cat market/inventory.txt | uniq', 'sort market/inventory.txt | uniq'],
   [ONCE, [], 'sort market/inventory.txt', 'sort market/inventory.txt | uniq'],
+  [ONCE, [], 'cat market/inventory.txt | uniq', 'cat market/inventory.txt | sort | uniq'],
   [COUNT, [], 'uniq -c market/inventory.txt', 'sort market/inventory.txt | uniq -c'],
   [COUNT, [], 'sort market/inventory.txt | uniq', 'sort ~/market/inventory.txt | uniq -c'],
   [SAVE, ['cd market'], 'sort inventory.txt | uniq', 'sort inventory.txt | uniq > stock.txt'],
   [SAVE, ['cd market'], 'sort -u inventory.txt > stock.txt', 'sort inventory.txt | uniq > stock.txt'],
   [SAVE, ['cd market'], 'uniq inventory.txt > stock.txt', 'sort inventory.txt | uniq > ~/market/stock.txt'],
   [SAVE, ['cd market'], 'sort inventory.txt > stock.txt', 'sort inventory.txt | uniq > stock.txt'],
+  [SAVE, ['cd market'], 'cat inventory.txt | uniq > stock.txt', 'cat inventory.txt | sort | uniq > stock.txt'],
   [SAVE, ['cd market'], 'sort inventory.txt | uniq -c > stock.txt', 'sort inventory.txt | uniq > stock.txt'],
   [SAVE, SAVED, 'sort inventory.txt | uniq >> stock.txt', 'sort inventory.txt | uniq > stock.txt'],
   [LANTERN, SAVED, 'echo lantern > stock.txt', 'echo lantern >> stock.txt'],
@@ -118,6 +120,7 @@ const NEAR_MISSES = [
   [POTIONS, ['cd market'], 'wc -l inventory.txt', 'grep potion inventory.txt | wc -l'],
   [POTIONS, ['cd market'], 'grep potion inventory.txt | wc', 'grep potion inventory.txt | wc -l'],
   [POTIONS, ['cd market'], 'grep sword inventory.txt | wc -l', 'grep potion inventory.txt | wc -l'],
+  [POTIONS, ['cd market'], 'cat inventory.txt | wc -l', 'cat inventory.txt | grep potion | wc -l'],
 ];
 
 for (const [goal, prefix, miss, hit] of NEAR_MISSES) {
@@ -207,6 +210,7 @@ const BOSS_MISSES = [
   ['sort market/ledger.txt > market/sold.txt', /each item once, in order/],
   ['sort market/ledger.txt | uniq -c > market/sold.txt', /each item once, in order/],
   ['sort market/inventory.txt | uniq > market/sold.txt', /each item once, in order/],
+  ['sort market|ledger.txt | uniq > market/sold.txt', /failed.*error above.*~\/market\/ledger\.txt/],
 ];
 
 for (const [line, note] of BOSS_MISSES) {
@@ -234,6 +238,11 @@ test('the boss gives no near note for looking around or for the winning line', a
     assert.equal(chapter.boss.near((await type(backend, line)).ctx, secret), null, line);
   }
   assert.equal(chapter.boss.near((await type(backend, 'sort market/ledger.txt | uniq > market/sold.txt')).ctx, secret), null);
+});
+
+test('the boss also falls to cat piped into sort and uniq, as the player tried', async () => {
+  const { backend, secret } = await startBoss(chapter, 4);
+  assert.ok(chapter.boss.done((await type(backend, 'cat market/ledger.txt | sort | uniq > market/sold.txt')).ctx, secret));
 });
 
 test('the exact boss hint beats the boss from anywhere', async () => {

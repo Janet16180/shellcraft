@@ -63,6 +63,16 @@ export function makeContext({ commands, before, obs, completions = [], line = ''
   const hasPath = (record, path) => paths(record).includes(path);
   const ran = (name, pred = () => true) => commands.some(r => r.name === name && r.status === 0 && pred(r));
   const readsFrom = (record, path) => hasPath(record, path) || record.redirects.some(x => x.op === '<' && x.target === path);
+  const stageBefore = record => commands.find(r => r.pipeline === record.pipeline && r.stage === record.stage - 1) ?? null;
+  // The files a plain cat (no options, so the lines are unchanged) piped into this stage.
+  const piped = record => {
+    const cat = record.stage > 0 ? stageBefore(record) : null;
+    if (cat?.name !== 'cat' || cat.status !== 0 || cat.args.some(a => a.startsWith('-') && a !== '-' && a !== '--')) return [];
+    const files = paths(cat);
+    if (files.length > 0) return files;
+    const input = cat.redirects.find(x => x.op === '<');
+    return input ? [input.target] : piped(cat);
+  };
 
   return {
     commands,
@@ -79,6 +89,7 @@ export function makeContext({ commands, before, obs, completions = [], line = ''
     flag: (record, letter) => shortOptions(record.args).some(o => o.slice(1).includes(letter)),
     paths,
     hasPath,
+    piped,
     read: path => commands.some(r => READERS.has(r.name) && r.status === 0 && readsFrom(r, path)),
   };
 }
