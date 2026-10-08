@@ -242,7 +242,7 @@ function waitingTurn(s, pending, result) {
 async function endTurn(s, { line, completions, before }, result) {
   const after = await s.backend.observe();
   s.obs = after;
-  const ctx = makeContext({ commands: result.commands, before, obs: after, completions, line, typed: line });
+  const ctx = makeContext({ commands: result.commands, before, obs: after, completions, line: result.line ?? line, typed: line });
   const effects = [...lineEffects(ctx, result.blocked), ...(current(s).effects?.(ctx) ?? [])];
   const inBossRoom = s.phase === 'boss';
   const events = await advance(s, ctx);

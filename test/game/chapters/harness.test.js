@@ -96,7 +96,7 @@ test('a load between lines refreshes the observation the next line starts from',
   assert.equal(ctx.before.tree.children.home.children.hero.children['new.txt'].type, 'file');
 });
 
-test('the check context sees the line after history expansion, and the keys as typed', { todo: 'ctx.line becomes the expanded line once memory.js reads the keys from ctx.typed' }, async () => {
+test('the check context sees the line after history expansion, and the keys as typed', async () => {
   const backend = await startChapter(plain);
   await type(backend, 'echo hi');
   const { ctx } = await type(backend, '!!');

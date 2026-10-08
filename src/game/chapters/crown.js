@@ -25,7 +25,8 @@ const firstNote = rules => rules.find(([when]) => when())?.[1] ?? null;
 const asRoot = (ctx, name, pred = () => true) => ctx.ran(name, record => record.user === 'root' && pred(record));
 const asMe = (ctx, name, pred = () => true) => ctx.tried(name, record => record.user !== 'root' && pred(record));
 // sudo itself failed: the password was wrong three times, or it was cancelled.
-const sudoRefused = ctx => ctx.tried('sudo', record => record.status !== 0) && !ctx.commands.some(record => record.user === 'root');
+// Only a password that failed (or was cancelled) gets the password note, not sudo -i or a bad option.
+const sudoRefused = ctx => ctx.tried('sudo', record => record.auth === 'failed' || record.auth === 'cancelled');
 const PASSWORD_NOTE = `Your password is ${PASSWORD}. Type it when sudo asks, and press Enter: nothing shows while you type.`;
 const passwordFirst = (ctx, rules) => (sudoRefused(ctx) ? PASSWORD_NOTE : firstNote(rules));
 const motdText = ctx => ctx.node(MOTD)?.content ?? '';

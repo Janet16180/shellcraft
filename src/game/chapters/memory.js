@@ -16,13 +16,16 @@ const bashrc = ctx => ctx.node(bashrcOf(ctx))?.content ?? '';
 const kept = ctx => bashrc(ctx).includes('export EDITOR=nano');
 // source returns the status of the file's last line, so a failing line elsewhere still loads the rest.
 const sourced = ctx => ['source', '.'].some(name => ctx.tried(name, record => ctx.hasPath(record, bashrcOf(ctx))));
-const typed = (ctx, pattern) => pattern.test(ctx.line.trim());
+// The keys as typed: !! and !N are gone from ctx.line, which holds the line after history expansion.
+const typed = (ctx, pattern) => pattern.test((ctx.typed ?? ctx.line).trim());
 const ranAny = ctx => ctx.commands.length > 0;
 const childEcho = (ctx, text) => ctx.ran('bash', record => record.args[0] === '-c' && /\$\{?realm\b/.test(record.args[1] ?? '') && record.stdout === `${text}\n`);
 // bash -c "echo $realm": your shell put the value in before the new bash started.
 const doubleQuoted = ctx => ctx.ran('bash', record => record.args[0] === '-c' && /\bKernelia\b/.test(record.args[1] ?? '') && /\$\{?realm/.test(ctx.line));
 const DOUBLE_NOTE = 'With double quotes, your shell replaced $realm before the new bash started, so that proves nothing. Use single quotes: bash -c \'echo $realm\'.';
 const UP_LINE = /^alias up=(['"])cd \.\.\1$/m;
+// The shortcut is loaded in this shell, and its line is kept in .bashrc for new shells.
+const upLoaded = ctx => ctx.alias('up') === 'cd ..';
 const REPLACED = 'Your .bashrc lost its first lines: > replaced the whole file. Press Restart chapter in the HUD to get it back, then add with >>.';
 
 const PLACES = ['gate', 'tower', 'library', 'market', 'forest'];
@@ -48,21 +51,27 @@ Keep both in ~/.bashrc, so every new shell has them, and load them now.
   };
 }
 
-const aliasLine = ({ alias, place }) => new RegExp(`^alias ${alias}=(['"])cd (~|/home/\\w+)/${place}/?\\1$`, 'm');
-const exportLine = ({ keeper }) => new RegExp(`^export KEEPER=(['"]?)${keeper}\\1$`, 'm');
-const exported = (ctx, secret) => exportLine(secret).test(bashrc(ctx))
-  || (new RegExp(`^KEEPER=(['"]?)${secret.keeper}\\1$`, 'm').test(bashrc(ctx)) && /^export KEEPER$/m.test(bashrc(ctx)));
-const bossFile = (ctx, secret) => kept(ctx) && aliasLine(secret).test(bashrc(ctx)) && exported(ctx, secret);
-const bossDone = (ctx, secret) => bossFile(ctx, secret) && sourced(ctx);
+// Judged by the effect: the alias goes to the place, KEEPER is exported with the value, and both
+// have a line in .bashrc, in whatever form the player wrote them.
+const aliasGoes = (ctx, { alias, place }) => {
+  const match = /^cd\s+(\S+)$/.exec((ctx.alias(alias) ?? '').trim());
+  const target = match?.[1].replace(/^["']|["']$/g, '').replace(/^(~|\$HOME|\$\{HOME\})(?=\/|$)/, ctx.home).replace(/\/$/, '');
+  return target === `${ctx.home}/${place}`;
+};
+const keeperSet = (ctx, { keeper }) => ctx.variable('KEEPER')?.value === keeper && ctx.variable('KEEPER').exported;
+const bossFile = (ctx, { alias }) => kept(ctx) && new RegExp(`^\\s*alias ${alias}=`, 'm').test(bashrc(ctx)) && /\bKEEPER=/.test(bashrc(ctx)) && /\bexport\b.*\bKEEPER\b/.test(bashrc(ctx));
+const bossDone = (ctx, secret) => bossFile(ctx, secret) && sourced(ctx) && aliasGoes(ctx, secret) && keeperSet(ctx, secret);
 
 function bossNear(ctx, secret) {
   const wrote = ctx.commands.some(record => ctx.streams(record).out === bashrcOf(ctx)) || sourced(ctx);
   if (!wrote || bossDone(ctx, secret)) return null;
   return firstNote([
     [() => !kept(ctx), REPLACED],
-    [() => !aliasLine(secret).test(bashrc(ctx)), `~/.bashrc has no line alias ${secret.alias}='cd ~/${secret.place}' yet. Add it with echo "..." >> ~/.bashrc.`],
-    [() => !exported(ctx, secret), `~/.bashrc has no line export KEEPER=${secret.keeper} yet. Add it with >> too.`],
+    [() => !new RegExp(`^\\s*alias ${secret.alias}=`, 'm').test(bashrc(ctx)), `~/.bashrc has no line alias ${secret.alias}='cd ~/${secret.place}' yet. Add it with echo "..." >> ~/.bashrc.`],
+    [() => !/\bKEEPER=/.test(bashrc(ctx)) || !/\bexport\b.*\bKEEPER\b/.test(bashrc(ctx)), `~/.bashrc has no line export KEEPER=${secret.keeper} yet. Add it with >> too.`],
     [() => !sourced(ctx), 'Both lines are in ~/.bashrc. Load them into this shell now: source ~/.bashrc.'],
+    [() => !aliasGoes(ctx, secret), `After source, ${secret.alias} does not run cd ~/${secret.place}. Read the line back with tail ~/.bashrc.`],
+    [() => !keeperSet(ctx, secret), `After source, KEEPER is not exported with the value ${secret.keeper}. Read the line back with tail ~/.bashrc.`],
   ]);
 }
 
@@ -147,9 +156,12 @@ export default {
         'First `realm=Kernelia`, then `bash -c` with `\'echo $realm\'` in single quotes.',
         'realm=Kernelia; bash -c \'echo $realm\'',
       ],
-      done: ctx => childEcho(ctx, ''),
+      done: ctx => childEcho(ctx, '') && ctx.variable('realm')?.value === 'Kernelia' && !ctx.variable('realm').exported,
       // realm = Kernelia runs a command named realm.
-      near: ctx => (/^realm\s+=|^realm=\s/.test(ctx.line.trim()) ? 'No spaces around =: realm=Kernelia.' : null) ?? (doubleQuoted(ctx) ? DOUBLE_NOTE : null) ?? (childEcho(ctx, 'Kernelia') ? 'realm is exported already, from an earlier try. Run unset realm, then make it again with realm=Kernelia.' : null),
+      near: ctx => (/^realm\s+=|^realm=\s/.test(ctx.line.trim()) ? 'No spaces around =: realm=Kernelia.' : null) ?? (doubleQuoted(ctx) ? DOUBLE_NOTE : null) ?? firstNote([
+        [() => childEcho(ctx, 'Kernelia'), 'realm is exported already, from an earlier try. Run unset realm, then make it again with realm=Kernelia.'],
+        [() => childEcho(ctx, '') && ctx.variable('realm') === null, 'There is no realm variable yet, so this shows nothing. First realm=Kernelia, then ask the new shell.'],
+      ]),
     },
     {
       goal: 'Hand `realm` down to new programs (`export realm`), then ask a new shell again',
@@ -170,7 +182,7 @@ export default {
         `\`echo "alias up='cd ..'" >> ~/.bashrc\`, then \`source ~/.bashrc\`.`,
         'echo "alias up=\'cd ..\'" >> ~/.bashrc && source ~/.bashrc',
       ],
-      done: ctx => kept(ctx) && UP_LINE.test(bashrc(ctx)) && sourced(ctx),
+      done: ctx => kept(ctx) && /^alias up=/m.test(bashrc(ctx)) && upLoaded(ctx) && sourced(ctx),
       near: ctx => {
         const wrote = ctx.commands.some(record => ctx.streams(record).out === bashrcOf(ctx)) || sourced(ctx) || UP_LINE.test(bashrc(ctx));
         return !wrote ? null : firstNote([

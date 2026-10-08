@@ -129,6 +129,17 @@ test('the boss is beaten with two jobs, fg then Ctrl+Z, then kill %N, found from
   }
 });
 
+test('the boss room starts with no leftover jobs, so the exact hint names the right job', async () => {
+  const { backend, secret } = await startBoss(chapter, 1);
+  assert.deepEqual((await backend.observe()).jobs, []);
+  const first = secret.cancelJob === 1 ? secret.cancel : secret.keep;
+  const second = secret.cancelJob === 1 ? secret.keep : secret.cancel;
+  await type(backend, `sleep ${first} &`);
+  await type(backend, `sleep ${second} &`);
+  await type(backend, `fg %${secret.cancelJob === 1 ? 2 : 1}`, Z);
+  assert.ok(chapter.boss.done((await type(backend, chapter.boss.hints[2](secret))).ctx, secret));
+});
+
 test('the boss is not won if the cancelled task never started', async () => {
   const { backend, secret } = await startBoss(chapter, 2);
   await type(backend, `sleep ${secret.keep} &`);

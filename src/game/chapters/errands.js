@@ -6,7 +6,7 @@
  * that ends by itself as Done. sleep stands in for long work. The boss: the
  * smith's orders, with two tasks of random length; one is cancelled.
  */
-import { put, remove, cd, dir, file } from '../../backend/spec.js';
+import { put, remove, cd, dir, file, endJobs } from '../../backend/spec.js';
 import { pick } from '../rng.js';
 import { nodeAt } from '../../backend/tree.js';
 
@@ -52,7 +52,7 @@ function setupBoss(random, { home, user }) {
 3. The order for sleep ${cancel} was cancelled: end that job with kill and its job number.
 `;
   return {
-    patch: [remove(`${home}/workshop`), put(`${home}/workshop`, workshop(user, { 'orders.txt': file(orders, { owner: user }) })), cd(home)],
+    patch: [endJobs(), remove(`${home}/workshop`), put(`${home}/workshop`, workshop(user, { 'orders.txt': file(orders, { owner: user }) })), cd(home)],
     secret: { cancel, keep, cancelJob: cancelFirst ? 1 : 2 },
   };
 }

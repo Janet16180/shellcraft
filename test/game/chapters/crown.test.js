@@ -76,6 +76,7 @@ const NEAR_MISSES = [
   [SYSLOG, [], 'sudo ls /var/log', 'sudo tail /var/log/syslog'],
   [WHO, [], 'whoami', 'sudo whoami'],
   [TRAP, [], 'echo hi >> /etc/motd', 'sudo echo hi >> /etc/motd'],
+  [TRAP, ['echo hi >> /etc/motd'], 'echo again', 'sudo !!'],
   [TRAP, [], 'sudo cat /etc/motd', 'sudo echo hi > /etc/motd'],
   [TEE, [], 'echo The steward is hero. | tee -a /etc/motd', 'echo The steward is hero. | sudo tee -a /etc/motd'],
   [TEE, [], 'echo The steward is hero. | sudo tee /etc/motd', null],
@@ -115,6 +116,12 @@ for (const [goal, prefix, line, note] of NEAR_NOTES) {
     assertNear(chapter.tasks[GOAL[goal]].near?.(ctx) ?? null, ctx, note);
   });
 }
+
+test('sudo -i gets no password note', async () => {
+  const backend = await startChapter(chapter);
+  const { ctx } = await run(backend, 'sudo -i');
+  assert.doesNotMatch(chapter.tasks[GOAL[LIST]].near(ctx) ?? '', /dragon/);
+});
 
 test('a wrong password three times gets a note that names the password', async () => {
   const backend = await startChapter(chapter);

@@ -127,7 +127,7 @@ export async function type(backend, line, { password, keys = [] } = {}) {
     const result = await runAnswering(backend, typed, password === undefined ? [] : [password].flat(), [...pressed, ...keys]);
     const obs = await backend.observe();
     if (backend.seen) backend.seen = obs;
-    return { result, ctx: makeContext({ commands: result.commands, before, obs, completions, line: typed, typed }) };
+    return { result, ctx: makeContext({ commands: result.commands, before, obs, completions, line: result.line ?? typed, typed }) };
   };
   return typeLine(line, { complete, submit });
 }

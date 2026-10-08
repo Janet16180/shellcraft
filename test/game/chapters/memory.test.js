@@ -65,7 +65,8 @@ const NEAR_MISSES = [
   [BANG_BANG, ['echo one'], 'echo one', '!!'],
   [ALIAS, ['cd forest'], "alias up='cd ..'", null],
   [ALIAS, ["alias up='cd ..'", 'cd forest'], 'cd ..', 'up'],
-  [HIDDEN, [], "echo 'echo $realm'", "bash -c 'echo $realm'"],
+  [HIDDEN, [], "echo 'echo $realm'", "realm=Kernelia; bash -c 'echo $realm'"],
+  [HIDDEN, [], "bash -c 'echo $realm'", null],
   [EXPORT, ['realm=Kernelia'], "bash -c 'echo $realm'", "export realm; bash -c 'echo $realm'"],
   [KEEP, [], SAVE_UP, `${SAVE_UP} && source ~/.bashrc`],
   [KEEP, [SAVE_UP, 'echo "alias home=cd ~" >> ~/.bashrc'], 'cat ~/.bashrc', 'source ~/.bashrc'],
@@ -121,6 +122,13 @@ test('the boss is beaten by writing both lines into .bashrc and loading it, foun
     const { ctx } = await type(backend, secret.alias);
     assert.equal(ctx.cwd, `${HOME}/${secret.place}`, `seed ${seed}: the shortcut works`);
   }
+});
+
+test('the boss accepts other working forms of the two lines', async () => {
+  const { backend, secret } = await startBoss(chapter, 1);
+  await type(backend, `echo 'alias ${secret.alias}="cd $HOME/${secret.place}"' >> ~/.bashrc`);
+  await type(backend, `echo 'KEEPER=${secret.keeper}; export KEEPER' >> ~/.bashrc`);
+  assert.ok(chapter.boss.done((await type(backend, '. ~/.bashrc')).ctx, secret));
 });
 
 const BOSS_NOTES = [

@@ -111,7 +111,7 @@ test('a line runs on the backend and the turn carries its result, observation, e
   assert.deepEqual(turn.view.prompt, { user: 'hero', host: 'kernelia', cwd: `${HOME}/forest`, home: HOME });
 });
 
-test('checks see the line after history expansion as ctx.line and the keys as ctx.typed', { todo: 'ctx.line becomes the expanded line once memory.js reads the keys from ctx.typed' }, async () => {
+test('checks see the line after history expansion as ctx.line and the keys as ctx.typed', async () => {
   const [awakening, ...rest] = fixtureChapters();
   const seen = [];
   const chapter = { ...awakening, tasks: [{ ...awakening.tasks[0], done: ctx => { seen.push([ctx.line, ctx.typed]); return false; } }, awakening.tasks[1]] };
