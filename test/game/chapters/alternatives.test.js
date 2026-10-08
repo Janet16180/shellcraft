@@ -22,6 +22,12 @@ const TASKS = [
   ['tower', 3, [], 'grep --recursive gold tower', true],
   ['unseen', 3, [], 'ls -l --all ~/library', true],
   ['awakening', 3, [], 'cat readme.txt forest', true],
+  ['camp', 0, [], 'mkdir -p ~/camp/tent', true],
+  ['camp', 1, [], 'mkdir -p ~/camp/tent', true],
+  ['camp', 0, [], 'mkdir camp tent/x', true],
+  ['camp', 0, ['mkdir -p camp/tent'], 'mkdir ~/camp', true],
+  ['camp', 3, ['mkdir camp', 'touch camp/supplies.txt'], 'echo wood >> camp/supplies.txt', true],
+  ['camp', 4, ['mkdir camp', 'mv forest/cave/deep/ancient_key.txt camp', 'cp camp/ancient_key.txt forest/cave/deep'], 'cp readme.txt camp/zzz', false],
 ];
 
 for (const [id, index, prefix, line, done, note] of TASKS) {
@@ -37,7 +43,10 @@ for (const [id, index, prefix, line, done, note] of TASKS) {
 }
 
 // [chapter, seed, lines typed before (functions of the secret), the line, done?, expected note]
-const BOSSES = [];
+const BOSSES = [
+  ['camp', 1, [() => 'mkdir camp/firepit'], ({ flint }) => `mv ${flint} camp/firepit/stone.txt`, false, /name/],
+  ['camp', 1, [], ({ flint }) => `mv ${flint} camp/firepit`, false, /no firepit directory/],
+];
 
 for (const [id, seed, prefix, line, done, note] of BOSSES) {
   test(`${id} boss: ${line.toString()} ${done ? 'wins' : 'does not win'}`, async () => {

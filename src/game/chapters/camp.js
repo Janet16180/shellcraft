@@ -25,7 +25,9 @@ const tentMushroomOf = ctx => `${ctx.home}/camp/tent/mushroom.txt`;
 const isDir = (ctx, path) => ctx.node(path)?.type === 'dir';
 const isFile = (ctx, path) => ctx.node(path)?.type === 'file';
 const made = (ctx, name, path) => ctx.ran(name, record => ctx.hasPath(record, path));
-const writesInto = (ctx, path) => ctx.ran('echo', record => record.redirects.some(r => r.op === '>' && r.target === path));
+// mkdir -p ~/camp/tent makes the camp too, and mkdir ~/camp on an existing camp only says File exists.
+const madeDir = (ctx, path) => ctx.tried('mkdir', record => ctx.paths(record).some(p => p === path || p.startsWith(`${path}/`)));
+const writesInto = (ctx, path) => ctx.ran('echo', record => record.redirects.some(r => (r.op === '>' || r.op === '>>') && r.target === path));
 const echoedOnScreen = ctx => ctx.ran('echo', record => record.redirects.length === 0 && record.stage === record.stages - 1);
 const holdsOtherText = (ctx, path, text) => isFile(ctx, path) && ctx.node(path).content !== text;
 
@@ -54,6 +56,8 @@ function bossNear(ctx, { flint }) {
   let note = null;
   if (!isDir(ctx, campOf(ctx))) note = 'Your camp is gone. Make it again with mkdir ~/camp, then make the fire pit inside it.';
   else if (ctx.node(flint) && isFile(ctx, `${pit}/${nameOf(flint)}`)) note = 'The flint is still by the river: cp made a copy. Use mv to move it.';
+  else if (!ctx.node(flint) && isFile(ctx, pit)) note = 'There was no firepit directory, so mv renamed the flint to firepit. Move it back with mv ~/camp/firepit ~/forest/river/' + nameOf(flint) + ', then mkdir ~/camp/firepit first.';
+  else if (!ctx.node(flint) && !isFile(ctx, `${pit}/${nameOf(flint)}`) && ctx.ran('mv')) note = `The flint must keep its name, ${nameOf(flint)}: move it into the fire pit directory, not to a new name.`;
   else if (holdsOtherText(ctx, `${pit}/fire.txt`, LIT)) note = 'fire.txt should hold exactly the word lit: echo lit > ~/camp/firepit/fire.txt.';
   return note;
 }
@@ -91,7 +95,7 @@ export default {
         'Type `mkdir`, a space, and the path of the new directory.',
         'mkdir ~/camp',
       ],
-      done: ctx => isDir(ctx, campOf(ctx)) && made(ctx, 'mkdir', campOf(ctx)),
+      done: ctx => isDir(ctx, campOf(ctx)) && madeDir(ctx, campOf(ctx)),
       near: ctx => (isFile(ctx, campOf(ctx)) ? 'That made a file named camp, not a directory. Remove it with rm camp, then use mkdir.' : null),
     },
     {
@@ -102,7 +106,7 @@ export default {
         'Use the same command as for the camp, with the path `~/camp/tent`.',
         'mkdir ~/camp/tent',
       ],
-      done: ctx => isDir(ctx, tentOf(ctx)) && made(ctx, 'mkdir', tentOf(ctx)),
+      done: ctx => isDir(ctx, tentOf(ctx)) && madeDir(ctx, tentOf(ctx)),
     },
     {
       goal: 'Start a supply list: an empty file `~/camp/supplies.txt` (`touch` makes empty files)',
@@ -138,7 +142,7 @@ export default {
         'After `cp`, give the key\'s path, then the camp\'s path.',
         'cp ~/forest/cave/deep/ancient_key.txt ~/camp',
       ],
-      done: ctx => isFile(ctx, keyCopyOf(ctx)) && isFile(ctx, keyOf(ctx)) && ctx.ran('cp'),
+      done: ctx => isFile(ctx, keyCopyOf(ctx)) && isFile(ctx, keyOf(ctx)) && made(ctx, 'cp', keyOf(ctx)),
       near: ctx => (isFile(ctx, keyCopyOf(ctx)) && !ctx.node(keyOf(ctx))
         ? 'That moved the key, so it left the cave. Put it back with mv ~/camp/ancient_key.txt ~/forest/cave/deep, then copy it with cp.' : null),
     },
