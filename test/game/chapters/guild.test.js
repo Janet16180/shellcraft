@@ -85,6 +85,8 @@ const NEAR_MISSES = [
   [HOMES, [], 'ls -ld /home', 'ls -la /home'],
   [MINE, [], 'whoami', 'groups'],
   [MINE, [], 'id mira', 'id'],
+  [MINE, [], 'id -u', 'id -Gn'],
+  [MINE, [], 'id -un', 'groups'],
   [MIRA, [], 'id', 'id mira'],
   [MIRA, [], 'id oren', 'groups mira'],
   [HALL, [], 'ls /srv/guild', 'ls -l /srv/guild'],
@@ -116,6 +118,8 @@ const NEAR_NOTES = [
   [FIX, [], 'chmod a+r ~/guild/notice.txt', /cat/],
   [FIX, [], 'chmod o+r ~/guild/notice.txt', /owner letters/],
   [FIX, ['chmod u+r ~/guild/notice.txt'], 'ls ~/guild', null],
+  [TRAP, ['chmod u+r ~/guild/notice.txt'], 'cat ~/guild/notice.txt', /chmod u-r/],
+  [LEDGER, [], 'cat /srv/guild/plans.txt', /Those are the smiths/],
 ];
 
 for (const [goal, prefix, line, note] of NEAR_NOTES) {

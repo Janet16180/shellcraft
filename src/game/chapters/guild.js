@@ -30,7 +30,9 @@ const refused = (ctx, path) => ctx.commands.some(r => READ_CMDS.includes(r.name)
 const listsLong = (ctx, path) => ctx.ran('ls', record => ctx.flag(record, 'l') && !ctx.flag(record, 'd')
   && (ctx.hasPath(record, path) || (ctx.paths(record).length === 0 && record.cwd === path)));
 const lists = (ctx, path) => ctx.ran('ls', record => ctx.hasPath(record, path) || (ctx.paths(record).length === 0 && record.cwd === path));
-const asksAbout = (ctx, name, pred) => ['id', 'groups'].some(cmd => ctx.ran(cmd, record => pred(record.args.filter(a => !a.startsWith('-')), name)));
+// id -u, -g and -un print no groups; id -G and groups do.
+const showsGroups = (ctx, record) => record.name === 'groups' || !['u', 'g'].some(l => ctx.flag(record, l)) || ctx.flag(record, 'G');
+const asksAbout = (ctx, name, pred) => ['id', 'groups'].some(cmd => ctx.ran(cmd, record => showsGroups(ctx, record) && pred(record.args.filter(a => !a.startsWith('-')), name)));
 const modeOf = (ctx, path) => (ctx.node(path) ? ctx.node(path).mode & 0o777 : null);
 
 // The mode letters of one class: 6 is the owner, 3 the group, 0 everyone else.
@@ -181,7 +183,7 @@ export default {
         'cat /srv/guild/ledger.txt',
       ],
       done: ctx => ctx.read(LEDGER),
-      near: ctx => (refused(ctx, PLANS) ? 'That is the smiths\' plans. The ledger is /srv/guild/ledger.txt.' : null),
+      near: ctx => (refused(ctx, PLANS) ? 'Those are the smiths\' plans. The ledger is /srv/guild/ledger.txt.' : null),
     },
     {
       goal: 'Try to read the smiths\' plans `/srv/guild/plans.txt`, and read why it refuses',
@@ -202,6 +204,7 @@ export default {
         'cat ~/guild/notice.txt',
       ],
       done: ctx => refused(ctx, noticeOf(ctx)),
+      near: ctx => (ctx.read(noticeOf(ctx)) ? 'You already gave yourself read, so cat works. To see the refusal, take it away (chmod u-r ~/guild/notice.txt) and try again.' : null),
     },
     {
       goal: 'Give yourself read on `~/guild/notice.txt` (`chmod u+r`: `u` is you, the owner), then read it',

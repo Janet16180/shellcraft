@@ -76,11 +76,14 @@ const NEAR_MISSES = [
   [MAKE, [], 'cp -r ~/forest/cave/deep ~/portal', null],
   [WHERE, PORTAL, 'ls ~/portal', 'ls -l ~/portal'],
   [WHERE, PORTAL, 'ls -l ~/forest/cave/deep', 'readlink ~/portal'],
+  [WHERE, PORTAL, 'ls -l ~/portal/', 'ls -l'],
   [STEP, PORTAL, 'cd ~/forest/cave/deep', 'cd ~/portal'],
   [HARD, [], 'cp ~/portals/scroll.txt ~/portals/copy.txt', 'ln ~/portals/scroll.txt ~/portals/copy.txt'],
   [HARD, [], 'ln -s ~/portals/scroll.txt ~/portals/copy.txt', null],
   [INODES, LINKED, 'ls -l ~/portals', 'ls -li ~/portals'],
-  [INODES, LINKED, 'ls -i ~/forest', 'ls -i ~/portals'],
+  [INODES, LINKED, 'ls -i ~/forest', 'ls -li ~/portals'],
+  [INODES, LINKED, 'ls -i ~/portals', 'ls -il ~/portals'],
+  [INODES, [], 'ls -li ~/portals', null],
   [SURVIVE, LINKED, 'rm ~/portals/copy.txt', null],
   [SURVIVE, REMOVED, 'ls ~/portals', 'cat ~/portals/copy.txt'],
   [SURVIVE, LINKED, 'cat ~/portals/copy.txt', null],
@@ -106,12 +109,15 @@ const NEAR_NOTES = [
   [MAKE, [], 'cp -r ~/forest/cave/deep ~/portal', /copy/],
   [WHERE, PORTAL, 'ls ~/portal', /-l/],
   [STEP, PORTAL, 'cd ~/forest/cave/deep', /through/],
-  [HARD, [], 'cp ~/portals/scroll.txt ~/portals/copy.txt', /separate copy/],
+  [HARD, [], 'cp ~/portals/scroll.txt ~/portals/copy.txt', /separate file/],
   [HARD, [], 'ln -s ~/portals/scroll.txt ~/portals/copy.txt', /without -s/],
   [SURVIVE, LINKED, 'rm ~/portals/copy.txt', /scroll\.txt/],
   [BROKEN, [], 'cat ~/portals/old_portal', /rm ~\/portals\/scroll\.txt/],
   [FIX, REMOVED, 'ln -s ~/portals/copy.txt ~/portals/old_portal', /-f/],
   [FIX, REMOVED, 'cp ~/portals/copy.txt ~/portals/old_portal', /link/],
+  [FIX, REMOVED, 'ln -sf portals/copy.txt portals/old_portal', /link's own directory/],
+  [HARD, [], 'cat ~/portals/scroll.txt > ~/portals/copy.txt', /separate file/],
+  [WHERE, [...PORTAL, ...PORTAL], 'ls ~/forest/cave/deep', /already existed/],
 ];
 
 for (const [goal, prefix, line, note] of NEAR_NOTES) {
@@ -156,6 +162,22 @@ test('the exact hint repairs the gate from anywhere', async () => {
     const { ctx } = await type(backend, `echo ${secret.word} > ~/maze/answer.txt`);
     assert.ok(chapter.boss.done(ctx, secret), `seed ${seed}`);
   }
+});
+
+test('the boss note for the right word does not name the broken gate', async () => {
+  const { backend, secret } = await startBoss(chapter, 3);
+  const { ctx } = await type(backend, `echo ${secret.word} > ~/maze/answer.txt`);
+  const note = chapter.boss.near(ctx, secret);
+  assert.match(note, /broken gate/);
+  assert.ok(!note.includes(secret.gate.split('/').pop()), note);
+});
+
+test('the boss explains a link made inside a vault by ln -sf on a working gate', async () => {
+  const { backend, secret, obs } = await startBoss(chapter, 3);
+  const maze = nodeAt(obs.tree, `${HOME}/maze`).children;
+  const working = Object.keys(maze).find(name => name.startsWith('gate_') && nodeAt(obs.tree, `${HOME}/maze/${name}`) !== null);
+  const { ctx } = await type(backend, `ln -sf ${secret.vault} ~/maze/${working}`);
+  assert.match(chapter.boss.near(ctx, secret), /inside it/);
 });
 
 const BOSS_NOTES = [

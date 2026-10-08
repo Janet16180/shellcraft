@@ -31,7 +31,7 @@ const rwx = mode => `d${letters(mode, 6)}${letters(mode, 3)}${letters(mode, 0)}`
 
 const failed = (ctx, name, path) => ctx.tried(name, record => record.status !== 0 && ctx.hasPath(record, path));
 const worked = (ctx, name, path) => ctx.ran(name, record => ctx.hasPath(record, path));
-const changed = (ctx, path) => ['chmod', 'chgrp'].some(name => ctx.ran(name, record => ctx.hasPath(record, path)));
+const changed = (ctx, path) => ['chmod', 'chgrp', 'chown'].some(name => ctx.ran(name, record => ctx.hasPath(record, path)));
 const wasThere = (ctx, path) => Boolean(nodeAt(ctx.before.tree, path));
 
 const NO_X = 0o100;
@@ -44,7 +44,7 @@ function setupBoss(random, { home, user }) {
   const request = `A request from the ${faction}:
 Please give us the room ${tilde(room)}.
 We must be able to go in, list it, and add and remove things in it.
-Nobody else may even go in. You, who own it, may keep everything.
+Nobody else may even go in. You own it: keep r, w and x for yourself too.
 `;
   return {
     patch: [
@@ -193,8 +193,8 @@ export default {
         '`chgrp`, the group name, then the path.',
         'chgrp scribes ~/hall/shared',
       ],
-      done: ctx => ctx.node(sharedOf(ctx))?.group === 'scribes' && worked(ctx, 'chgrp', sharedOf(ctx)),
-      near: ctx => (worked(ctx, 'chgrp', sharedOf(ctx)) ? 'This room is for the scribes: chgrp scribes ~/hall/shared.' : null),
+      done: ctx => ctx.node(sharedOf(ctx))?.group === 'scribes' && (worked(ctx, 'chgrp', sharedOf(ctx)) || worked(ctx, 'chown', sharedOf(ctx))),
+      near: ctx => (changed(ctx, sharedOf(ctx)) && ctx.node(sharedOf(ctx))?.group !== 'scribes' ? 'This room is for the scribes: chgrp scribes ~/hall/shared.' : null),
     },
     {
       goal: 'Let the scribes do everything in `~/hall/shared`, and everyone else nothing (`chmod 770`, or with letters)',
@@ -204,9 +204,9 @@ export default {
         'With numbers: 7 for you, 7 for the group, 0 for the rest.',
         'chmod 770 ~/hall/shared',
       ],
-      done: ctx => worked(ctx, 'chmod', sharedOf(ctx)) && ctx.node(sharedOf(ctx))?.group === 'scribes' && modeOf(ctx, sharedOf(ctx)) === 0o770,
-      near: ctx => (worked(ctx, 'chmod', sharedOf(ctx)) && modeOf(ctx, sharedOf(ctx)) !== 0o770) || (worked(ctx, 'chmod', sharedOf(ctx)) && ctx.node(sharedOf(ctx))?.group !== 'scribes')
-        ? roomNote(ctx, sharedOf(ctx), 'scribes', 'this room is for') : null,
+      // Judged by the state after any change to the room, so chmod and chgrp may come in either order.
+      done: ctx => changed(ctx, sharedOf(ctx)) && ctx.node(sharedOf(ctx))?.group === 'scribes' && modeOf(ctx, sharedOf(ctx)) === 0o770,
+      near: ctx => (worked(ctx, 'chmod', sharedOf(ctx)) ? roomNote(ctx, sharedOf(ctx), 'scribes', 'this room is for') : null),
     },
   ],
   solve: [
@@ -235,7 +235,7 @@ export default {
     solve: solveBoss,
   },
   recap: [
-    ['chmod u-x DIR', 'nobody of your class may go into it or use names inside'],
+    ['chmod u-x DIR', 'you (the owner) may not go in or use the names inside'],
     ['chmod u-r DIR', 'ls is refused, but known names still work (with x)'],
     ['chmod u+w DIR', 'you may add and remove names in it'],
     ['chgrp scribes FILE', 'give it to a group you are in'],

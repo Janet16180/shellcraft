@@ -46,7 +46,7 @@ function setupBoss(random, { home, user }) {
   const map = `THE MAP OF THE MAZE
 The treasure is in ~/maze/vaults/${treasure}.
 Its gate broke when the vault got a new name.
-Find the broken gate with ls -l ~/maze and point it at the vault again.
+ls -l ~/maze shows where each gate leads. Try each gate with ls: the broken one says No such file or directory.\nPoint the broken gate at the vault again.
 Then go through it and write the word you find into ~/maze/answer.txt.
 `;
   const children = {
@@ -60,6 +60,12 @@ Then go through it and write the word you find into ~/maze/answer.txt.
   };
 }
 
+// ln -sf onto a gate that leads to a directory puts a new link inside that directory.
+const linkInVault = ctx => {
+  const vaults = `${ctx.home}/maze/vaults`;
+  return Object.keys(ctx.node(vaults)?.children ?? {}).some(name => Object.keys(ctx.node(`${vaults}/${name}`)?.children ?? {})
+    .some(child => isLink(ctx, `${vaults}/${name}/${child}`)));
+};
 const answerOf = ctx => `${ctx.home}/maze/answer.txt`;
 const answered = ctx => (ctx.node(answerOf(ctx))?.type === 'file' ? ctx.node(answerOf(ctx)).content.trim() : null);
 const repaired = (ctx, { gate, vault }) => isLink(ctx, gate) && sameData(ctx, gate, vault);
@@ -72,7 +78,8 @@ function bossNear(ctx, secret) {
   return firstNote([
     [() => ctx.node(gate) !== null && !isLink(ctx, gate), `The gate must stay a link. Remove it (rm -r ${tilde(gate)}), then ln -s ${tilde(vault)} ${tilde(gate)}.`],
     [() => !fixed && isLink(ctx, gate) && ctx.node(gate) !== null, `That gate now leads to ${ctx.linkTarget(gate)}, but map.txt names ${tilde(vault)}.`],
-    [() => !fixed && answered(ctx) === word, `That is the word, but the broken gate still leads nowhere. Point it at the vault: ln -sf ${tilde(vault)} ${tilde(gate)}.`],
+    [() => linkInVault(ctx), 'That gate already led to a directory, so ln put the new link inside it, and the gate is unchanged. The broken gate is the one that leads nowhere.'],
+    [() => !fixed && answered(ctx) === word, 'That is the word, but the broken gate still leads nowhere. Find it (the gate that ls cannot go through) and point it at the vault with ln -sf.'],
     [() => fixed && answered(ctx) === null, `The gate works now. Go through it, read treasure.txt, and write its word into ~/maze/answer.txt.`],
     [() => fixed && answered(ctx) !== word, `answer.txt should hold only the word on the last line of treasure.txt: cat ${tilde(gate)}/treasure.txt.`],
   ]);
@@ -154,10 +161,13 @@ export default {
         '`ls -l` and the path `~/portal`.',
         'ls -l ~/portal',
       ],
-      done: ctx => isLink(ctx, portalOf(ctx)) && (ctx.ran('ls', record => ctx.flag(record, 'l') && ctx.paths(record).includes(portalOf(ctx)))
+      // The arrow must reach the screen: ls -l ~/portal/ (with a slash) lists the cave instead.
+      done: ctx => isLink(ctx, portalOf(ctx)) && (ctx.ran('ls', record => ctx.flag(record, 'l') && /(^|\/| )portal -> /m.test(record.stdout))
         || ctx.ran('readlink', record => ctx.hasPath(record, portalOf(ctx)))),
-      near: ctx => (ctx.ran('ls', record => !ctx.flag(record, 'l') && ctx.paths(record).includes(portalOf(ctx)))
-        ? 'Without -l, ls lists what is through the portal. Add -l to see the portal itself.' : null),
+      near: ctx => firstNote([
+        [() => isLink(ctx, `${deepOf(ctx)}/deep`), '~/portal already existed, so ln put a new link inside the cave. Remove it: rm ~/forest/cave/deep/deep.'],
+        [() => ctx.ran('ls', record => ctx.paths(record).includes(portalOf(ctx))), 'That listed what is through the portal. ls -l ~/portal, with no / at the end, shows the portal itself.'],
+      ]),
     },
     {
       goal: 'Step through the portal: go into `~/portal`',
@@ -182,7 +192,7 @@ export default {
       done: ctx => ctx.ran('ln') && !isLink(ctx, copyOf(ctx)) && sameData(ctx, copyOf(ctx), scrollOf(ctx)),
       near: ctx => firstNote([
         [() => isLink(ctx, copyOf(ctx)), 'That is a soft link. Remove it (rm ~/portals/copy.txt), then use ln without -s.'],
-        [() => ctx.node(copyOf(ctx)) && !sameData(ctx, copyOf(ctx), scrollOf(ctx)), 'cp made a separate copy, with its own inode. Remove it (rm ~/portals/copy.txt), then use ln.'],
+        [() => ctx.node(copyOf(ctx)) && !sameData(ctx, copyOf(ctx), scrollOf(ctx)), 'That is a separate file, with its own inode. Remove it (rm ~/portals/copy.txt), then use ln.'],
       ]),
     },
     {
@@ -193,7 +203,8 @@ export default {
         '`ls -li` and the path `~/portals`.',
         'ls -li ~/portals',
       ],
-      done: ctx => ctx.ran('ls', record => ctx.flag(record, 'i') && listed(ctx, record).some(path => [areaOf(ctx), scrollOf(ctx), copyOf(ctx)].includes(path))),
+      done: ctx => sameData(ctx, copyOf(ctx), scrollOf(ctx)) && !isLink(ctx, copyOf(ctx))
+        && ctx.ran('ls', record => ctx.flag(record, 'i') && ctx.flag(record, 'l') && listed(ctx, record).some(path => [areaOf(ctx), scrollOf(ctx), copyOf(ctx)].includes(path))),
     },
     {
       goal: 'Remove the first name, `~/portals/scroll.txt`, then read `~/portals/copy.txt`',
@@ -230,6 +241,8 @@ export default {
       near: ctx => firstNote([
         [() => ctx.tried('ln', record => record.status !== 0 && ctx.hasPath(record, oldOf(ctx))), 'old_portal is already there, so ln refuses. Add -f to replace it: ln -sf.'],
         [() => ctx.tried('cp', record => ctx.hasPath(record, oldOf(ctx))), 'cp copies data. old_portal must stay a link: ln -sf ~/portals/copy.txt ~/portals/old_portal.'],
+        [() => isLink(ctx, oldOf(ctx)) && pointsAt(ctx, oldOf(ctx)) !== copyOf(ctx) && resolvePath(ctx.linkTarget(oldOf(ctx)), ctx.cwd, ctx.home) === copyOf(ctx),
+          `A link's target is read from the link's own directory, ~/portals: there, ${ctx.linkTarget(oldOf(ctx))} means another place. Use copy.txt or ~/portals/copy.txt.`],
       ]),
     },
   ],

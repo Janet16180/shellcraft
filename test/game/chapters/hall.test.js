@@ -94,7 +94,9 @@ const NEAR_MISSES = [
   [SHARE, [], 'chgrp scribes ~/hall/vault', 'chgrp scribes hall/shared'],
   [OPEN, SHARED, 'chmod 777 ~/hall/shared', 'chmod 770 ~/hall/shared'],
   [OPEN, SHARED, 'chmod g+rwx ~/hall/shared', 'chmod g+w,o-rx ~/hall/shared'],
-  [OPEN, [], 'chmod 770 ~/hall/shared', null],
+  [OPEN, [], 'chmod 770 ~/hall/shared', 'chmod 770 ~/hall/shared && chgrp scribes ~/hall/shared'],
+  [OPEN, ['chmod 770 ~/hall/shared'], 'ls -ld ~/hall/shared', 'chgrp scribes ~/hall/shared'],
+  [SHARE, [], 'chown hero ~/hall/shared', 'chown :scribes ~/hall/shared'],
 ];
 
 for (const [goal, prefix, miss, hit] of NEAR_MISSES) {
@@ -154,6 +156,12 @@ test('the boss is beaten with chgrp and chmod 770, found from the observation', 
   }
 });
 
+test('the boss accepts chown :FACTION and chmod in either order', async () => {
+  const { backend, secret } = await startBoss(chapter, 1);
+  await type(backend, `chmod 770 ${secret.room}`);
+  assert.ok(chapter.boss.done((await type(backend, `chown :${secret.faction} ${secret.room}`)).ctx, secret));
+});
+
 test('the boss accepts letters too, and the exact hint beats it from anywhere', async () => {
   const one = await startBoss(chapter, 2);
   await type(one.backend, `chgrp ${one.secret.faction} ${one.secret.room}`);
@@ -171,6 +179,7 @@ const BOSS_NOTES = [
   [s => `chgrp ${s.faction} ${s.room}`, /chmod/],
   [s => `chgrp ${s.faction} ${s.room} && chmod 750 ${s.room}`, /w/],
   [s => `chgrp ${s.faction === 'smiths' ? 'scribes' : 'smiths'} ${s.room} && chmod 770 ${s.room}`, /request/],
+  [s => `chown :${s.faction} ${s.room}`, /chmod/],
 ];
 
 for (const [line, note] of BOSS_NOTES) {
