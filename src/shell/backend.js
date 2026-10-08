@@ -8,6 +8,7 @@ import { executeLine } from './exec.js';
 import { applyPatch } from './patch.js';
 import { complete } from './complete.js';
 import { varValue } from './vars.js';
+import { groupNames, loginGids } from './accounts.js';
 import { expandHistory } from './history.js';
 import { COMMANDS, BINARIES } from './commands/index.js';
 
@@ -51,10 +52,12 @@ function runLine(sys, typedLine) {
   return { output: run.chunks, status, commands: run.records, blocked: run.blocked };
 }
 
-// What bash does when it starts: read ~/.bashrc, if there is one. Its output
+// What logging in does: take the groups /etc/group gives the user now, then
+// what bash does when it starts: read ~/.bashrc, if there is one. Its output
 // is dropped, as the game shows the terminal only after the shell is ready.
 function startShell(sys) {
   const run = collector();
+  sys.gids = loginGids(sys);
   if (lookup(sys.root, `${sys.home}/.bashrc`)) executeLine({ sys, commands: COMMANDS, run }, '. ~/.bashrc', run.sink);
 }
 
@@ -64,7 +67,7 @@ function observe(sys) {
     if (p.key !== undefined) rec.key = p.key;
     return rec;
   });
-  return { user: sys.user, groups: [...sys.groups], host: sys.host, home: sys.home, cwd: sys.cwd, tree: snapshot(sys.root), procs };
+  return { user: sys.user, groups: groupNames(sys), host: sys.host, home: sys.home, cwd: sys.cwd, tree: snapshot(sys.root), procs };
 }
 
 /**
@@ -72,12 +75,13 @@ function observe(sys) {
  * simulated command), `/dev/null`, an empty home owned by the user, and the
  * system processes; the game adds its world with load().
  *
- * The first load() is when the player's shell starts: after applying that
- * patch, the shell reads `~/.bashrc` (if the patch made one) in the current
- * shell, as bash does, so its aliases and variables are the player's. Its
- * output is dropped and it is not recorded. Later loads change the files and
- * processes only; the shell keeps its variables, aliases and history, and
- * does not read `~/.bashrc` again.
+ * The first load() is when the player logs in and the shell starts: after
+ * applying that patch, the shell takes the groups /etc/passwd and /etc/group
+ * give the player, then reads `~/.bashrc` (if the patch made one) in the
+ * current shell, as bash does, so its aliases and variables are the player's.
+ * Its output is dropped and it is not recorded. Later loads change the files
+ * and processes only; the shell keeps its groups (until a `login()`
+ * operation), variables, aliases and history, and does not read `~/.bashrc` again.
  *
  * Output chunks: 'out' and 'err' text ends in a newline like a real stream;
  * `html` (when present) is the same text coloured with the classes c-dir,

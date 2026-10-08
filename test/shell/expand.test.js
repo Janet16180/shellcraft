@@ -6,7 +6,7 @@ import { newDir, newFile } from '../../src/shell/fs.js';
 
 const meta = { mode: 0o755, owner: 'hero', group: 'hero', mtime: 0 };
 const env = () => ({
-  sys: { root: newDir({ d: newDir({ 'a.txt': newFile('', meta), 'b.txt': newFile('', meta) }, meta) }, meta), cwd: '/d', user: 'hero', groups: ['hero'] },
+  sys: { root: newDir({ d: newDir({ 'a.txt': newFile('', meta), 'b.txt': newFile('', meta) }, meta) }, meta), cwd: '/d', user: 'hero', gids: [1000] },
   lookupVar: name => ({ HOME: '/home/hero', X: 'a  b', E: '', S: ' lead trail ', G: '*.txt' })[name] ?? '',
   homeOf: user => ({ root: '/root', hero: '/home/hero' })[user] ?? null,
   substitute: line => `out of ${line}\n\n`,

@@ -25,7 +25,7 @@ import { manText, hasManPage, shortHelpNote } from './man.js';
 import { versionText } from './versions.js';
 import { varValue, setVar } from './vars.js';
 import { BUILTINS, BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from './builtins.js';
-import { SYSTEM_HOMES } from './system.js';
+import { homeOf } from './accounts.js';
 import { enterChild, leaveChild } from './subshell.js';
 import { runFor, runIf } from './compound.js';
 
@@ -41,7 +41,7 @@ function firstOf(args, ...wanted) {
   return args.slice(0, end).find(a => wanted.includes(a));
 }
 
-const UNSIMULATED = new Set(['w', 'nl', 'cut', 'tr', 'du', 'df', 'ln', 'stat', 'diff', 'tar', 'chown', 'rev', 'seq', 'yes', 'od', 'tee', 'xargs',
+const UNSIMULATED = new Set(['w', 'nl', 'cut', 'tr', 'du', 'df', 'ln', 'stat', 'diff', 'tar', 'rev', 'seq', 'yes', 'od', 'tee', 'xargs',
   'basename', 'dirname', 'realpath', 'readlink', 'tac', 'shuf', 'cmp', 'comm', 'paste', 'join', 'split', 'fold',
   'expand', 'md5sum', 'sha256sum', 'base64', 'sleep', 'watch', 'free', 'uptime', 'lsblk', 'mount', 'apt', 'perl', 'gzip', 'whereis', 'stty', 'tput']);
 const isAssignment = word => 'lit' in word.parts[0] && !word.parts[0].q && ASSIGNMENT.test(word.parts[0].lit);
@@ -75,7 +75,7 @@ function expansionEnv(sh, sink) {
     fail: message => errors.push(message),
     lookupVar: name => varValue(sys, name),
     positional: () => sys.positional.args,
-    homeOf: user => (user === sys.user ? sys.home : SYSTEM_HOMES[user] ?? null),
+    homeOf: user => (user === sys.user ? sys.home : homeOf(sys, user)),
     substitute: line => {
       if (sh.run.depth >= MAX_DEPTH) errors.push('bash: command substitution: maximum nesting level exceeded');
       const r = errors.length ? { out: '', err: '', status: 1 } : substitute(sh, line);

@@ -7,6 +7,7 @@
 import { result } from '../result.js';
 import { resolve } from '../paths.js';
 import { can } from '../perms.js';
+import { groupNames } from '../accounts.js';
 import { sizeOf } from '../fs.js';
 
 const INT64 = 2n ** 63n;
@@ -26,7 +27,7 @@ const FILE_TESTS = {
   '-x': (node, sys) => can(sys, node, 'x'),
   '-s': node => sizeOf(node) > 0,
   '-O': (node, sys) => node.owner === sys.user,
-  '-G': (node, sys) => node.group === sys.groups[0],
+  '-G': (node, sys) => node.group === groupNames(sys)[0],
 };
 
 const STRING_TESTS = { '-z': s => s === '', '-n': s => s !== '' };

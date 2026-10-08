@@ -7,7 +7,7 @@
  * a backend stores the world.
  */
 
-const OPS = new Set(['put', 'remove', 'proc', 'stop', 'cd']);
+const OPS = new Set(['put', 'remove', 'proc', 'stop', 'cd', 'login']);
 const PLAYER_SHELL = 'shell';
 const MAX_MODE = 0o7777;
 
@@ -75,6 +75,17 @@ export const stop = key => ({ op: 'stop', key });
  * @returns {{op: 'cd', path: string}} The operation.
  */
 export const cd = path => ({ op: 'cd', path });
+
+/**
+ * Log the player in again, as a new login would: the shell's groups become
+ * the ones /etc/passwd and /etc/group give the player now. Like on a real
+ * machine, editing /etc/group does not change a shell that is already
+ * running; a setup that adds the player to a group writes the file, then
+ * calls login(). The shell keeps its directory, variables and history.
+ *
+ * @returns {{op: 'login'}} The operation.
+ */
+export const login = () => ({ op: 'login' });
 
 function checkNode(node, where) {
   if (node.mode < 0 || node.mode > MAX_MODE) throw new Error(`${where}: mode ${node.mode} is outside 0 to 7777`);

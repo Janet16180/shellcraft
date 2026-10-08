@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { can, canChangeEntries, canUnlink, canChmod } from '../../src/shell/perms.js';
 
-const hero = { user: 'hero', groups: ['hero'] };
+const hero = { user: 'hero', gids: [1000], root: { type: 'dir', children: {} } };
 const node = (owner, mode, type = 'dir') => ({ type, owner, group: owner, mode });
 
 test('can asks the shared rule for the shell user', () => {
@@ -26,5 +26,5 @@ test('in a sticky directory only the owner of the entry or directory may unlink 
 test('only the owner or root may chmod', () => {
   assert.equal(canChmod(hero, node('hero', 0)), true);
   assert.equal(canChmod(hero, node('root', 0o777)), false);
-  assert.equal(canChmod({ user: 'root', groups: ['root'] }, node('hero', 0)), true);
+  assert.equal(canChmod({ user: 'root', gids: [0], root: { type: 'dir', children: {} } }, node('hero', 0)), true);
 });

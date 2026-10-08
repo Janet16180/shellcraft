@@ -7,6 +7,7 @@ import { lookup, fromSpec, insert, detach, depthOf, heightOf, MAX_TREE_DEPTH } f
 import { parentOf } from '../backend/tree.js';
 import { allocPid, makeProc, TERMINAL } from './system.js';
 import { parseSignal, signalName } from '../backend/signals.js';
+import { loginGids } from './accounts.js';
 
 const SYSTEM_PATHS = ['/usr/bin', '/dev/null'];
 
@@ -52,6 +53,7 @@ function applyOp(sys, op) {
   if (op.op === 'remove') detach(sys.root, op.path, sys.now());
   if (op.op === 'proc') startProc(sys, op.proc);
   if (op.op === 'stop') sys.procs = sys.procs.filter(p => p.key !== op.key);
+  if (op.op === 'login') sys.gids = loginGids(sys);
   if (op.op === 'cd' && op.path !== sys.cwd) {
     sys.oldpwd = sys.cwd;
     sys.cwd = op.path;

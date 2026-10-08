@@ -7,7 +7,7 @@
 import { newDir, newFile, addChild, removeChild, joinDisp } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
 import { compareNames, baseName } from '../../backend/tree.js';
-import { can, canChangeEntries, canUnlink, canChmod } from '../perms.js';
+import { can, canChangeEntries, canUnlink, canChmod, newMeta } from '../perms.js';
 import { parseOptions, mapLongOptions, optionFailure } from '../options.js';
 import { shellQuote, localeQuote } from '../quote.js';
 import { result, withNote, needInput } from '../result.js';
@@ -16,7 +16,6 @@ import { openInput, reason } from './text.js';
 const tryHelp = name => `Try '${name} --help' for more information.`;
 const quoted = name => shellQuote(name, { always: true });
 const errResult = (out, errs) => result(out, errs.join('\n'), errs.length ? 1 : 0);
-const ownedMeta = (sys, mode) => ({ mode: mode & ~sys.umask, owner: sys.user, group: sys.user, mtime: sys.now() });
 
 /**
  * When the working directory has been removed, move the shell to its nearest
@@ -82,7 +81,7 @@ function touch(args, { sys }) {
     else if (r.node) fail('Permission denied');
     else if (r.error !== 'ENOENT' || !r.parent) fail(errorText(r.error));
     else if (!canChangeEntries(sys, r.parent)) fail('Permission denied');
-    else addChild(r.parent, baseName(r.abs), newFile('', ownedMeta(sys, 0o666)), sys.now());
+    else addChild(r.parent, baseName(r.abs), newFile('', newMeta(sys, r.parent, 0o666, false)), sys.now());
   }
   return errResult('', errs);
 }
@@ -95,7 +94,7 @@ function makeDir(sys, path, verbose) {
   else if (r.error !== 'ENOENT' || !r.parent) error = errorText(r.error);
   else if (!canChangeEntries(sys, r.parent)) error = 'Permission denied';
   else {
-    addChild(r.parent, baseName(r.abs), newDir({}, ownedMeta(sys, 0o777)), sys.now());
+    addChild(r.parent, baseName(r.abs), newDir({}, newMeta(sys, r.parent, 0o777, true)), sys.now());
     if (verbose) out = `mkdir: created directory ${quoted(path)}\n`;
   }
   return { error, out };
@@ -149,6 +148,11 @@ function rmdir(args, { sys }) {
 
 const isHomeOrAbove = (sys, abs) => abs === sys.home || sys.home.startsWith(`${abs}/`);
 
+// A real rm without -f asks before removing a file it may not write.
+function rememberProtected(sys, node, shown, acc) {
+  if (!acc.force && !node.dev && !can(sys, node, 'w')) acc.protectedOne ??= { shown, node };
+}
+
 function removeTree(sys, shown, node, parent, name, acc) {
   const openable = node.type !== 'dir' || (can(sys, node, 'r') && can(sys, node, 'x'));
   let ok = openable;
@@ -163,6 +167,7 @@ function removeTree(sys, shown, node, parent, name, acc) {
     ok = false;
   }
   if (ok) {
+    rememberProtected(sys, node, shown, acc);
     removeChild(parent, name, sys.now());
     if (acc.verbose) acc.out += node.type === 'dir' ? `removed directory ${quoted(shown)}\n` : `removed ${quoted(shown)}\n`;
   }
@@ -208,11 +213,20 @@ function rm(args, { sys, block }) {
   const failed = optionFailure('rm', o, 1);
   if (failed) return failed;
   if (!o.rest.length && !o.flags.has('f')) return result('', `rm: missing operand\n${tryHelp('rm')}`, 1);
-  const acc = { out: '', errs: [], verbose: o.flags.has('v'), block, blocked: false };
+  const acc = { out: '', errs: [], verbose: o.flags.has('v'), force: o.flags.has('f'), block, blocked: false, protectedOne: null };
   for (const f of o.rest) rmOne(sys, f, o.flags, acc);
   leaveIfGone(sys);
   const r = result(acc.out, acc.errs.join('\n'), acc.errs.length || acc.blocked ? 1 : 0);
-  return withNote(r, o.flags.has('i') ? 'In a real terminal, -i asks "rm: remove regular file ...?" and waits for y or n. The game answers yes for you.' : null);
+  let note = null;
+  if (o.flags.has('i')) note = 'In a real terminal, -i asks "rm: remove regular file ...?" and waits for y or n. The game answers yes for you.';
+  else if (acc.protectedOne) note = `In a real terminal, rm asks "rm: remove write-protected ${kindOf(acc.protectedOne.node)} ${quoted(acc.protectedOne.shown)}?" and waits for y or n. The game answers yes for you.`;
+  return withNote(r, note);
+}
+
+// How rm's question names a file.
+function kindOf(node) {
+  if (node.type === 'dir') return 'directory';
+  return node.content === '' ? 'regular empty file' : 'regular file';
 }
 
 function symbolicBits(who, perms, old, isDir) {

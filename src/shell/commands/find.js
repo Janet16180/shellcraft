@@ -15,7 +15,7 @@ import { compileGlob } from '../glob.js';
 import { localeQuote } from '../quote.js';
 import { result, withNote } from '../result.js';
 import { nameTable } from '../table.js';
-import { knownUsers } from '../system.js';
+import { knownUsers } from '../accounts.js';
 import { versionText } from '../versions.js';
 
 const UNITS = { c: 1, w: 2, b: 512, k: 1024, M: 1024 ** 2, G: 1024 ** 3 };

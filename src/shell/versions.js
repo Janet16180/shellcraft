@@ -24,6 +24,8 @@ const COREUTILS_AUTHORS = nameTable({
   sort: 'Mike Haertel and Paul Eggert.',
   uniq: 'Richard M. Stallman and David MacKenzie.',
   chmod: 'David MacKenzie and Jim Meyering.',
+  chown: 'David MacKenzie and Jim Meyering.',
+  chgrp: 'David MacKenzie and Jim Meyering.',
   date: 'David MacKenzie.',
   uname: 'David MacKenzie.',
   id: 'Arnold Robbins and David MacKenzie.',

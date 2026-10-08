@@ -7,7 +7,7 @@
 import { joinDisp, newDir, newFile, addChild, removeChild, depthOf, heightOf, MAX_TREE_DEPTH } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
 import { compareNames, isInside, baseName, joinPath } from '../../backend/tree.js';
-import { can, canChangeEntries, canUnlink } from '../perms.js';
+import { can, canChangeEntries, canUnlink, newMeta } from '../perms.js';
 import { parseOptions, optionFailure } from '../options.js';
 import { shellQuote } from '../quote.js';
 import { result, withNote } from '../result.js';
@@ -17,7 +17,7 @@ const q = name => shellQuote(name, { always: true });
 
 function copyNode(sys, src, srcShown, targetParent, name, targetShown, acc) {
   const existing = targetParent.children[name];
-  const meta = { mode: src.mode & ~sys.umask, owner: sys.user, group: sys.user, mtime: sys.now() };
+  const meta = newMeta(sys, targetParent, src.mode, src.type === 'dir');
   let ok = true;
   if (src.type === 'file' && !can(sys, src, 'r')) {
     acc.errs.push(`cp: cannot open ${q(srcShown)} for reading: Permission denied`);
@@ -27,11 +27,11 @@ function copyNode(sys, src, srcShown, targetParent, name, targetShown, acc) {
   } else if (src.type === 'file') {
     addChild(targetParent, name, newFile(src.content, meta), sys.now());
   } else {
-    const dir = existing ?? addChild(targetParent, name, newDir({}, { ...meta, mode: src.mode & ~sys.umask | 0o700 }), sys.now());
+    const dir = existing ?? addChild(targetParent, name, newDir({}, { ...meta, mode: meta.mode | 0o700 }), sys.now());
     for (const child of Object.keys(src.children).sort(compareNames)) {
       ok = copyNode(sys, src.children[child], joinDisp(srcShown, child), dir, child, joinDisp(targetShown, child), acc) && ok;
     }
-    dir.mode = src.mode & ~sys.umask;
+    dir.mode = existing ? src.mode & ~sys.umask : meta.mode;
   }
   if (ok && acc.verbose) acc.out += `${q(srcShown)} -> ${q(targetShown)}\n`;
   return ok;

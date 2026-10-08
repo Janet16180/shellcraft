@@ -9,7 +9,7 @@
 import { newFile, addChild } from './fs.js';
 import { baseName } from '../backend/tree.js';
 import { resolve, errorText } from './paths.js';
-import { can, canChangeEntries } from './perms.js';
+import { can, canChangeEntries, newMeta } from './perms.js';
 
 function openWrite(sys, path, append) {
   const r = resolve(sys, path);
@@ -22,8 +22,7 @@ function openWrite(sys, path, append) {
   else if (r.error !== 'ENOENT' || !r.parent) error = errorText(r.error);
   else if (!canChangeEntries(sys, r.parent)) error = 'Permission denied';
   else {
-    const meta = { mode: 0o666 & ~sys.umask, owner: sys.user, group: sys.user, mtime: sys.now() };
-    target = { kind: 'file', node: addChild(r.parent, baseName(r.abs), newFile('', meta), sys.now()) };
+    target = { kind: 'file', node: addChild(r.parent, baseName(r.abs), newFile('', newMeta(sys, r.parent, 0o666, false)), sys.now()) };
   }
   if (target?.kind === 'file' && !append) Object.assign(target.node, { content: '', mtime: sys.now() });
   return { target, error, abs: r.abs };

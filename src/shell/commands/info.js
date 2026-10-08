@@ -8,6 +8,7 @@ import { parseOptions, mapLongOptions, optionFailure } from '../options.js';
 import { versionText } from '../versions.js';
 import { builtinOptions } from '../builtins.js';
 import { TERMINAL } from '../system.js';
+import { findUser, memberGroups, groupNames } from '../accounts.js';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -154,17 +155,55 @@ function hostname(args, { sys }) {
   return r;
 }
 
+const ID_LONG = { '--user': 'u', '--group': 'g', '--groups': 'G', '--name': 'n', '--real': 'r' };
+const noSuchUser = (name, spec) => `${name}: ${localeQuote(spec)}: no such user`;
+
+// Who an id or groups operand names, or the shell itself (its login groups).
+function identity(sys, spec) {
+  if (spec !== undefined) {
+    const user = findUser(sys, spec);
+    return user && { user, groups: memberGroups(sys, user) };
+  }
+  const names = groupNames(sys);
+  return { user: findUser(sys, sys.user), groups: sys.gids.map((gid, i) => ({ gid, name: names[i] === String(gid) ? null : names[i] })) };
+}
+
+const withName = (num, name) => (name === null ? String(num) : `${num}(${name})`);
+
+function idLine(who, f) {
+  const [primary] = who.groups;
+  const show = (num, name) => (f.has('n') ? name ?? String(num) : String(num));
+  let text = `uid=${withName(who.user.uid, who.user.name)} gid=${withName(primary.gid, primary.name)} groups=${who.groups.map(g => withName(g.gid, g.name)).join(',')}`;
+  if (f.has('u')) text = show(who.user.uid, who.user.name);
+  else if (f.has('g')) text = show(primary.gid, primary.name);
+  else if (f.has('G')) text = who.groups.map(g => show(g.gid, g.name)).join(' ');
+  return `${text}\n`;
+}
+
 function id(args, { sys }) {
-  const o = parseOptions('id', args, 'ugGnr');
+  const long = mapLongOptions('id', args, ID_LONG);
+  const o = long.err || long.unsimulated ? long : parseOptions('id', long.args, 'ugGnra');
   const failed = optionFailure('id', o, 1);
   if (failed) return failed;
   const f = o.flags;
-  const show = (num, name) => (f.has('n') ? name : String(num));
-  let text = `uid=1000(${sys.user}) gid=1000(${sys.user}) groups=1000(${sys.user})`;
-  if (f.has('u')) text = show(1000, sys.user);
-  else if (f.has('g')) text = show(1000, sys.user);
-  else if (f.has('G')) text = sys.groups.map(g => show(1000, g)).join(' ');
-  return result(`${text}\n`);
+  const only = ['u', 'g', 'G'].filter(x => f.has(x)).length;
+  if (only > 1) return result('', 'id: cannot print "only" of more than one choice', 1);
+  if (!only && (f.has('n') || f.has('r'))) return result('', 'id: cannot print only names or real IDs in default format', 1);
+  const specs = o.rest.length ? o.rest : [undefined];
+  const found = specs.map(spec => ({ spec, who: identity(sys, spec) }));
+  const errs = found.filter(x => !x.who).map(x => noSuchUser('id', x.spec));
+  return result(found.filter(x => x.who).map(x => idLine(x.who, f)).join(''), errs.join('\n'), errs.length ? 1 : 0);
+}
+
+function groups(args, { sys }) {
+  const o = parseOptions('groups', args, '');
+  const failed = optionFailure('groups', o, 1);
+  if (failed) return failed;
+  const names = who => who.groups.map(g => g.name ?? String(g.gid)).join(' ');
+  if (!o.rest.length) return result(`${names(identity(sys))}\n`);
+  const found = o.rest.map(spec => ({ spec, who: identity(sys, spec) }));
+  const errs = found.filter(x => !x.who).map(x => noSuchUser('groups', x.spec));
+  return result(found.filter(x => x.who).map(x => `${x.spec} : ${names(x.who)}\n`).join(''), errs.join('\n'), errs.length ? 1 : 0);
 }
 
 const ECHO_ESCAPES = { a: '\u0007', b: '\b', e: '\u001b', E: '\u001b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\' };
@@ -206,7 +245,7 @@ export default {
   whoami,
   who,
   id,
-  groups: (_args, { sys }) => result(`${sys.groups.join(' ')}\n`),
+  groups,
   hostname,
   true: () => result(),
   false: () => result('', '', 1),
