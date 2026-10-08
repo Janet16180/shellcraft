@@ -164,9 +164,9 @@ test('--version prints the program version, as the real program does', async () 
 
 test('a real command the game does not simulate gets a note saying so', async () => {
   const b = await shell();
-  const du = await run(b, 'du -sh');
-  assert.deepEqual([du.err, du.status], ['bash: du: command not found\n', 127]);
-  assert.equal(du.note, 'du is a real command on Ubuntu, but this game does not simulate it.');
+  const cut = await run(b, 'cut -c 1 readme.txt');
+  assert.deepEqual([cut.err, cut.status], ['bash: cut: command not found\n', 127]);
+  assert.equal(cut.note, 'cut is a real command on Ubuntu, but this game does not simulate it.');
   assert.equal((await run(b, 'florp')).note, '');
 });
 
