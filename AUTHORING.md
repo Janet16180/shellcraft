@@ -83,7 +83,7 @@ The check context `ctx` (implemented in `src/game/checks.js`) sees only the port
   Each member is `{ path, type, mode, owner, group, mtime, size }` plus `content` (a file) or `target`
   (a link); `path` is the name exactly as `tar -t` lists it, so a directory ends with a slash
   (`'camp/'`, `'camp/notes.txt'`). "the archive holds the notes" is
-  `ctx.archive(`${ctx.home}/camp.tgz`)?.some(m => m.path === 'camp/notes.txt') ?? false`.
+  `` ctx.archive(`${ctx.home}/camp.tgz`)?.some(m => m.path === 'camp/notes.txt') ?? false ``.
   A member keeps the owner and mode it had when stored; `tar -x` by the player makes the files theirs.
 - `ctx.gzipped(absPath)`: the original text of the gzip data at that path (`gzip FILE`, `tar -czf`),
   or `null` if it is not gzip data. A `.tar.gz` gives the tar archive's text: use `ctx.archive` for it.

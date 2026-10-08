@@ -39,3 +39,16 @@ test('the short help starts with the usage line the real --help prints', () => {
   assert.match(first('tree'), /^usage: tree \[-acdfghilnpqrstuvxACDFJQNSUX\] \[-L level \[-R\]\] \[-H {2}baseHREF\]\n\t\[-T title\]/);
   assert.match(manText('man', false), /^SYNOPSIS\n {7}man \[man options\] \[\[section\] page \.\.\.\] \.\.\.$/m);
 });
+
+test('the archive and disk commands have pages whose short help starts like the real one', () => {
+  const first = name => manText(name, true).split('\n')[0];
+  assert.equal(first('tar'), 'Usage: tar [OPTION...] [FILE]...');
+  assert.equal(first('gzip'), 'Usage: gzip [OPTION]... [FILE]...');
+  assert.equal(first('gunzip'), 'Usage: /usr/bin/gunzip [OPTION]... [FILE]...');
+  assert.equal(first('zcat'), 'Usage: /usr/bin/zcat [OPTION]... [FILE]...');
+  assert.equal(manText('du', true).split('\n').slice(0, 2).join('\n'), 'Usage: du [OPTION]... [FILE]...\n  or:  du [OPTION]... --files0-from=F');
+  assert.equal(first('df'), 'Usage: df [OPTION]... [FILE]...');
+  assert.equal(first('file'), 'Usage: file [OPTION...] [FILE...]');
+  for (const name of ['tar', 'gzip', 'gunzip', 'zcat', 'du', 'df', 'file']) assert.match(manText(name, false), /\nOPTIONS\n/);
+  assert.match(manText('tar', true), /-z/);
+});
