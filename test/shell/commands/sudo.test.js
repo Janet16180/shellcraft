@@ -239,3 +239,17 @@ test('while a line waits for input, run raises; answer raises when nothing waits
   await b.answer(null);
   assert.equal((await b.run('pwd')).status, 0);
 });
+
+test('as root, chown gives files away: to a user, to user:group, and a whole tree with -R', async () => {
+  const b = await realm({ extra: [NOPASSWD, put('/home/hero/forge', dir({ 'a.txt': file('a\n', mine), inner: dir({ 'b.txt': file('b\n', mine) }, mine) }, mine))] });
+  assert.deepEqual(outcome(await run(b, 'chown mira blade.txt')), ['', "chown: changing ownership of 'blade.txt': Operation not permitted\n", 1]);
+  assert.deepEqual(outcome(await run(b, 'sudo chown mira blade.txt')), ['', '', 0]);
+  assert.match((await run(b, 'ls -l blade.txt')).out, / mira hero /);
+  assert.deepEqual(outcome(await run(b, 'sudo chown -v mira:smiths blade.txt')), ["changed ownership of 'blade.txt' from mira:hero to mira:smiths\n", '', 0]);
+  assert.deepEqual(outcome(await run(b, 'sudo chown -R mira:smiths forge')), ['', '', 0]);
+  assert.match((await run(b, 'ls -ld forge forge/a.txt forge/inner forge/inner/b.txt')).out, /^(\S+ \d+ mira smiths .*\n){4}$/);
+  assert.deepEqual(outcome(await run(b, 'cat forge/a.txt')), ['a\n', '', 0]);
+  assert.deepEqual(outcome(await run(b, 'echo x >> blade.txt')), ['', 'bash: blade.txt: Permission denied\n', 1]);
+  assert.deepEqual(outcome(await run(b, 'sudo chown hero: blade.txt; ls -l blade.txt')).slice(1), ['', 0]);
+  assert.match((await run(b, 'ls -l blade.txt')).out, / hero hero /);
+});
