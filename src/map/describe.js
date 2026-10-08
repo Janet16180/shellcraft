@@ -5,6 +5,7 @@
 import { placeOf } from './biomes.js';
 import { readRoom } from './room.js';
 import { placeCreatures } from './creatures.js';
+import { jobsSentence } from './jobs.js';
 
 const LISTED = 20;
 
@@ -42,7 +43,8 @@ function contents(room) {
 }
 
 /**
- * Describe the room at the observation's working directory.
+ * Describe the room at the observation's working directory, and the player's
+ * jobs, which the map shows in every room.
  *
  * @param {import('../backend/port.js').Observation & {groups: string[]}} obs The observation.
  * @param {{revealed?: Set<string>}} [opts] Directories whose hidden entries were revealed, as on the map.
@@ -55,5 +57,6 @@ export function describeRoom(obs, { revealed = new Set() } = {}) {
   const exit = room.exit ? `The exit .. leads to ${room.exit}.` : 'This is the root of everything: its .. leads back to / itself.';
   const creatures = placeCreatures(obs.procs).map(c => c.label);
   const here = creatures.length ? ` Creatures here: ${creatures.join(', ')}.` : '';
-  return `You are at ${obs.cwd}, ${name}, ${where}. ${contents(room)} ${exit}${here}`;
+  const jobs = jobsSentence(obs.jobs);
+  return `You are at ${obs.cwd}, ${name}, ${where}. ${contents(room)} ${exit}${here}${jobs ? ` ${jobs}` : ''}`;
 }
