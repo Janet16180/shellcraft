@@ -28,6 +28,15 @@ const TASKS = [
   ['camp', 0, ['mkdir -p camp/tent'], 'mkdir ~/camp', true],
   ['camp', 3, ['mkdir camp', 'touch camp/supplies.txt'], 'echo wood >> camp/supplies.txt', true],
   ['camp', 4, ['mkdir camp', 'mv forest/cave/deep/ancient_key.txt camp', 'cp camp/ancient_key.txt forest/cave/deep'], 'cp readme.txt camp/zzz', false],
+  ['junkyard', 1, [], 'rm junk/rotten_apple.txt junk/empty_crate', true],
+  ['junkyard', 3, [], 'rmdir junk/*', true],
+  ['unseen', 2, [], 'ls -ld ~', false],
+  ['unseen', 3, [], 'ls -lad ~/library', false],
+  ['unseen', 5, [], 'ls -ld ~/library', false],
+  ['unseen', 5, [], 'ls -ld ~/library/scroll_of_ages.txt', true],
+  ['awakening', 2, [], 'ls -d', false, /-d/],
+  ['awakening', 3, [], 'cat --help', false, null],
+  ['awakening', 3, [], 'whoami | cat', false, null],
 ];
 
 for (const [id, index, prefix, line, done, note] of TASKS) {

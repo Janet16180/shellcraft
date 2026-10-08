@@ -27,8 +27,12 @@ const listed = (ctx, record) => {
   return operands.length > 0 ? operands : [record.cwd];
 };
 const recursive = (ctx, record) => ctx.flag(record, 'r') || ctx.flag(record, 'R');
-const removed = (ctx, path) => !ctx.node(path) && ctx.ran('rm', record => ctx.hasPath(record, path));
-const removedDir = (ctx, path) => !ctx.node(path) && ctx.ran('rm', record => recursive(ctx, record) && ctx.hasPath(record, path));
+// tried, not ran: rm and rmdir remove what they can even when another operand fails.
+const wasThere = (ctx, path) => Boolean(nodeAt(ctx.before.tree, path));
+const removedBy = (ctx, name, path, pred = () => true) => !ctx.node(path) && wasThere(ctx, path)
+  && ctx.tried(name, record => pred(record) && ctx.hasPath(record, path));
+const removed = (ctx, path) => removedBy(ctx, 'rm', path);
+const removedDir = (ctx, path) => removedBy(ctx, 'rm', path, record => recursive(ctx, record));
 const plainRmOnDir = (ctx, path) => ctx.tried('rm', record => record.status !== 0 && !recursive(ctx, record) && ctx.hasPath(record, path) && isDir(ctx, path));
 const rmdirRefused = (ctx, path) => ctx.tried('rmdir', record => record.status !== 0 && ctx.hasPath(record, path) && isFullDir(ctx, path));
 const dirsIn = (ctx, path) => Object.keys(ctx.node(path)?.children ?? {}).map(name => `${path}/${name}`).filter(child => isDir(ctx, child));
@@ -158,7 +162,7 @@ export default {
         'Type `rmdir`, a space, and the crate\'s path.',
         'rmdir ~/junk/empty_crate',
       ],
-      done: ctx => !ctx.node(crateOf(ctx)) && ctx.ran('rmdir', record => ctx.hasPath(record, crateOf(ctx))),
+      done: ctx => removedBy(ctx, 'rmdir', crateOf(ctx)),
       near: ctx => firstNote(ctx, [
         [c => plainRmOnDir(c, crateOf(c)), 'rm alone refuses a directory ("Is a directory"). The crate is empty, so rmdir removes it.'],
         [c => !c.node(crateOf(c)), 'The crate left ~/junk without rmdir. Make it again with mkdir ~/junk/empty_crate, then remove it with rmdir.'],

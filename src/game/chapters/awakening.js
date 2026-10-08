@@ -8,14 +8,14 @@ import { restore } from '../world.js';
 import { pick } from '../rng.js';
 import { nodeAt } from '../../backend/tree.js';
 
-const listsHome = (ctx, record) => ctx.hasPath(record, ctx.home)
-  || (record.cwd === ctx.home && record.args.every(arg => arg.startsWith('-')));
+const listsHome = (ctx, record) => !ctx.flag(record, 'd') && (ctx.hasPath(record, ctx.home)
+  || (record.cwd === ctx.home && record.args.every(arg => arg.startsWith('-'))));
 
 function readNear(ctx) {
   const letter = `${ctx.home}/readme.txt`;
   let note = null;
   if (ctx.ran('ls', record => ctx.hasPath(record, letter))) note = 'ls only shows the name. cat prints what is inside: cat readme.txt';
-  else if (ctx.ran('cat', record => !ctx.hasPath(record, letter))) note = 'That was another file. The letter is readme.txt.';
+  else if (ctx.ran('cat', record => ctx.paths(record).length > 0 && !ctx.hasPath(record, letter))) note = 'That was another file. The letter is readme.txt.';
   return note;
 }
 
@@ -106,7 +106,12 @@ export default {
         'ls',
       ],
       done: ctx => ctx.ran('ls', record => listsHome(ctx, record)),
-      near: ctx => (ctx.ran('ls', record => !listsHome(ctx, record)) ? 'That listed another directory. To look around your home, run ls in your home with nothing after it.' : null),
+      near: ctx => {
+        let note = null;
+        if (ctx.ran('ls', record => ctx.flag(record, 'd'))) note = 'With -d, ls shows only the directory itself, not what is inside. Run ls with nothing after it.';
+        else if (ctx.ran('ls', record => !listsHome(ctx, record))) note = 'That listed another directory. To look around your home, run ls in your home with nothing after it.';
+        return note;
+      },
     },
     {
       goal: 'Read the letter left for you (`cat`)',

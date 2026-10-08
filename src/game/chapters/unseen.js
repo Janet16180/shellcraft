@@ -24,9 +24,11 @@ const scrollOf = ctx => `${ctx.home}/library/scroll_of_ages.txt`;
 const caveOf = ctx => `${ctx.home}/forest/cave`;
 const mapOf = ctx => `${ctx.home}/.secret_map`;
 
+// With -d, ls shows a directory's own line, not what is inside it.
 const listed = (ctx, record) => {
   const operands = ctx.paths(record);
-  return operands.length > 0 ? operands : [record.cwd];
+  const named = operands.length > 0 ? operands : [record.cwd];
+  return ctx.flag(record, 'd') ? named.filter(path => ctx.node(path)?.type !== 'dir') : named;
 };
 const showedHidden = (ctx, path) => revealedDirs(ctx).includes(path);
 const listsLongAll = (ctx, path) => ctx.ran('ls', record => ctx.flag(record, 'l') && showsAll(ctx, record) && listed(ctx, record).includes(path));
