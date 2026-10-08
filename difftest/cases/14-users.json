@@ -1,3 +1,6 @@
 [
-  {"name":"id and groups","world":"guild","lines":["id","id -u; id -g; id -G; id -un; id -gn; id -Gn","id mira; id oren; id root; id 1001","id -Gn oren; id -u mira","id nosuch; id mira nosuch","id -ug","id -n","id -a","groups","groups mira oren","groups nosuch hero","whoami"]}
+  {"name": "id and groups", "world": "guild", "lines": ["id", "id -u; id -g; id -G; id -un; id -gn; id -Gn", "id mira; id oren; id root; id 1001", "id -Gn oren; id -u mira", "id nosuch; id mira nosuch", "id -ug", "id -n", "id -a", "groups", "groups mira oren", "groups nosuch hero", "whoami"]},
+  {"name": "ls shows owner and group names, numbers for unknown ids", "world": "guild", "lines": ["cd hall", "ls -l mine.txt miras.txt scroll.txt orphan.txt", "ls -n mine.txt miras.txt orphan.txt", "ls -g miras.txt orphan.txt", "ls -o miras.txt orphan.txt", "ls -lG scroll.txt", "ls -l --no-group scroll.txt", "ls --numeric-uid-gid scroll.txt", "ls -ld shared forge", "ls -nd forge", "ls -go mine.txt"]},
+  {"name": "ls in a directory with r but no x", "world": "guild", "lines": ["cd hall", "ls ronly", "ls -a ronly", "ls -l ronly", "ls -F ronly", "ls -ld ronly", "ls -l ronly/a", "cat ronly/a", "cd ronly"]},
+  {"name": "ls in a directory with x but no r", "world": "guild", "lines": ["cd hall", "ls xonly", "ls -l xonly", "ls -l xonly/known", "cat xonly/known", "cd xonly && pwd", "ls", "cd .."]}
 ]

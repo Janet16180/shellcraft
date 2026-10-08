@@ -4,7 +4,7 @@
 
 const PAGES = {
   ls: ['list directory contents', 'ls [OPTION]... [FILE]...', 'List information about the FILEs (the current directory by default).',
-    [['-a', 'do not ignore entries starting with .'], ['-A', 'like -a, but without . and ..'], ['-l', 'use a long listing format'], ['-h', 'with -l, print sizes like 4.0K'], ['-r', 'reverse order while sorting'], ['-1', 'list one file per line'], ['-F', 'append indicator (/ for directories, * for executables)'], ['-d', 'list directories themselves, not their contents']]],
+    [['-a', 'do not ignore entries starting with .'], ['-A', 'like -a, but without . and ..'], ['-l', 'use a long listing format'], ['-h', 'with -l, print sizes like 4.0K'], ['-r', 'reverse order while sorting'], ['-1', 'list one file per line'], ['-F', 'append indicator (/ for directories, * for executables)'], ['-d', 'list directories themselves, not their contents'], ['-n', 'like -l, but list numeric user and group IDs'], ['-g', 'like -l, but do not list owner'], ['-o', 'like -l, but do not list group information'], ['-G', 'in a long listing, don\'t print group names']]],
   pwd: ['print name of current/working directory', 'pwd [OPTION]...', 'Print the full filename of the current working directory.', []],
   cat: ['concatenate files and print on the standard output', 'cat [OPTION]... [FILE]...', 'Concatenate FILE(s) to standard output. With no FILE, read standard input.', [['-n', 'number all output lines']]],
   echo: ['display a line of text', 'echo [OPTION]... [STRING]...', 'Echo the STRING(s) to standard output.', [['-n', 'do not output the trailing newline'], ['-e', 'enable interpretation of backslash escapes like \\n']]],
