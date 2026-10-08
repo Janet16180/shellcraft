@@ -19,6 +19,7 @@ import daemon from './daemon.js';
 import forge from './forge.js';
 import guild from './guild.js';
 import hall from './hall.js';
+import portals from './portals.js';
 
 
 /**
@@ -43,4 +44,5 @@ export default [
   forge,
   guild,
   hall,
+  portals,
 ];

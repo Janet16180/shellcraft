@@ -9,7 +9,7 @@ import { assertChapterList } from '../../helpers/chapter.js';
 import { createMemoryStore } from '../../helpers/memory-store.js';
 import { typeLine } from '../../helpers/type-line.js';
 
-const ORDER = ['awakening', 'forest', 'unseen', 'camp', 'junkyard', 'mirrors', 'library', 'tower', 'market', 'descent', 'gate', 'well', 'daemon', 'forge', 'guild', 'hall'];
+const ORDER = ['awakening', 'forest', 'unseen', 'camp', 'junkyard', 'mirrors', 'library', 'tower', 'market', 'descent', 'gate', 'well', 'daemon', 'forge', 'guild', 'hall', 'portals'];
 
 test('the chapter list passes the shared contract check', () => {
   assertChapterList(chapters);
@@ -20,7 +20,7 @@ test('the chapter list has the chapters of the design, in order', () => {
 });
 
 test('act I runs to the Market of Pipes, act II starts with the Descent and act III with the Guild', () => {
-  assert.deepEqual(chapters.map(chapter => chapter.act), [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3]);
+  assert.deepEqual(chapters.map(chapter => chapter.act), [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3]);
 });
 
 test('every chapter is playable', () => {
@@ -82,6 +82,7 @@ const EXPECTED_ERRORS = {
     "ls: cannot open directory '/home/hero/hall/vault': Permission denied\n",
     "rm: cannot remove '/home/hero/hall/archive/old.txt': Permission denied\n",
   ],
+  portals: ['cat: /home/hero/portals/old_portal: No such file or directory\n'],
 };
 
 for (const seed of [1, 2, 3]) {
