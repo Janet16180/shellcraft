@@ -204,6 +204,15 @@ In the Observation tree (`src/backend/port.js` TreeNode) every node has `ino` an
 link is `{type: 'symlink', target, ...}`. `ctx.node(path)` follows links like `cat` would;
 `ctx.inode(path)` and `ctx.linkTarget(path)` answer "same file?" and "where does this link point?".
 
+### Time and jobs
+
+The game's clock is the real one: `sleep 30 &` is `Done` 30 seconds later, and a foreground `sleep 5`
+holds the prompt for 5 seconds (Ctrl+C ends it, Ctrl+Z stops it as a job). Pick lengths a learner
+can wait for when a task needs the end (`sleep 20 &`), and long ones when it must not end on its
+own (`sleep 600` to stop with Ctrl+Z, `sleep 600 &` to `kill %1`). bash reports a finished job after
+the next line, so a lesson can say "press Enter". A job's commands run at once in the simulator;
+only its sleeps take time, so `sleep 3 && echo hi &` prints `hi` at once (real bash: after 3 s).
+
 ### Explainers (optional)
 
 A chapter may add `explainer: 'links'`, the id of an explainer in `src/intro/explainers.js` (game code
