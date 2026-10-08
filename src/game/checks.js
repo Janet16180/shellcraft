@@ -66,11 +66,39 @@ function longOptions(record) {
     .filter(Boolean);
 }
 
+// tar's short options that take a value; glued to the letter (`-fa.tar`, `-Cout`) it is the rest of the word.
+const TAR_VALUE_LETTERS = 'bCfFgHIKLNTVX';
+// The values of these give paths: the archive and the directory to work in.
+const TAR_PATH_LETTERS = 'fC';
+const TAR_PATH_LONG = /^--(?:file|directory)=(.+)$/;
+
+// A short-option word split into its letters and a value glued after a letter that takes one.
+function splitCluster(record, word) {
+  const letters = word.slice(1);
+  const at = record.name === 'tar' ? [...letters].findIndex(ch => TAR_VALUE_LETTERS.includes(ch)) : -1;
+  if (at < 0 || at === letters.length - 1) return { letters, value: null, letter: null };
+  return { letters: letters.slice(0, at + 1), value: letters.slice(at + 1), letter: letters[at] };
+}
+
 function shortOptions(record) {
   const { args } = record;
   const end = args.indexOf('--');
-  const clusters = (end < 0 ? args : args.slice(0, end)).filter(a => /^-[^-]/.test(a));
+  const clusters = (end < 0 ? args : args.slice(0, end)).filter(a => /^-[^-]/.test(a)).map(a => `-${splitCluster(record, a).letters}`);
   return dashless(record) ? [`-${args[0]}`, ...clusters] : clusters;
+}
+
+// tar's operands, and the paths it takes as option values (`--file=a.tar`, `-fa.tar`, `-Cout`),
+// each where it was typed. A value in the next word (`-f a.tar`) is an operand already.
+function tarPaths(record) {
+  const args = dashless(record) ? record.args.slice(1) : record.args;
+  const end = args.indexOf('--');
+  const glued = a => {
+    const long = TAR_PATH_LONG.exec(a)?.[1];
+    const short = /^-[^-]/.test(a) ? splitCluster(record, a) : null;
+    return long ?? (short?.value && TAR_PATH_LETTERS.includes(short.letter) ? short.value : null);
+  };
+  const found = (end < 0 ? args : args.slice(0, end)).map(a => glued(a) ?? (a.startsWith('-') ? null : a));
+  return [...found.filter(p => p !== null && p !== '-'), ...(end < 0 ? [] : args.slice(end + 1))];
 }
 
 // The members of the tar archive at a node, with each file's size in bytes.
@@ -132,7 +160,7 @@ function jobEnded(before, after, id) {
  */
 export function makeContext({ commands, before, obs, completions = [], line = '' }) {
   const { home } = obs;
-  const paths = record => operands(dashless(record) ? record.args.slice(1) : record.args).map(arg => resolvePath(arg, record.cwd, home));
+  const paths = record => (record.name === 'tar' ? tarPaths(record) : operands(record.args)).map(arg => resolvePath(arg, record.cwd, home));
   const ran = (name, pred = () => true) => commands.some(r => r.name === name && r.status === 0 && pred(r));
   const inputOf = record => record.redirects.find(x => x.op === '<')?.target ?? null;
   const stageBefore = record => commands.find(r => r.pipeline === record.pipeline && r.stage === record.stage - 1) ?? null;

@@ -114,6 +114,8 @@ The check context `ctx` (implemented in `src/game/checks.js`) sees only the port
 - `ctx.piped(record)`: the absolute paths a plain `cat` (no options) piped straight into this stage, e.g. `cat a.txt | sort` gives sort `[a.txt]`; `[]` otherwise. Accept `cat file | cmd` wherever `cmd file` is accepted.
 - `ctx.read(absPath)`: a reading command (cat, less, more, head, tail) succeeded on that file.
 - `ctx.paths(record)`: its non-option arguments as absolute paths (for `tar czf a.tgz dir`, the archive and `dir`).
+  For tar, the archive and directory given as option values count too, where they were typed: `--file=a.tgz`,
+  `-fa.tgz`, `-czfa.tgz`, `--directory=out`, `-Cout`.
 - `ctx.line`: the line's text as typed. Judge records and state first; use the text only for what
   leaves no record, like a variable assignment (`wish=gold`) or which `$` name was expanded.
 - `ctx.completions`: the Tab presses since the previous line, `[{ line, completed }]`. They come

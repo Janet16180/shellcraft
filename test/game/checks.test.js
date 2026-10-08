@@ -324,3 +324,26 @@ test('paths leaves out tar\'s dashless letters', () => {
   assert.deepEqual(ctx.paths(record('tar', ['czf', 'camp.tgz', 'camp'])), [`${HOME}/camp.tgz`, `${HOME}/camp`]);
   assert.deepEqual(ctx.paths(record('tar', ['-czf', 'camp.tgz', 'camp'])), [`${HOME}/camp.tgz`, `${HOME}/camp`]);
 });
+
+test('paths reads the archive and directory tar takes as option values, in their place', () => {
+  const ctx = context([]);
+  const paths = args => ctx.paths(record('tar', args));
+  const [tgz, camp, out] = [`${HOME}/camp.tgz`, `${HOME}/camp`, `${HOME}/out`];
+  assert.deepEqual(paths(['-t', '--file=camp.tgz']), [tgz]);
+  assert.deepEqual(paths(['--list', '--file=camp.tgz']), [tgz]);
+  assert.deepEqual(paths(['-tfcamp.tgz']), [tgz]);
+  assert.deepEqual(paths(['-czfcamp.tgz', 'camp']), [tgz, camp]);
+  assert.deepEqual(paths(['-xzf', 'camp.tgz', '-Cout']), [tgz, out]);
+  assert.deepEqual(paths(['-xzf', 'camp.tgz', '-C', 'out']), [tgz, out]);
+  assert.deepEqual(paths(['-xzf', 'camp.tgz', '--directory=out']), [tgz, out]);
+  assert.deepEqual(paths(['xzf', 'camp.tgz', '-Cout']), [tgz, out]);
+  assert.deepEqual(paths(['-c', '--file=camp.tgz', '--', '--file=x']), [tgz, `${HOME}/--file=x`]);
+});
+
+test('a value glued to tar\'s f or C is not read as option letters', () => {
+  const ctx = context([]);
+  assert.equal(ctx.flag(record('tar', ['-cfzt.tar', 'camp']), 'z'), false);
+  assert.equal(ctx.flag(record('tar', ['-cfzt.tar', 'camp']), 'f'), true);
+  assert.equal(ctx.flag(record('tar', ['-xfa.tar', '-Czz']), 'z'), false);
+  assert.equal(ctx.flag(record('tar', ['-xfa.tar', '-Czz']), 'C'), true);
+});
