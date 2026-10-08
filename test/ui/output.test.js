@@ -55,6 +55,17 @@ test('standard error is marked as an error line', () => {
   assert.equal(chunkLine({ stream: 'err', text: 'ls: cannot access x\n' }).cls, 'ln err');
 });
 
+test('bash\'s job notices on standard error are job lines, not errors', () => {
+  for (const text of ['[1] 2437\n', '[1]+  Done                    sleep 20\n', '[2]-  Terminated              sleep 600\n', '[1]+  Stopped                 sleep 100\n  (wd: ~)\n(wd now: ~/forest)\n']) {
+    assert.equal(chunkLine({ stream: 'err', text }).cls, 'ln job', text);
+  }
+});
+
+test('an error that only mentions a job is still an error', () => {
+  assert.equal(chunkLine({ stream: 'err', text: 'bash: fg: %3: no such job\n' }).cls, 'ln err');
+  assert.equal(chunkLine({ stream: 'err', text: '[1]+  Done   sleep 2\nbash: oops\n' }).cls, 'ln err');
+});
+
 test('a note is the game speaking: marked, prefixed and coloured by its tone', () => {
   assert.deepEqual(chunkLine({ stream: 'note', text: 'A real pager opens here.' }), { cls: 'ln note', html: '» A real pager opens here.' });
   assert.equal(chunkLine({ stream: 'note', text: 'Ha!', tone: 'daemon' }).cls, 'ln note tone-daemon');

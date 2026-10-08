@@ -1154,6 +1154,11 @@ kbd {
   color: var(--muted);
 }
 
+/* bash's job notices ([1] 2437, [1]+  Done ...) go to standard error but are news, not errors. */
+.ln.job {
+  color: var(--term-sep);
+}
+
 .ln.chapter {
   color: var(--accent);
   font-family: var(--font-title);
