@@ -1,6 +1,6 @@
+import { wireRunning } from './running.js';
 import { chunkLine, clears, columnsFor, displayPath, esc, promptHTML } from './output.js';
 import { createHistory } from './history.js';
-import { wireRunning } from './running.js';
 
 const MAX_LINES = 600;
 const PASSWORD_LABEL = 'password';
