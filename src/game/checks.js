@@ -75,6 +75,20 @@ export function operands(args) {
   return end < 0 ? before : [...before, ...args.slice(end + 1)];
 }
 
+// Where stdout and stderr end up, following the redirections in typed order; null is the screen.
+export function streamsOf(record) {
+  let out = null;
+  let err = null;
+  for (const { op, target } of record.redirects) {
+    if (/^1?>>?$/.test(op)) out = target;
+    else if (/^2>>?$/.test(op)) err = target;
+    else if (/^&>>?$/.test(op)) { out = target; err = target; }
+    else if (op === '2>&' && target === '1') err = out;
+    else if (/^1?>&$/.test(op) && target === '2') out = err;
+  }
+  return { out, err };
+}
+
 /**
  * Build the context a chapter's checks receive for one line.
  *
@@ -100,6 +114,7 @@ export function makeContext({ commands, before, obs, completions = [], line = ''
   // A file the command names, or, for a command that reads its input, the file sent in with < or a piped cat.
   const hasPath = (record, path) => paths(record).includes(path)
     || (STDIN_READERS.has(record.name) && (inputOf(record) === path || piped(record).includes(path)));
+  const onScreen = record => record.stage === record.stages - 1 && streamsOf(record).out === null;
   const nodeContent = path => nodeAt(obs.tree, path)?.content ?? nodeAt(before.tree, path)?.content ?? null;
   // A reader that succeeded, or that failed on another file after it printed this whole file.
   const readOk = (record, path) => record.status === 0 || (nodeContent(path) !== null && nodeContent(path) !== '' && record.stdout.includes(nodeContent(path)));
@@ -120,8 +135,9 @@ export function makeContext({ commands, before, obs, completions = [], line = ''
     paths,
     hasPath,
     piped,
-    shown: path => commands.some(r => READERS.has(r.name) && hasPath(r, path) && readOk(r, path)
-      && r.stage === r.stages - 1 && !r.redirects.some(x => x.op === '>' || x.op === '>>')),
+    streams: streamsOf,
+    onScreen,
+    shown: path => commands.some(r => READERS.has(r.name) && hasPath(r, path) && readOk(r, path) && onScreen(r)),
     read: path => commands.some(r => READERS.has(r.name) && hasPath(r, path) && readOk(r, path)),
   };
 }

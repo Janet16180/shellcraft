@@ -31,7 +31,7 @@ const listsRoot = ctx => ctx.ran('ls', record => ctx.hasPath(record, '/') || (ct
 const readsLastThree = ctx => ctx.ran('tail', record => ctx.hasPath(record, DPKG)
   && record.stdout === lastLines(textIn(ctx.obs.tree, DPKG) ?? '', 3));
 const failedSyslog = ctx => ctx.commands.some(record => READERS.has(record.name) && record.status !== 0 && ctx.hasPath(record, SYSLOG));
-const printsPath = ctx => ctx.ran('echo', record => record.stdout === `${PATH_VALUE}\n` && record.stages === 1 && record.redirects.length === 0);
+const printsPath = ctx => ctx.ran('echo', record => record.stdout === `${PATH_VALUE}\n` && record.stages === 1 && ctx.onScreen(record));
 
 function guardianLog(host, name) {
   const line = (time, text) => `2026-10-08T${time}+00:00 ${host} guardian: ${text}`;

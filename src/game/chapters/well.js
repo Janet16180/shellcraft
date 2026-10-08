@@ -8,6 +8,7 @@
 import { put, remove, cd, dir, file } from '../../backend/spec.js';
 import { shuffle, pick } from '../rng.js';
 import { nodeAt } from '../../backend/tree.js';
+import { streamsOf } from '../checks.js';
 
 const SIGN = `THE WELL OF ECHOES
 Shout into the well, and it answers.
@@ -30,10 +31,9 @@ const textIn = (ctx, path) => (ctx.node(path)?.type === 'file' ? ctx.node(path).
 const typed = (ctx, pattern) => pattern.test(ctx.line.trim());
 const uses = (ctx, name) => new RegExp(`\\$(${name}\\b|\\{${name}\\})`).test(ctx.line);
 
-// &> sends both streams to one place, so it counts for each.
-const out = (record, ops = ['>', '>>', '&>', '&>>']) => record.redirects.find(r => ops.includes(r.op.replace(/^1/, '')));
-const err = record => record.redirects.find(r => ['2>', '2>>', '&>', '&>>'].includes(r.op));
-const errTo = (record, path) => err(record)?.target === path;
+const outOf = record => streamsOf(record).out;
+const errOf = record => streamsOf(record).err;
+const errTo = (record, path) => errOf(record) === path;
 const echoed = (ctx, text) => ctx.ran('echo', record => record.stdout === `${text}\n`);
 const listsBucket = (ctx, pred) => ctx.tried('ls', record => ctx.hasPath(record, bucketOf(ctx)) && record.status !== 0 && pred(record));
 const statusPrinted = ctx => (ctx.line.includes('$?') ? ctx.commands.find(r => r.name === 'echo' && /^\d+\n$/.test(r.stdout)) ?? null : null);
@@ -84,7 +84,7 @@ const readsAll = (ctx, { paths }) => ctx.commands.find(record => record.name ===
 
 function bossDone(ctx, secret) {
   const record = readsAll(ctx, secret);
-  return record !== null && out(record)?.target === secret.words && errTo(record, NULL) && rightWords(ctx, secret);
+  return record !== null && outOf(record) === secret.words && errTo(record, NULL) && rightWords(ctx, secret);
 }
 
 function bossNear(ctx, secret) {
@@ -92,9 +92,9 @@ function bossNear(ctx, secret) {
   const tried = ctx.commands.find(r => r.name === 'cat' && r.redirects.length > 0) ?? null;
   return bossDone(ctx, secret) ? null : firstNote([
     [() => record && errTo(record, secret.words), '2> sent the error into words.txt. The words go with >, the error with 2> /dev/null.'],
-    [() => record && out(record)?.target === secret.words && !err(record), 'words.txt is right, but the error came to the screen. Add 2> /dev/null to the same line.'],
-    [() => record && errTo(record, NULL) && !out(record), 'The error is gone, but the words came to the screen. Add > ~/well/words.txt to the same line.'],
-    [() => record && !out(record) && !err(record), 'One cat reads all three. Now add > ~/well/words.txt for the words and 2> /dev/null for the error.'],
+    [() => record && outOf(record) === secret.words && errOf(record) === null, 'words.txt is right, but the error came to the screen. Add 2> /dev/null to the same line.'],
+    [() => record && errTo(record, NULL) && outOf(record) === null, 'The error is gone, but the words came to the screen. Add > ~/well/words.txt to the same line.'],
+    [() => record && outOf(record) === null && errOf(record) === null, 'One cat reads all three. Now add > ~/well/words.txt for the words and 2> /dev/null for the error.'],
     [() => tried !== null && record === null, 'Give cat all three stones that wall.txt names, in one line, even the missing one.'],
   ]);
 }
@@ -204,9 +204,9 @@ export default {
       ],
       done: ctx => listsBucket(ctx, record => errTo(record, errorsOf(ctx))) && (textIn(ctx, errorsOf(ctx)) ?? '').includes('No such file'),
       near: ctx => firstNote([
-        [() => listsBucket(ctx, record => out(record)?.target === errorsOf(ctx)), '> catches only the normal output, so the error still came to the screen. Use 2>.'],
-        [() => listsBucket(ctx, record => err(record) && !errTo(record, errorsOf(ctx))), 'That sent the error somewhere else. Send it into ~/well/errors.txt.'],
-        [() => listsBucket(ctx, record => !err(record)), 'The error came to the screen. Add 2> ~/well/errors.txt to the line.'],
+        [() => listsBucket(ctx, record => outOf(record) === errorsOf(ctx)), '> catches only the normal output, so the error still came to the screen. Use 2>.'],
+        [() => listsBucket(ctx, record => errOf(record) !== null && !errTo(record, errorsOf(ctx))), 'That sent the error somewhere else. Send it into ~/well/errors.txt.'],
+        [() => listsBucket(ctx, record => errOf(record) === null), 'The error came to the screen. Add 2> ~/well/errors.txt to the line.'],
       ]),
     },
     {
@@ -219,8 +219,8 @@ export default {
       ],
       done: ctx => listsBucket(ctx, record => errTo(record, NULL)),
       near: ctx => firstNote([
-        [() => listsBucket(ctx, record => out(record)?.target === NULL), '> /dev/null throws away only the normal output. The error needs 2>.'],
-        [() => listsBucket(ctx, record => !err(record)), 'The error came to the screen. Add 2> /dev/null to the line.'],
+        [() => listsBucket(ctx, record => outOf(record) === NULL), '> /dev/null throws away only the normal output. The error needs 2>.'],
+        [() => listsBucket(ctx, record => errOf(record) === null), 'The error came to the screen. Add 2> /dev/null to the line.'],
       ]),
     },
     {
@@ -232,13 +232,13 @@ export default {
         'ls ~/well ~/well/bucket.txt > ~/well/list.txt 2> /dev/null',
       ],
       done: ctx => ctx.tried('ls', record => ctx.hasPath(record, wellOf(ctx)) && ctx.hasPath(record, bucketOf(ctx))
-        && out(record)?.target === listOf(ctx) && errTo(record, NULL)) && (textIn(ctx, listOf(ctx)) ?? '').includes('sign.txt'),
+        && outOf(record) === listOf(ctx) && errTo(record, NULL)) && (textIn(ctx, listOf(ctx)) ?? '').includes('sign.txt'),
       near: ctx => {
         const both = record => ctx.hasPath(record, wellOf(ctx)) && ctx.hasPath(record, bucketOf(ctx));
         return firstNote([
-          [() => ctx.tried('ls', record => both(record) && !err(record) && out(record)?.target === listOf(ctx)), 'list.txt is saved, but the error came to the screen. Add 2> /dev/null too.'],
-          [() => ctx.tried('ls', record => both(record) && errTo(record, NULL) && !out(record)), 'The error is gone, but the list came to the screen. Add > ~/well/list.txt too.'],
-          [() => ctx.tried('ls', record => !both(record) && (out(record) || err(record))), 'Give ls both paths: ~/well and ~/well/bucket.txt.'],
+          [() => ctx.tried('ls', record => both(record) && errOf(record) === null && outOf(record) === listOf(ctx)), 'list.txt is saved, but the error came to the screen. Add 2> /dev/null too.'],
+          [() => ctx.tried('ls', record => both(record) && errTo(record, NULL) && outOf(record) === null), 'The error is gone, but the list came to the screen. Add > ~/well/list.txt too.'],
+          [() => ctx.tried('ls', record => !both(record) && (outOf(record) !== null || errOf(record) !== null)), 'Give ls both paths: ~/well and ~/well/bucket.txt.'],
         ]);
       },
     },

@@ -28,7 +28,7 @@ const made = (ctx, name, path) => ctx.ran(name, record => ctx.hasPath(record, pa
 // mkdir -p ~/camp/tent makes the camp too, and mkdir ~/camp on an existing camp only says File exists.
 const madeDir = (ctx, path) => ctx.tried('mkdir', record => ctx.paths(record).some(p => p === path || p.startsWith(`${path}/`)));
 const writesInto = (ctx, path) => ctx.ran('echo', record => record.redirects.some(r => (r.op === '>' || r.op === '>>') && r.target === path));
-const echoedOnScreen = ctx => ctx.ran('echo', record => record.redirects.length === 0 && record.stage === record.stages - 1);
+const echoedOnScreen = ctx => ctx.ran('echo', ctx.onScreen);
 const holdsOtherText = (ctx, path, text) => isFile(ctx, path) && ctx.node(path).content !== text;
 
 function setupBoss(random, { home, user }) {

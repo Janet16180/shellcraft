@@ -60,7 +60,7 @@ function appendTask(word, goal, tip, hints) {
     near: ctx => firstNote([
       [() => echoes(ctx, ['>'], stockOf(ctx)), `The > replaced the whole list with ${word}. Save the list again (${SAVE_STOCK}), then add ${word} with >>.`],
       [() => echoes(ctx, ['>>'], stockOf(ctx)) && !keptList(ctx), `stock.txt did not hold the saved stock list. Save it first (${SAVE_STOCK}), then add ${word} with >>.`],
-      [() => ctx.ran('echo', record => record.args.join(' ') === word && record.redirects.length === 0 && record.stage === record.stages - 1), `echo printed ${word} on the screen. Add >> and the stock list's path to add it to the end of the file.`],
+      [() => ctx.ran('echo', record => record.args.join(' ') === word && ctx.onScreen(record)), `echo printed ${word} on the screen. Add >> and the stock list's path to add it to the end of the file.`],
       [() => ctx.ran('echo', record => record.args.join(' ') === word && record.redirects.some(r => isWrite(r, ['>>']) && r.target !== stockOf(ctx))), `That added ${word} to another file. The stock list is ~/market/stock.txt.`],
     ]),
   };

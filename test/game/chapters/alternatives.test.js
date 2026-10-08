@@ -53,6 +53,15 @@ const TASKS = [
   ['well', 4, [], 'ls well/bucket.txt &> well/errors.txt', true],
   ['forge', 3, ["echo '#!/bin/bash' > forge/hello.sh", "echo 'echo Hello from the forge' >> forge/hello.sh"], 'bash forge/hello.sh', false, /run it by its path/],
   ['forge', 1, ["echo 'echo Hello from the forge' > forge/hello.sh"], 'cat forge/hello.sh', false, /must start with/],
+  ['well', 5, [], 'ls well/bucket.txt > /dev/null 2>&1', true],
+  ['well', 5, [], 'ls well/bucket.txt 2>&1 > /dev/null', false, /error needs 2>/],
+  ['camp', 3, ['mkdir camp', 'touch camp/supplies.txt'], 'echo wood 2>&1', false, /printed on the screen/],
+  ['market', 0, [], 'sort < market/inventory.txt', true],
+  ['tower', 3, [], 'grep -r gold tower', true],
+  ['library', 1, [], 'head --lines=3 ~/library/scroll_of_ages.txt', true],
+  ['library', 4, [], 'wc --lines ~/library/scroll_of_ages.txt', true],
+  ['junkyard', 3, [], 'rm -d junk/empty_crate', undefined],
+  ['daemon', 1, [], 'ps -aux', true],
   ['daemon', 3, [], 'pkill greedy_imp', true],
   ['daemon', 4, ['kill 2420'], 'pkill stubborn', true],
   ['daemon', 5, ['kill 2420', 'kill 2431'], 'pkill -9 stubborn', true],
@@ -65,7 +74,7 @@ for (const [id, index, prefix, line, done, note] of TASKS) {
     for (const before of prefix) await type(backend, before);
     const { ctx } = await type(backend, line);
     const task = chapter.tasks[index];
-    assert.equal(task.done(ctx), done);
+    if (done !== undefined) assert.equal(task.done(ctx), done);
     if (note !== undefined) assertNear(task.near?.(ctx) ?? null, ctx, note);
   });
 }

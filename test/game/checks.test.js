@@ -173,3 +173,23 @@ test('read is false for a failed read, another file or a command that does not r
   assert.equal(context([record('ls', ['readme.txt'])]).read(`${HOME}/readme.txt`), false);
   assert.equal(context([record('cat', [], { redirects: [{ op: '>', target: `${HOME}/readme.txt` }] })]).read(`${HOME}/readme.txt`), false);
 });
+
+test('streams follows redirections in typed order, null meaning the screen', () => {
+  const at = redirects => context([]).streams(record('ls', [], { redirects }));
+  const F = `${HOME}/f`;
+  assert.deepEqual(at([]), { out: null, err: null });
+  assert.deepEqual(at([{ op: '>', target: F }]), { out: F, err: null });
+  assert.deepEqual(at([{ op: '2>>', target: F }]), { out: null, err: F });
+  assert.deepEqual(at([{ op: '&>', target: F }]), { out: F, err: F });
+  assert.deepEqual(at([{ op: '>', target: F }, { op: '2>&', target: '1' }]), { out: F, err: F });
+  assert.deepEqual(at([{ op: '2>&', target: '1' }, { op: '>', target: F }]), { out: F, err: null });
+  assert.deepEqual(at([{ op: '2>', target: F }, { op: '>&', target: '2' }]), { out: F, err: F });
+  assert.deepEqual(at([{ op: '<', target: F }]), { out: null, err: null });
+});
+
+test('onScreen is the last stage with its output not sent elsewhere', () => {
+  const ctx = context([]);
+  assert.equal(ctx.onScreen(record('echo', [], { redirects: [{ op: '2>&', target: '1' }] })), true);
+  assert.equal(ctx.onScreen(record('echo', [], { redirects: [{ op: '>', target: `${HOME}/f` }] })), false);
+  assert.equal(ctx.onScreen(record('echo', [], { stage: 0, stages: 2 })), false);
+});

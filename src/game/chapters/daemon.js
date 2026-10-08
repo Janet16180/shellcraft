@@ -51,7 +51,8 @@ const kills = (ctx, pid, pred = () => true) => ctx.commands.some(record => {
 const alive = (ctx, key) => ctx.proc(key) !== null;
 const wasAlive = (ctx, key) => ctx.before.procs.some(p => p.key === key);
 const ended = (ctx, key) => wasAlive(ctx, key) && !alive(ctx, key);
-const psAll = record => record.name === 'ps' && record.args.some(arg => !arg.startsWith('-') && /a/.test(arg) && /x/.test(arg));
+// ps aux, and ps -aux, which ps also reads as aux.
+const psAll = record => record.name === 'ps' && record.args.some(arg => /^-?[a-z]*a[a-z]*$/.test(arg) && /x/.test(arg));
 const killedByName = ctx => ctx.tried('kill', record => record.status !== 0 && record.args.some(arg => /[a-z]/.test(arg) && !arg.startsWith('-')));
 
 function denArea(user) {
