@@ -13,11 +13,12 @@ import copy from './copy.js';
 import procs from './procs.js';
 import shell from './shell.js';
 import conditional from './test.js';
+import printf from './printf.js';
 import { NO_BINARY } from '../builtins.js';
 import { nameTable } from '../table.js';
 
 /** @type {Record<string, (args: string[], ctx: object) => import('../result.js').Result>} */
-export const COMMANDS = Object.freeze(nameTable({ ...info, ...nav, ...ls, ...files, ...copy, ...text, ...grep, ...find, ...procs, ...shell, ...conditional }));
+export const COMMANDS = Object.freeze(nameTable({ ...info, ...nav, ...ls, ...files, ...copy, ...text, ...grep, ...find, ...procs, ...shell, ...conditional, ...printf }));
 
 /** Commands that are programs, with one executable file each in /usr/bin. */
 export const BINARIES = Object.keys(COMMANDS).filter(name => !NO_BINARY.has(name)).sort();

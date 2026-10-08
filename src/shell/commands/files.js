@@ -8,7 +8,7 @@ import { newDir, newFile, addChild, removeChild, joinDisp } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
 import { compareNames, baseName } from '../../backend/tree.js';
 import { can, canChangeEntries, canUnlink, canChmod } from '../perms.js';
-import { parseOptions, optionFailure } from '../options.js';
+import { parseOptions, mapLongOptions, optionFailure } from '../options.js';
 import { shellQuote, localeQuote } from '../quote.js';
 import { result, withNote, needInput } from '../result.js';
 import { openInput, reason } from './text.js';
@@ -49,7 +49,24 @@ function cat(args, { sys, stdin }) {
   return errResult(text, errs);
 }
 
-const pager = name => (args, ctx) => withNote(cat(args.filter(x => !x.startsWith('-')), ctx),
+// less names a file it cannot open in its own words and fails only when it
+// opened none; more says "cannot open", shows a directory as a banner and
+// always succeeds.
+function pagerFile(name, f, input) {
+  if (!input.code) return { out: input.content };
+  if (name === 'more') return input.code === 'EISDIR' ? { out: `\n*** ${f}: directory ***\n\n` } : { err: `more: cannot open ${f}: ${reason(input.code)}` };
+  return { err: input.code === 'EISDIR' ? `${f} is a directory` : `${f}: ${reason(input.code)}` };
+}
+
+function page(name, files, ctx) {
+  if (!files.length) return cat(files, ctx);
+  const shown = files.map(f => pagerFile(name, f, openInput(ctx.sys, f, ctx.stdin)));
+  const errs = shown.map(x => x.err).filter(Boolean);
+  const failed = name === 'less' && errs.length === files.length;
+  return result(shown.map(x => x.out ?? '').join(''), errs.join('\n'), failed ? 1 : 0);
+}
+
+const pager = name => (args, ctx) => withNote(page(name, args.filter(x => !x.startsWith('-')), ctx),
   `A real ${name} opens the file in a scrollable viewer: arrow keys or Space to move, / to search, q to quit. Here it simply prints the file.`);
 
 function touch(args, { sys }) {
@@ -152,24 +169,42 @@ function removeTree(sys, shown, node, parent, name, acc) {
   return ok;
 }
 
-function rmOne(sys, f, flags, acc) {
+// Without -r a directory goes only with -d, and only when it is empty.
+function directoryRefusal(f, node, flags) {
+  let error = null;
+  if (!flags.has('d')) error = `rm: cannot remove ${quoted(f)}: Is a directory`;
+  else if (Object.keys(node.children).length) error = `rm: cannot remove ${quoted(f)}: Directory not empty`;
+  return error;
+}
+
+// Why rm does not remove f: an error, '' to skip it quietly, or null to go ahead.
+function rmRefusal(f, r, flags) {
   const recursive = flags.has('r') || flags.has('R');
   const last = f.replace(/\/+$/, '').split('/').pop();
-  const r = resolve(sys, f);
   let error = null;
   if (last === '.' || last === '..') error = `rm: refusing to remove '.' or '..' directory: skipping ${quoted(f)}`;
   else if (r.abs === '/' && !r.error && recursive) error = "rm: it is dangerous to operate recursively on '/'\nrm: use --no-preserve-root to override this failsafe";
-  else if (r.error) error = flags.has('f') && r.error === 'ENOENT' ? null : `rm: cannot remove ${quoted(f)}: ${errorText(r.error)}`;
-  else if (r.node.type === 'dir' && !recursive) error = `rm: cannot remove ${quoted(f)}: Is a directory`;
+  else if (r.error) error = flags.has('f') && r.error === 'ENOENT' ? '' : `rm: cannot remove ${quoted(f)}: ${errorText(r.error)}`;
+  else if (r.node.type === 'dir' && !recursive) error = directoryRefusal(f, r.node, flags);
+  return error;
+}
+
+function rmOne(sys, f, flags, acc) {
+  const r = resolve(sys, f);
+  const error = rmRefusal(f, r, flags);
+  if (error) acc.errs.push(error);
+  else if (error === '') return;
   else if (isHomeOrAbove(sys, r.abs)) {
     acc.block(`rm -r ${r.abs} would delete the home directory ${sys.home}`);
     acc.blocked = true;
   } else removeTree(sys, f, r.node, r.parent, baseName(r.abs), acc);
-  if (error) acc.errs.push(error);
 }
 
+const RM_LONG = { '--recursive': 'r', '--force': 'f', '--dir': 'd', '--verbose': 'v' };
+
 function rm(args, { sys, block }) {
-  const o = parseOptions('rm', args, 'rRfiv');
+  const long = mapLongOptions('rm', args, RM_LONG, /^$/);
+  const o = long.err || long.unsimulated ? long : parseOptions('rm', long.args, 'rRfivd');
   const failed = optionFailure('rm', o, 1);
   if (failed) return failed;
   if (!o.rest.length && !o.flags.has('f')) return result('', `rm: missing operand\n${tryHelp('rm')}`, 1);

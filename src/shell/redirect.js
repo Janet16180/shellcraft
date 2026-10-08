@@ -34,20 +34,20 @@ function openRead(sys, path) {
   let error = r.error ? errorText(r.error) : null;
   if (!error && r.node.type === 'dir') error = 'Is a directory';
   else if (!error && !can(sys, r.node, 'r')) error = 'Permission denied';
-  return { input: error ? null : r.node.content, error };
+  return { input: error ? null : r.node.content, error, abs: r.abs };
 }
 
-function applyDup(fd, target, streams) {
-  const source = target === '1' ? streams.out : streams.err;
+function applyDup(redir, fd, streams) {
+  const source = redir.target === '1' ? streams.out : streams.err;
   if (fd === 1) streams.out = source;
   if (fd === 2) streams.err = source;
-  return { error: null, record: null };
+  return { error: null, record: { op: `${redir.fd ?? ''}${redir.op}`, target: redir.target } };
 }
 
-function applyRead(sys, target, streams) {
-  const read = openRead(sys, target);
+function applyRead(sys, redir, streams) {
+  const read = openRead(sys, redir.target);
   streams.stdin = read.input;
-  return { error: read.error, record: null };
+  return { error: read.error, record: { op: `${redir.fd ?? ''}<`, target: read.abs } };
 }
 
 function applyWrite(sys, redir, fd, streams) {
@@ -63,8 +63,8 @@ function applyOne(sys, redir, streams) {
   const { op, target } = redir;
   const fd = redir.fd ?? (op.startsWith('<') ? 0 : 1);
   let applied;
-  if ((op === '>&' || op === '<&') && /^\d$/.test(target)) applied = applyDup(fd, target, streams);
-  else if (op === '<') applied = applyRead(sys, target, streams);
+  if ((op === '>&' || op === '<&') && /^\d$/.test(target)) applied = applyDup(redir, fd, streams);
+  else if (op === '<') applied = applyRead(sys, redir, streams);
   else applied = applyWrite(sys, redir, fd, streams);
   return { error: applied.error ? `bash: ${target}: ${applied.error}` : null, record: applied.record };
 }
@@ -76,7 +76,7 @@ function applyOne(sys, redir, streams) {
  * @param {{op: string, fd: number|null, target: string}[]} redirs Redirections with expanded targets.
  * @param {{stdin: string|null, out: object, err: object}} base Where the streams point before redirection.
  * @returns {{streams: {stdin: string|null, out: object, err: object}, error: string|null, records: {op: string, target: string}[]}}
- *   The streams, the first error (the command must not run), and the output redirections for the command record.
+ *   The streams, the first error (the command must not run), and the redirections for the command record, in order.
  */
 export function openRedirects(sys, redirs, base) {
   const streams = { ...base };
@@ -103,4 +103,19 @@ export function writeTo(sys, target, text) {
   if (target.kind !== 'file' || !text) return;
   target.node.content += text;
   target.node.mtime = sys.now();
+}
+
+/**
+ * Write a whole file the way a program that opens it for writing does
+ * (uniq's OUTPUT): create or truncate it, then fill it.
+ *
+ * @param {object} sys The machine state.
+ * @param {string} path The path as typed.
+ * @param {string} text The new content.
+ * @returns {string|null} The reason it cannot be written (`Permission denied`), or null.
+ */
+export function writeFile(sys, path, text) {
+  const opened = openWrite(sys, path, false);
+  if (opened.target) writeTo(sys, opened.target, text);
+  return opened.error;
 }

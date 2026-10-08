@@ -247,3 +247,20 @@ test('source returns the status of the last command it ran', async () => {
   const b = await shell([put('/home/hero/f.sh', file('true\nfalse\n', { owner: 'hero' }))]);
   assert.equal((await run(b, 'source f.sh')).status, 1);
 });
+
+test('type -t names the kind, type -a lists every match, type -p and -P print paths', async () => {
+  const b = await shell([put('/home/hero/.bashrc', file("alias ll='ls -alF'\n"))]);
+  const t = await run(b, 'type -t ll echo ls if nope');
+  assert.deepEqual([t.out, t.err, t.status], ['alias\nbuiltin\nfile\nkeyword\n', '', 1]);
+  assert.equal((await run(b, 'type -a echo ll')).out, "echo is a shell builtin\necho is /usr/bin/echo\nll is aliased to `ls -alF'\n");
+  assert.equal((await run(b, 'type -at ls cd')).out, 'file\nbuiltin\n');
+  assert.equal((await run(b, 'type -a /usr/bin/ls')).out, '/usr/bin/ls is /usr/bin/ls\n');
+  assert.equal((await run(b, 'type if')).out, 'if is a shell keyword\n');
+  assert.equal((await run(b, 'type -p ls echo')).out, '/usr/bin/ls\n');
+  assert.equal((await run(b, 'type -P echo')).out, '/usr/bin/echo\n');
+  const nope = await run(b, 'type -a nope');
+  assert.deepEqual([nope.err, nope.status], ['bash: type: nope: not found\n', 1]);
+  const bad = await run(b, 'type -x ls');
+  assert.deepEqual([bad.out, bad.err, bad.status], ['', 'bash: type: -x: invalid option\ntype: usage: type [-afptP] name [name ...]\n', 2]);
+  assert.deepEqual([(await run(b, 'type -t')).status, (await run(b, 'type -a')).out], [0, '']);
+});

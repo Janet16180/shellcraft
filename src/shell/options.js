@@ -66,6 +66,16 @@ export function parseOptions(name, args, known, withValue = '') {
   return acc;
 }
 
+// One long option as short ones: `--lines=3` is `-n 3`; a flag takes no value.
+function mapOne(name, arg, table, withValue) {
+  const [long, ...value] = arg.split('=');
+  const letter = table[long];
+  let mapped = { args: [`-${letter}`], err: null };
+  if (value.length && !withValue.includes(letter)) mapped = { args: [], err: `${name}: option '${long}' doesn't allow an argument\n${usage(name)}` };
+  else if (value.length) mapped = { args: [`-${letter}`, value.join('=')], err: null };
+  return mapped;
+}
+
 /**
  * Rewrite a command's long options into its short letters, before `--` only.
  *
@@ -73,21 +83,26 @@ export function parseOptions(name, args, known, withValue = '') {
  * @param {string[]} args The arguments.
  * @param {Record<string, string>} table Long option to letter (`--all` to `a`).
  * @param {RegExp} [ignored] Long options the command accepts and ignores (like --color).
+ * @param {string} [withValue] Letters whose option takes a value (`--lines=3` or `--lines 3`).
  * @returns {{args: string[], err: string|null, unsimulated: string|null}} The rewritten
- *   arguments; or the message for the first unrecognized long option; or the
+ *   arguments; or the message for the first unrecognized or misused long option; or the
  *   first real long option the game does not simulate.
  */
-export function mapLongOptions(name, args, table, ignored = /^--colou?r(=|$)/) {
+export function mapLongOptions(name, args, table, ignored = /^--colou?r(=|$)/, withValue = '') {
   const end = args.includes('--') ? args.indexOf('--') : args.length;
   const options = args.slice(0, end).filter(a => !ignored.test(a));
-  const unknown = options.find(a => a.startsWith('--') && !Object.hasOwn(table, a));
-  const real = unknown !== undefined && realLong(name, unknown.split('=')[0]);
-  const mapped = [...options.map(a => (Object.hasOwn(table, a) ? `-${table[a]}` : a)), ...args.slice(end)];
-  return {
-    args: mapped,
-    err: unknown && !real ? `${name}: unrecognized option '${unknown}'\n${usage(name)}` : null,
-    unsimulated: real ? unknown.split('=')[0] : null,
-  };
+  const mapped = [];
+  let stop = null;
+  options.forEach((a, i) => {
+    const long = a.split('=')[0];
+    let one = { args: [a], err: null };
+    if (a.startsWith('--') && Object.hasOwn(table, long)) one = mapOne(name, a, table, withValue);
+    else if (a.startsWith('--')) one.err = realLong(name, long) ? { unsimulated: long } : `${name}: unrecognized option '${a}'\n${usage(name)}`;
+    if (a === long && withValue.includes(table[a]) && i === options.length - 1 && end === args.length) one.err = `${name}: option '${a}' requires an argument\n${usage(name)}`;
+    stop ??= one.err;
+    mapped.push(...one.args);
+  });
+  return { args: [...mapped, ...args.slice(end)], err: typeof stop === 'string' ? stop : null, unsimulated: stop?.unsimulated ?? null };
 }
 
 /**
