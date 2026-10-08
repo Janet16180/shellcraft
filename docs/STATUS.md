@@ -23,7 +23,14 @@ adventure log. 14 chapters are planned (DESIGN.md section 4).
   directory r/w/x checks. See the agent's last commits for what is finished.
 - UI branch `slice/explainer` (worktree `.scratch/wt/explainer`): step-by-step concept explainers
   (Back/Next/Skip) a chapter declares with `explainer`; two of them: "Which three letters are
-  yours?" (ch15) and "Names are pointers" (ch17, links).
+  yours?" (ch15) and "Names are pointers" (ch17, links). Open in dev: `?dev&explainer=perms` / `=links`.
+- Both branches are committed and green (users: 1967 tests, difftest 0 failed; explainer: 1984 tests).
+  Left on `slice/users`: Observation.groups JSDoc in port.js, CommandRecord docs for chown/chgrp,
+  maybe a difftest for `ls -la` on a directory without x. Left on `slice/explainer`: retake
+  screenshots (1400x900, 360x740, reduced motion), check phone scroll-in animation, Back/Next/Esc
+  and focus in a browser, verify the explainer commands in real bash (`docs/verification/explainers.md`).
+- Chapter setup API for people: `...accounts(player, { users: [...], groups: [...] }), login()`
+  (AUTHORING section 2).
 
 ## State at 2026-10-08 (act II: chapters 10 to 14)
 
