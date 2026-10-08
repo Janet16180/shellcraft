@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSimBackend } from '../../src/shell/backend.js';
-import { put, remove, proc, stop, cd, dir, file } from '../../src/backend/spec.js';
+import { put, remove, proc, stop, cd, dir, file, symlink, link } from '../../src/backend/spec.js';
 import { shell, run, NOW } from './helpers.js';
 
 test('every port method returns a promise', async () => {
@@ -52,8 +52,10 @@ test('an observation shows the user, host, home, working directory, tree and pro
   assert.equal(obs.host, 'kernelia');
   assert.equal(obs.home, '/home/hero');
   assert.equal(obs.cwd, '/home/hero');
-  assert.deepEqual(obs.tree.children.home.children.hero.children['readme.txt'], {
-    type: 'file', mode: 0o644, owner: 'hero', group: 'hero', size: 26, mtime: NOW, content: 'Dear apprentice,\nwelcome.\n',
+  const { ino, ...readme } = obs.tree.children.home.children.hero.children['readme.txt'];
+  assert.ok(Number.isInteger(ino));
+  assert.deepEqual(readme, {
+    type: 'file', mode: 0o644, owner: 'hero', group: 'hero', size: 26, mtime: NOW, links: 1, content: 'Dear apprentice,\nwelcome.\n',
   });
   assert.equal(obs.tree.children.tmp.mode, 0o1777);
   const daemon = obs.procs.find(p => p.key === 'daemon');
@@ -362,4 +364,26 @@ test('without a ~/.bashrc the shell has no aliases', async () => {
   const b = createSimBackend({ now: () => NOW });
   await b.load([]);
   assert.equal((await run(b, 'alias')).out, '');
+});
+
+test('every node of an observation has an inode number that stays the same, the root 2', async () => {
+  const b = await shell();
+  const first = await b.observe();
+  await b.run('touch new.txt');
+  const second = await b.observe();
+  const hero = obs => obs.tree.children.home.children.hero;
+  assert.equal(first.tree.ino, 2);
+  assert.equal(hero(second).ino, hero(first).ino);
+  assert.equal(hero(second).children['readme.txt'].ino, hero(first).children['readme.txt'].ino);
+  const numbers = [hero(second).ino, ...Object.values(hero(second).children).map(n => n.ino)];
+  assert.ok(numbers.every(n => Number.isInteger(n) && n > 2));
+  assert.equal(new Set(numbers).size, numbers.length);
+});
+
+test('a symbolic link and a hard link put by a patch show in the observation', async () => {
+  const b = await shell([put('/home/hero/portal', symlink('/home/hero/forest/cave', { owner: 'hero' })), put('/home/hero/copy.txt', link('/home/hero/readme.txt'))]);
+  const hero = (await b.observe()).tree.children.home.children.hero.children;
+  assert.deepEqual([hero.portal.type, hero.portal.target, hero.portal.size, hero.portal.links], ['symlink', '/home/hero/forest/cave', 22, 1]);
+  assert.equal(hero['copy.txt'].ino, hero['readme.txt'].ino);
+  assert.equal(hero['copy.txt'].links, 2);
 });

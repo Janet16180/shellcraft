@@ -30,7 +30,7 @@ These are the user's rules (`~/.claude/CLAUDE.md`) applied to JavaScript.
 ## 2. Chapter modules (`src/game/chapters/<id>.js`)
 
 ```js
-import { put, remove, cd, dir, file } from '../../backend/spec.js';
+import { put, remove, cd, dir, file, symlink, link } from '../../backend/spec.js';
 
 export default {
   id: 'forest',
@@ -125,6 +125,27 @@ setup: (random, player) => [
 Node owners and groups are names; use digits (`owner: '1234'`) for a file whose owner has no
 account, which `ls -l` shows as a number. `accounts()` does not create homes. The base world ends with
 `login()`, so a fresh world resets the player's groups.
+
+### Links
+
+`symlink(target, { owner, group })` from spec.js describes a symbolic link. The target text is kept
+exactly as written (like `ln -s TARGET NAME`): a relative one is read from the link's own directory,
+and it may point at nothing (a dangling link). Use it anywhere a node goes, also inside `dir()`.
+`link('/abs/path')` is a hard link: another name for the node already at that path, sharing its
+inode, content, mode and owner. It may only be the node a `put` places, after its target exists,
+and the target may not be a directory (the backend raises).
+
+```js
+setup: (random, { home }) => [
+  put(`${home}/portal`, symlink(`${home}/forest/cave/deep`, { owner: 'hero' })),  // ~/portal -> ~/forest/cave/deep
+  put(`${home}/scroll.txt`, file('A map.\n', { owner: 'hero' })),
+  put(`${home}/copy.txt`, link(`${home}/scroll.txt`)),                         // a second name, same inode
+],
+```
+
+In the Observation tree (`src/backend/port.js` TreeNode) every node has `ino` and `links`; a symbolic
+link is `{type: 'symlink', target, ...}`. `ctx.node(path)` follows links like `cat` would;
+`nodeAt(tree, path, { follow: false })` from tree.js gives the link itself.
 
 ### Explainers (optional)
 

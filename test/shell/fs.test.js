@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalize, lookup, joinDisp, splitLines, byteLength, sizeOf, newDir, newFile, cloneNode, fromSpec, snapshot, insert, detach, addChild, removeChild, heightOf, MAX_TREE_DEPTH } from '../../src/shell/fs.js';
-import { dir, file } from '../../src/backend/spec.js';
+import { normalize, lookup, joinDisp, splitLines, byteLength, sizeOf, newDir, newFile, newSymlink, linkCounts, linksOf, cloneNode, fromSpec, snapshot, insert, detach, addChild, removeChild, heightOf, MAX_TREE_DEPTH } from '../../src/shell/fs.js';
+import { dir, file, symlink } from '../../src/backend/spec.js';
 import { nameTable } from '../../src/shell/table.js';
 
 const meta = { mode: 0o755, owner: 'root', group: 'root', mtime: 1 };
@@ -110,4 +110,55 @@ test('heightOf counts the levels of a subtree without recursion', () => {
   for (let i = 0; i < 50000; i++) deep = newDir({ d: deep }, meta);
   assert.equal(heightOf(deep), 50001);
   assert.equal(MAX_TREE_DEPTH, 256);
+});
+
+test('a symbolic link node keeps its target text, and its size is that text in bytes', () => {
+  const link = newSymlink('forest/caé', meta);
+  assert.deepEqual(link, { type: 'symlink', mode: 0o777, owner: 'root', group: 'root', mtime: 1, target: 'forest/caé' });
+  assert.equal(sizeOf(link), 11);
+});
+
+test('fromSpec makes symbolic links from symlink()', () => {
+  const node = fromSpec(dir({ p: symlink('/x', { owner: 'hero' }) }), 5);
+  assert.deepEqual(node.children.p, { type: 'symlink', mode: 0o777, owner: 'hero', group: 'hero', mtime: 5, target: '/x' });
+});
+
+test('lookup follows symbolic links unless told not to for the last name', () => {
+  const root = tree();
+  addChild(lookup(root, '/home/hero'), 'p', newSymlink('a.txt', meta), 2);
+  assert.equal(lookup(root, '/home/hero/p').content, 'hi\n');
+  assert.equal(lookup(root, '/home/hero/p', { follow: false }).type, 'symlink');
+});
+
+test('link counts: names of a file, 2 plus subdirectories for a directory', () => {
+  const root = tree();
+  const hero = lookup(root, '/home/hero');
+  const a = lookup(root, '/home/hero/a.txt');
+  addChild(hero, 'b.txt', a, 2);
+  addChild(hero, 'sub', newDir({}, meta), 2);
+  const counts = linkCounts(root);
+  assert.equal(linksOf(a, counts), 2);
+  assert.equal(linksOf(hero, counts), 3);
+  assert.equal(linksOf(root, counts), 3);
+});
+
+test('snapshot shows inode numbers, link counts and symbolic links, and repeats a hard-linked file under each name', () => {
+  const root = tree();
+  const hero = lookup(root, '/home/hero');
+  const a = lookup(root, '/home/hero/a.txt');
+  a.ino = 1801;
+  hero.ino = 1802;
+  addChild(hero, 'b.txt', a, 2);
+  addChild(hero, 'p', { ...newSymlink('a.txt', meta), ino: 1803 }, 2);
+  const snap = snapshot(root).children.home.children.hero;
+  assert.equal(snap.ino, 1802);
+  assert.equal(snap.links, 2);
+  assert.deepEqual([snap.children['a.txt'].ino, snap.children['b.txt'].ino, snap.children['b.txt'].links], [1801, 1801, 2]);
+  assert.deepEqual(snap.children.p, { type: 'symlink', mode: 0o777, owner: 'root', group: 'root', size: 5, mtime: 1, ino: 1803, links: 1, target: 'a.txt' });
+});
+
+test('cloneNode gives the copies no inode number of their own yet', () => {
+  const original = lookup(tree(), '/home');
+  original.ino = 5;
+  assert.equal(cloneNode(original, 9).ino, undefined);
 });

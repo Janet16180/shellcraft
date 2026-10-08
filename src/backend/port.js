@@ -63,16 +63,28 @@
  */
 
 /**
- * A node of the observed tree. Directories have `children`, files `content`.
+ * A node of the observed tree. Directories have `children`, files `content`,
+ * symbolic links `target`.
+ *
+ * Each node is an inode. A file with several names (hard links) appears once
+ * under each name, every copy with the same `ino`; compare `ino` to tell
+ * whether two paths are one file. A symbolic link is not followed in the
+ * tree: it is its own node, and `target` is its text exactly as created (a
+ * relative target is read from the link's directory). `nodeAt` in tree.js
+ * follows links like the kernel; pass `{follow: false}` to get the link itself.
  *
  * @typedef {object} TreeNode
- * @property {'dir'|'file'} type
- * @property {number} mode Permission bits (0o755).
+ * @property {'dir'|'file'|'symlink'} type
+ * @property {number} mode Permission bits (0o755); always 0o777 for a symbolic link.
  * @property {string} owner
  * @property {string} group
- * @property {number} size Bytes for a file.
+ * @property {number} size Bytes for a file, 4096 for a directory, the bytes of the target text for a link.
  * @property {number} mtime Milliseconds since the epoch.
+ * @property {number} ino The inode number, as `ls -i` shows it. It stays with the node across renames.
+ * @property {number} links The link count, as `ls -l` shows it: a file's number of
+ *   names; 2 plus the number of subdirectories for a directory.
  * @property {string} [content]
+ * @property {string} [target] A symbolic link's target text.
  * @property {Record<string, TreeNode>} [children]
  */
 
