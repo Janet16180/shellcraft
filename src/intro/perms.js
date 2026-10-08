@@ -92,7 +92,7 @@ function personSVG(person, scale) {
 function question(cls, file) {
   const questions = {
     owner: `Is your user name <code>${esc(file.owner)}</code>?`,
-    group: `Is <code>${esc(file.group)}</code> one of your groups?`,
+    group: `Is the file's group <code>${esc(file.group)}</code> yours?`,
     other: 'Neither? Then you are everyone else.',
   };
   return questions[cls];
