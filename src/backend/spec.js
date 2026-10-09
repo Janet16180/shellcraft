@@ -7,7 +7,7 @@
  * a backend stores the world.
  */
 
-const OPS = new Set(['put', 'remove', 'proc', 'stop', 'cd']);
+const OPS = new Set(['put', 'remove', 'proc', 'stop', 'cd', 'login', 'password', 'endJobs']);
 const PLAYER_SHELL = 'shell';
 const MAX_MODE = 0o7777;
 
@@ -34,10 +34,35 @@ export function file(content = '', { mode = 0o644, owner = 'root', group = owner
 }
 
 /**
+ * Describe a symbolic link. The target text is kept exactly as given, like
+ * `ln -s TARGET NAME` keeps it: a relative target is read from the link's
+ * own directory each time the link is followed, and it may point at nothing.
+ * Like Linux, a link's mode is always 777.
+ *
+ * @param {string} target The path the link points at, absolute or relative.
+ * @param {{owner?: string, group?: string}} [opts] Ownership of the link itself.
+ * @returns {{type: 'symlink', target: string, mode: number, owner: string, group: string}} The node.
+ */
+export function symlink(target, { owner = 'root', group = owner } = {}) {
+  return { type: 'symlink', target, mode: 0o777, owner, group };
+}
+
+/**
+ * Describe a hard link: another name for the node already at an absolute
+ * path, like `ln TARGET NAME`. Both names then share one inode, its content,
+ * mode and owner. Use it only as the node a put() places (not inside dir()),
+ * after the target exists; the target may not be a directory.
+ *
+ * @param {string} target Absolute path of an existing file or symbolic link.
+ * @returns {{type: 'link', target: string}} The node.
+ */
+export const link = target => ({ type: 'link', target });
+
+/**
  * Create or replace the node at an absolute path. Its parent must exist.
  *
  * @param {string} path Absolute path.
- * @param {object} node A node built with dir() or file().
+ * @param {object} node A node built with dir(), file(), symlink() or link().
  * @returns {{op: 'put', path: string, node: object}} The operation.
  */
 export const put = (path, node) => ({ op: 'put', path, node });
@@ -76,10 +101,53 @@ export const stop = key => ({ op: 'stop', key });
  */
 export const cd = path => ({ op: 'cd', path });
 
+/**
+ * Log the player in again, as a new login would: the shell's groups become
+ * the ones /etc/passwd and /etc/group give the player now. Like on a real
+ * machine, editing /etc/group does not change a shell that is already
+ * running; a setup that adds the player to a group writes the file, then
+ * calls login(). The shell keeps its directory, variables and history.
+ *
+ * @returns {{op: 'login'}} The operation.
+ */
+export const login = () => ({ op: 'login' });
+
+/**
+ * Set the player's own password, the one `sudo` asks for, as `passwd` would.
+ * The machine keeps it outside the tree, so no file shows it (an /etc/shadow
+ * the world puts holds whatever hash it was given). `null` leaves the account
+ * without a password. Setting it also forgets any sudo timestamp.
+ *
+ * @param {string|null} text The password: non-empty text on one line, or null.
+ * @returns {{op: 'password', text: string|null}} The operation.
+ */
+export const password = text => ({ op: 'password', text });
+
+/**
+ * End every job of the player's shell, running or stopped, without a word:
+ * their processes go, the job table empties (no Done or Terminated notice
+ * follows), and the next job is %1. A boss room starts clean with it.
+ *
+ * @returns {{op: 'endJobs'}} The operation.
+ */
+export const endJobs = () => ({ op: 'endJobs' });
+
 function checkNode(node, where) {
+  if (node.type === 'link') throw new Error(`${where}: a hard link may only be the node a put places`);
+  if (node.type === 'symlink' && !node.target) throw new Error(`${where}: a symbolic link needs a target, not an empty one`);
   if (node.mode < 0 || node.mode > MAX_MODE) throw new Error(`${where}: mode ${node.mode} is outside 0 to 7777`);
   if (node.type !== 'dir') return;
   for (const [name, child] of Object.entries(node.children)) checkNode(child, `${where}/${name}`);
+}
+
+function checkPut({ path, node }) {
+  if (node.type !== 'link') checkNode(node, path);
+  else if (!node.target.startsWith('/')) throw new Error(`put ${path}: a hard link's target must be absolute, got ${node.target}`);
+}
+
+function checkPassword(text) {
+  const oneLine = typeof text === 'string' && text !== '' && !text.includes('\n');
+  if (text !== null && !oneLine) throw new Error(`password: give non-empty text on one line, or null, got ${JSON.stringify(text)}`);
 }
 
 // Linux's pid_max on 64-bit systems; PID 1 is init.
@@ -89,10 +157,11 @@ const validPid = pid => Number.isInteger(pid) && pid >= 2 && pid <= MAX_PID;
 function checkOp(op) {
   if (!OPS.has(op.op)) throw new Error(`unknown patch operation: ${op.op}`);
   if ('path' in op && !op.path.startsWith('/')) throw new Error(`${op.op}: path must be absolute, got ${op.path}`);
-  if (op.op === 'put') checkNode(op.node, op.path);
+  if (op.op === 'put') checkPut(op);
   if (op.op === 'proc' && !op.proc.key) throw new Error('proc: every process needs a key');
   if (op.op === 'proc' && !op.proc.cmd) throw new Error(`proc ${op.proc.key}: every process needs a cmd`);
   if (op.op === 'proc' && 'pid' in op.proc && !validPid(op.proc.pid)) throw new Error(`proc ${op.proc.key}: PID must be a whole number from 2 to ${MAX_PID}, got ${op.proc.pid}`);
+  if (op.op === 'password') checkPassword(op.text);
   const key = op.op === 'proc' ? op.proc.key : op.key;
   if (key === PLAYER_SHELL) throw new Error(`${op.op}: the key '${PLAYER_SHELL}' is reserved for the player's own shell`);
 }
@@ -104,8 +173,9 @@ function checkOp(op) {
  * @param {object[]} patch The operations, in the order they apply.
  * @returns {object[]} The same patch.
  * @throws {Error} If an operation is unknown, uses a relative path, has a mode
- *   outside 0 to 7777, describes a process without a key or a command or
- *   with a PID outside 2 to 4194304, or uses
+ *   outside 0 to 7777, has a symbolic link with an empty target or a hard
+ *   link that is not the node of a put or has a relative target, describes a process without a key or a command or
+ *   with a PID outside 2 to 4194304, sets a password that is empty, not text or has a newline, or uses
  *   the key 'shell', which belongs to the player's own shell.
  */
 export function validatePatch(patch) {

@@ -60,7 +60,8 @@ function clearedHTML() {
 /**
  * The Quest panel. In the quest: lesson, quest log, hints. In the boss room
  * the briefing comes first and the lesson folds away below; once cleared, the
- * way on comes first. The hints shown are the ones revealed for the next task,
+ * way on comes first. A chapter with an explainer gets a button to watch it
+ * again. The hints shown are the ones revealed for the next task,
  * or for the boss.
  *
  * @param {{chapter: object, hint: {level: number, cost: number}|null, hintLevels: number}} view The session View.
@@ -73,10 +74,12 @@ export function questHTML({ chapter, hint, hintLevels }) {
   let body = `<div class="lesson">${lesson}</div><ol class="quest-log" aria-label="Tasks">${tasks.map(taskRow).join('')}</ol>${hints}`;
   if (phase === 'boss') body = bossHTML(boss) + hints + lessonAgain;
   if (phase === 'done') body = clearedHTML() + lessonAgain;
+  const watch = chapter.explainer ? `<button class="px-btn small ghost explainer-btn" id="explainerBtn" type="button">Watch the explainer: ${esc(chapter.explainer.title)}</button>` : '';
   const replay = chapter.replay ? '<p class="replay">You cleared this chapter before, so replaying it pays no XP.</p>' : '';
   return `<div class="eyebrow">Chapter ${number} &middot; ${PHASE_TEXT[phase]}</div>
     <h2>${esc(title)}</h2>
     ${replay}
+    ${watch}
     ${body}`;
 }
 
@@ -106,17 +109,21 @@ function chapterRow({ id, number, title, status, current }) {
 
 /**
  * The Chapters panel, grouped by act. Locked and unwritten chapters are
- * disabled; the one you are in is marked as current.
+ * disabled; the one you are in is marked as current. Once the game is
+ * finished, a button at the end plays the ending again.
  *
  * @param {{id: string, number: number, act: number, title: string, status: string, current: boolean}[]} chapters From the View.
+ * @param {{ending?: boolean}} [opts] ending: the player may watch the ending again.
  * @returns {string} HTML.
  */
-export function chaptersHTML(chapters) {
+export function chaptersHTML(chapters, { ending = false } = {}) {
   const acts = [...new Set(chapters.map(c => c.act))];
-  return acts.map(act => {
+  const list = acts.map(act => {
     const rows = chapters.filter(c => c.act === act).map(chapterRow).join('');
     return `<h3 class="act">Act ${actName(act)}</h3><ul class="levels">${rows}</ul>`;
   }).join('');
+  const again = ending ? '<div class="ending-again"><button class="px-btn small" id="endingBtn" type="button">Watch the ending</button></div>' : '';
+  return list + again;
 }
 
 /**

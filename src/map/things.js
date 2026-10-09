@@ -3,10 +3,11 @@
  * "+N" markers, the hero, the Shadow Daemon and particles.
  */
 
-import { GEMS, INK, TOON, DAEMON } from './palette.js';
+import { GEMS, INK, TOON, DAEMON, PEOPLE, BROKEN_PORTAL } from './palette.js';
 import { SPRITES } from './sprites.js';
 import { itemKind } from './room.js';
 import { box, drawSprite } from './paint.js';
+import { twinRune } from './twins.js';
 
 const ITEM_SCALE = 2;
 
@@ -31,6 +32,44 @@ export function padlockDoor(ctx, { x, y, w, h }) {
   drawSprite(ctx, SPRITES.padlock, x + w / 2 - 7, y + h / 2 - 8, { scale: 2 });
 }
 
+const QUERY = ['.lll.', 'l...l', '....l', '..ll.', '..l..', '.....', '..l..'];
+
+/**
+ * Show a door the player may enter but not list (x without r): it stands ajar
+ * on darkness, with a question mark where the room should be.
+ *
+ * @param {CanvasRenderingContext2D} ctx The art canvas.
+ * @param {{x: number, y: number, w: number, h: number}} door The door box.
+ * @param {string} leaf Colour of the door leaf, swung open against the frame.
+ */
+export function darkDoor(ctx, { x, y, w, h }, leaf) {
+  box(ctx, INK.k, x + 1, y + 2, w - 2, h - 2);
+  box(ctx, leaf, x + 1, y + 2, 4, h - 2);
+  box(ctx, 'rgba(0, 0, 0, 0.4)', x + 4, y + 2, 1, h - 2);
+  const left = x + Math.round(w / 2) - 3;
+  const top = y + Math.round(h / 2) - 7;
+  QUERY.forEach((row, r) => [...row].forEach((ch, c) => {
+    if (ch === 'l') box(ctx, INK.l, left + c * 2 - 1, top + r * 2, 2, 2);
+  }));
+}
+
+/**
+ * Draw a person of the realm (the hero's sprite in their colours) standing
+ * beside the door of their home.
+ *
+ * @param {CanvasRenderingContext2D} ctx The art canvas.
+ * @param {{x: number, y: number, w: number, h: number}} door The door box.
+ * @param {string} name A key of PEOPLE.
+ * @param {number} t Animation clock in ms.
+ */
+export function drawResident(ctx, { x, y, w, h }, name, t) {
+  const left = x + w - 2;
+  const top = y + h - 16 + Math.round(Math.sin(t / 340 + x) * 0.6);
+  box(ctx, 'rgba(0, 0, 0, 0.3)', left + 2, top + 23, 16, 3);
+  drawSprite(ctx, SPRITES.player, left, top, { scale: 2, colours: PEOPLE[name] });
+  drawSprite(ctx, SPRITES.legs[0], left, top + 22, { scale: 2 });
+}
+
 function chainItem(ctx, x, y) {
   chain(ctx, x - 3, y + 10, x + 17, y + 4);
   drawSprite(ctx, SPRITES.padlock, x + 10, y + 8);
@@ -47,13 +86,18 @@ function sprite(kind, item, t) {
     book: [SPRITES.book],
     void: [SPRITES.void],
     scroll: [SPRITES.scroll],
+    chest: [SPRITES.packed],
+    strapped: [SPRITES.strapped],
+    bundle: [SPRITES.bundle],
   };
   return choices[kind];
 }
 
 /**
  * Draw an item: its sprite bobbing gently, a glow under anything the player
- * may run, a twinkle on hidden files, chains on anything they may not read.
+ * may run, a twinkle on hidden files, a wax seal in its owner's colour when a
+ * person of the realm owns it, a rune shared by the names of one file (hard
+ * links), chains on anything they may not read.
  *
  * @param {CanvasRenderingContext2D} ctx The art canvas.
  * @param {import('./layout.js').Placed} item The item.
@@ -62,6 +106,10 @@ function sprite(kind, item, t) {
  * @param {number} i Index, to desynchronize the bobbing.
  */
 export function drawItem(ctx, item, biome, t, i) {
+  if (itemKind(item, biome) === 'portal') {
+    drawPortal(ctx, item, t, i);
+    return;
+  }
   const bob = Math.round(Math.sin(t / 450 + i) * 1.2);
   const x = item.x;
   const y = item.y + bob;
@@ -72,7 +120,48 @@ export function drawItem(ctx, item, biome, t, i) {
     box(ctx, INK.w, x + 14, y - 2, 1, 3);
     box(ctx, INK.w, x + 13, y - 1, 3, 1);
   }
+  if (Object.hasOwn(PEOPLE, item.owner ?? '')) seal(ctx, x, y + 11, PEOPLE[item.owner].h);
+  if (item.twin !== null && item.twin !== undefined) rune(ctx, x + 12, y - 3, twinRune(item.twin));
   if (item.locked) chainItem(ctx, x, y);
+}
+
+// A small rune stone at the item's top right: names of one file share it.
+function rune(ctx, x, y, { colour, glyph }) {
+  box(ctx, INK.k, x - 1, y - 1, 9, 9);
+  box(ctx, INK.n, x, y, 7, 7);
+  glyph.forEach((row, gy) => [...row].forEach((bit, gx) => { if (bit === '1') box(ctx, colour, x + 1 + gx, y + 1 + gy, 1, 1); }));
+}
+
+const CRACK = [[5, 3], [6, 5], [7, 6], [7, 8], [6, 9], [7, 11], [8, 12], [8, 14], [7, 16]];
+
+/**
+ * Draw a symbolic link as a portal standing on the floor: a swirling purple
+ * one, or, when it leads nowhere, a cold grey one with a red crack.
+ *
+ * @param {CanvasRenderingContext2D} ctx The art canvas.
+ * @param {{x: number, y: number, hidden: boolean, dangling: boolean}} item The placed link.
+ * @param {number} t Animation clock in ms (frozen at 0 with reduced motion).
+ * @param {number} i Index, to desynchronize the swirls.
+ */
+export function drawPortal(ctx, { x, y, hidden, dangling }, t, i) {
+  const left = x + 1;
+  const top = y - 4;
+  const alpha = hidden ? 0.6 : 1;
+  const glow = dangling ? 'rgba(226, 67, 79, 0.18)' : `rgba(199, 146, 255, ${0.22 + 0.12 * Math.sin(t / 300 + i)})`;
+  box(ctx, glow, left - 2, top + 18, 18, 3);
+  box(ctx, glow, left, top + 20, 14, 1);
+  const frames = SPRITES.portal;
+  const frame = dangling ? frames[0] : frames[(Math.floor(t / 200) + i) % frames.length];
+  drawSprite(ctx, frame, left, top, { alpha, colours: dangling ? BROKEN_PORTAL : undefined });
+  if (dangling) CRACK.forEach(([cx, cy]) => box(ctx, INK.e, left + cx, top + cy, 1, 1));
+  else if (Math.sin(t / 260 + i * 3) > 0.7) box(ctx, INK.w, left + 12, top + 2, 1, 1);
+}
+
+function seal(ctx, x, y, colour) {
+  box(ctx, INK.k, x - 1, y, 6, 4);
+  box(ctx, INK.k, x, y - 1, 4, 6);
+  box(ctx, colour, x, y, 4, 4);
+  box(ctx, 'rgba(255, 255, 255, 0.5)', x, y, 1, 1);
 }
 
 /**

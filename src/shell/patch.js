@@ -3,10 +3,11 @@
  */
 
 import { validatePatch } from '../backend/spec.js';
-import { lookup, fromSpec, insert, detach, depthOf, heightOf, MAX_TREE_DEPTH } from './fs.js';
-import { parentOf } from '../backend/tree.js';
+import { lookup, fromSpec, insert, detach, addChild, depthOf, heightOf, MAX_TREE_DEPTH } from './fs.js';
+import { parentOf, baseName } from '../backend/tree.js';
 import { allocPid, makeProc, TERMINAL } from './system.js';
 import { parseSignal, signalName } from '../backend/signals.js';
+import { loginGids } from './accounts.js';
 
 const SYSTEM_PATHS = ['/usr/bin', '/dev/null'];
 
@@ -37,10 +38,31 @@ function startProc(sys, spec) {
   }));
 }
 
+// A hard link adds a name for an existing node; only the directory it lands in changes.
+function putLink(sys, path, target) {
+  const node = lookup(sys.root, target, { follow: false });
+  const parent = lookup(sys.root, parentOf(path));
+  if (!node) throw new Error(`put ${path}: no such file to link to: ${target}`);
+  if (node.type === 'dir') throw new Error(`put ${path}: a hard link to a directory is not allowed: ${target}`);
+  if (parent?.type !== 'dir') throw new Error(`cannot place ${path}: ${parentOf(path)} is not a directory`);
+  addChild(parent, baseName(path), node, sys.now());
+}
+
 function putNode(sys, path, spec) {
+  if (spec.type === 'link') return putLink(sys, path, spec.target);
   if (depthOf(path) + heightOf(spec) - 1 > MAX_TREE_DEPTH) throw new Error(`put ${path}: the tree would grow deeper than ${MAX_TREE_DEPTH} levels`);
   insert(sys.root, path, fromSpec(spec, sys.now()));
 }
+
+const ACCOUNT_OPS = {
+  login: sys => { sys.gids = loginGids(sys); },
+  password: (sys, op) => Object.assign(sys, { password: op.text, sudoStamp: null }),
+  endJobs: sys => {
+    const pids = sys.jobs.map(j => j.pid);
+    sys.procs = sys.procs.filter(p => !pids.includes(p.pid));
+    Object.assign(sys, { jobs: [], jobMarks: { current: null, previous: null } });
+  },
+};
 
 function applyOp(sys, op) {
   if ((op.op === 'put' || op.op === 'remove') && touchesSystem(op.path)) {
@@ -52,6 +74,7 @@ function applyOp(sys, op) {
   if (op.op === 'remove') detach(sys.root, op.path, sys.now());
   if (op.op === 'proc') startProc(sys, op.proc);
   if (op.op === 'stop') sys.procs = sys.procs.filter(p => p.key !== op.key);
+  ACCOUNT_OPS[op.op]?.(sys, op);
   if (op.op === 'cd' && op.path !== sys.cwd) {
     sys.oldpwd = sys.cwd;
     sys.cwd = op.path;
@@ -66,7 +89,7 @@ function applyOp(sys, op) {
  * @param {object[]} patch Operations built with src/backend/spec.js.
  * @returns {void}
  * @throws {Error} If the patch is malformed, a parent is missing, a cd target
- *   is not a directory, a signal name is unknown, an operation touches /usr/bin
+ *   is not a directory, a hard link's target is missing or a directory, a signal name is unknown, an operation touches /usr/bin
  *   or /dev, or a put would make the tree deeper than MAX_TREE_DEPTH.
  */
 export function applyPatch(sys, patch) {

@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { biomeFor, BIOMES } from '../../src/map/biomes.js';
+import { biomeFor, placeOf, BIOMES } from '../../src/map/biomes.js';
+import { symlink } from '../../src/backend/spec.js';
+import { sampleTree, observe } from './fixtures.js';
 
 const HOME = '/home/hero';
 const at = path => biomeFor(path, HOME).biome;
@@ -86,4 +88,76 @@ test('every biome has a realm and a name', () => {
 test('a relative path is a bug and raises', () => {
   assert.throws(() => biomeFor('forest', HOME), /absolute/);
   assert.throws(() => biomeFor('/etc', '~'), /absolute/);
+});
+
+test('the guild wing under /srv has a hall, and an archive room of its own', () => {
+  assert.equal(at('/srv'), 'services');
+  assert.equal(at('/srv/guild'), 'guildhall');
+  assert.equal(at('/srv/guild/archive'), 'guildarchive');
+  assert.equal(at('/srv/guild/archive/old'), 'guildarchive');
+  assert.equal(biomeFor('/srv/guild', HOME).name, 'Guild Hall');
+  assert.equal(biomeFor('/srv/guild', HOME).realm, 'dungeon');
+});
+
+test('the homes of the other people are their quarters', () => {
+  for (const name of ['mira', 'oren', 'tamsin']) assert.equal(at(`/home/${name}`), 'quarters');
+});
+
+test('the act III areas at home: the guild outpost, and the common hall with its rooms', () => {
+  assert.equal(at(`${HOME}/guild`), 'outpost');
+  assert.equal(at(`${HOME}/hall`), 'commons');
+  assert.equal(at(`${HOME}/hall/room_k4m`), 'commons');
+  assert.equal(at(`${HOME}/hall/vault`), 'strongroom');
+  assert.equal(at(`${HOME}/hall/archive`), 'records');
+  assert.equal(at(`${HOME}/hall/shared`), 'shared');
+  for (const area of ['guild', 'hall', 'hall/vault', 'hall/archive', 'hall/shared']) {
+    assert.equal(biomeFor(`${HOME}/${area}`, HOME).realm, 'overworld', area);
+  }
+  assert.equal(biomeFor(`${HOME}/hall`, HOME).name, 'Common Hall');
+});
+
+test('a place reached through a link is named for where it really is', () => {
+  const tree = sampleTree();
+  tree.children.home.children.hero.children.portal = symlink('/home/hero/forest/cave/deep', { owner: 'hero' });
+  tree.children.home.children.hero.children.down = symlink('/etc', { owner: 'hero' });
+  assert.deepEqual(placeOf(observe('/home/hero/portal', { tree })), { realm: 'overworld', biome: 'cave', name: 'Dark Cave' });
+  assert.equal(placeOf(observe('/home/hero/down', { tree })).realm, 'dungeon');
+  assert.equal(placeOf(observe('/home/hero', { tree })).biome, 'cottage');
+});
+
+test('chapter 18\'s crown room at home is the steward\'s throne room', () => {
+  assert.equal(at(`${HOME}/crown`), 'throne');
+  assert.deepEqual(biomeFor(`${HOME}/crown`, HOME), { realm: 'overworld', biome: 'throne', name: 'Throne Room' });
+});
+
+test('each guild service under /srv has a room of its own, and an unknown one is the service wing', () => {
+  const rooms = { mill: 'The Mill', bakery: 'The Bakery', stables: 'The Stables', lighthouse: 'The Lighthouse', granary: 'The Granary' };
+  for (const [service, name] of Object.entries(rooms)) {
+    assert.deepEqual(biomeFor(`/srv/${service}`, HOME), { realm: 'dungeon', biome: service, name }, service);
+    assert.equal(at(`/srv/${service}/old`), service);
+  }
+  assert.equal(at('/srv/forge'), 'services');
+  assert.equal(at('/srv'), 'services');
+});
+
+test('chapters 17 and 19 have their areas at home: the hall of portals, the maze with its vaults, the scribe\'s study', () => {
+  const areas = { portals: ['portals', 'Hall of Portals'], maze: ['maze', 'Portal Maze'], 'maze/vaults/vault_k4m': ['maze', 'Portal Maze'], memory: ['study', "Scribe's Study"] };
+  for (const [area, [biome, name]] of Object.entries(areas)) {
+    assert.deepEqual(biomeFor(`${HOME}/${area}`, HOME), { realm: 'overworld', biome, name }, area);
+  }
+});
+
+test('chapter 20\'s workshop at home is the busy smithy, and /usr stays the dungeon workshop', () => {
+  assert.deepEqual(biomeFor(`${HOME}/workshop`, HOME), { realm: 'overworld', biome: 'smithy', name: 'Busy Workshop' });
+  assert.equal(at(`${HOME}/workshop/bench`), 'smithy');
+  assert.equal(at('/usr'), 'workshop');
+  assert.equal(at(`${HOME}/workshops`), 'cottage');
+});
+
+test('chapter 21\'s travel camp at home is the departure camp, and its unpacked room the spilled chest', () => {
+  assert.deepEqual(biomeFor(`${HOME}/travel`, HOME), { realm: 'overworld', biome: 'departure', name: 'Travel Camp' });
+  assert.deepEqual(biomeFor(`${HOME}/travel/unpacked`, HOME), { realm: 'overworld', biome: 'unpacked', name: 'Unpacked Chest' });
+  assert.equal(at(`${HOME}/travel/unpacked/library`), 'unpacked');
+  assert.equal(at(`${HOME}/travel/bags`), 'departure');
+  assert.equal(at(`${HOME}/travels`), 'cottage');
 });

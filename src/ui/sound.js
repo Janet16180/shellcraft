@@ -16,7 +16,11 @@ const SFX = {
   discover: [1047, 1319, 1568, 2093].map((f, i) => [f, 0.09, 'triangle', 0.04, i * 0.06]),
   create: [[523, 0.06, 'square', 0.03, 0], [784, 0.08, 'square', 0.03, 0.05]],
   remove: [[330, 0.06, 'square', 0.03, 0], [196, 0.1, 'square', 0.03, 0.05]],
+  page: [[587, 0.05, 'triangle', 0.03, 0], [784, 0.08, 'triangle', 0.025, 0.05]],
 };
+
+/** The names of every sound effect. */
+export const SOUND_NAMES = Object.freeze(Object.keys(SFX));
 
 /**
  * Create the sound player. Browsers only allow audio after the player has

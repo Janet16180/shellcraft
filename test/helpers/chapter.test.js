@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { assertChapter, assertChapterList } from './chapter.js';
+import { assertChapter, assertChapterList, assertExplainer, sentenceCount } from './chapter.js';
 import { fixtureChapters } from './fixture-chapters.js';
 
 const playable = () => fixtureChapters()[0];
@@ -115,4 +115,40 @@ test('a chapter list with a repeated id or a soon first chapter is rejected', ()
   assert.doesNotThrow(() => assertChapterList(fixtureChapters()));
   assert.throws(() => assertChapterList([a, { ...b, id: 'awakening' }]), /unique/);
   assert.throws(() => assertChapterList([{ id: 'x', act: 1, title: 'X', soon: true }, a]), /first chapter/);
+});
+
+const explainer = () => ({
+  id: 'signs',
+  title: 'Signs',
+  draw: () => '<div></div>',
+  steps: [{ title: 'One', text: ['A sign points at a file. Read <code>a.txt</code> with <code>cat</code>.'], diagram: {}, term: [{ type: 'cat a.txt', output: ['hi'] }] }],
+});
+
+test('a chapter may declare an explainer that follows the contract', () => {
+  assert.doesNotThrow(() => assertChapter({ ...playable(), explainer: explainer() }));
+});
+
+test('an explainer caption longer than three sentences is rejected and named', () => {
+  const long = explainer();
+  long.steps[0].text.push('One. Two.');
+  assert.throws(() => assertExplainer(long), /step 1: the caption has 4 sentences/);
+});
+
+test('an explainer step without a diagram, or with an unknown sound, is rejected', () => {
+  const bare = explainer();
+  delete bare.steps[0].diagram;
+  assert.throws(() => assertExplainer(bare), /needs a diagram/);
+  const loud = explainer();
+  loud.steps[0].sound = 'trumpet';
+  assert.throws(() => assertExplainer(loud), /sound must be one of/);
+});
+
+test('dots inside code do not end a sentence', () => {
+  assert.equal(sentenceCount('Run <code>ls -l a.txt</code>. Then read <code>b.txt</code>.'), 2);
+});
+
+test('an explainer draw that raises fails the check', () => {
+  const broken = explainer();
+  broken.draw = () => { throw new Error('no drawing called pie'); };
+  assert.throws(() => assertExplainer(broken), /pie/);
 });

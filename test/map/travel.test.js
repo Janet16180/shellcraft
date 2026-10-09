@@ -31,3 +31,18 @@ test('moving within the dungeon keeps the plain transitions', () => {
 test('staying put is a bug and raises', () => {
   assert.throws(() => planTravel('/etc', '/etc', HOME), /same/);
 });
+
+test('stepping into a portal (a link in the room) walks to it and comes out in the middle of where it leads', () => {
+  const portal = { realTo: `${HOME}/forest/cave/deep`, portal: true };
+  assert.deepEqual(planTravel(HOME, `${HOME}/portal`, HOME, portal), { approach: 'portal', transition: 'portal', arrive: 'center' });
+});
+
+test('the realm is decided by where a path really leads, through any link', () => {
+  assert.equal(planTravel(HOME, `${HOME}/etc`, HOME, { realTo: '/etc', portal: true }).transition, 'descend');
+  assert.equal(planTravel(`${HOME}/forest`, `${HOME}/etc`, HOME, { realTo: '/etc' }).transition, 'descend');
+  assert.equal(planTravel(`${HOME}/etc`, `${HOME}/forest`, HOME, { realFrom: '/etc' }).transition, 'climb');
+});
+
+test('going back up out of a linked room arrives at the portal you came through', () => {
+  assert.deepEqual(planTravel(`${HOME}/portal`, HOME, HOME, { realFrom: `${HOME}/forest/cave/deep` }), { approach: 'exit', transition: 'fade', arrive: 'door' });
+});

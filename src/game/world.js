@@ -7,7 +7,8 @@
  * Ubuntu 24.04 server running rsyslog, cron and sshd. The backend owns /usr
  * and /dev, so they are not described here.
  */
-import { put, cd, dir, file } from '../backend/spec.js';
+import { put, cd, login, dir, file } from '../backend/spec.js';
+import { UBUNTU_SUDOERS, SUDOERS_README } from '../backend/sudoers.js';
 
 const SCROLL = [
   'THE SCROLL OF AGES', '==================',
@@ -77,6 +78,45 @@ const BASHRC = `# ~/.bashrc: executed by bash(1) for non-login shells.
 alias ll='ls -alF'
 alias la='ls -A'
 export EDITOR=nano
+`;
+
+// Ubuntu 24.04's /etc/skel/.profile and .bash_logout, as the bash package ships them.
+const PROFILE = `# ~/.profile: executed by the command interpreter for login shells.
+# This file is not read by bash(1), if ~/.bash_profile or ~/.bash_login
+# exists.
+# see /usr/share/doc/bash/examples/startup-files for examples.
+# the files are located in the bash-doc package.
+
+# the default umask is set in /etc/profile; for setting the umask
+# for ssh logins, install and configure the libpam-umask package.
+#umask 022
+
+# if running bash
+if [ -n "$BASH_VERSION" ]; then
+    # include .bashrc if it exists
+    if [ -f "$HOME/.bashrc" ]; then
+\t. "$HOME/.bashrc"
+    fi
+fi
+
+# set PATH so it includes user's private bin if it exists
+if [ -d "$HOME/bin" ] ; then
+    PATH="$HOME/bin:$PATH"
+fi
+
+# set PATH so it includes user's private bin if it exists
+if [ -d "$HOME/.local/bin" ] ; then
+    PATH="$HOME/.local/bin:$PATH"
+fi
+`;
+
+const BASH_LOGOUT = `# ~/.bash_logout: executed by bash(1) when login shell exits.
+
+# when leaving the console clear the screen to increase privacy
+
+if [ "$SHLVL" = 1 ]; then
+    [ -x /usr/bin/clear_console ] && /usr/bin/clear_console -q
+fi
 `;
 
 const KEY = `    ,o.
@@ -174,7 +214,7 @@ syslog:x:101:102::/nonexistent:/usr/sbin/nologin
 sshd:x:102:65534::/run/sshd:/usr/sbin/nologin
 `;
 
-const groups = user => `root:x:0:
+const groups = (user, sudoers = []) => `root:x:0:
 daemon:x:1:
 bin:x:2:
 sys:x:3:
@@ -194,7 +234,7 @@ voice:x:22:
 cdrom:x:24:
 floppy:x:25:
 tape:x:26:
-sudo:x:27:
+sudo:x:27:${sudoers.join(',')}
 audio:x:29:
 dip:x:30:
 www-data:x:33:
@@ -332,8 +372,98 @@ function etc({ home, user, host }) {
     hosts: file(hosts(host)),
     motd: file(motd(home, host)),
     'os-release': file(OS_RELEASE),
-    passwd: file(`${SYSTEM_USERS}${user}:x:1000:1000:${capitalize(user)},,,:${home}:/bin/bash\n`),
+    passwd: file(passwdText({ home, user })),
+    shadow: shadowFile(passwdText({ home, user })),
+    // What useradd copies into a new home; cp /etc/skel/.bashrc ~ repairs a broken one.
+    skel: dir({ '.bashrc': file(BASHRC), '.profile': file(PROFILE), '.bash_logout': file(BASH_LOGOUT) }),
+    sudoers: file(UBUNTU_SUDOERS, { mode: 0o440 }),
+    'sudoers.d': dir({ README: file(SUDOERS_README, { mode: 0o440 }) }),
   });
+}
+
+// The day the machine was installed, in days since 1970, as shadow counts.
+const INSTALLED_DAY = 20713;
+const HASH_ALPHABET = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+// A yescrypt-shaped hash made from the name alone: it looks real and hides
+// nothing, because the password never reaches a file.
+function madeUpHash(name) {
+  let seed = [...name].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261);
+  const chars = n => Array.from({ length: n }, () => {
+    seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+    return HASH_ALPHABET[(seed >>> 16) % HASH_ALPHABET.length];
+  }).join('');
+  return `$y$j9T$${chars(22)}$${chars(43)}`;
+}
+
+// People (uid 1000 up) get a hash; system accounts have none (*).
+function shadowFile(passwd) {
+  const lines = fieldsOf(passwd).map(([name, , uid]) => {
+    const person = Number(uid) >= 1000 && Number(uid) < 65534;
+    return `${name}:${person ? madeUpHash(name) : '*'}:${INSTALLED_DAY}:0:99999:7:::\n`;
+  });
+  return file(lines.join(''), { mode: 0o640, group: 'shadow' });
+}
+
+const passwdLine = (name, uid, gid, home) => `${name}:x:${uid}:${gid}:${capitalize(name)},,,:${home}:/bin/bash\n`;
+const passwdText = ({ home, user }) => `${SYSTEM_USERS}${passwdLine(user, 1000, 1000, home)}`;
+const fieldsOf = text => text.trim().split('\n').map(line => line.split(':'));
+
+function checkFree(kind, taken, name, id) {
+  if (taken.some(f => f[0] === name || f[2] === String(id))) throw new Error(`${kind} ${name} (${id}): the name or the id is taken`);
+}
+
+function newGroupLines(player, groupList) {
+  const base = fieldsOf(groups(player.user));
+  const lines = [];
+  for (const g of groupList) {
+    checkFree('group', [...base, ...fieldsOf(lines.join(''))], g.name, g.gid);
+    lines.push(`${g.name}:x:${g.gid}:${(g.members ?? []).join(',')}\n`);
+  }
+  return lines;
+}
+
+function newPasswdLines(player, userList, gidOf) {
+  const base = fieldsOf(passwdText(player));
+  const lines = [];
+  for (const u of userList) {
+    checkFree('user', [...base, ...fieldsOf(lines.join(''))], u.name, u.uid);
+    if (gidOf[u.group] === undefined) throw new Error(`user ${u.name}: unknown group ${u.group}`);
+    lines.push(passwdLine(u.name, u.uid, gidOf[u.group], u.home ?? `/home/${u.name}`));
+  }
+  return lines;
+}
+
+/**
+ * Write /etc/passwd, /etc/group and /etc/shadow with the base world's
+ * accounts plus new users and groups. Follow it with login() from spec.js
+ * when the player joins a group, so the running shell gets it, as a real
+ * login would. Homes are not created; put them in the same setup if the
+ * chapter needs them. /etc/shadow gets a made-up hash for each person; the
+ * player's real password is set with password() from spec.js.
+ *
+ * @param {{home: string, user: string}} player The player's user name and home.
+ * @param {{users?: {name: string, uid: number, group: string, home?: string}[], groups?: {name: string, gid: number, members?: string[]}[], sudo?: string[]}} added
+ *   New users (primary group by name, home /home/NAME unless given), new
+ *   groups (members by user name, the player included), and the users to put
+ *   in the existing group sudo, whom Ubuntu's /etc/sudoers lets run anything as root.
+ * @returns {object[]} The patch: put /etc/passwd, put /etc/group, put /etc/shadow.
+ * @throws {Error} If home is not /home/USER, a name or id is taken, a primary
+ *   group or a member is unknown.
+ */
+export function accounts(player, { users = [], groups: groupList = [], sudo = [] } = {}) {
+  checkPlayer(player);
+  const groupLines = newGroupLines(player, groupList);
+  const gidOf = Object.fromEntries(fieldsOf(groups(player.user) + groupLines.join('')).map(f => [f[0], Number(f[2])]));
+  const passwd = passwdText(player) + newPasswdLines(player, users, gidOf).join('');
+  const names = new Set(fieldsOf(passwd).map(f => f[0]));
+  const stranger = [...groupList.flatMap(g => g.members ?? []), ...sudo].find(m => !names.has(m));
+  if (stranger !== undefined) throw new Error(`group member ${stranger} is not a user`);
+  return [
+    put('/etc/passwd', file(passwd)),
+    put('/etc/group', file(groups(player.user, sudo) + groupLines.join(''))),
+    put('/etc/shadow', shadowFile(passwd)),
+  ];
 }
 
 function varLog({ home, host }) {
@@ -361,8 +491,8 @@ export const HOME_NAMES = Object.keys(HOME_ENTRIES);
 
 /**
  * The whole starting world: the dungeon outside home and the overworld inside
- * it. Loading it replaces /etc, /home, /root, /tmp and /var, then puts the
- * player at home.
+ * it. Loading it replaces /etc, /home, /root, /tmp and /var, logs the player
+ * in again (the groups of the new /etc/group), then puts the player at home.
  *
  * @param {{home: string, user: string, host: string}} player The player's user name, home and machine name.
  * @returns {object[]} The patch.
@@ -377,6 +507,7 @@ export function baseWorld(player) {
     put('/root', dir({}, { mode: 0o700 })),
     put('/tmp', dir({}, { mode: 0o1777 })),
     put('/var', dir({ log: varLog(player) })),
+    login(),
     cd(player.home),
   ];
 }

@@ -28,12 +28,12 @@ export function initialVars({ user, home, host }) {
  * Look up a variable or special parameter as `$name` expands it.
  *
  * @param {object} sys The machine state.
- * @param {string} name A variable name, a positional parameter number, or one of `? $ # 0 @ * -`.
+ * @param {string} name A variable name, a positional parameter number, or one of `? $ # 0 @ * - !`.
  * @returns {string} Its value, or '' when unset.
  */
 export function varValue(sys, name) {
   const { zero, args } = sys.positional;
-  const special = nameTable({ '?': String(sys.lastStatus), $: String(sys.shellPid), '#': String(args.length), 0: zero, '-': sys.flags, '@': args.join(' '), '*': args.join(' ') });
+  const special = nameTable({ '?': String(sys.lastStatus), $: String(sys.shellPid), '#': String(args.length), 0: zero, '-': sys.flags, '!': sys.lastBackground === null ? '' : String(sys.lastBackground), '@': args.join(' '), '*': args.join(' ') });
   const positional = /^[1-9][0-9]*$/.test(name) ? args[Number(name) - 1] ?? '' : null;
   return special[name] ?? positional ?? sys.vars[name]?.value ?? '';
 }

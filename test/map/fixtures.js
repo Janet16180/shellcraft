@@ -49,12 +49,12 @@ export function sampleTree() {
  * An Observation of the sample world (or a given tree) from one directory.
  *
  * @param {string} cwd Absolute working directory.
- * @param {{tree?: object, user?: string, procs?: object[]}} [opts] Overrides.
+ * @param {{tree?: object, user?: string, procs?: object[], jobs?: object[]}} [opts] Overrides.
  * @returns {object} The observation.
  */
-export function observe(cwd, { tree = sampleTree(), user = 'hero', procs = [] } = {}) {
+export function observe(cwd, { tree = sampleTree(), user = 'hero', procs = [], jobs = [] } = {}) {
   const home = user === 'root' ? '/root' : `/home/${user}`;
-  return { user, groups: [user], host: 'kernelia', home, cwd, tree, procs };
+  return { user, groups: [user], host: 'kernelia', home, cwd, tree, procs, jobs };
 }
 
 /**

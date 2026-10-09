@@ -69,6 +69,17 @@ test('type says a program is hashed after it has run', async () => {
   assert.equal((await run(b, 'type ls')).out, 'ls is hashed (/usr/bin/ls)\n');
 });
 
+test('shopt shows and sets expand_aliases, which is on at the prompt and off in a script', async () => {
+  const b = await shell();
+  assert.deepEqual(await run(b, 'shopt expand_aliases').then(r => [r.out, r.status]), ['expand_aliases \ton\n', 0]);
+  assert.equal((await run(b, 'bash -c "shopt expand_aliases; shopt -p expand_aliases; shopt -s expand_aliases; shopt -q expand_aliases; echo $?"')).out,
+    'expand_aliases \toff\nshopt -u expand_aliases\n0\n');
+  const bad = await run(b, 'shopt -s nope');
+  assert.deepEqual([bad.err, bad.status], ['bash: shopt: nope: invalid shell option name\n', 1]);
+  const other = await run(b, 'shopt -s dotglob');
+  assert.deepEqual([other.status, /expand_aliases/.test(other.note)], [1, true]);
+});
+
 test('unalias removes an alias', async () => {
   const b = await shell();
   await run(b, 'unalias ll');

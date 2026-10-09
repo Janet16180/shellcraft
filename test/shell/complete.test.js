@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell } from './helpers.js';
-import { put, file } from '../../src/backend/spec.js';
+import { put, file, dir, symlink } from '../../src/backend/spec.js';
 
 test('a first word completes to a command name', async () => {
   const b = await shell();
@@ -54,4 +54,20 @@ test('completion finds files named like object members', async () => {
   assert.deepEqual(await b.complete('cat cons'), { line: 'cat constructor ', candidates: [] });
   assert.deepEqual(await b.complete('cat __p'), { line: 'cat __proto__ ', candidates: [] });
   assert.deepEqual((await b.complete('constr')).line, 'constr');
+});
+
+test('a link to a directory completes without a slash, then a second Tab adds one', async () => {
+  const b = await shell([put('/home/hero/portal', symlink('forest', { owner: 'hero' }))]);
+  assert.deepEqual(await b.complete('cd por'), { line: 'cd portal', candidates: [] });
+  assert.deepEqual(await b.complete('cd portal'), { line: 'cd portal/', candidates: [] });
+});
+
+test('completion reads a directory through a link and lists a link to a directory with a slash', async () => {
+  const b = await shell([
+    put('/home/hero/portal', symlink('forest', { owner: 'hero' })),
+    put('/home/hero/forest/pond', symlink('cave', { owner: 'hero' })),
+    put('/home/hero/forest/place', dir({}, { owner: 'hero' })),
+  ]);
+  assert.deepEqual(await b.complete('cat portal/mu'), { line: 'cat portal/mushroom.txt ', candidates: [] });
+  assert.deepEqual(await b.complete('cd portal/p'), { line: 'cd portal/p', candidates: ['place/', 'pond/'] });
 });

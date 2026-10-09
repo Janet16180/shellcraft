@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run } from '../helpers.js';
-import { put, file, dir } from '../../../src/backend/spec.js';
+import { put, file, dir, symlink, link } from '../../../src/backend/spec.js';
 
 const status = async (b, line) => (await run(b, line)).status;
 const both = async (b, line) => { const r = await run(b, line); return [r.err, r.status]; };
@@ -67,4 +67,21 @@ test('[ needs a closing ] and then works like test', async () => {
   assert.equal(await status(b, '[ ]'), 1);
   assert.equal((await run(b, 'if [ -d box ]; then echo dir; fi')).out, 'dir\n');
   assert.equal((await run(b, 'type test [')).out, 'test is a shell builtin\n[ is a shell builtin\n');
+});
+
+test('test -L and -h see a link itself; the other tests look where it leads', async () => {
+  const b = await shell([
+    put('/home/hero/portal', symlink('forest', { owner: 'hero' })),
+    put('/home/hero/broken', symlink('nowhere', { owner: 'hero' })),
+    put('/home/hero/copy', link('/home/hero/readme.txt')),
+  ]);
+  assert.equal(await status(b, 'test -L portal'), 0);
+  assert.equal(await status(b, '[ -h broken ]'), 0);
+  assert.equal(await status(b, 'test -L readme.txt'), 1);
+  assert.equal(await status(b, 'test -L nope'), 1);
+  assert.equal(await status(b, 'test -e broken'), 1);
+  assert.equal(await status(b, 'test -d portal'), 0);
+  assert.equal(await status(b, 'test -f copy'), 0);
+  assert.equal(await status(b, 'test copy -ef readme.txt'), 0);
+  assert.equal(await status(b, 'test portal -ef forest'), 0);
 });

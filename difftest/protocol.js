@@ -50,3 +50,32 @@ export function splitOutput(stdout, stderr, count) {
   }
   return results;
 }
+
+/**
+ * Replace what differs between two machines by nature (a job's PID) with the
+ * word PID, so the rest of the text can be compared. A case lists its masks.
+ *
+ * @param {string} text A line's stdout or stderr.
+ * @param {string[]} masks Regular expressions, matched per line (multiline, global).
+ * @returns {string} The text with every match replaced.
+ */
+export function masked(text, masks) {
+  return masks.reduce((t, mask) => t.replace(new RegExp(mask, 'gm'), 'PID'), text);
+}
+
+/**
+ * Compare selected directory traversal streams without depending on filesystem order.
+ * Line contents, duplicates, the final newline, and the exit status remain significant.
+ */
+export function unorderedStreams(result, streams = []) {
+  if (result === null) return null;
+  const normalized = { ...result };
+  for (const stream of ['out', 'err']) {
+    if (!streams.includes(stream)) continue;
+    const text = result[stream];
+    const newline = text.endsWith('\n');
+    const body = newline ? text.slice(0, -1) : text;
+    normalized[stream] = body.split('\n').sort().join('\n') + (newline ? '\n' : '');
+  }
+  return normalized;
+}

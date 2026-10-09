@@ -11,7 +11,7 @@ import { can } from '../perms.js';
 import { compilePosix } from '../../backend/regex.js';
 import { parseOptions, mapLongOptions, optionFailure } from '../options.js';
 import { shellQuote } from '../quote.js';
-import { result, needInput } from '../result.js';
+import { result, needInput, ordered } from '../result.js';
 import { esc, span } from '../html.js';
 
 const LONG = {
@@ -34,20 +34,34 @@ function parseGrep(args) {
   return { error, unsimulated: o.unsimulated, flags: o.flags, max: o.vals?.m === undefined ? Infinity : Number(o.vals.m), operands, patterns: patterns.flatMap(p => p.split('\n')) };
 }
 
-function walk(sys, node, label, acc) {
+// A file grep could not read, kept in its place among the files it read.
+const failure = message => ({ error: message });
+
+// -r passes by the links it meets inside a directory; -R follows them, but
+// not back into a directory it is already inside.
+function walk(sys, node, label, acc, inside = new Set([node])) {
   for (const name of Object.keys(node.children).sort(compareNames)) {
-    const child = node.children[name];
     const shown = label === null ? name : joinDisp(label, name);
-    const readable = can(sys, child, 'r') && (child.type !== 'dir' || can(sys, child, 'x'));
-    if (!readable) acc.errs.push(`grep: ${shellQuote(shown)}: Permission denied`);
-    else if (child.type === 'dir') walk(sys, child, shown, acc);
-    else acc.sources.push({ label: shown, content: child.content });
+    const linked = node.children[name].type === 'symlink';
+    if (linked && !acc.deref) continue;
+    const followed = linked ? resolve(sys, shown) : null;
+    const child = linked ? followed.node : node.children[name];
+    if (!child) acc.sources.push(failure(`grep: ${shellQuote(shown)}: ${errorText(followed.error)}`));
+    else if (inside.has(child)) acc.sources.push(failure(`grep: warning: ${shellQuote(shown)}: recursive directory loop`));
+    else visitEntry(sys, child, shown, acc, inside);
   }
+}
+
+function visitEntry(sys, child, shown, acc, inside) {
+  const readable = can(sys, child, 'r') && (child.type !== 'dir' || can(sys, child, 'x'));
+  if (!readable) acc.sources.push(failure(`grep: ${shellQuote(shown)}: Permission denied`));
+  else if (child.type === 'dir') walk(sys, child, shown, acc, new Set([...inside, child]));
+  else acc.sources.push({ label: shown, content: child.content });
 }
 
 function addOperand(sys, f, recursive, acc) {
   const r = resolve(sys, f);
-  const fail = text => acc.errs.push(`grep: ${shellQuote(f)}: ${text}`);
+  const fail = text => acc.sources.push(failure(`grep: ${shellQuote(f)}: ${text}`));
   if (r.error) fail(errorText(r.error));
   else if (r.node.type === 'dir' && !recursive) fail('Is a directory');
   else if (!can(sys, r.node, 'r')) fail('Permission denied');
@@ -55,8 +69,8 @@ function addOperand(sys, f, recursive, acc) {
   else acc.sources.push({ label: f, content: r.node.content });
 }
 
-function gatherSources(sys, operands, recursive, stdin) {
-  const acc = { sources: [], errs: [] };
+function gatherSources(sys, operands, recursive, stdin, deref) {
+  const acc = { sources: [], deref };
   if (!operands.length && recursive) walk(sys, resolve(sys, '.').node, null, acc);
   if (!operands.length && !recursive) acc.sources.push({ label: STDIN, content: stdin ?? '' });
   for (const f of operands) {
@@ -97,15 +111,18 @@ function emitLine(line, pre, re, opts, acc) {
   acc.html += `${pre.html}${marked}${opts.sep}`;
 }
 
+// Like grep 3.11, a file with a NUL byte is binary: a match is reported on standard error, its lines are not printed.
 function searchSource(source, re, opts, acc) {
   const records = opts.nullData ? source.content.replace(/\0$/, '').split('\0') : splitLines(source.content);
   const silent = opts.quiet || opts.count || opts.listMatches || opts.listMissing || (opts.only && opts.invert);
+  const binary = !opts.nullData && source.content.includes('\0');
   let count = 0;
   records.forEach((line, i) => {
     if (count >= opts.max || re.test.test(line) === opts.invert) return;
     count++;
-    if (!silent) emitLine(line, prefix(source, i + 1, opts), re, opts, acc);
+    if (!silent && !binary) emitLine(line, prefix(source, i + 1, opts), re, opts, acc);
   });
+  if (binary && !silent && count > 0) acc.notices.push(`grep: ${source.label}: binary file matches`);
   return count;
 }
 
@@ -144,19 +161,30 @@ function grep(args, { sys, stdin }) {
   if (!o.operands.length && !recursive && stdin == null) return needInput('grep');
   const compiled = compileFor(o);
   if (compiled.error) return result('', `grep: ${compiled.error}`, 2);
-  const { sources, errs } = gatherSources(sys, o.operands, recursive, stdin);
+  const gathered = gatherSources(sys, o.operands, recursive, stdin, f.has('R')).sources;
+  const sources = gathered.filter(source => !source.error);
+  const unread = gathered.length - sources.length;
   const opts = outputOptions(f, o, sources, recursive);
   const re = { test: compiled.regex, global: new RegExp(compiled.source, `${compiled.flags}g`) };
-  const acc = { text: '', html: '' };
+  const chunks = compiled.warning ? [{ stream: 'err', text: `grep: warning: ${compiled.warning}\n` }] : [];
+  const selected = searchAll(gathered, re, opts, f.has('s'), chunks);
+  const status = unread && !(opts.quiet && selected) ? 2 : Number(!selected);
+  return ordered(chunks, status);
+}
+
+// Each file in turn: its lines, or the reason it could not be read (unless -s).
+function searchAll(gathered, re, opts, silentErrors, chunks) {
   let selected = false;
-  for (const source of sources) {
+  for (const source of gathered) {
+    if (source.error && !silentErrors) chunks.push({ stream: 'err', text: `${source.error}\n` });
+    if (source.error) continue;
+    const acc = { text: '', html: '', notices: [] };
     const count = searchSource(source, re, opts, acc);
     selected ||= count > 0;
     summarize(source, count, opts, acc);
+    chunks.push({ stream: 'out', text: acc.text, html: acc.html }, ...acc.notices.map(n => ({ stream: 'err', text: `${n}\n` })));
   }
-  const messages = [...(compiled.warning ? [`grep: warning: ${compiled.warning}`] : []), ...(f.has('s') ? [] : errs)];
-  const status = errs.length && !(opts.quiet && selected) ? 2 : Number(!selected);
-  return result(acc.text, messages.join('\n'), status, acc.text ? acc.html : null);
+  return selected;
 }
 
 export default { grep };

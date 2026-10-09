@@ -29,6 +29,7 @@
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { browserOptions } from '../../scripts/browser.js';
 import { chromium, errors as playwrightErrors } from 'playwright-core';
 import { startServer } from '../../scripts/serve.js';
 import { bundlePage } from '../../scripts/bundle.js';
@@ -341,7 +342,7 @@ async function main() {
   await mkdir(out, { recursive: true });
   const root = published ? await writePublished(out) : ROOT;
   const { server, url: base } = await startServer({ root, port: 0 });
-  const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true });
+  const browser = await chromium.launch(browserOptions());
   const errors = [];
   try {
     errors.push(...await (published ? publishedShots : gameShotsAll)(browser, base, out));
@@ -350,6 +351,7 @@ async function main() {
     server.close();
   }
   console.log(errors.length ? `problems:\n${errors.join('\n')}` : 'no problems found');
+  process.exitCode = errors.length ? 1 : 0;
 }
 
 await main();

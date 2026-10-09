@@ -4,10 +4,11 @@
  * that Z/2, 0/O and 1/l/I never look alike; the pixel font is for titles only.
  */
 
-import { fitLabel } from './layout.js';
+import { fitLabel, itemLabel } from './layout.js';
 import { LABEL, NIGHT, INK } from './palette.js';
 
-const MONO = '"IBM Plex Mono", ui-monospace, monospace';
+/** The font of every name label. */
+export const MONO = '"IBM Plex Mono", ui-monospace, monospace';
 const TITLE = '"Pixelify Sans", "IBM Plex Mono", monospace';
 
 /**
@@ -51,7 +52,9 @@ function charsIn(g, view, slot) {
 
 function itemColour(item) {
   let colour = LABEL.item;
-  if (item.hidden) colour = LABEL.hidden;
+  if (item.dangling) colour = LABEL.orphan;
+  else if (item.link) colour = LABEL.link;
+  else if (item.hidden) colour = LABEL.hidden;
   else if (item.runnable) colour = LABEL.runnable;
   return colour;
 }
@@ -76,7 +79,7 @@ export function drawLabels(g, view, layout, ringed) {
     tag(g, view, text, sx(view, door.cx), sy(view, door.y - 2) - gap, { colour: door.hidden ? LABEL.hidden : LABEL.door, anchor: 'bottom', ring: ringed.includes(door.path) });
   }
   for (const item of layout.items) {
-    const text = fitLabel(item.name, charsIn(g, view, item.slot));
+    const text = itemLabel(item, charsIn(g, view, item.slot));
     tag(g, view, text, sx(view, item.cx), sy(view, item.y + item.h + 1) + gap, { colour: itemColour(item), ring: ringed.includes(item.path) });
   }
   if (layout.moreDoors) tag(g, view, `+${layout.moreDoors.count}`, sx(view, layout.moreDoors.cx), sy(view, layout.moreDoors.y + 15), { colour: LABEL.more, anchor: 'middle' });
@@ -103,6 +106,35 @@ export function drawCreatureLabels(g, view, creatures) {
     const half = Math.ceil(g.measureText(label).width) / 2 + pad;
     const cx = Math.max(left + half, Math.min(right - half, sx(view, x)));
     tag(g, view, label, cx, sy(view, y + 15), { colour: LABEL.creature });
+  }
+}
+
+const JOB_LABEL_X = 33;
+const MORE_X = 9;
+
+/**
+ * Label each job worker with its job spec (`%1`) beside it, green while it
+ * runs and grey while it is stopped, and the jobs that did not fit as "+N".
+ *
+ * @param {CanvasRenderingContext2D} g The screen canvas.
+ * @param {View} view The mapping.
+ * @param {{badges: {label: string, state: string, x: number, y: number}[], more: number}} jobs The job row.
+ * @param {{w: number, h: number}} row Each badge's width and the row's height, in art pixels.
+ */
+export function drawJobLabels(g, view, { badges, more }, row) {
+  if (badges.length === 0) return;
+  g.font = `${view.font}px ${MONO}`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  const mid = sy(view, badges[0].y + row.h / 2);
+  for (const { label, state, x } of badges) {
+    g.fillStyle = state === 'running' ? LABEL.runnable : LABEL.hidden;
+    g.fillText(label, sx(view, x + JOB_LABEL_X), mid);
+  }
+  if (more) {
+    const last = badges[badges.length - 1];
+    g.fillStyle = LABEL.more;
+    g.fillText(`+${more}`, sx(view, last.x + row.w + MORE_X), mid);
   }
 }
 

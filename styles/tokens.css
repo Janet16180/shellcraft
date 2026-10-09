@@ -49,6 +49,9 @@
   --term-err: #ff8fa3;
   --term-dir: #6fa8ff;
   --term-exe: #8ee06a;
+  --term-link: #6fe0e8;
+  --term-orphan: #ff5c66;
+  --term-orphan-bg: #000000;
   --term-file: #e37bff;
   --term-sep: #6fd3e0;
   --term-match: #ff6b6b;

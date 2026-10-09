@@ -11,15 +11,18 @@ import { baseWorld } from './game/world.js';
 import { createMap } from './map/map.js';
 import { createStore } from './ui/store.js';
 import { startApp } from './ui/app.js';
+import { withExplainers } from './intro/explainers.js';
 
+const params = new URLSearchParams(window.location.search);
+const dev = params.has('dev');
 const backend = createSimBackend(PLAYER);
 const session = createSession({
   backend,
-  chapters,
+  chapters: withExplainers(chapters),
   baseWorld,
   store: createStore(() => window.localStorage),
   random: Math.random,
-  dev: new URLSearchParams(window.location.search).has('dev'),
+  dev,
 });
 
 startApp({
@@ -28,4 +31,5 @@ startApp({
   createMap,
   createIntroBackend: () => createSimBackend(PLAYER),
   resizeTerminal: columns => backend.resize(columns),
+  explainer: dev ? params.get('explainer') : null,
 });

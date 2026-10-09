@@ -2,15 +2,20 @@
  * Processes and signals: ps, kill, pkill, killall, pgrep, top, htop.
  */
 
-import { allocPid, TERMINAL, knownUsers } from '../system.js';
+import { allocPid, TERMINAL } from '../system.js';
+import { knownUsers } from '../accounts.js';
 import { result, withNote } from '../result.js';
 import { SIGNAL_LIST, signalName, parseSignal, defaultAction, endsInteractiveShell, requestedSignal } from '../../backend/signals.js';
 import { processName, readSelection, selectedBy, killSelects } from '../../backend/process.js';
 import { REAL_OPTIONS } from '../real-options.js';
+import { stopProcess, continueProcess, endProcess, findJobSpec } from '../jobs.js';
 import { optionFailure } from '../options.js';
 
 const KILL = parseSignal('KILL');
 const STOP = parseSignal('STOP');
+const CONT = parseSignal('CONT');
+// bash continues a stopped job it sends these, so that they can end it.
+const WAKING = new Set([parseSignal('TERM'), parseSignal('HUP')]);
 const UNCATCHABLE = new Set([KILL, STOP]);
 const KILL_USAGE = 'kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]';
 const SIGNAL_TABLE = SIGNAL_LIST.map(([n, name], i) => `${String(n).padStart(2)}) SIG${name}${(i + 1) % 5 === 0 ? '\n' : '\t'}`).join('') + '\n';
@@ -134,6 +139,8 @@ function signalShell(sys, sig, block) {
 
 /**
  * Deliver a signal to one process as the kernel would for the shell's user.
+ * A stopped process keeps a terminating signal pending until it is
+ * continued; only SIGKILL ends it at once.
  *
  * @param {object} sys The machine state.
  * @param {object} proc The target process.
@@ -144,13 +151,15 @@ function signalShell(sys, sig, block) {
 export function deliver(sys, proc, sig, block) {
   const denied = sys.user !== 'root' && proc.user !== sys.user;
   const ignored = proc.ignores.has(sig) && !UNCATCHABLE.has(sig);
+  const action = defaultAction(sig);
   let note = null;
   if (denied || sig === 0) note = null;
   else if (proc.pid === sys.shellPid) note = signalShell(sys, sig, block);
   else if (ignored) note = null;
-  else if (defaultAction(sig) === 'terminate') sys.procs = sys.procs.filter(p => p !== proc);
-  else if (defaultAction(sig) === 'stop') proc.stat = `T${proc.stat.slice(1)}`;
-  else if (defaultAction(sig) === 'continue' && proc.stat.startsWith('T')) proc.stat = `${proc.runStat}${proc.stat.slice(1)}`;
+  else if (action === 'terminate' && proc.stat.startsWith('T') && sig !== KILL) proc.pending ??= sig;
+  else if (action === 'terminate') endProcess(sys, proc, { signal: sig });
+  else if (action === 'stop') stopProcess(sys, proc, sig);
+  else if (action === 'continue') continueProcess(sys, proc);
   return { denied, note };
 }
 
@@ -222,13 +231,31 @@ function killOne(sys, x, sig, block) {
   return { error, note: sent.find(r => r.note)?.note ?? null };
 }
 
+// A job spec signals the job's process the way bash's kill_pid does: the job
+// will be reported again, a stopped one is woken for TERM and HUP, and
+// SIGCONT makes it a running background job.
+function killJob(sys, spec, sig, block) {
+  const { job, ambiguous } = findJobSpec(sys, spec);
+  const proc = job ? sys.procs.find(p => p.pid === job.pid) : null;
+  let error = null;
+  if (ambiguous !== null) error = `bash: kill: ${ambiguous}: ambiguous job spec`;
+  else if (!job) error = `bash: kill: ${spec}: no such job`;
+  else if (!proc) error = `bash: kill: (${job.pid}) - No such process`;
+  if (error) return { error, note: null };
+  job.notified = false;
+  const sent = deliver(sys, proc, sig, block);
+  if (job.state === 'stopped' && WAKING.has(sig)) deliver(sys, proc, CONT, block);
+  if (job.state === 'stopped' && sig === CONT) Object.assign(job, { state: 'running', foreground: false, notified: true });
+  return { error: sent.denied ? `bash: kill: (${job.pid}) - Operation not permitted` : null, note: sent.note };
+}
+
 function kill(args, { sys, block }) {
   if (!args.length) return result('', KILL_USAGE, 2);
   const asked = requestedSignal('kill', args);
   if (asked.status === 'list') return listSignals(asked.operands);
   if (asked.status !== 'send') return result('', KILL_ERRORS[asked.status](asked.spec), 1);
   if (!asked.operands.length) return result('', KILL_USAGE, 2);
-  const sent = asked.operands.map(x => killOne(sys, x, asked.signal, block));
+  const sent = asked.operands.map(x => (x.startsWith('%') ? killJob : killOne)(sys, x, asked.signal, block));
   const errs = sent.filter(r => r.error).map(r => r.error);
   return withNote(result('', errs.join('\n'), errs.length ? 1 : 0), sent.find(r => r.note)?.note ?? null);
 }

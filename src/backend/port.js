@@ -20,7 +20,8 @@
  *
  * The vocabulary is closed, so the page can render any backend:
  * - `html` may use only these span classes: `c-dir` (a directory name), `c-exe`
- *   (an executable file), `g-file`, `g-sep` and `g-num` (grep's file name,
+ *   (an executable file), `c-link` (a symbolic link), `c-orphan` (a symbolic
+ *   link that leads nowhere), `g-file`, `g-sep` and `g-num` (grep's file name,
  *   separator and line number) and `g-match` (grep's matched text). It never
  *   contains raw terminal escape codes; a backend that receives colours from a
  *   real terminal translates them into these classes or drops them.
@@ -39,6 +40,31 @@
  * @typedef {object} CommandRecord
  * @property {string} name The command name after alias expansion (`ls`, `./open_gate.sh`).
  * @property {string[]} args Arguments after quote removal and glob expansion.
+ * @property {string} user The user it ran as: the player, or another user for a
+ *   command that sudo ran.
+ * @property {string} [asUser] On a `sudo` record only: the user sudo was asked to
+ *   run the command as (`root`, or the user of `-u`), whether or not it ran.
+ * @property {'ok'|'failed'|'cancelled'|'not-needed'|'not-allowed'|null} [auth] On a `sudo` record only:
+ *   how it went with the password and the policy. 'ok': the player typed the right password;
+ *   'not-needed': no password was asked (NOPASSWD, remembered for 15 minutes, no password in this
+ *   world); 'failed': three wrong passwords; 'cancelled': Ctrl+C at the prompt, or `-n` when one
+ *   was needed; 'not-allowed': the policy refused (not in sudoers, or not that command), after any
+ *   password. null when sudo stopped before (a bad option, `--help`, `-k`, `-i`).
+ * @property {string} [via] On a command another command ran for the player: that
+ *   command's name (`sudo`). `sudo chown mira f` gives two records, in this order:
+ *   `{name: 'sudo', args: ['chown', 'mira', 'f'], user: 'hero', asUser: 'root', status}`
+ *   and, if sudo ran it, `{name: 'chown', args: ['mira', 'f'], user: 'root', via: 'sudo', status}`.
+ *   Both share the pipeline place, the redirections and stdout; sudo's status is
+ *   the command's own, or 1 when sudo refused. So `ctx.ran('chown', r => r.user === 'root')`
+ *   asks "did chown run as root?".
+ * @property {true} [background] On a command of a job started with `&`: `sleep 30 &`
+ *   gives `{name: 'sleep', args: ['30'], background: true, job: 1, ...}`.
+ * @property {number|null} [job] With `background`: the job's number, as `jobs` shows it
+ *   (null where the shell keeps no job table, in a script).
+ * @property {'INT'|'TSTP'} [signal] The key the player pressed while it ran in the
+ *   foreground: 'INT' (Ctrl+C) ended it, status 130; 'TSTP' (Ctrl+Z) stopped it as a
+ *   job, status 148. `sleep 100` then Ctrl+Z gives `{name: 'sleep', status: 148, signal: 'TSTP'}`;
+ *   `fg` then Ctrl+C gives `{name: 'fg', status: 130, signal: 'INT'}`.
  * @property {string} cwd Absolute working directory when it started.
  * @property {number} status Its exit status.
  * @property {string} stdout Everything it wrote to standard output, even if redirected or piped.
@@ -47,32 +73,76 @@
  * @property {number} stages How many commands that pipeline has.
  * @property {{op: string, target: string}[]} redirects Redirections in the order typed. `op` is
  *   the operator with the fd number as typed in front (`<`, `>`, `>>`, `2>`, `2>>`, `&>`); its
- *   target is the absolute path of the file. An fd duplication has op `2>&` (or `>&`, `1>&`...)
+ *   target is the absolute path of the file as typed (`.` and `..` removed as text,
+ *   symbolic links not resolved). An fd duplication has op `2>&` (or `>&`, `1>&`...)
  *   and the fd number as target: `ls x > f 2>&1` gives `[{op: '>', target: '/home/hero/f'},
  *   {op: '2>&', target: '1'}]`.
  */
 
 /**
+ * A line may stop to read one line the player types, as `sudo` reads a
+ * password: the result then carries `input`, and the line is not finished.
+ * `output` holds only what the terminal shows before the prompt; `commands`
+ * and `blocked` are empty and `status` is `$?` so far. The page shows
+ * `input.prompt`, reads one line (hidden: no echo, nothing shown, not added
+ * to history) and sends it with `Backend.answer`; Ctrl+C sends `null`. The
+ * answer's result continues the same line: its output is only what is new
+ * (starting with the prompt line as the terminal keeps it, `[sudo] password
+ * for hero: ` and a newline), and it may ask again (a wrong password). The
+ * result without `input` is the line's end, with every record of the whole
+ * line. Joining the output of every part gives what a real terminal shows.
+ *
+ * A line may also stop while a foreground command takes time (`sleep 5`,
+ * `fg`, `wait`): the result then carries `running`, and again the line is not
+ * finished; `output` holds what the terminal showed so far, `commands` and
+ * `blocked` are empty. The page shows no prompt meanwhile. It calls
+ * `Backend.poll` when `running.seconds` have passed (null: the command never
+ * ends by itself, like `sleep infinity`), and `Backend.signal('INT')` when the
+ * player presses Ctrl+C or `Backend.signal('TSTP')` for Ctrl+Z. Each returns
+ * the next part, in the same way: more `running`, or the line's end. Ctrl+C
+ * ends the command and the rest of the line (`^C`, status 130); Ctrl+Z stops
+ * it as a job (`^Z`, `[1]+  Stopped ...`, status 148) and the line goes on.
+ * Time is the backend's clock: in the page, the real clock.
+ *
  * @typedef {object} RunResult
  * @property {OutputChunk[]} output What the terminal shows.
  * @property {number} status Exit status of the line (what `$?` becomes).
  * @property {CommandRecord[]} commands Every command that ran, in order.
+ * @property {string} [line] On the line's end: the line that ran, after history
+ *   expansion (`sudo !!` gives `sudo echo hi`, which bash echoes); the typed line
+ *   when nothing was expanded or the expansion failed.
  * @property {string[]} blocked Reasons the backend refused something a real
  *   system would have done, to protect the world (`rm -r ~`). Empty for a real backend
  *   that has no such guard.
+ * @property {{prompt: string, hidden: boolean}} [input] Present while the line waits
+ *   for a typed line: the prompt to show before it, and whether to hide what is typed.
+ * @property {{seconds: number|null}} [running] Present while a foreground command
+ *   runs: the seconds until it ends by itself, by the backend's clock, or null for never.
  */
 
 /**
- * A node of the observed tree. Directories have `children`, files `content`.
+ * A node of the observed tree. Directories have `children`, files `content`,
+ * symbolic links `target`.
+ *
+ * Each node is an inode. A file with several names (hard links) appears once
+ * under each name, every copy with the same `ino`; compare `ino` to tell
+ * whether two paths are one file. A symbolic link is not followed in the
+ * tree: it is its own node, and `target` is its text exactly as created (a
+ * relative target is read from the link's directory). `nodeAt` in tree.js
+ * follows links like the kernel; pass `{follow: false}` to get the link itself.
  *
  * @typedef {object} TreeNode
- * @property {'dir'|'file'} type
- * @property {number} mode Permission bits (0o755).
+ * @property {'dir'|'file'|'symlink'} type
+ * @property {number} mode Permission bits (0o755); always 0o777 for a symbolic link.
  * @property {string} owner
  * @property {string} group
- * @property {number} size Bytes for a file.
+ * @property {number} size Bytes for a file, 4096 for a directory, the bytes of the target text for a link.
  * @property {number} mtime Milliseconds since the epoch.
+ * @property {number} ino The inode number, as `ls -i` shows it. It stays with the node across renames.
+ * @property {number} links The link count, as `ls -l` shows it: a file's number of
+ *   names; 2 plus the number of subdirectories for a directory.
  * @property {string} [content]
+ * @property {string} [target] A symbolic link's target text.
  * @property {Record<string, TreeNode>} [children]
  */
 
@@ -91,6 +161,20 @@
  */
 
 /**
+ * A job of the player's shell, as `jobs` lists it. `state` is its process's:
+ * `running`, `stopped`, or `done` once the process is gone. A job stays in the
+ * list until bash has reported its end (`Done`, `Terminated`), so a job just
+ * killed shows `done` for a line, then leaves the list.
+ *
+ * @typedef {object} JobRecord
+ * @property {number} id The job number (`%1` is 1).
+ * @property {number} pid Its process.
+ * @property {string} cmd The command as `jobs` shows it, without `&`: 'sleep 100'.
+ * @property {'running'|'stopped'|'done'} state
+ * @property {'+'|'-'|' '} mark The current job (+, what fg and bg pick), the previous one (-), or neither.
+ */
+
+/**
  * Everything the game may look at between commands. The tree covers the paths
  * the world defines, not a whole real disk.
  *
@@ -102,13 +186,36 @@
  * @property {string} cwd Absolute working directory.
  * @property {TreeNode} tree The world, rooted at '/'.
  * @property {ProcRecord[]} procs
+ * @property {JobRecord[]} jobs The shell's jobs, by number.
+ * @property {Record<string, string>} aliases The player's shell's aliases, name to text:
+ *   `alias up='cd ..'` gives `{up: 'cd ..'}`.
+ * @property {Record<string, ShellVar>} vars The player's shell's variables, exported or not:
+ *   `realm=Kernelia` gives `{realm: {value: 'Kernelia', exported: false}}`. No special
+ *   parameters (`$?`, `$$`) and no positional ones (`$1`); the password is in no variable.
+ *   Both tables hold at most the first 256 names (in the order the shell made them), and a
+ *   value is cut to 4096 characters (a variable cut so has `truncated: true`). A script or
+ *   `bash -c` has a shell of its own: what it sets is not here.
+ */
+
+/**
+ * @typedef {{value: string, exported: boolean, truncated?: true}} ShellVar
  */
 
 /**
  * @typedef {object} Backend
  * @property {(patch: object[]) => Promise<void>} load Apply a world patch from
  *   src/backend/spec.js. Raises on a patch it cannot apply (a missing parent).
+ *   A line waiting for input or running is abandoned, and its foreground command ends.
  * @property {(line: string) => Promise<RunResult>} run Run one line typed by the player.
+ *   Raises while an earlier line waits for input or runs.
+ * @property {(text: string|null) => Promise<RunResult>} answer Send the line the player
+ *   typed at a RunResult's `input` prompt, or `null` for Ctrl+C. Raises when no line waits.
+ * @property {() => Promise<RunResult>} poll Let a `running` line go on if its foreground
+ *   command has ended by now; otherwise `running` again with the seconds left and no output.
+ *   Raises when no line runs.
+ * @property {(name: 'INT'|'TSTP') => Promise<RunResult>} signal The player pressed Ctrl+C
+ *   (SIGINT) or Ctrl+Z (SIGTSTP) while a line runs: the terminal sends it to the foreground
+ *   command. Raises when no line runs, or for any other name.
  * @property {() => Promise<Observation>} observe Snapshot the world.
  * @property {(line: string) => Promise<{line: string, candidates: string[]}>} complete
  *   Tab completion: the completed line, plus the candidates to list when the

@@ -26,7 +26,7 @@ const LABEL_ABOVE = 14;
 const ITEM_HIT = { above: 4, below: 20 };
 const ITEM_GAP = { oneDoorRow: 12, twoDoorRows: 6 };
 const EXIT = { x: 146, y: 186, w: 28, h: 14, label: 26 };
-const CAPACITY = { wide: { doors: 7, cols: 6 }, narrow: { doors: 5, cols: 4 } };
+const CAPACITY = { wide: { doors: 7, cols: 6, minCols: 4 }, narrow: { doors: 5, cols: 4, minCols: 3 } };
 
 /**
  * @typedef {import('./room.js').Entry & {kind: 'door'|'item', x: number, y: number, w: number, h: number,
@@ -61,11 +61,12 @@ function doorSpots(count, perRow) {
   });
 }
 
-function itemSpots(count, cols) {
+// step: how far apart a sparse row's items sit, widened for long names.
+function itemSpots(count, cols, step = SPARSE_ITEM_STEP) {
   return Array.from({ length: count }, (_, i) => {
     const row = Math.floor(i / cols);
     const inRow = Math.min(cols, count - row * cols);
-    const slot = Math.max(USABLE / cols, Math.min(SPARSE_ITEM_STEP, USABLE / inRow));
+    const slot = Math.max(USABLE / cols, Math.min(step, USABLE / inRow));
     const left = MARGIN + (USABLE - inRow * slot) / 2;
     return { row, cx: Math.round(left + slot * ((i % cols) + 0.5)), slot: Math.floor(slot) };
   });
@@ -94,22 +95,36 @@ function marker(fitted, spots, y) {
   return fitted.more ? { count: fitted.more, cx: spot.cx, y: y(spot), slot: spot.slot, area: itemArea(spot.cx, spot.slot, y(spot)) } : null;
 }
 
+const longestName = items => Math.max(0, ...items.map(item => [...item.name].length));
+
+// Fewer items per row when the longest name would be cut, down to a minimum.
+function columns({ cols, minCols }, items, charPx) {
+  const longest = longestName(items);
+  let fitting = cols;
+  while (fitting > minCols && USABLE / fitting < (longest + 1) * charPx) fitting -= 1;
+  return fitting;
+}
+
 /**
  * Place a room's doors, items and exit.
  *
  * @param {import('./room.js').Room} room The room, from readRoom.
- * @param {{narrow?: boolean}} [opts] Narrow maps (small screens) get fewer, wider slots so labels stay readable.
+ * @param {{narrow?: boolean, charPx?: number}} [opts] Narrow maps (small screens) get fewer, wider slots so labels
+ *   stay readable. charPx is the width of one label character in art pixels; with it, a room of long item names
+ *   puts fewer items in a row so their labels fit whole.
  * @returns {Layout} The layout.
  */
-export function layoutRoom(room, { narrow = false } = {}) {
-  const cap = narrow ? CAPACITY.narrow : CAPACITY.wide;
+export function layoutRoom(room, { narrow = false, charPx = 0 } = {}) {
+  const base = narrow ? CAPACITY.narrow : CAPACITY.wide;
+  const cap = { ...base, cols: columns(base, room.items, charPx) };
   const doorRows = room.doors.length > cap.doors && room.items.length <= cap.cols ? 2 : 1;
   const wall = WALL + DOOR_ROW * (doorRows - 1);
   const itemTop = wall + (doorRows === 2 ? ITEM_GAP.twoDoorRows : ITEM_GAP.oneDoorRow);
   const doors = fit(room.doors, cap.doors * doorRows);
   const items = fit(room.items, cap.cols * (3 - doorRows));
   const dSpots = doorSpots(doors.shown.length + (doors.more ? 1 : 0), cap.doors);
-  const iSpots = itemSpots(items.shown.length + (items.more ? 1 : 0), cap.cols);
+  const step = Math.max(SPARSE_ITEM_STEP, Math.ceil((longestName(items.shown) + 1) * charPx));
+  const iSpots = itemSpots(items.shown.length + (items.more ? 1 : 0), cap.cols, step);
   const exit = room.exit && { path: room.exit, ...box(EXIT.x, EXIT.y, EXIT.w, EXIT.h), hit: box(EXIT.x - 4, EXIT.y - 4, EXIT.w + EXIT.label, ART.height - EXIT.y + 4) };
 
   return {
@@ -172,4 +187,18 @@ export function fitLabel(text, max, suffix = '') {
   const chars = [...text];
   const body = chars.length <= room ? text : `${chars.slice(0, room - 1).join('')}…`;
   return body + suffix;
+}
+
+/**
+ * The label of an item: a symbolic link reads `name -> target` like ls -l when
+ * that fits whole, else its name alone; anything else its name. Cut with
+ * fitLabel when even the name does not fit.
+ *
+ * @param {{name: string, link?: string|null}} item The item.
+ * @param {number} max Characters available.
+ * @returns {string} The label.
+ */
+export function itemLabel({ name, link }, max) {
+  const full = link ? `${name} -> ${link}` : name;
+  return [...full].length <= max ? full : fitLabel(name, max);
 }

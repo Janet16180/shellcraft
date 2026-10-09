@@ -15,15 +15,23 @@ import { bootText, restoredText } from './messages.js';
 import { createSound } from './sound.js';
 import { turnSounds } from './turnsounds.js';
 import { renderRoster, picksHTML } from './roster.js';
+import { keymapHTML } from './keymap.js';
 import { createQueue } from './queue.js';
 import { conceal, concealEffects } from './conceal.js';
 import { createToasts } from './toasts.js';
 import { logoSVG } from './logo.js';
+import { wireConfirm } from './confirm.js';
 import { playIntro } from '../intro/player.js';
-import { biomeFor, drawKey } from '../map/map.js';
+import { playExplainer } from '../intro/explainer.js';
+import { EXPLAINERS } from '../intro/explainers.js';
+import { playEnding } from '../intro/ending.js';
+import { isFinale, endingOpen } from '../intro/endsteps.js';
+import { placeOf, drawKey } from '../map/map.js';
 
 const TABS = ['quest', 'spells', 'levels'];
 const TOAST_MS = 2600;
+// The page asks for a running command's end a moment after it is due by the backend's clock.
+const POLL_SLACK_MS = 50;
 const RANK_FLASH_MS = 3200;
 
 /**
@@ -35,9 +43,10 @@ const RANK_FLASH_MS = 3200;
  * @param {Function} deps.createMap The map renderer (DESIGN.md section 2.4).
  * @param {() => object} deps.createIntroBackend A fresh backend for the intro to run its lines on.
  * @param {(columns: number) => Promise<void>} deps.resizeTerminal Tells the game's shell the terminal's width.
+ * @param {string|null} [deps.explainer] Dev mode only: the id of an explainer to open over the title screen.
  * @returns {Promise<void>} Resolves once the title screen is up.
  */
-export async function startApp({ doc, session, createMap, createIntroBackend, resizeTerminal }) {
+export async function startApp({ doc, session, createMap, createIntroBackend, resizeTerminal, explainer = null }) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const sound = createSound();
   const ui = { doc, session, sound, reducedMotion, view: null, queue: createQueue(), mapQueue: createQueue(), rankUp: null };
@@ -45,6 +54,8 @@ export async function startApp({ doc, session, createMap, createIntroBackend, re
     root: doc.getElementById('term'),
     queue: ui.queue,
     onSubmit: line => runLine(ui, line),
+    onAnswer: async text => applyTurn(ui, await session.answer(text)),
+    onSignal: name => signalRunning(ui, name),
     onComplete: line => session.complete(line),
     onKey: () => sound.play('key'),
     onResize: resizeTerminal,
@@ -52,6 +63,7 @@ export async function startApp({ doc, session, createMap, createIntroBackend, re
   ui.toasts = createToastLine(doc);
   ui.map = createMap(doc.getElementById('map'), { reducedMotion, onPick: pick => ui.terminal.insert(commandForPick(pick)) });
   ui.intro = () => playIntro({ doc, createMap, createBackend: createIntroBackend, reducedMotion, sound, onDone: line => finishIntro(ui, line) });
+  ui.explainer = (shown, onDone) => playExplainer({ doc, explainer: shown, reducedMotion, sound, onDone });
   doc.getElementById('brand').innerHTML = logoSVG('SHELLCRAFT');
   wireControls(ui);
   await act(ui, async () => {
@@ -59,7 +71,9 @@ export async function startApp({ doc, session, createMap, createIntroBackend, re
     showRoom(ui);
   });
   renderRoster(doc.getElementById('rosterList'), drawKey, devicePixelRatio || 1, ui.view.prompt.home);
+  doc.getElementById('keymap').innerHTML = keymapHTML();
   showTitle(ui);
+  if (Object.hasOwn(EXPLAINERS, explainer ?? '')) ui.explainer(EXPLAINERS[explainer], () => doc.getElementById('goBtn').focus());
 }
 
 // Every session call runs in the queue the player's lines use, so two never overlap (the session
@@ -77,9 +91,10 @@ function show(ui, view) {
   doc.getElementById('tab-quest').innerHTML = questHTML(view);
   doc.getElementById('now').innerHTML = nowHTML(view.chapter);
   doc.getElementById('spells').innerHTML = spellsHTML(view.spellbook);
-  doc.getElementById('levels').innerHTML = chaptersHTML(view.chapters);
-  renderCrumbs(doc, view.prompt);
+  doc.getElementById('levels').innerHTML = chaptersHTML(view.chapters, { ending: endingOpen(view.chapters) });
+  renderCrumbs(doc, view.prompt, placeOf(ui.session.observation()).name);
   ui.terminal.setPrompt(view.prompt);
+  if (!view.running) followRunning(ui, null);
   if (previous && view.rank.floor > previous.rank.floor) rankUp(ui, view.rank.title);
 }
 
@@ -101,13 +116,13 @@ function roomSettled(ui) {
   ui.doc.getElementById('picks').innerHTML = picksHTML(ui.picks);
 }
 
-function renderCrumbs(doc, { cwd, home }) {
+function renderCrumbs(doc, { cwd }, place) {
   const parts = cwd.split('/').filter(Boolean);
   const buttons = parts.map((part, i) => {
     const path = `/${parts.slice(0, i + 1).join('/')}`;
     return `<button type="button" data-cd="${esc(path)}">${esc(part)}</button>`;
   });
-  const area = `<span class="area">${esc(biomeFor(cwd, home).name)}</span>`;
+  const area = `<span class="area">${esc(place)}</span>`;
   const crumbs = doc.getElementById('crumbs');
   crumbs.innerHTML = `<span class="path"><button type="button" data-cd="/" aria-label="the root directory, /">/</button>${buttons.join('/')}</span>${area}`;
   // A deep path scrolls inside its line; show its end, where the player is.
@@ -173,10 +188,28 @@ function chapterBanner(ui) {
   ui.terminal.printLine('Read the Quest panel, then type commands here. Type hint if you get stuck.', 'sys');
 }
 
+// An empty line goes to the shell too: bash reports finished jobs before the next prompt.
 async function runLine(ui, line) {
   ui.doc.querySelector('.callout')?.remove();
-  if (!line.trim()) return;
   applyTurn(ui, await ui.session.submit(line));
+}
+
+// While a command runs (sleep 5, fg): Ctrl+C and Ctrl+Z go to it, and the page
+// asks for its end when it is due. The step checks again in the queue, as the
+// line may have ended meanwhile.
+function signalRunning(ui, name) {
+  return act(ui, async () => {
+    if (ui.view.running) applyTurn(ui, await ui.session.signal(name));
+  });
+}
+
+function followRunning(ui, running) {
+  clearTimeout(ui.pollTimer);
+  ui.terminal.running(Boolean(running));
+  if (running?.seconds === null || !running) return;
+  ui.pollTimer = setTimeout(() => act(ui, async () => {
+    if (ui.view.running) applyTurn(ui, await ui.session.poll());
+  }), running.seconds * 1000 + POLL_SLACK_MS);
 }
 
 function revealHint(ui) {
@@ -197,6 +230,8 @@ function applyTurn(ui, turn) {
   });
   show(ui, turn.view);
   for (const event of turn.events) onEvent(ui, event);
+  if (turn.result.input) ui.terminal.ask(turn.result.input);
+  followRunning(ui, turn.result.running);
 }
 
 const EVENTS = {
@@ -217,9 +252,11 @@ const EVENTS = {
     noteHTML(ui, `Boss defeated. <b>+${xp} XP</b>`);
     ui.sound.play('ok');
   },
+  // The last chapter ends the game: the ending plays first, then its adventure log opens.
   chapter(ui, event) {
     ui.log = { ...event, rankUp: ui.rankUp };
-    afterMap(ui, () => openDebrief(ui));
+    if (isFinale(event, ui.view.chapters)) afterMap(ui, () => watchEnding(ui, () => openDebrief(ui)));
+    else afterMap(ui, () => openDebrief(ui));
   },
   'heart-lost'(ui, { reason }) {
     ui.terminal.printLine(`[Guardian] ${reason}`, 'note');
@@ -267,17 +304,32 @@ function openDebrief(ui) {
   if (next) next.onclick = () => startChapter(ui, next.dataset.ch, false);
 }
 
+// Cards hold the toasts back while the ending plays, too.
+function watchEnding(ui, then) {
+  const { doc, reducedMotion, sound } = ui;
+  ui.toasts.hold();
+  const after = next => () => {
+    ui.toasts.release();
+    next();
+  };
+  playEnding({ doc, view: ui.view, reducedMotion, sound, onDone: after(then), onPlayAgain: after(async () => {
+    await resetProgress(ui);
+    ui.terminal.focus();
+  }) });
+}
+
 async function startChapter(ui, id, fresh, note = 'You jumped to this chapter, so the world was set up fresh.') {
   hideCard(ui);
   await act(ui, async () => {
     show(ui, await ui.session.startChapter(id, { fresh }));
+    ui.terminal.abandon();
     showRoom(ui);
   });
   ui.terminal.clear();
   chapterBanner(ui);
   if (fresh) ui.terminal.printLine(note, 'sys');
   showTab(ui.doc, 'quest');
-  ui.terminal.focus();
+  firstExplainer(ui, () => ui.terminal.focus());
 }
 
 function showTitle(ui) {
@@ -301,7 +353,7 @@ function begin(ui) {
   const saved = bootText(ui.view.boot);
   if (saved) ui.terminal.printLine(saved, 'note');
   chapterBanner(ui);
-  if (ui.view.introSeen) ui.terminal.focus();
+  if (ui.view.introSeen) firstExplainer(ui, () => ui.terminal.focus());
   else ui.intro();
 }
 
@@ -311,8 +363,27 @@ async function finishIntro(ui, yourTurn) {
     ui.session.markIntroSeen();
     ui.view = ui.session.view();
   });
-  if (first) showCallout(ui, `Your turn: type <code>${esc(yourTurn)}</code> and press <kbd>Enter</kbd>.`);
-  ui.terminal.focus();
+  firstExplainer(ui, () => {
+    if (first) showCallout(ui, `Your turn: type <code>${esc(yourTurn)}</code> and press <kbd>Enter</kbd>.`);
+    ui.terminal.focus();
+  });
+}
+
+// The first time a chapter with an explainer opens, it plays before the lesson.
+function firstExplainer(ui, then) {
+  const { explainer } = ui.view.chapter;
+  if (explainer && !explainer.seen) watchExplainer(ui, then);
+  else then();
+}
+
+function watchExplainer(ui, then) {
+  ui.explainer(ui.view.chapter.explainer, async id => {
+    await act(ui, () => {
+      ui.session.markExplainerSeen(id);
+      ui.view = ui.session.view();
+    });
+    then();
+  });
 }
 
 function showCallout(ui, html) {
@@ -361,12 +432,14 @@ function wireControls(ui) {
     if (line) terminal.insert(line);
   });
   doc.getElementById('levels').addEventListener('click', event => {
+    if (event.target.closest('#endingBtn')) watchEnding(ui, () => doc.getElementById('endingBtn')?.focus());
     const button = event.target.closest('button[data-ch]');
     if (button && !button.disabled) startChapter(ui, button.dataset.ch, true);
   });
   doc.getElementById('tab-quest').addEventListener('click', event => {
     if (event.target.closest('#hintBtn')) revealHint(ui);
     if (event.target.closest('#logBtn')) openDebrief(ui);
+    if (event.target.closest('#explainerBtn')) watchExplainer(ui, () => doc.getElementById('explainerBtn')?.focus());
   });
   doc.getElementById('soundBtn').addEventListener('click', () => act(ui, () => {
     session.setSound(!ui.view.sound);
@@ -422,34 +495,23 @@ function wirePicks(ui) {
   for (const type of ['focusout', 'mouseleave']) list.addEventListener(type, () => ui.map.focus(null));
 }
 
-// A button that acts only on a second click, so one stray click never throws progress away.
-function wireConfirm(button, { label, confirm, run }) {
-  let armed = false;
-  const disarm = () => {
-    armed = false;
-    button.textContent = label;
-  };
-  button.addEventListener('click', async () => {
-    armed = !armed;
-    button.textContent = armed ? confirm : label;
-    if (!armed) await run();
+// Reset progress (from the HUD, or Play again at the end): back to chapter 1 with no XP.
+async function resetProgress(ui) {
+  await act(ui, async () => {
+    show(ui, await ui.session.reset());
+    ui.terminal.abandon();
+    showRoom(ui);
   });
-  button.addEventListener('blur', disarm);
+  ui.terminal.clear();
+  chapterBanner(ui);
+  showTab(ui.doc, 'quest');
 }
 
 function wireReset(ui) {
   wireConfirm(ui.doc.getElementById('resetBtn'), {
     label: 'Reset progress',
     confirm: 'Click again to erase all progress',
-    run: async () => {
-      await act(ui, async () => {
-        show(ui, await ui.session.reset());
-        showRoom(ui);
-      });
-      ui.terminal.clear();
-      chapterBanner(ui);
-      showTab(ui.doc, 'quest');
-    },
+    run: () => resetProgress(ui),
   });
   wireConfirm(ui.doc.getElementById('restartBtn'), {
     label: 'Restart chapter',

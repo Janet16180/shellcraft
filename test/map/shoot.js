@@ -3,6 +3,7 @@
 // Usage: node test/map/shoot.js http://127.0.0.1:PORT OUT_DIR [still|motion|all]
 // Serve the worktree root first (python3 -m http.server PORT --bind 127.0.0.1).
 
+import { browserOptions } from '../../scripts/browser.js';
 import { chromium } from 'playwright-core';
 import { mkdirSync } from 'node:fs';
 
@@ -59,7 +60,7 @@ async function motion(browser) {
   await context.close();
 }
 
-const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true });
+const browser = await chromium.launch(browserOptions());
 if (mode !== 'motion') await stills(browser);
 if (mode !== 'still') await motion(browser);
 await browser.close();

@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { describeRoom } from '../../src/map/describe.js';
-import { dir, file } from '../../src/backend/spec.js';
+import { dir, file, symlink } from '../../src/backend/spec.js';
 import { observe, sampleTree, crowded } from './fixtures.js';
+import { packTar, gzip } from '../../src/backend/archive.js';
 
 test('it says where you are, in which realm, and what the doors and items are', () => {
   const text = describeRoom(observe('/home/hero/forest/river'));
@@ -25,6 +26,12 @@ test('outside home it says you are in the dungeon', () => {
 test('locked doors and items say why', () => {
   assert.match(describeRoom(observe('/')), /root\/ \(padlocked: you may not enter\)/);
   assert.match(describeRoom(observe('/etc')), /shadow \(chained: you may not read it\)/);
+});
+
+test('a door with x but without r says you may enter but not see inside', () => {
+  const tree = sampleTree();
+  tree.children.tmp = dir({ blind: dir({}, { mode: 0o711 }) });
+  assert.match(describeRoom(observe('/tmp', { tree })), /blind\/ \(dark: you may enter but not list it\)/);
 });
 
 test('runnable items say so', () => {
@@ -67,4 +74,37 @@ test('it names the creatures the map shows, by PID and name', () => {
   assert.match(text, /Creatures here: 412 greedy_imp, 431 stubborn_imp, 4242 shadow_daemon\./);
   assert.doesNotMatch(text, /bash/);
   assert.doesNotMatch(describeRoom(observe('/home/hero')), /Creatures/);
+});
+
+test('links say where they lead, a dangling one that it leads nowhere, and a linked room is named for its real place', () => {
+  const tree = sampleTree();
+  Object.assign(tree.children.home.children.hero.children, {
+    portal: symlink('/home/hero/forest/cave/deep', { owner: 'hero' }),
+    broken: symlink('nowhere', { owner: 'hero' }),
+  });
+  const home = describeRoom(observe('/home/hero', { tree }));
+  assert.match(home, /portal -> \/home\/hero\/forest\/cave\/deep \(a link\)/);
+  assert.match(home, /broken -> nowhere \(a broken link: it leads nowhere\)/);
+  assert.match(describeRoom(observe('/home/hero/portal', { tree })), /\/home\/hero\/portal, Dark Cave/);
+});
+
+test('the player\'s jobs are described in every room, after what is in it', () => {
+  const jobs = [{ id: 1, pid: 4242, cmd: 'sleep 30', state: 'running', mark: '-' }, { id: 2, pid: 4243, cmd: 'sleep 100', state: 'stopped', mark: '+' }];
+  for (const cwd of ['/home/hero/forest', '/etc']) {
+    assert.match(describeRoom(observe(cwd, { jobs })), /\. Your jobs: %1 sleep 30 \(running\), %2 sleep 100 \(stopped\)\.$/, cwd);
+  }
+  assert.doesNotMatch(describeRoom(observe('/etc')), /jobs/);
+});
+
+test('archives say what they are packed as, as file would', () => {
+  const mine = { owner: 'hero' };
+  const tar = packTar([{ path: 'camp/', type: 'dir', mode: 0o755, owner: 'hero', group: 'hero', mtime: 0 }]);
+  const tree = sampleTree();
+  tree.children.home.children.hero.children.travel = dir({
+    'camp.tar': file(tar, mine), 'camp.tgz': file(gzip(tar), mine), 'notes.gz': file(gzip('x\n'), mine),
+  }, mine);
+  const text = describeRoom(observe('/home/hero/travel', { tree }));
+  assert.match(text, /camp\.tar \(a tar archive, drawn as a chest\)/);
+  assert.match(text, /camp\.tgz \(a compressed tar archive, drawn as a strapped chest\)/);
+  assert.match(text, /notes\.gz \(gzip data, drawn as a tied bundle\)/);
 });

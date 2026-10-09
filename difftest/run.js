@@ -13,7 +13,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSyn
 import path from 'node:path';
 import { materialize, loginRecord } from './materialize.js';
 import { lineClocks, crossedMinute } from './clock.js';
-import { inputScript, splitOutput } from './protocol.js';
+import { inputScript, splitOutput, masked, unorderedStreams } from './protocol.js';
 import { runSim } from './sim.js';
 import { WORLDS } from './worlds.js';
 import { TERMINAL } from '../src/shell/system.js';
@@ -28,7 +28,10 @@ const ENV = [
   'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
   'LANG=C.UTF-8', 'LC_ALL=C.UTF-8', 'TZ=UTC', 'TERM=xterm-256color', 'PS1=', 'PS2=', 'HISTCONTROL=ignoreboth',
 ];
+// Like a real machine (and the game's /etc/hosts), the host name resolves;
+// without it sudo warns that it cannot.
 const RUN_SH = `bash /case/setup.sh
+grep -q kernelia /etc/hosts || echo '127.0.1.1 kernelia' >> /etc/hosts
 cd /home/hero 2>/dev/null || cd /
 while [ "$(date +%-S)" -ge ${LATEST_START_SECOND} ]; do sleep 0.5; done
 exec script -qec "stty -onlcr cols 80 rows 24; exec setpriv --reuid=1000 --regid=1000 --init-groups env -i ${ENV.join(' ')} bash --norc --noprofile --noediting -i < /case/input.sh 2>/out/err" /dev/null < /dev/null
@@ -90,12 +93,15 @@ async function runCase(c, index) {
   let k = 0;
   const paired = c.lines.map(line => (runsReal(line) ? real[k++] : null));
   const sim = await runSim(world, c.lines, worldTime, lineClocks(paired, Math.floor(Date.now() / 1000)));
+  const mask = r => r && { ...r, out: masked(r.out, c.mask ?? []), err: masked(r.err, c.mask ?? []) };
+  const unordered = new Map((c.unordered ?? []).map(item => [item.line, item.streams]));
   const lines = c.lines.map((line, i) => {
-    const r = paired[i];
-    const same = r !== null && r.out === sim[i].out && r.err === sim[i].err && r.status === sim[i].status;
+    const r = unorderedStreams(mask(paired[i]), unordered.get(line));
+    const s = unorderedStreams(mask(sim[i]), unordered.get(line));
+    const same = r !== null && r.out === s.out && r.err === s.err && r.status === s.status;
     let verdict = same ? 'same' : 'differ';
     if (intended.has(line)) verdict = 'intended';
-    return { line, verdict, real: r, sim: sim[i], reason: intended.get(line)?.reason };
+    return { line, verdict, real: r, sim: s, reason: intended.get(line)?.reason };
   });
   return { case: c, lines, crossed: crossedMinute(real) };
 }

@@ -7,20 +7,31 @@
 const quote = s => `'${String(s).replace(/'/g, "'\\''")}'`;
 const join = (parent, name) => (parent === '/' ? `/${name}` : `${parent}/${name}`);
 const parentOf = path => path.slice(0, path.lastIndexOf('/')) || '/';
-const SYSTEM_FILES = new Set(['/etc/passwd', '/etc/group', '/etc/shadow', '/etc/gshadow', '/etc/hostname', '/etc/hosts', '/etc/resolv.conf']);
+const SYSTEM_FILES = new Set(['/etc/shadow', '/etc/gshadow', '/etc/hostname', '/etc/hosts', '/etc/resolv.conf']);
+const ACCOUNT_FILES = new Set(['/etc/passwd', '/etc/group']);
 const SYSTEM_DIRS = new Set(['/', '/bin', '/boot', '/dev', '/etc', '/lib', '/proc', '/run', '/sbin', '/sys', '/usr', '/var']);
 
 function build(path, node, out, parentFresh) {
   const system = SYSTEM_DIRS.has(path);
   if (SYSTEM_FILES.has(path)) return;
+  if (ACCOUNT_FILES.has(path)) {
+    out.accountFiles.push(`printf '%s' ${quote(node.content)} > ${quote(path)}`);
+    return;
+  }
   if (!parentFresh && !system) out.lines.push(`rm -rf -- ${quote(path)}`);
+  if (node.type === 'link') {
+    out.lines.push(`ln -- ${quote(node.target)} ${quote(path)}`);
+    return;
+  }
   if (system) out.lines.push(`mkdir -p -- ${quote(path)}`);
   else if (node.type === 'dir') out.lines.push(`mkdir -- ${quote(path)}`);
+  else if (node.type === 'symlink') out.lines.push(`ln -s -- ${quote(node.target)} ${quote(path)}`);
   else out.lines.push(`printf '%s' ${quote(node.content)} > ${quote(path)}`);
-  out.lines.push(`chown ${quote(`${node.owner}:${node.group}`)} -- ${quote(path)}`);
-  out.lines.push(`chmod ${node.mode.toString(8).padStart(4, '0')} -- ${quote(path)}`);
-  out.users.add(node.owner);
-  out.groups.add(node.group);
+  const link = node.type === 'symlink';
+  out.lines.push(`chown ${link ? '-h ' : ''}${quote(`${node.owner}:${node.group}`)} -- ${quote(path)}`);
+  if (!link) out.lines.push(`chmod ${node.mode.toString(8).padStart(4, '0')} -- ${quote(path)}`);
+  if (!/^\d+$/.test(node.owner)) out.users.add(node.owner);
+  if (!/^\d+$/.test(node.group)) out.groups.add(node.group);
   out.stamped.push(path);
   if (node.type === 'dir') for (const [name, child] of Object.entries(node.children)) build(join(path, name), child, out, !system);
 }
@@ -28,33 +39,39 @@ function build(path, node, out, parentFresh) {
 /**
  * Write the setup script for a patch, applying operations in order. `put`
  * replaces the path, `remove` deletes it (system directories like /etc are
- * kept and only get the patch's children; account and network files the
- * container manages, like /etc/passwd, are left alone), and every node the patch creates or
+ * kept and only get the patch's children; /etc/passwd and /etc/group are
+ * written first, before anything is owned, keeping their mode and owner;
+ * other account and network files the container manages, like /etc/shadow
+ * and /etc/hostname, are left alone), and every node the patch creates or
  * whose entries it changes gets the given mtime, as the simulator stamps them.
- * `proc` operations cannot be reproduced and are ignored; `cd` targets are
+ * Symbolic links are made with `ln -s` and hard links (spec `link()`) with `ln`.
+ * `password` sets the user's password with chpasswd once the accounts exist.
+ * `proc` and `login` operations are ignored (the shell logs in after the setup); `cd` targets are
  * returned for the caller to replay inside the shell, so OLDPWD behaves as in
  * the simulator.
  *
  * @param {object[]} patch Operations from src/backend/spec.js.
  * @param {number} mtimeMs The modification time to stamp, in ms since the epoch.
+ * @param {string} [user] The player, whose password a `password` operation sets.
  * @returns {{script: string, cds: string[]}} The root script and the directories to cd into, in order.
  */
-export function materialize(patch, mtimeMs) {
-  const out = { lines: [], users: new Set(), groups: new Set(), stamped: [] };
+export function materialize(patch, mtimeMs, user = 'hero') {
+  const out = { lines: [], accountFiles: [], users: new Set(), groups: new Set(), stamped: [], passwords: [] };
   const cds = [];
   for (const op of patch) {
     if (op.op === 'remove') out.lines.push(`rm -rf -- ${quote(op.path)}`);
     if (op.op === 'put' || op.op === 'remove') out.stamped.push(parentOf(op.path));
     if (op.op === 'put') build(op.path, op.node, out, false);
     if (op.op === 'cd') cds.push(op.path);
+    if (op.op === 'password' && op.text !== null) out.passwords.push(`printf '%s\\n' ${quote(`${user}:${op.text}`)} | chpasswd`);
   }
   const seconds = Math.floor(mtimeMs / 1000);
   const accounts = [
     ...[...out.groups].map(g => `getent group ${quote(g)} >/dev/null || groupadd ${quote(g)}`),
     ...[...out.users].map(u => `getent passwd ${quote(u)} >/dev/null || useradd -M -N ${quote(u)}`),
   ];
-  const stamps = [...new Set(out.stamped)].map(p => `[ ! -e ${quote(p)} ] || touch -h -d @${seconds} -- ${quote(p)}`);
-  return { script: ['set -e', ...accounts, ...out.lines, ...stamps].join('\n') + '\n', cds };
+  const stamps = [...new Set(out.stamped)].map(p => `if [ -e ${quote(p)} ] || [ -L ${quote(p)} ]; then touch -h -d @${seconds} -- ${quote(p)}; fi`);
+  return { script: ['set -e', ...out.accountFiles, ...accounts, ...out.passwords, ...out.lines, ...stamps].join('\n') + '\n', cds };
 }
 
 /**

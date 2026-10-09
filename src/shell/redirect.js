@@ -6,10 +6,10 @@
  * `{kind: 'null'}` (/dev/null) or `{kind: 'file', node}`.
  */
 
-import { newFile, addChild } from './fs.js';
+import { newFile, addChild, normalize } from './fs.js';
 import { baseName } from '../backend/tree.js';
 import { resolve, errorText } from './paths.js';
-import { can, canChangeEntries } from './perms.js';
+import { can, canChangeEntries, newMeta } from './perms.js';
 
 function openWrite(sys, path, append) {
   const r = resolve(sys, path);
@@ -22,11 +22,10 @@ function openWrite(sys, path, append) {
   else if (r.error !== 'ENOENT' || !r.parent) error = errorText(r.error);
   else if (!canChangeEntries(sys, r.parent)) error = 'Permission denied';
   else {
-    const meta = { mode: 0o666 & ~sys.umask, owner: sys.user, group: sys.user, mtime: sys.now() };
-    target = { kind: 'file', node: addChild(r.parent, baseName(r.abs), newFile('', meta), sys.now()) };
+    target = { kind: 'file', node: addChild(r.parent, baseName(r.abs), newFile('', newMeta(sys, r.parent, 0o666, false)), sys.now()) };
   }
   if (target?.kind === 'file' && !append) Object.assign(target.node, { content: '', mtime: sys.now() });
-  return { target, error, abs: r.abs };
+  return { target, error, abs: normalize(path, sys.cwd) };
 }
 
 function openRead(sys, path) {
@@ -34,7 +33,7 @@ function openRead(sys, path) {
   let error = r.error ? errorText(r.error) : null;
   if (!error && r.node.type === 'dir') error = 'Is a directory';
   else if (!error && !can(sys, r.node, 'r')) error = 'Permission denied';
-  return { input: error ? null : r.node.content, error, abs: r.abs };
+  return { input: error ? null : r.node.content, error, abs: normalize(path, sys.cwd) };
 }
 
 function applyDup(redir, fd, streams) {
@@ -107,15 +106,16 @@ export function writeTo(sys, target, text) {
 
 /**
  * Write a whole file the way a program that opens it for writing does
- * (uniq's OUTPUT): create or truncate it, then fill it.
+ * (uniq's OUTPUT, tee): create or truncate it, then fill it; or append.
  *
  * @param {object} sys The machine state.
  * @param {string} path The path as typed.
  * @param {string} text The new content.
+ * @param {{append?: boolean}} [opts] Add to the end instead of truncating.
  * @returns {string|null} The reason it cannot be written (`Permission denied`), or null.
  */
-export function writeFile(sys, path, text) {
-  const opened = openWrite(sys, path, false);
+export function writeFile(sys, path, text, { append = false } = {}) {
+  const opened = openWrite(sys, path, append);
   if (opened.target) writeTo(sys, opened.target, text);
   return opened.error;
 }

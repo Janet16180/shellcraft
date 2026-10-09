@@ -36,3 +36,12 @@ test('several tabs complete one after another', async () => {
   await typeLine('cd fo\tca\t', keys);
   assert.deepEqual(keys.calls, [['complete', 'cd fo'], ['complete', 'cd forest/ca'], ['submit', 'cd forest/cave/']]);
 });
+
+test('Ctrl+C and Ctrl+Z written after the text are keys pressed while the line runs', async () => {
+  const calls = [];
+  const keys = { complete: async line => ({ line }), submit: async (line, pressed) => calls.push([line, pressed]) };
+  await typeLine('sleep 100\u001a', keys);
+  await typeLine('fg\u0003', keys);
+  await typeLine('ls', keys);
+  assert.deepEqual(calls, [['sleep 100', ['ctrl-z']], ['fg', ['ctrl-c']], ['ls', []]]);
+});

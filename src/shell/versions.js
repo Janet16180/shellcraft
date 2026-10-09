@@ -1,6 +1,6 @@
 /**
  * What `--version` prints for the simulated programs, as on Ubuntu 24.04
- * (coreutils 9.4, grep 3.11, findutils 4.9.0, tree 2.1.1).
+ * (coreutils 9.4, grep 3.11, findutils 4.9.0, tree 2.1.1, tar 1.35, gzip 1.12, file 5.45).
  */
 
 import { nameTable } from './table.js';
@@ -24,14 +24,27 @@ const COREUTILS_AUTHORS = nameTable({
   sort: 'Mike Haertel and Paul Eggert.',
   uniq: 'Richard M. Stallman and David MacKenzie.',
   chmod: 'David MacKenzie and Jim Meyering.',
+  chown: 'David MacKenzie and Jim Meyering.',
+  chgrp: 'David MacKenzie and Jim Meyering.',
   date: 'David MacKenzie.',
   uname: 'David MacKenzie.',
   id: 'Arnold Robbins and David MacKenzie.',
   groups: 'David MacKenzie and James Youngman.',
   env: 'Richard Mlynarik, David MacKenzie, and Assaf Gordon.',
   printenv: 'David MacKenzie and Richard Mlynarik.',
+  tee: 'Mike Parker, Richard M. Stallman, and David MacKenzie.',
+  sleep: 'Jim Meyering and Paul Eggert.',
+  du: 'Torbjörn Granlund, David MacKenzie, Paul Eggert,\nand Jim Meyering.',
+  df: 'Torbjörn Granlund, David MacKenzie, and Paul Eggert.',
 });
+const GZIP_LICENSE = 'This is free software.  You may redistribute copies of it under the terms of\nthe GNU General Public License <https://www.gnu.org/licenses/gpl.html>.\nThere is NO WARRANTY, to the extent permitted by law.';
+const gzipScript = name => `${name} (gzip) 1.12\nCopyright (C) 2007, 2011-2018 Free Software Foundation, Inc.\n${GZIP_LICENSE}\n\nWritten by Paul Eggert.\n`;
 const OTHERS = nameTable({
+  tar: `tar (GNU tar) 1.35\nCopyright (C) 2023 Free Software Foundation, Inc.\n${GPL}\nWritten by John Gilmore and Jay Fenlason.\n`,
+  gzip: `gzip 1.12\nCopyright (C) 2018 Free Software Foundation, Inc.\nCopyright (C) 1993 Jean-loup Gailly.\n${GZIP_LICENSE}\n\nWritten by Jean-loup Gailly.\n`,
+  gunzip: gzipScript('gunzip'),
+  zcat: gzipScript('zcat'),
+  file: 'file-5.45\nmagic file from /etc/magic:/usr/share/misc/magic\n',
   grep: `grep (GNU grep) 3.11\nCopyright (C) 2023 Free Software Foundation, Inc.\n${GPL}\nWritten by Mike Haertel and others; see\n<https://git.savannah.gnu.org/cgit/grep.git/tree/AUTHORS>.\n\ngrep -P uses PCRE2 10.42 2022-12-11\n`,
   find: `find (GNU findutils) 4.9.0\nCopyright (C) 2022 Free Software Foundation, Inc.\n${GPL}\nWritten by Eric B. Decker, James Youngman, and Kevin Dalley.\nFeatures enabled: D_TYPE O_NOFOLLOW(enabled) LEAF_OPTIMISATION FTS(FTS_CWDFD) CBO(level=2) \n`,
   hostname: 'hostname 3.23\n',

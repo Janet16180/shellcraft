@@ -61,9 +61,25 @@ export function clears(chunk) {
   return chunk.tone === 'clear';
 }
 
+// bash's job lines: "[1] 2437", "[1]+  Done ...", their "  (wd: ~)" and "(wd now: ~/forest)" lines.
+const JOB_LINE = /^(\[\d+\]|\s*\(wd( now)?: )/;
+
+/**
+ * Whether an error chunk is only bash's job notices, which bash writes to
+ * standard error but which are news, not errors.
+ *
+ * @param {string} text The chunk's text.
+ * @returns {boolean} True when every non-empty line is a job line.
+ */
+export function isJobNotice(text) {
+  const lines = text.split('\n').filter(line => line !== '');
+  return lines.length > 0 && lines.every(line => JOB_LINE.test(line));
+}
+
 /**
  * Turn one output chunk into a terminal line. The final newline a program
- * writes is dropped because each line is its own block.
+ * writes is dropped because each line is its own block. bash's job notices
+ * are marked `job` rather than `err`, so a "Done" does not look like a failure.
  *
  * @param {import('../backend/port.js').OutputChunk} chunk One piece of output.
  * @returns {{cls: string, html: string} | null} Classes and HTML for the line, or null when there is nothing to show.
@@ -72,7 +88,8 @@ export function chunkLine(chunk) {
   const { stream, text, html, tone } = chunk;
   if ((text === '' && !html) || clears(chunk)) return null;
   const classes = ['ln'];
-  if (stream !== 'out') classes.push(stream);
+  if (stream === 'err' && isJobNotice(text)) classes.push('job');
+  else if (stream !== 'out') classes.push(stream);
   if (tone) classes.push(`tone-${tone}`);
   let body = html ?? esc(text);
   body = body.endsWith('\n') ? body.slice(0, -1) : body;

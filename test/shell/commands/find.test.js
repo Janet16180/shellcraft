@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run } from '../helpers.js';
-import { put, file, dir } from '../../../src/backend/spec.js';
+import { put, file, dir, symlink } from '../../../src/backend/spec.js';
 
 const mine = { owner: 'hero' };
 const withTree = () => shell([put('/home/hero/t', dir({ 'a.txt': file('x', mine), 'B.md': file('', mine), sub: dir({ 'c.txt': file('', mine) }, mine), empty: dir({}, mine) }, mine))]);
@@ -73,4 +73,30 @@ test('a word where a predicate should be means a path came too late, often an un
   assert.deepEqual([two.out, two.err, two.status], ['', "find: paths must precede expression: `B.md'\nfind: possible unquoted pattern after predicate `-name'?\n", 1]);
   assert.equal((await run(b, 'find . -type f foo')).err, "find: paths must precede expression: `foo'\n");
   assert.equal((await run(b, 'find . ! -name x a.txt')).err, "find: paths must precede expression: `a.txt'\nfind: possible unquoted pattern after predicate `-name'?\n");
+});
+
+const withLinks = () => shell([put('/home/hero/t', dir({
+  'a.txt': file('x', mine), sub: dir({ 'c.txt': file('', mine) }, mine), portal: symlink('sub', mine), broken: symlink('nowhere', mine),
+}, mine))]);
+
+test('find -type l finds links; -type f and -type d do not count them, and find does not enter them', async () => {
+  const b = await withLinks();
+  assert.equal((await run(b, 'find t -type l')).out, 't/broken\nt/portal\n');
+  assert.equal((await run(b, 'find t -type f')).out, 't/a.txt\nt/sub/c.txt\n');
+  assert.equal((await run(b, 'find t -type d')).out, 't\nt/sub\n');
+});
+
+test('find given a link names only the link, unless the path ends in a slash', async () => {
+  const b = await withLinks();
+  await run(b, 'cd t');
+  assert.equal((await run(b, 'find portal')).out, 'portal\n');
+  assert.equal((await run(b, 'find portal/')).out, 'portal/\nportal/c.txt\n');
+});
+
+test('-xtype tests what a link leads to, so -xtype l finds the broken links', async () => {
+  const b = await shell();
+  await run(b, 'mkdir m; ln -s nowhere m/broken; ln -s /etc m/good; ln -s broken m/chain; touch m/f');
+  assert.deepEqual([(await run(b, 'find m -xtype l')).out, (await run(b, 'find m -xtype f')).out, (await run(b, 'find m -xtype d')).out],
+    ['m/broken\nm/chain\n', 'm/f\n', 'm\nm/good\n']);
+  assert.equal((await run(b, 'find m -xtype x')).err, 'find: Unknown argument to -xtype: x\n');
 });

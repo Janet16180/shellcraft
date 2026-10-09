@@ -23,12 +23,26 @@ export const PALETTES = { ink: INK, toon: TOON };
 /** The Shadow Daemon: its body, its eyes (and its flash), its ghostly highlight. */
 export const DAEMON = { body: '#3b1d5c', eye: '#ff3355', glow: '#e8d7ff' };
 
+/** A dangling symlink: the portal sprite gone cold, grey with a red core. */
+export const BROKEN_PORTAL = { v: '#a3a0bf', p: '#615b80', n: '#353050', w: '#e2434f' };
+
 /** Gem colours by the word in the file name: body, highlight, shadow. */
 export const GEMS = {
   ruby: { c: '#ff4d6d', l: '#ffb3c1', d: '#a3122f' },
   sapphire: { c: '#4d7cff', l: '#bcd0ff', d: '#1f3a99' },
   emerald: { c: '#3ddc84', l: '#c6ffe0', d: '#137a43' },
   opal: { c: '#f5e6ff', l: '#ffffff', d: '#b68fd6' },
+};
+
+/**
+ * The other people of the realm, as the hero's sprite recoloured: h is the
+ * hat, r the robe. Mira and oren are smiths, tamsin
+ * a scribe.
+ */
+export const PEOPLE = {
+  mira: { h: '#e2434f', r: '#a24f34' },
+  oren: { h: '#8fd14f', r: '#2c5aa8' },
+  tamsin: { h: '#ffd348', r: '#3e7a3c' },
 };
 
 /** Label colours match ls --color: directories blue, executables green. */
@@ -39,6 +53,8 @@ export const LABEL = {
   runnable: '#9be15d',
   hidden: '#c8c2e6',
   locked: '#ff8a94',
+  link: '#6fe0e8',
+  orphan: '#ff5c66',
   more: '#ffd348',
   creature: '#ffab8a',
   hover: '#ffd348',

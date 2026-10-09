@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readRoom, itemKind, picksOf } from '../../src/map/room.js';
-import { file, dir } from '../../src/backend/spec.js';
+import { readRoom, itemKind, picksOf, realPath } from '../../src/map/room.js';
+import { file, dir, symlink } from '../../src/backend/spec.js';
 import { observe, sampleTree } from './fixtures.js';
+import { packTar, gzip } from '../../src/backend/archive.js';
 
 const names = list => list.map(entry => entry.name);
 const none = new Set();
@@ -43,6 +44,24 @@ test('a door the player may not enter is locked and an item they may not read is
   assert.equal(etc.items.find(i => i.name === 'shadow').locked, true);
   assert.equal(etc.items.find(i => i.name === 'passwd').locked, false);
   assert.equal(readRoom(observe('/home'), none).doors.find(d => d.name === 'alice').locked, true);
+});
+
+test('a door without x is locked; a door with x but without r is dark: you may enter but not see inside', () => {
+  const tree = sampleTree();
+  const mine = mode => dir({ 'key.txt': file('', { owner: 'hero' }) }, { owner: 'hero', mode });
+  tree.children.home.children.hero.children.hall = dir({ shut: mine(0o600), blind: mine(0o300), open: mine(0o700), peek: mine(0o400) }, { owner: 'hero' });
+  const doors = Object.fromEntries(readRoom(observe('/home/hero/hall', { tree }), none).doors.map(d => [d.name, d]));
+  assert.deepEqual([doors.shut.locked, doors.shut.dark], [true, false]);
+  assert.deepEqual([doors.peek.locked, doors.peek.dark], [true, false]);
+  assert.deepEqual([doors.blind.locked, doors.blind.dark], [false, true]);
+  assert.deepEqual([doors.open.locked, doors.open.dark], [false, false]);
+});
+
+test('every entry carries its owner, and items are never dark', () => {
+  const room = readRoom(observe('/home'), none);
+  assert.equal(room.doors.find(d => d.name === 'alice').owner, 'alice');
+  assert.equal(readRoom(observe('/etc'), none).items.find(i => i.name === 'shadow').owner, 'root');
+  assert.equal(readRoom(observe('/etc'), none).items.every(i => i.dark === false), true);
 });
 
 test('group membership decides access through the group bits', () => {
@@ -111,4 +130,118 @@ test('the root offers no exit pick and a revealed room offers its hidden files',
   assert.equal(picksOf(readRoom(observe('/'), none)).some(p => p.kind === 'exit'), false);
   const home = picksOf(readRoom(observe('/home/hero'), new Set(['/home/hero'])));
   assert.ok(home.some(p => p.name === '.secret_map'));
+});
+
+const withPortals = () => {
+  const tree = sampleTree();
+  Object.assign(tree.children.home.children.hero.children, {
+    portal: symlink('/home/hero/forest/cave/deep', { owner: 'hero' }),
+    broken: symlink('nowhere', { owner: 'hero' }),
+  });
+  return tree;
+};
+
+test('a symbolic link is an item for now, even one to a directory or one that leads nowhere', () => {
+  const room = readRoom(observe('/home/hero', { tree: withPortals() }), none);
+  assert.deepEqual(names(room.items), ['broken', 'portal', 'readme.txt']);
+  assert.equal(names(room.doors).includes('portal'), false);
+  assert.equal(room.items[1].locked, false);
+});
+
+test('standing in a directory reached through a link shows where it leads, and .. goes back the way it came', () => {
+  const room = readRoom(observe('/home/hero/portal', { tree: withPortals() }), none);
+  assert.equal(room.status, 'open');
+  assert.deepEqual(names(room.items), ['ancient_key.txt']);
+  assert.equal(room.items[0].path, '/home/hero/portal/ancient_key.txt');
+  assert.equal(room.exit, '/home/hero');
+});
+
+test('a link item knows its target and whether it leads anywhere, and is never runnable', () => {
+  const room = readRoom(observe('/home/hero', { tree: withPortals() }), none);
+  const [broken, portal, readme] = room.items;
+  assert.deepEqual([portal.link, portal.dangling, portal.runnable], ['/home/hero/forest/cave/deep', false, false]);
+  assert.deepEqual([broken.link, broken.dangling, broken.runnable], ['nowhere', true, false]);
+  assert.deepEqual([readme.link, readme.dangling], [null, false]);
+  assert.equal(itemKind(portal, 'cottage'), 'portal');
+  assert.equal(itemKind(broken, 'cottage'), 'portal');
+});
+
+test('the real path of a directory reached through a link is where the link leads', () => {
+  const tree = withPortals();
+  assert.equal(realPath(tree, '/home/hero/portal'), '/home/hero/forest/cave/deep');
+  assert.equal(realPath(tree, '/home/hero/forest'), '/home/hero/forest');
+  assert.equal(realPath(tree, '/'), '/');
+  assert.equal(realPath(tree, '/home/hero/broken'), '/home/hero/broken');
+});
+
+test('a file with more than one name carries its inode as its twin mark; a file with one name has none', () => {
+  const tree = sampleTree();
+  const hero = tree.children.home.children.hero.children;
+  hero['scroll.txt'] = { ...file('A map.\n', { owner: 'hero' }), ino: 1847, links: 2 };
+  hero['copy.txt'] = { ...file('A map.\n', { owner: 'hero' }), ino: 1847, links: 2 };
+  hero['readme.txt'] = { ...hero['readme.txt'], ino: 12, links: 1 };
+  hero.old_portal = { ...symlink('scroll.txt', { owner: 'hero' }), ino: 1900, links: 1 };
+  const items = Object.fromEntries(readRoom(observe('/home/hero', { tree }), none).items.map(item => [item.name, item.twin]));
+  assert.deepEqual(items, { 'copy.txt': 1847, old_portal: null, 'readme.txt': null, 'scroll.txt': 1847 });
+});
+
+test('a directory never gets a twin mark, whatever its link count', () => {
+  const tree = sampleTree();
+  tree.children.home.children.hero.children.forest.ino = 40;
+  tree.children.home.children.hero.children.forest.links = 4;
+  const forest = readRoom(observe('/home/hero', { tree }), none).doors.find(door => door.name === 'forest');
+  assert.equal(forest.twin, null);
+});
+
+const packed = () => {
+  const mine = { owner: 'hero' };
+  const t = Date.UTC(2026, 9, 1, 12, 0);
+  const tar = packTar([
+    { path: 'library/', type: 'dir', mode: 0o755, owner: 'hero', group: 'hero', mtime: t },
+    { path: 'library/scroll.txt', type: 'file', mode: 0o644, owner: 'hero', group: 'hero', mtime: t, content: 'Old words.\n' },
+  ]);
+  const tree = sampleTree();
+  tree.children.home.children.hero.children.travel = dir({
+    'library.tar': file(tar, mine),
+    'library.tar.gz': file(gzip(tar), mine),
+    'notes.txt.gz': file(gzip('Notes.\n', { name: 'notes.txt' }), mine),
+    'disguised.dat': file(gzip(tar), mine),
+    'empty.tar': file('', mine),
+    'empty.tgz': file('', mine),
+    'empty.gz': file('', mine),
+    'plain.txt': file('Just text.\n', mine),
+  }, mine);
+  return readRoom(observe('/home/hero/travel', { tree }), none);
+};
+
+test('a tar archive is packed as tar, a compressed one as tgz, other gzip data as gzip, by what is inside', () => {
+  const pack = Object.fromEntries(packed().items.map(item => [item.name, item.pack]));
+  assert.equal(pack['library.tar'], 'tar');
+  assert.equal(pack['library.tar.gz'], 'tgz');
+  assert.equal(pack['notes.txt.gz'], 'gzip');
+  assert.equal(pack['disguised.dat'], 'tgz');
+  assert.equal(pack['plain.txt'], null);
+});
+
+test('a file that is no archive inside still looks packed when its name says so', () => {
+  const pack = Object.fromEntries(packed().items.map(item => [item.name, item.pack]));
+  assert.deepEqual([pack['empty.tar'], pack['empty.tgz'], pack['empty.gz']], ['tar', 'tgz', 'gzip']);
+});
+
+test('archives are chests, a compressed archive a strapped chest, and gzip data a tied bundle', () => {
+  const kind = Object.fromEntries(packed().items.map(item => [item.name, itemKind(item, 'departure')]));
+  assert.equal(kind['library.tar'], 'chest');
+  assert.equal(kind['library.tar.gz'], 'strapped');
+  assert.equal(kind['notes.txt.gz'], 'bundle');
+  assert.equal(kind['plain.txt'], 'scroll');
+});
+
+test('directories and links are never packed', () => {
+  const tree = withPortals();
+  tree.children.home.children.hero.children['box.tar'] = dir({}, { owner: 'hero' });
+  tree.children.home.children.hero.children['link.tar'] = symlink('readme.txt', { owner: 'hero' });
+  const room = readRoom(observe('/home/hero', { tree }), none);
+  assert.equal(room.doors.find(d => d.name === 'box.tar').pack, null);
+  assert.equal(room.items.find(i => i.name === 'link.tar').pack, null);
+  assert.equal(itemKind(room.items.find(i => i.name === 'link.tar'), 'cottage'), 'portal');
 });

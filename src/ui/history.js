@@ -8,8 +8,11 @@ const LIMIT = 500;
 /**
  * Create an empty history.
  *
- * @returns {{push: (line: string) => void, up: (current: string) => string, down: () => string}}
- *   `push` records a submitted line; `up` and `down` return the line to show.
+ * @returns {{push: (line: string) => void, up: (current: string) => string, down: () => string,
+ *   entries: () => string[], seek: (index: number, draft: string) => void}}
+ *   `push` records a submitted line; `up` and `down` return the line to show; `entries` lists the
+ *   lines, oldest first; `seek` stands on entry `index` (the length for the line being typed, kept as
+ *   `draft`), as after a reverse search, and raises on an index outside the history.
  */
 export function createHistory() {
   const lines = [];
@@ -35,5 +38,11 @@ export function createHistory() {
     return index === lines.length ? draft : lines[index];
   }
 
-  return { push, up, down };
+  function seek(at, typed) {
+    if (!Number.isInteger(at) || at < 0 || at > lines.length) throw new Error(`history index must be 0 to ${lines.length}, got ${at}`);
+    index = at;
+    draft = typed;
+  }
+
+  return { push, up, down, entries: () => [...lines], seek };
 }

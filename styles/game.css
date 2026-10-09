@@ -578,6 +578,30 @@ kbd {
   color: var(--muted);
 }
 
+.keymap-title {
+  margin: 16px 0 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.keymap {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 14px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.keymap dt {
+  text-align: right;
+}
+
+.keymap dd {
+  margin: 0;
+  color: var(--muted);
+}
+
 
 .panelwrap {
   grid-area: panel;
@@ -674,8 +698,9 @@ kbd {
   color: var(--warn-text);
 }
 
-/* The permissions lesson: each part of the mode column has its own colour. */
-.lesson {
+/* The permissions lesson and explainer: each part of the mode column has its own colour. */
+.lesson,
+.explainer {
   --perm-type: var(--c-mist);
   --perm-owner: var(--c-gold);
   --perm-group: var(--c-lilac);
@@ -689,10 +714,10 @@ kbd {
   font-weight: 700;
 }
 
-.lesson .perm-type { color: var(--perm-type); }
-.lesson .perm-owner { color: var(--perm-owner); }
-.lesson .perm-group { color: var(--perm-group); }
-.lesson .perm-other { color: var(--perm-other); }
+.lesson .perm-type, .explainer .perm-type { color: var(--perm-type); }
+.lesson .perm-owner, .explainer .perm-owner { color: var(--perm-owner); }
+.lesson .perm-group, .explainer .perm-group { color: var(--perm-group); }
+.lesson .perm-other, .explainer .perm-other { color: var(--perm-other); }
 
 .perm-map {
   display: grid;
@@ -1092,6 +1117,18 @@ kbd {
   color: var(--muted);
 }
 
+/* While a command runs: one quiet line under the task, in the terminal's own colours. */
+.task-strip.run-note {
+  padding-block: 4px;
+  font-size: var(--size-small);
+  color: var(--muted);
+  background: rgba(111, 168, 255, 0.07);
+}
+
+.run-note kbd {
+  font-size: 12px;
+}
+
 .screen {
   flex: 1;
   tab-size: 8;
@@ -1129,6 +1166,11 @@ kbd {
   color: var(--muted);
 }
 
+/* bash's job notices ([1] 2437, [1]+  Done ...) go to standard error but are news, not errors. */
+.ln.job {
+  color: var(--term-sep);
+}
+
 .ln.chapter {
   color: var(--accent);
   font-family: var(--font-title);
@@ -1157,6 +1199,18 @@ kbd {
 
 .c-exe {
   color: var(--term-exe);
+  font-weight: 600;
+}
+
+/* Symbolic links: cyan like GNU ls (ln=01;36); one that leads nowhere red on black (or=40;31;01). */
+.c-link {
+  color: var(--term-link);
+  font-weight: 600;
+}
+
+.c-orphan {
+  color: var(--term-orphan);
+  background: var(--term-orphan-bg);
   font-weight: 600;
 }
 
@@ -1203,6 +1257,55 @@ kbd {
   caret-color: var(--accent);
 }
 
+/* While a command runs the prompt hides; three dots pulse in its place, like a terminal at work. */
+.busy {
+  display: inline-flex;
+  gap: 4px;
+  align-self: center;
+  margin-right: 10px;
+}
+
+.busy i {
+  width: 6px;
+  height: 6px;
+  background: var(--muted);
+  opacity: 0.8;
+  animation: busy 1.2s steps(1) infinite;
+}
+
+.busy i:nth-child(2) {
+  animation-delay: 0.4s;
+}
+
+.busy i:nth-child(3) {
+  animation-delay: 0.8s;
+}
+
+@keyframes busy {
+  0% { opacity: 1; }
+  33% { opacity: 0.25; }
+}
+
+/* Ctrl+R: the input holds only the search string and grows with it, so the match
+   follows it as in bash's (reverse-i-search)`TEXT': MATCH. */
+.inputline input.searching {
+  flex: 0 0 auto;
+  min-width: 2px;
+}
+
+#searchTail {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* bash 5.2 shows the match in standout (reverse video). */
+.isearch-hit {
+  background: var(--term-text);
+  color: var(--term-bg);
+}
+
 .keys {
   display: none;
   flex-wrap: wrap;
@@ -1219,6 +1322,26 @@ kbd {
 @media (pointer: coarse) {
   .keys {
     display: flex;
+  }
+}
+
+/* Twelve keys in two rows on a 360px phone. */
+@media (max-width: 400px) {
+  .keys {
+    gap: 6px;
+    padding-inline: 10px;
+  }
+
+  .keys button {
+    min-width: 34px;
+  }
+
+  .keys .px-btn {
+    padding-inline: 6px;
+  }
+
+  .keys .px-btn::before {
+    left: 2px;
   }
 }
 
@@ -1418,4 +1541,23 @@ kbd {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* The kill table holds sentences, not short commands: let them wrap. */
+.chmod-ways.kill-ways {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+  white-space: normal;
+}
+
+.chmod-ways.kill-ways th:first-child,
+.chmod-ways.kill-ways td:first-child {
+  width: 22%;
+}
+
+.chmod-ways.kill-ways td {
+  white-space: normal;
+  vertical-align: top;
+  overflow-wrap: anywhere;
 }

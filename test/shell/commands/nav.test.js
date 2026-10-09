@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run, runAll } from '../helpers.js';
+import { put, dir, file, symlink } from '../../../src/backend/spec.js';
 import { nameHTML } from '../../../src/shell/commands/nav.js';
 
 test('cd moves by relative, absolute, .., ~ and no argument', async () => {
@@ -67,4 +68,51 @@ test('cd -@ is an invalid option on Linux although the usage line lists it', asy
   const r = await run(b, 'cd -@ /tmp');
   assert.deepEqual([r.err, r.status], ['bash: cd: -@: invalid option\ncd: usage: cd [-L|[-P [-e]] [-@]] [dir]\n', 2]);
   assert.equal((await b.observe()).cwd, '/home/hero');
+});
+
+const portals = () => shell([
+  put('/home/hero/forest/cave/deep', dir({ 'key.txt': file('key\n', { owner: 'hero' }) }, { owner: 'hero' })),
+  put('/home/hero/portal', symlink('/home/hero/forest/cave/deep', { owner: 'hero' })),
+  put('/home/hero/near', symlink('forest/cave', { owner: 'hero' })),
+  put('/home/hero/broken', symlink('nowhere', { owner: 'hero' })),
+  put('/home/hero/loop', symlink('loop', { owner: 'hero' })),
+]);
+
+test('cd through a symbolic link keeps the path as typed, and .. goes back the way it came', async () => {
+  const b = await portals();
+  await run(b, 'cd portal');
+  assert.equal((await b.observe()).cwd, '/home/hero/portal');
+  assert.equal((await run(b, 'cat key.txt')).out, 'key\n');
+  assert.equal((await run(b, 'echo $PWD')).out, '/home/hero/portal\n');
+  await run(b, 'cd ..');
+  assert.equal((await b.observe()).cwd, '/home/hero');
+  await run(b, 'cd near/deep/../..');
+  assert.equal((await b.observe()).cwd, '/home/hero');
+});
+
+test('cd -P goes to where the link really leads', async () => {
+  const b = await portals();
+  await run(b, 'cd -P portal');
+  assert.equal((await b.observe()).cwd, '/home/hero/forest/cave/deep');
+  assert.equal((await run(b, 'echo $PWD')).out, '/home/hero/forest/cave/deep\n');
+});
+
+test('cd into a dangling link or a loop fails like bash', async () => {
+  const b = await portals();
+  assert.equal((await run(b, 'cd broken')).err, 'bash: cd: broken: No such file or directory\n');
+  assert.equal((await run(b, 'cd loop')).err, 'bash: cd: loop: Too many levels of symbolic links\n');
+});
+
+test('when the path as typed leads nowhere but the real one does, cd takes the real one', async () => {
+  const b = await portals();
+  await run(b, 'cd portal/../../cave');
+  assert.equal((await b.observe()).cwd, '/home/hero/forest/cave');
+});
+
+test('tree shows a link as name -> target without entering it, counting one to a directory as a directory', async () => {
+  const mine = { owner: 'hero' };
+  const b = await shell([put('/home/hero/gate', dir({ p: symlink('../forest', mine), x: symlink('nowhere', mine) }, mine))]);
+  const r = await run(b, 'tree gate');
+  assert.equal(r.out, 'gate\n├── p -> ../forest\n└── x -> nowhere\n\n2 directories, 1 file\n');
+  assert.match(r.result.output.find(c => c.html).html, /<span class="c-link">p<\/span> -&gt; <span class="c-dir">\.\.\/forest<\/span>/);
 });

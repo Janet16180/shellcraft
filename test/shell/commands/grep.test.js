@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shell, run } from '../helpers.js';
-import { put, file, dir } from '../../../src/backend/spec.js';
+import { put, file, dir, symlink } from '../../../src/backend/spec.js';
 
 const mine = { owner: 'hero' };
 const market = () => shell([put('/home/hero/inv.txt', file('potion\nsword\napple\npotion\nShield\n10 arrows\na+b\n', mine))]);
@@ -80,4 +80,36 @@ test('unknown options are rejected with the usage line', async () => {
 test('grep -e without a pattern reports the missing argument', async () => {
   const r = await run(await shell(), 'grep -e');
   assert.deepEqual([r.err, r.status], ["grep: option requires an argument -- 'e'\nUsage: grep [OPTION]... PATTERNS [FILE]...\nTry 'grep --help' for more information.\n", 2]);
+});
+
+test('grep -r passes by links inside the directory, but follows one it is given', async () => {
+  const b = await shell([put('/home/hero/t', dir({
+    'a.txt': file('key\n', mine), sub: dir({ 'b.txt': file('key\n', mine) }, mine), portal: symlink('sub', mine), broken: symlink('nowhere', mine),
+  }, mine))]);
+  assert.deepEqual(await run(b, 'grep -r key t').then(r => [r.out, r.err, r.status]), ['t/a.txt:key\nt/sub/b.txt:key\n', '', 0]);
+  assert.equal((await run(b, 'grep -r key t/portal')).out, 't/portal/b.txt:key\n');
+});
+
+test('grep -R follows links inside the directory, warns about a loop and names a dangling one', async () => {
+  const b = await shell([put('/home/hero/t', dir({
+    'a.txt': file('key\n', mine), sub: dir({ 'b.txt': file('key\n', mine), up: symlink('..', mine) }, mine), portal: symlink('sub', mine), broken: symlink('nowhere', mine),
+  }, mine))]);
+  const r = await run(b, 'grep -R key t');
+  assert.equal(r.out, 't/a.txt:key\nt/portal/b.txt:key\nt/sub/b.txt:key\n');
+  assert.equal(r.err, "grep: t/broken: No such file or directory\ngrep: warning: t/portal/up: recursive directory loop\ngrep: warning: t/sub/up: recursive directory loop\n");
+});
+
+test('grep -R names a link that loops on itself', async () => {
+  const b = await shell([put('/home/hero/t', dir({ loop: symlink('loop', mine) }, mine))]);
+  assert.equal((await run(b, 'grep -R key t')).err, 'grep: t/loop: Too many levels of symbolic links\n');
+});
+
+test('a file with NUL bytes is binary: grep says on standard error that it matches instead of printing its lines', async () => {
+  const b = await shell([put('/home/hero/bin.dat', file('hello\0world\nhello again\n', { owner: 'hero' }))]);
+  assert.deepEqual(await run(b, 'grep hello bin.dat').then(r => [r.out, r.err, r.status]), ['', 'grep: bin.dat: binary file matches\n', 0]);
+  assert.deepEqual(await run(b, 'grep nothing bin.dat').then(r => [r.out, r.status]), ['', 1]);
+  assert.equal((await run(b, 'grep -c hello bin.dat')).out, '2\n');
+  assert.equal((await run(b, 'grep -l hello bin.dat readme.txt')).out, 'bin.dat\n');
+  await run(b, 'tar -cf a.tar readme.txt');
+  assert.equal((await run(b, 'grep -r . . 2>&1 | grep tar')).out, 'grep: ./a.tar: binary file matches\n');
 });

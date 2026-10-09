@@ -231,7 +231,7 @@ test('the wall and the stones are kept off the map until an ls lists them', () =
   assert.deepEqual(chapter.boss.hidden(secret), [`${WELL}/wall.txt`, '/a', '/c']);
 });
 
-const NOT_COMMANDS = new Set(['PATH', '=', '$', 'wish', 'gold', '$wish', '0', '$?', '>', '2>', '/dev/null', '2> /dev/null', 'B', 'A', 'A && B', 'A || B', 'I wish for gold', 'I wish for $wish', 'ls A B > list.txt 2> /dev/null', '~/well/wall.txt', '~/well/stones', 'cat', '~/well/words.txt']);
+const NOT_COMMANDS = new Set(['PATH', '=', '$', 'wish', 'gold', '$wish', '0', '$?', '>', '2>', '/dev/null', '2> /dev/null', 'B', 'A', 'A && B', 'A || B', 'I wish for gold', 'I wish for $wish', 'ls A B > list.txt 2> /dev/null', '~/well/wall.txt', '~/well/stones', 'cat', '~/well/words.txt', '&gt; ~/well/words.txt', '2&gt; /dev/null', '> ~/well/words.txt', 'cat ~/well/wall.txt', 'list.txt', 'ls']);
 
 test('every command the chapter shows runs in the simulator', async () => {
   const lines = [
