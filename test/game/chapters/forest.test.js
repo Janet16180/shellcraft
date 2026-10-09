@@ -47,7 +47,7 @@ test('the Tab task\'s last hint is the key sequence, not a line to paste', () =>
 });
 
 test('the lesson bridges Linux\'s "up" toward / with the map\'s stairs down into the dungeon', () => {
-  const text = chapter.lesson.replace(/<[^>]+>/g, '');
+  const text = chapter.lesson;
   assert.match(text, /\bup\b/);
   assert.match(text, /\bdown\b/);
   assert.match(text, /\bdungeon\b/);

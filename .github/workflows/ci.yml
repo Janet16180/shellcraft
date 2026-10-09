@@ -56,7 +56,9 @@ jobs:
       - name: Install browser for UI checks
         run: npx --no-install playwright-core install --with-deps chromium
       - name: Check the bundled game in a sandboxed browser
-        run: node test/ui/shots.js .scratch/ci-published --published
+        run: |
+          node test/ui/shots.js .scratch/ci-published --published
+          node --test test/map/harness-security.js
       - name: Check desktop and mobile layouts
         run: node test/ui/layouts.js .scratch/ci-layouts
       - name: Compare the simulated shell with Bash

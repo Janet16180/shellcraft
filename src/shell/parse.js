@@ -26,7 +26,7 @@ function fail(st, token) {
   if (st.error) return;
   if (!token) st.error = { message: END_OF_FILE, line: null, echo: false, incomplete: true };
   else if (token.type === 'error') st.error = { message: token.message, line: token.line, echo: false, incomplete: true };
-  else st.error = near(token.type === 'word' ? token.raw : token.op.replace('\n', 'newline'), token.line);
+  else st.error = near(token.type === 'word' ? token.raw : (token.op === '\n' ? 'newline' : token.op), token.line);
 }
 
 function expectWord(st, word) {

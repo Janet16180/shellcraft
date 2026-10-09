@@ -107,7 +107,7 @@ for (const [goal, prefix, miss, hit] of NEAR_MISSES) {
 const NEAR_NOTES = [
   [APPEND, [HELLO[0]], "echo 'echo Hello from the forge' > ~/forge/hello.sh", /> replaced the whole file/],
   [APPEND, HELLO.slice(0, 1), HELLO[0], null],
-  [APPEND, HELLO, HELLO[0].replace('>', '>>'), /#!\/bin\/bash line twice/],
+  [APPEND, HELLO, "echo '#!/bin/bash' >> ~/forge/hello.sh", /#!\/bin\/bash line twice/],
   [RUN, HELLO, '~/forge/hello.sh', /no x yet.*chmod \+x ~\/forge\/hello\.sh/],
   [RUN, [...HELLO, 'chmod +x ~/forge/hello.sh'], 'hello.sh', /Without a path.*~\/forge\/hello\.sh/],
   [RUN, [...HELLO, 'chmod +x ~/forge/hello.sh'], '~/forge/hello.sh', null],

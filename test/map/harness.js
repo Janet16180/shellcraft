@@ -232,14 +232,17 @@ const CASES = {
 };
 
 const only = params.get('only')?.split(',') ?? Object.keys(CASES);
-const maps = {};
+const maps = Object.create(null);
 
-for (const name of only) {
-  const { obs, procs, reveal } = CASES[name]();
+for (const [name, makeCase] of Object.entries(CASES)) {
+  if (!only.includes(name)) continue;
+  const { obs, procs, reveal } = makeCase();
   if (procs) obs.procs = procs;
   const figure = document.createElement('figure');
   figure.style.width = `${width}px`;
-  figure.innerHTML = `<figcaption>${name}: ${obs.cwd}</figcaption><canvas></canvas>`;
+  const caption = document.createElement('figcaption');
+  caption.textContent = `${name}: ${obs.cwd}`;
+  figure.append(caption, document.createElement('canvas'));
   document.querySelector('#cases').append(figure);
   const map = createMap(figure.querySelector('canvas'), {
     reducedMotion,
