@@ -8,4 +8,4 @@ The repository uses the personal identity Janet16180 and clarajanet16180@outlook
 
 CI checks lint, tests, browser behavior, the production bundle, Bash reference cases, and Git history for credentials. Container publishing, artifact uploads, and deployment are disabled. Main requires passing Tests, CodeQL, resolved review discussions, and owner code review, with no bypass actors.
 
-Validation results are recorded in the pull request or setup report after the checks finish.
+Local validation passed: lint, all 1,930 Node tests, the production bundle, launcher syntax, sandboxed desktop/mobile browser checks, and the credential scan across all refs. CI also runs the layout checks and Bash reference cases before merge. The reference container base is pinned to a digest; dependency updates arrive as reviewed pull requests.

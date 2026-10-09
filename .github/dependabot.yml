@@ -10,3 +10,11 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+  - package-ecosystem: docker
+    directory: /difftest
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: ubuntu
+        update-types: [version-update:semver-major]
