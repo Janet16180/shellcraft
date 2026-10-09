@@ -6,22 +6,48 @@
 
 import { newDir, newFile, insert } from './fs.js';
 import { nameTable } from './table.js';
+import { compareNames } from '../backend/tree.js';
 import { initialVars, setVar } from './vars.js';
+import { loginGids } from './accounts.js';
 
 const ROOT_META = { owner: 'root', group: 'root' };
 
 /** The terminal the player's shell runs on. */
 export const TERMINAL = 'pts/0';
 
-/** The system accounts every machine has, with their home directories. */
-export const SYSTEM_HOMES = nameTable({ root: '/root', daemon: '/usr/sbin', bin: '/bin', sys: '/dev', nobody: '/nonexistent' });
+const BINARY = '\u007fELF\u0002\u0001\u0001\u0000';
+
+// ext4 gives the root directory inode 2. Other numbers start low enough for
+// a beginner to compare them at a glance.
+const ROOT_INODE = 2;
+const FIRST_INODE = 1801;
 
 /**
- * @param {{user: string}} sys The machine state.
- * @returns {Set<string>} The user names the machine knows: the system accounts and the player.
+ * A node's inode number, giving it the next free one if it has none yet.
+ *
+ * @param {object} sys The machine state.
+ * @param {object} node A filesystem node.
+ * @returns {number} Its inode number, the same for every name it has.
  */
-export const knownUsers = sys => new Set([...Object.keys(SYSTEM_HOMES), sys.user]);
-const BINARY = '\u007fELF\u0002\u0001\u0001\u0000';
+export function inodeOf(sys, node) {
+  if (node.ino === undefined) node.ino = node === sys.root ? ROOT_INODE : sys.nextIno++;
+  return node.ino;
+}
+
+/**
+ * Give every node without an inode number one, walking the tree in name order.
+ *
+ * @param {object} sys The machine state.
+ * @returns {void}
+ */
+export function numberInodes(sys) {
+  const stack = [sys.root];
+  while (stack.length) {
+    const node = stack.pop();
+    inodeOf(sys, node);
+    if (node.type === 'dir') stack.push(...Object.keys(node.children).sort(compareNames).reverse().map(name => node.children[name]));
+  }
+}
 
 /**
  * Pick the next PID. Real kernels hand them out in increasing order with gaps
@@ -36,10 +62,13 @@ export function allocPid(sys, maxGap = 3) {
   return sys.nextPid;
 }
 
+// Programs that run with their owner's rights (the s in -rwsr-xr-x).
+const SETUID = new Set(['sudo', 'su']);
+
 function baseTree(home, user, binaries, mtime) {
   const meta = mode => ({ ...ROOT_META, mode, mtime });
   const bin = {};
-  for (const name of binaries) bin[name] = { ...newFile(BINARY, meta(0o755)), bin: name };
+  for (const name of binaries) bin[name] = { ...newFile(BINARY, meta(SETUID.has(name) ? 0o4755 : 0o755)), bin: name };
   const root = newDir({
     usr: newDir({ bin: newDir(bin, meta(0o755)) }, meta(0o755)),
     dev: newDir({ null: { ...newFile('', meta(0o666)), dev: 'null' } }, meta(0o755)),
@@ -93,12 +122,15 @@ export function createSystem({ user, host, home, now, random, binaries }) {
   const started = now();
   const sys = {
     user, host, home, now, random,
-    groups: [user],
+    gids: [],
+    password: null, sudoStamp: null,
     root: baseTree(home, user, binaries, started), loginTime: started,
     cwd: home, oldpwd: null,
-    vars: initialVars({ user, home, host }), aliases: nameTable(), history: [], hashed: new Map(),
-    positional: { zero: 'bash', args: [] }, flags: 'himBHs', lastStatus: 0, umask: 0o022, procs: [], nextPid: 300, shellPid: 0, columns: 80,
+    vars: initialVars({ user, home, host }), aliases: nameTable(), expandAliases: true, history: [], hashed: new Map(),
+    positional: { zero: 'bash', args: [] }, flags: 'himBHs', lastStatus: 0, umask: 0o022, procs: [], nextPid: 300, shellPid: 0, columns: 80, nextIno: FIRST_INODE,
+    jobs: [], jobMarks: { current: null, previous: null }, exits: new Map(), lastBackground: null,
   };
+  sys.gids = loginGids(sys);
   sys.procs = systemProcs(sys);
   return sys;
 }

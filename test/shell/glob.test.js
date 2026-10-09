@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { compileGlob, hasGlob, unescapeGlob, expandPattern } from '../../src/shell/glob.js';
-import { newDir, newFile } from '../../src/shell/fs.js';
+import { newDir, newFile, newSymlink } from '../../src/shell/fs.js';
 
 const meta = { mode: 0o755, owner: 'hero', group: 'hero', mtime: 0 };
 const f = () => newFile('', meta);
@@ -9,7 +9,7 @@ const tree = () => newDir({
   d: newDir({ 'b.txt': f(), 'a.txt': f(), 'B.txt': f(), '.h.txt': f(), 'c1': f(), 'c22': f(), 'my file': f(), sub: newDir({ 'x.md': f() }, meta) }, meta),
   locked: newDir({ 'in.txt': f() }, { ...meta, owner: 'root', mode: 0o700 }),
 }, meta);
-const sys = () => ({ root: tree(), cwd: '/d', user: 'hero', groups: ['hero'] });
+const sys = () => ({ root: tree(), cwd: '/d', user: 'hero', gids: [1000] });
 
 test('compileGlob matches whole names with * ? and bracket expressions', () => {
   assert.ok(compileGlob('*.txt').test('a.txt'));
@@ -92,4 +92,11 @@ test('stars, question marks and brackets match whole characters, emoji included'
   assert.ok(compileGlob('readme*', { ignoreCase: true }).test('README.md'));
   assert.ok(compileGlob('\\*x').test('*x'));
   assert.ok(!compileGlob('\\*x').test('ax'));
+});
+
+test('a pattern matches a dangling link by its name, and reads a directory through a link', () => {
+  const s = sys();
+  Object.assign(s.root.children.d.children, { broken: newSymlink('nowhere', meta), portal: newSymlink('sub', meta) });
+  assert.deepEqual(expandPattern('b*', s), ['b.txt', 'broken']);
+  assert.deepEqual(expandPattern('portal/*', s), ['portal/x.md']);
 });

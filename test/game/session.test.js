@@ -5,6 +5,7 @@ import { SAVE_KEY, V1_SAVE_KEY } from '../../src/game/save.js';
 import { createRandom } from '../../src/game/rng.js';
 import { nodeAt } from '../../src/backend/tree.js';
 import { createFakeBackend } from '../helpers/fake-backend.js';
+import { createSimBackend } from '../../src/shell/backend.js';
 import { createMemoryStore } from '../helpers/memory-store.js';
 import { fixtureChapters, fixtureWorld } from '../helpers/fixture-chapters.js';
 
@@ -110,6 +111,15 @@ test('a line runs on the backend and the turn carries its result, observation, e
   assert.deepEqual(turn.view.prompt, { user: 'hero', host: 'kernelia', cwd: `${HOME}/forest`, home: HOME });
 });
 
+test('checks see the line after history expansion as ctx.line and the keys as ctx.typed', async () => {
+  const [awakening, ...rest] = fixtureChapters();
+  const seen = [];
+  const chapter = { ...awakening, tasks: [{ ...awakening.tasks[0], done: ctx => { seen.push([ctx.line, ctx.typed]); return false; } }, awakening.tasks[1]] };
+  const { session } = await booted({ chapters: [chapter, ...rest], backend: createSimBackend({ now: () => 0, random: () => 0.5 }) });
+  await play(session, ['echo hi', 'sudo !!']);
+  assert.deepEqual(seen, [['echo hi', 'echo hi'], ['sudo echo hi', 'sudo !!']]);
+});
+
 test('a line that meets a task pays 10 XP and marks the task done', async () => {
   const { session, store } = await booted();
   const turn = await session.submit('pwd');
@@ -163,7 +173,7 @@ test('solving the boss clears the chapter, pays the boss and the bonus, and open
   assert.equal(turn.view.chapter.phase, 'done');
   assert.equal(turn.view.xp, 70);
   assert.deepEqual(turn.view.chapters.map(c => [c.status, c.current]), [['cleared', true], ['open', false], ['soon', false]]);
-  assert.deepEqual(saved(store), { version: 2, chapter: 'forest', cleared: ['awakening'], xp: 70, sound: false, introSeen: false, layout: 'stacked', paid: { awakening: [0, 1] }, progress: null });
+  assert.deepEqual(saved(store), { version: 2, chapter: 'forest', cleared: ['awakening'], xp: 70, sound: false, introSeen: false, explainersSeen: [], layout: 'stacked', paid: { awakening: [0, 1] }, progress: null });
 });
 
 test('a cleared chapter can be started again while it is the current one', async () => {
@@ -609,7 +619,7 @@ test('chapter-defined effects are added to the line effects', async () => {
 
 test('the view lists every chapter with its status and the spellbook with what is unlocked', async () => {
   const { view } = await booted();
-  assert.deepEqual(view.chapters, [
+  assert.deepEqual(view.chapters.map(({ recap: _recap, ...c }) => c), [
     { id: 'awakening', number: 1, act: 1, title: 'The Awakening', status: 'playing', current: true },
     { id: 'forest', number: 2, act: 1, title: 'The Whispering Forest', status: 'locked', current: false },
     { id: 'unseen', number: 3, act: 1, title: 'Things Unseen', status: 'soon', current: false },
@@ -653,16 +663,17 @@ test('setting sound to something other than a boolean raises', async () => {
   assert.throws(() => session.setSound('on'), /boolean/);
 });
 
-test('reset erases progress but keeps sound, the intro flag and the layout', async () => {
+test('reset erases progress but keeps sound, the intro and explainer flags and the layout', async () => {
   const { session, store, backend } = await booted();
   await clearAwakening(session);
   session.setSound(true);
   session.markIntroSeen();
+  session.markExplainerSeen('signs');
   session.setLayout('side');
   const view = await session.reset();
   assert.deepEqual([view.chapter.id, view.xp, view.chapter.replay], ['awakening', 0, false]);
   assert.deepEqual(saved(store), {
-    version: 2, chapter: 'awakening', cleared: [], xp: 0, sound: true, introSeen: true, layout: 'side', paid: {},
+    version: 2, chapter: 'awakening', cleared: [], xp: 0, sound: true, introSeen: true, explainersSeen: ['signs'], layout: 'side', paid: {},
     progress: { chapter: 'awakening', phase: 'quest', tasks: [false, false], hints: [0, 0], bossHints: 0 },
   });
   assert.equal(exists(await backend.observe(), `${HOME}/sign.txt`), false);
@@ -759,7 +770,7 @@ test('a chapter list with repeated ids raises', () => {
 // Dev mode (?dev): a separate save, every written chapter open, and dev commands.
 async function devSession(options = {}) {
   const store = createMemoryStore(options.stored ?? {});
-  const session = createSession({ backend: createFakeBackend(), chapters: fixtureChapters(), baseWorld: fixtureWorld, store, random: createRandom(1), dev: true });
+  const session = createSession({ backend: createFakeBackend(), chapters: options.chapters ?? fixtureChapters(), baseWorld: fixtureWorld, store, random: createRandom(1), dev: true });
   const view = await session.boot();
   return { store, session, view };
 }
@@ -813,6 +824,13 @@ test('dev solve prints the answer lines for the tasks, then for the boss', async
   assert.match(noteOf(await session.submit('dev solve')), new RegExp(lines[0]));
 });
 
+test('dev solve names the Ctrl+C and Ctrl+Z a solve line presses while it runs', async () => {
+  const chapters = fixtureChapters();
+  chapters[0].solve = ['sleep 100\u001a', 'fg\u0003'];
+  const { session } = await devSession({ chapters });
+  assert.equal(noteOf(await session.submit('dev solve')), 'sleep 100   (then Ctrl+Z)\nfg   (then Ctrl+C)');
+});
+
 test('dev with no command, or an unknown one, lists the dev commands', async () => {
   const { session } = await devSession();
   for (const line of ['dev', 'dev nope']) {
@@ -827,4 +845,126 @@ test('outside dev mode, dev is not a game command and nothing is skipped', async
   const turn = await session.submit('dev skip');
   assert.deepEqual(turn.events, []);
   assert.ok(turn.view.chapter.tasks.every(t => !t.done));
+});
+
+const EXPLAINER = { id: 'signs', title: 'Signs', draw: () => '', steps: [{ title: 'One', text: ['A sign.'], diagram: {} }] };
+
+function withExplainer() {
+  const chapters = fixtureChapters();
+  chapters[0].explainer = EXPLAINER;
+  return chapters;
+}
+
+test('a chapter without an explainer shows none in the view', async () => {
+  const { view } = await booted();
+  assert.equal(view.chapter.explainer, null);
+});
+
+test('a chapter\'s explainer is in the view, unseen until marked, and the mark is saved', async () => {
+  const { view, session, store } = await booted({ chapters: withExplainer() });
+  assert.equal(view.chapter.explainer.steps, EXPLAINER.steps);
+  assert.deepEqual([view.chapter.explainer.id, view.chapter.explainer.title, view.chapter.explainer.seen], ['signs', 'Signs', false]);
+  assert.equal(session.markExplainerSeen('signs').chapter.explainer.seen, true);
+  session.markExplainerSeen('signs');
+  assert.deepEqual(saved(store).explainersSeen, ['signs']);
+});
+
+test('a seen explainer stays seen after a reload', async () => {
+  const { view } = await booted({ chapters: withExplainer(), stored: v2({ explainersSeen: ['signs'] }) });
+  assert.equal(view.chapter.explainer.seen, true);
+});
+
+test('marking an explainer seen without an id raises', async () => {
+  const { session } = await booted();
+  for (const id of [undefined, '', 3]) assert.throws(() => session.markExplainerSeen(id), /explainer id/);
+});
+
+test('a line that asks for hidden input waits: no task is judged until the answer ends the line', async () => {
+  const { session } = await booted();
+  const asked = await session.submit('sudo pwd');
+  assert.deepEqual(asked.result.input, { prompt: '[sudo] password for hero: ', hidden: true });
+  assert.deepEqual(asked.events, []);
+  assert.equal(asked.view.chapter.tasks[0].done, false);
+  await assert.rejects(session.submit('pwd'), /waiting for input/);
+  const done = await session.answer('dragon');
+  assert.equal(done.result.input, undefined);
+  assert.deepEqual(done.result.output.map(c => c.text).slice(0, 2), ['[sudo] password for hero: \n', '/home/hero\n']);
+  assert.deepEqual(kinds(done.events), ['task']);
+  assert.equal(done.view.chapter.tasks[0].done, true);
+});
+
+test('answer raises when no line waits, and Ctrl+C (null) ends the waiting line', async () => {
+  const { session } = await booted();
+  await assert.rejects(session.answer('x'), /no line is waiting/);
+  await session.submit('sudo pwd');
+  const cancelled = await session.answer(null);
+  assert.equal(cancelled.result.status, 1);
+  assert.deepEqual(cancelled.events, []);
+  assert.equal((await session.submit('pwd')).events.length, 1);
+});
+
+test('restarting the chapter abandons a line waiting for input', async () => {
+  const { session } = await booted();
+  await session.submit('sudo pwd');
+  await session.startChapter('awakening');
+  await assert.rejects(session.answer('dragon'), /no line is waiting/);
+  assert.equal((await session.submit('pwd')).events.length, 1);
+});
+
+test('a line whose command takes time runs: no task is judged until the line ends', async () => {
+  const { session } = await booted();
+  const running = await session.submit('sleep 5; pwd');
+  assert.deepEqual(running.result.running, { seconds: 5 });
+  assert.deepEqual(running.events, []);
+  assert.equal(running.view.running, true);
+  await assert.rejects(session.submit('pwd'), /still running/);
+  await assert.rejects(session.answer('x'), /no line is waiting/);
+  const done = await session.poll();
+  assert.equal(done.result.running, undefined);
+  assert.equal(done.view.running, false);
+  assert.deepEqual(done.result.output.map(c => c.text), ['/home/hero\n']);
+  assert.deepEqual(kinds(done.events), ['task']);
+});
+
+test('Ctrl+C reaches the running command and ends the line; Ctrl+Z stops it and the line goes on', async () => {
+  const { session } = await booted();
+  await session.submit('sleep 5; pwd');
+  const cancelled = await session.signal('INT');
+  assert.deepEqual([cancelled.result.output.map(c => c.text), cancelled.result.status, cancelled.events], [['^C\n'], 130, []]);
+  await session.submit('sleep 5; pwd');
+  const stopped = await session.signal('TSTP');
+  assert.deepEqual(stopped.result.output.map(c => c.text), ['^Z\n', '[1]+  Stopped                 sleep 5\n', '/home/hero\n']);
+  assert.deepEqual(kinds(stopped.events), ['task']);
+});
+
+test('signal and poll raise when no line runs, and while a line waits for input', async () => {
+  const { session } = await booted();
+  await assert.rejects(session.poll(), /no line is running/);
+  await assert.rejects(session.signal('INT'), /no line is running/);
+  await session.submit('sudo pwd');
+  await assert.rejects(session.signal('INT'), /no line is running/);
+});
+
+test('restarting the chapter abandons a running line', async () => {
+  const { session } = await booted();
+  await session.submit('sleep 5');
+  await session.startChapter('awakening');
+  await assert.rejects(session.poll(), /no line is running/);
+  assert.equal((await session.submit('pwd')).events.length, 1);
+});
+
+test('an empty line reaches the shell, which may report jobs, but gets no note about the task', async () => {
+  const chapters = fixtureChapters();
+  chapters[0].tasks[0].near = () => 'Look closer.';
+  const { session, backend } = await booted({ chapters });
+  const empty = await session.submit('');
+  assert.deepEqual(backend.lines.at(-1), '');
+  assert.equal(empty.result.output.some(c => c.tone === 'coach'), false);
+  assert.equal((await session.submit('ls')).result.output.some(c => c.tone === 'coach'), true);
+});
+
+test('the chapter list in the view carries each chapter\'s recap, empty for one not written yet', async () => {
+  const { view } = await booted();
+  const [awakening, forest] = fixtureChapters();
+  assert.deepEqual(view.chapters.map(c => c.recap), [awakening.recap, forest.recap, []]);
 });

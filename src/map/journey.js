@@ -7,6 +7,7 @@
 import { planTravel } from './travel.js';
 import { settle, showBanner } from './stage.js';
 import { STAND } from './layout.js';
+import { realPath } from './room.js';
 import { INK, TOON } from './palette.js';
 
 const EXIT_STAND = { x: 160, y: 196 };
@@ -30,10 +31,13 @@ function fadeTo(stage, target, ms = 180) {
   return stage.motion.tween(ms, p => { stage.state.fade = start + (target - start) * p; });
 }
 
+// Where the hero stands to go through a door, or into a portal (a link item).
 function doorStand(layout, path) {
   const door = layout.doors.find(d => d.path === path);
+  const portal = layout.items.find(item => item.path === path && item.link);
   let spot = null;
   if (door) spot = { x: door.cx, y: door.y + door.h + 4 };
+  else if (portal) spot = { x: portal.cx, y: portal.y + portal.h + 8 };
   else if (layout.moreDoors) spot = { x: layout.moreDoors.cx, y: layout.moreDoors.y + 38 };
   return spot;
 }
@@ -55,6 +59,11 @@ function approach(stage, plan, to) {
       return walk(stage, spot.x, spot.y, 380);
     },
     exit: () => walk(stage, EXIT_STAND.x, EXIT_STAND.y, 320),
+    portal: async () => {
+      const spot = doorStand(scene.layout, to);
+      await walk(stage, spot.x, spot.y, 380);
+      stage.motion.burst(spot.x, spot.y - 16, WARP, 40);
+    },
     none: () => stage.motion.burst(player.x, player.y - 12, WARP, 30),
   };
   return moves[plan.approach];
@@ -88,7 +97,9 @@ function stairway(stage, direction) {
  * @returns {Promise<void>} Resolves when the hero has stepped into the new room, or was cut short.
  */
 export async function journey(stage, from, obs, token) {
-  const plan = planTravel(from, obs.cwd, obs.home);
+  const { scene } = stage.state;
+  const portal = scene.layout.items.some(item => item.path === obs.cwd && item.link && !item.dangling);
+  const plan = planTravel(from, obs.cwd, obs.home, { realFrom: scene.real, realTo: realPath(obs.tree, obs.cwd), portal });
   const banner = TRIP_BANNERS[plan.transition];
   const steps = [
     approach(stage, plan, obs.cwd),

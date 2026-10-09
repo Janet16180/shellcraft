@@ -27,7 +27,12 @@ export function roster(home) {
     { kind: 'dungeon-door', name: 'Dungeon door', what: 'A directory outside your home. Most of them belong to root, the administrator.' },
     { kind: 'home-door', name: 'Door home', what: `In ${parentCode}, the door to your home directory, ${homeCode}.` },
     { kind: 'locked', name: 'Padlocked door', what: 'A directory you have no permission to enter.' },
+    { kind: 'dark-door', name: 'Dark door', what: 'A directory you may enter but not list: it has x but no r for you.' },
     { kind: 'chained', name: 'Chained item', what: 'A file you have no permission to read.' },
+    { kind: 'job', name: 'Job', what: 'A command you started with <code>&amp;</code> at the end, or paused with Ctrl+Z, in the corner of every room. <code>%1</code> is its number for <code>fg</code>, <code>bg</code> and <code>kill %1</code>. It hammers while it runs and sleeps while it is stopped.' },
+    { kind: 'archive', name: 'Chest', what: 'An archive: many files packed into one with <code>tar</code>. Strapped with rope when it is also compressed (<code>.tar.gz</code>).' },
+    { kind: 'bundle', name: 'Tied bundle', what: 'One file compressed with <code>gzip</code>. <code>zcat NAME</code> prints the text inside.' },
+    { kind: 'twins', name: 'Matching runes', what: 'Two names of one file (hard links, made with <code>ln</code>): <code>ls -i</code> shows the same inode number.' },
   ];
 }
 

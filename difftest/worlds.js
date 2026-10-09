@@ -1,11 +1,11 @@
 /**
  * The worlds the differential cases run in, built with src/backend/spec.js.
- * They avoid what the container manages itself (/etc/hostname, /etc/passwd)
+ * They avoid what the container manages itself (/etc/hostname, /etc/shadow)
  * and never replace a system directory, only add children to it.
  */
 
-import { put, dir, file } from '../src/backend/spec.js';
-import { baseWorld } from '../src/game/world.js';
+import { put, dir, file, symlink, link } from '../src/backend/spec.js';
+import { baseWorld, accounts } from '../src/game/world.js';
 import { PLAYER } from '../src/backend/player.js';
 
 const mine = { owner: 'hero' };
@@ -77,6 +77,46 @@ const loops = () => put('/home/hero/loops', dir({
   'conds.sh': file('for n in 1 5 10; do\n  if [ $n -lt 5 ]; then\n    echo "$n small"\n  elif [ $n -eq 5 ]; then\n    echo "$n five"\n  else\n    echo "$n big"\n  fi\ndone\nif [ -d ~/forest ] && [ ! -e ~/nowhere ]; then echo yes; fi\n', exe),
 }, mine));
 
+const people = () => accounts(PLAYER, {
+  users: [{ name: 'mira', uid: 1001, group: 'smiths' }, { name: 'oren', uid: 1002, group: 'scribes' }],
+  groups: [{ name: 'smiths', gid: 1001 }, { name: 'scribes', gid: 1002, members: ['hero'] }],
+});
+
+const hall = () => put('/home/hero/hall', dir({
+  'mine.txt': file('mine\n', mine),
+  'miras.txt': file('forged\n', { owner: 'mira', group: 'smiths', mode: 0o640 }),
+  'scroll.txt': file('ink\n', { owner: 'oren', group: 'scribes', mode: 0o664 }),
+  'orphan.txt': file('lost\n', { owner: '1234', group: '4321' }),
+  'shy.txt': file('hidden from me\n', { owner: 'hero', mode: 0o044 }),
+  'locked.txt': file('locked\n', { owner: 'hero', mode: 0o444 }),
+  ronly: dir({ a: file('a\n', mine) }, { owner: 'hero', mode: 0o444 }),
+  xonly: dir({ known: file('known\n', mine) }, { owner: 'hero', mode: 0o111 }),
+  sealed: dir({ in: file('in\n', mine) }, { owner: 'hero', mode: 0o555 }),
+  shared: dir({}, { owner: 'oren', group: 'scribes', mode: 0o2775 }),
+  forge: dir({ 'blade.txt': file('blade\n', { owner: 'mira', group: 'smiths' }) }, { owner: 'mira', group: 'smiths', mode: 0o755 }),
+}, mine));
+
+const portals = () => [
+  put('/home/hero/portal', symlink('/home/hero/forest/cave/deep', mine)),
+  put('/home/hero/near', symlink('forest/cave', mine)),
+  put('/home/hero/letter', symlink('readme.txt', mine)),
+  put('/home/hero/broken', symlink('nowhere', mine)),
+  put('/home/hero/loop', symlink('loop', mine)),
+  put('/home/hero/copy.txt', link('/home/hero/readme.txt')),
+];
+
+// hero is in group sudo, and a rule of its own lets it skip the password,
+// which the case input cannot type. Without !use_pty, sudo would relay its
+// standard input, the rest of the case, to the command's terminal.
+const admins = () => [
+  ...accounts(PLAYER, {
+    users: [{ name: 'mira', uid: 1001, group: 'mira' }],
+    groups: [{ name: 'mira', gid: 1001 }, { name: 'smiths', gid: 1100, members: ['mira'] }],
+    sudo: ['hero'],
+  }),
+  put('/etc/sudoers.d', dir({ hero: file('Defaults !use_pty\nhero ALL=(ALL:ALL) NOPASSWD: ALL\n', { mode: 0o440 }) })),
+];
+
 /** @type {Record<string, () => object[]>} */
 export const WORLDS = {
   home: () => [home(), ...system()],
@@ -84,4 +124,7 @@ export const WORLDS = {
   game: () => baseWorld(PLAYER),
   scripts: () => [home(), ...system(), localBin(), spells()],
   loops: () => [home(), ...system(), loops()],
+  guild: () => [home(), ...system(), ...people(), hall()],
+  links: () => [home(), ...system(), ...portals()],
+  sudo: () => [home(), ...system(), ...admins()],
 };

@@ -12,6 +12,178 @@ map draws the working directory as a room: the original outdoor 8-bit style insi
 home, Ring Zero's Pixel Dungeon style outside it. Each chapter is lesson, guided quest, boss,
 adventure log. 14 chapters are planned (DESIGN.md section 4).
 
+## State at 2026-10-08 (simulator fixes from the act III tester: `slice/fixes3`)
+
+- Branch `slice/fixes3` (worktree `.scratch/wt/fixes3`), not merged. Aliases expand as bash reads a
+  line (`alias up='cd ..'; up` is not found; scripts need `shopt -s expand_aliases`); `shopt` knows
+  expand_aliases. chmod takes `u+x-r`, `g=u`. cat, head, tail, wc and grep keep output and errors in
+  order (`ordered()` in result.js). New: `su` (locked root), `getent passwd|group`, `find -xtype`,
+  `/etc/skel`, the `endJobs()` patch op. `sudo su`/`sudo bash` get the root-shell note.
+- Port: RunResult `line` (after history expansion); Observation `aliases` and `vars`; sudo records
+  carry `auth`. Checks: `ctx.alias`, `ctx.variable`, `ctx.typed`; `ctx.paths` reads tar's
+  `--file=`, `-fX`, `--directory=`, `-CX`. The harness judges against the previous observation.
+- Waiting on chapter 19: `ctx.line` should become the expanded line (session.js and the harness,
+  one argument each) once memory.js reads `!!`/`!N` from `ctx.typed`; two tests are `todo` until then.
+- E5 (the tester's `^Z` layout) is what real bash prints; pinned by a test (docs/verification/jobs.md).
+
+## State at 2026-10-08 (UI and art for chapter 18: `slice/ui3`)
+
+- Branch `slice/ui3` (worktree `.scratch/wt/ui3`), not merged. The password prompt: the touch keys
+  obey it (no history, no Tab), a chapter load or reset ends a waiting prompt (`terminal.abandon()`),
+  and a hidden line in the output log reads the prompt to screen readers.
+- Terminal keys: Ctrl+R is bash's reverse-i-search (`src/ui/isearch.js`, checked against bash 5.2 in
+  `docs/verification/terminal-keys.md`), plus Ctrl+A, Ctrl+E and a Ctrl+R touch key. The keys are
+  listed under the map's `?` button (`src/ui/keymap.js`); a new key goes there too.
+- Map: `~/crown` is the Throne Room; `/srv/mill`, `bakery`, `stables`, `lighthouse` and `granary`
+  have rooms of their own (`src/map/crowndecor.js`, `src/map/servicedecor.js`).
+
+## State at 2026-10-08 (engine for chapter 18, The Crown: `slice/sudo`)
+
+- Branch `slice/sudo` (worktree `.scratch/wt/sudo`), not merged: `sudo` follows the tree's policy
+  (`/etc/sudoers`, `/etc/sudoers.d`; the base world now has Ubuntu's files and a root-only
+  `/etc/shadow`), runs one command as root or `-u USER`, and supports `-l`, `-k`, `-K`, `-v`, `-n`;
+  `-i`/`-s` end with a note. `tee` exists. `password('...')` (spec.js) sets the player's password;
+  `accounts(player, { sudo: [...] })` and `realm(player, { sudo: true })` make the player a sudoer
+  (AUTHORING "sudo and the player's password").
+- The port can ask the page for one hidden line mid-command: a RunResult with `input: {prompt,
+  hidden}`, answered with `Backend.answer(text|null)` (`src/backend/port.js`). The simulator replays
+  the line from a saved state with the answers so far. The session has `answer()`; the terminal hides
+  what is typed (labelled "password", no history). Records carry `user` (and `asUser`/`via` for sudo).
+- Difftest: the image installs sudo; world `sudo` (hero in group sudo with a NOPASSWD rule) and
+  `cases/16-sudo.json`. The password prompt itself is checked by hand in a container
+  (`docs/verification/sudo.md`), since the case input cannot type at sudo's terminal.
+
+## State at 2026-10-08 (engine for chapter 20, Background Tasks: `slice/jobs`)
+
+- Branch `slice/jobs` (worktree `.scratch/wt/jobs`), not merged: job control as interactive bash
+  5.2 does it. `sleep` (s/m/h/d, sums, `infinity`), `CMD &` (`[1] PID`, `$!`), `jobs` (`-l -p -r
+  -s -n`, job specs `%N %% %+ %- %NAME %?TEXT`), `fg`, `bg`, `kill %N` (any signal; TERM/HUP wake a
+  stopped job), `wait` (all, `%N`, PID), `disown` (`-a -r -h`), Ctrl+C and Ctrl+Z. Bash's notices
+  (`[1]+  Done                    sleep 30`, `Stopped`, `Terminated`, `(wd: ~)`) come when bash
+  prints them: after a program on the line and before the next prompt. The job table is
+  `src/shell/jobs.js`; the commands `src/shell/commands/jobs.js`.
+- Time: the page's clock is the real one (`sleep 30 &` is Done 30 s later; `sleep 5` holds the
+  prompt 5 s). Tests use a clock that stands still until moved.
+- Port: a RunResult may carry `running: {seconds}`; `Backend.poll()` goes on once the command's
+  time is up, `Backend.signal('INT'|'TSTP')` sends Ctrl+C or Ctrl+Z (`src/backend/port.js`). The
+  session has `poll()` and `signal()`, and the view `running`. The page hides the prompt while a
+  command runs and sends the keys (`src/ui/running.js`, one hook in terminal.js); an empty line now
+  reaches the shell, so Enter shows a Done.
+- Records: `background: true, job: N` on a job's commands; `signal: 'INT'|'TSTP'` on the command a
+  key ended or stopped. Observation `jobs: [{id, pid, cmd, state, mark}]`. Checks: `ctx.jobs`,
+  `ctx.job(n)`, `ctx.ended(n)`, `ctx.pressed(key, name?)` (AUTHORING section 2).
+- Harness: `backend.tick(seconds)`; `type(backend, line, { keys: ['ctrl-z'] })` or `[30, 'ctrl-c']`;
+  solve lines may end with `\u0003`/`\u001a` (Ctrl+C/Ctrl+Z) (AUTHORING section 4).
+- Difftest: cases may `mask` PIDs; `cases/17-jobs.json`. Ctrl+C and Ctrl+Z were checked by hand in a
+  container (`docs/verification/jobs.md`, with what is kept different).
+- For the frontend: a `C-z` touch key (`data-k="C-z"`) would work at once (`src/ui/running.js`), and
+  the key list under the map's `?` could name Ctrl+Z.
+
+## State at 2026-10-08 (UI and art for chapter 20: `slice/ui4`)
+
+- Branch `slice/ui4`, merged into `slice/act3`. While a command runs, three dots
+  pulse where the prompt was, the task strip adds "Running… Ctrl+C stops it, Ctrl+Z pauses it", and
+  the input's label says it to screen readers (`src/ui/running.js`). Ctrl+Z touch key; Ctrl+Z at a
+  prompt does nothing, as in bash. bash's job notices (`[1] 4242`, `Done`) show in teal, not error red.
+- Map: the player's jobs are workers at anvils in a row at the bottom-left of every room (at most 3,
+  then "+N"): hammering while running, asleep with a "z" while stopped, a burst when the process
+  ends (`src/map/jobs.js`, `jobart.js`). The room description lists them; the map key explains them.
+- `~/workshop` (chapter 20) is the biome `smithy`, "Busy Workshop": hearth with working bellows,
+  anvil with a glowing bar, quench barrel, a bench with an hourglass (`src/map/smithydecor.js`).
+
+## State at 2026-10-08 (UI and art for chapter 21 and the ending: `slice/ui5`)
+
+- Branch `slice/ui5`, not merged. Map: `~/travel` is the biome `departure`, "Travel Camp" (dusk
+  sky, a loaded cart, a road up to a stairway down, lit in Ring Zero's colours), and
+  `~/travel/unpacked` the biome `unpacked`, an opened chest spilling coins and cloth
+  (`src/map/traveldecor.js`). An archive is a chest, a compressed one strapped with rope, other
+  gzip data a tied bundle: `readRoom` entries carry `pack` (`tar`, `tgz`, `gzip`), read from the
+  content with `src/backend/archive.js`, else from the name. Map key and room text explain them.
+- The ending (`src/intro/ending.js`, `endsteps.js`, `endscene.js`, `styles/ending.css`): when the
+  `chapter` event is for the last chapter of the list with `next: null`, five steps play (Back,
+  Next, Skip; still frames with reduced motion), then the chapter's adventure log. Steps: the camp,
+  the walk down into the kernel, what you learned (each act's chapters with the commands of their
+  recaps; the view's chapter list now carries `recap`), XP and rank, Ring Zero. Chapters offers
+  "Watch the ending" once the last chapter is cleared. "Play again" (click twice) runs the HUD's
+  Reset progress.
+- **For the lead:** `RING_ZERO_URL` in `src/intro/endsteps.js` is a placeholder
+  (`https://github.com/`, marked TODO): set the real address before publishing.
+
+## State at 2026-10-08 (engine for chapter 21, Pack and Travel: `slice/tar`)
+
+- Branch `slice/tar`, merged into `slice/act3`. New commands: `tar` (`-c -x -t -v -f -z
+  -C`, bundled `-czf` and dashless `czf`, `--create --extract --list --file= --gzip --directory=
+  --exclude= --sort=`, unique long prefixes like `--cre`), `gzip` (`-c -d -f -k -l -q -r -t -v`),
+  `gunzip`, `zcat`, `file`, `du` (`-s -h -a -c -d`), `df` (`-h -T`, a fixed table: `/dev/sda2` ext4 on
+  `/`). Man pages, `--help` and `--version` for all. grep now treats a file with a NUL byte as binary.
+- Archives are ordinary files whose text only the simulator reads (`src/backend/archive.js`): a tar
+  is GNU tar's layout (512-byte headers, 10240-byte records, so `ls -l` sizes are exact) holding
+  scrambled JSON fields and scrambled contents; gzip is a gzip-like header, real DEFLATE
+  (`src/backend/deflate.js`) packed seven bits to a character, and a CRC-32 trailer. `cat` shows
+  binary-looking text and never an ESC. gzip sizes are about an eighth above real gzip's.
+- Checks: `ctx.archive(path)` (the members, as `tar -t` names them, or null) and `ctx.gzipped(path)`
+  (the original text, or null); `ctx.flag` knows tar's dashless letters and the long options of
+  tar, gzip, du, df and file (AUTHORING section 2).
+- Kept different from GNU (logged in `difftest/cases/18-archives.json`): members are stored in name
+  order (GNU: directory order, unless `--sort=name`); a file stored twice is stored twice (GNU: a hard
+  link the second time); archive and gzip text is opaque, so `grep` finds no words inside a `.tar`
+  (GNU tar keeps file text as it is); compressed bytes and sizes differ; `file` knows text, scripts,
+  gzip, tar, programs (made-up BuildID), directories, links and /dev/null, not HTML or JSON; `df` is
+  a fixed machine. Other real options (`-j`, `-k`, `-p`...) end with a note, as elsewhere.
+- Difftest: the image installs `file`; `cases/18-archives.json` (9 cases). `difftest/real-options.js`
+  now reads tar, gzip, gunzip, zcat, du, df and file.
+
+## State at 2026-10-08, morning (act III: chapters 15 and 16)
+
+- `slice/users` and `slice/explainer` are merged into `slice/act3`. Chapters name an explainer by
+  id (`explainer: 'perms'`); `withExplainers` in src/main.js swaps in the explainer.
+- Written on `slice/act3`, not yet played by the user: 15 The Guild (`guild`: users, groups,
+  `id USER`, only one set of letters counts; boss: the one scroll oren may read) and 16 The Shared
+  Hall (`hall`: r/w/x on directories, removing needs w on the directory, `chgrp`; boss: a faction's
+  room, 770). The people are in `src/game/people.js` (`realm(player, { factions })`).
+- Merged into `slice/act3`: `slice/links` (symlinks, hard links, inodes, `ln`, `readlink`,
+  `ctx.inode`, `ctx.linkTarget`) and `slice/art3` (Guild wing, other homes with their owners,
+  `~/guild`, `~/hall` rooms, dark door for x-without-r, portal sprite). Chapter 17 Portals
+  (`portals`) is written. 2249 tests, difftest 0 failures.
+- Merged: `slice/sudo` (sudo with a hidden password prompt, `password()` op, `tee`, chown as root,
+  records carry `user`) and the links art. Chapter 18 The Crown (`crown`, password `dragon`) is
+  written. The guild hall `/srv/guild` now comes from `realm()`. 2343 tests, difftest 0 failures.
+- Merged `slice/ui3` (sudo prompt fixes, Ctrl+R/A/E, keys under the map's ?, throne room and
+  /srv service rooms). Chapter 19 The Scribe's Memory (`memory`) is written. 2412 tests.
+- Merged `slice/jobs` (job control: `&`, `jobs`, `fg`, `bg`, Ctrl+Z/C, real-time sleep; harness
+  `tick` and `keys`) and the art for ~/portals, ~/maze, ~/memory. Chapter 20 Background Tasks
+  (`errands`, area `~/workshop`) is written. 2554 tests.
+- Act III is written: 15 guild, 16 hall, 17 portals, 18 crown, 19 memory, 20 errands, 21 travel,
+  each verified in real bash (docs/verification/<id>.md). `slice/tar` and `slice/ui4` merged.
+  2676 tests, difftest 0 failures. Not yet played by the user; not merged into main.
+- A tester agent tried to break chapters 15 to 21 (50 findings, session file tester-act3.md). The
+  fixes are in, chapter and engine (`slice/fixes3` merged): ctx.line is the line after history
+  expansion (ctx.typed the keys), obs.aliases/vars with ctx.alias/ctx.variable, sudo `auth`,
+  `endJobs()`. 2777 tests, difftest 0 failures.
+- `slice/ui5` merged: ~/travel camp, archives as chests, and the ending (5 steps after the last
+  boss, replay from Chapters). TODO: the real Ring Zero link in `src/intro/endsteps.js`
+  (`RING_ZERO_URL`).
+
+## State at 2026-10-08, evening (act III started)
+
+- Chapters 1 to 14 and all tester fixes are merged into main (6cae0b8). The user approved the
+  act III plan (chapters 15 to 21, `docs/ACT3.md`: the reviewed order is at the end of its first part,
+  then the detailed designs of chapters 15 and 16).
+- Branch `slice/act3` (from main) is the act III integration branch.
+- Engine branch `slice/users` (worktree `.scratch/wt/users`): users and groups read from
+  /etc/passwd and /etc/group, a `login` spec op, `id USER`, `groups USER`, `chown`, `chgrp`,
+  directory r/w/x checks. See the agent's last commits for what is finished.
+- UI branch `slice/explainer` (worktree `.scratch/wt/explainer`): step-by-step concept explainers
+  (Back/Next/Skip) a chapter declares with `explainer`; two of them: "Which three letters are
+  yours?" (ch15) and "Names are pointers" (ch17, links). Open in dev: `?dev&explainer=perms` / `=links`.
+- Both branches are committed and green (users: 1967 tests, difftest 0 failed; explainer: 1984 tests).
+  Left on `slice/users`: Observation.groups JSDoc in port.js, CommandRecord docs for chown/chgrp,
+  maybe a difftest for `ls -la` on a directory without x. Left on `slice/explainer`: retake
+  screenshots (1400x900, 360x740, reduced motion), check phone scroll-in animation, Back/Next/Esc
+  and focus in a browser, verify the explainer commands in real bash (`docs/verification/explainers.md`).
+- Chapter setup API for people: `...accounts(player, { users: [...], groups: [...] }), login()`
+  (AUTHORING section 2).
+
 ## State at 2026-10-08 (act II: chapters 10 to 14)
 
 - On `slice/ch5-9`, not merged: 10 The Descent (`/`, `/etc`, `/var/log`, `$PATH`, `which`, `type`),
@@ -166,6 +338,11 @@ node test/ui/layouts.js OUT_DIR        # both layouts at five window sizes, plus
    any boss.** Done 2026-10-07: the user chose (b) for both; see the state above.
 
 ## First steps of the next session
+
+0. Act III: review and merge `slice/users` and `slice/explainer` into `slice/act3` (tests, lint,
+   difftest; finish anything their last reports list as left). Then write chapter 15 (guild) and
+   16 (hall) from `docs/ACT3.md`, tests first; then the engine for links (symlinks, inodes, `ln`,
+   `readlink`) and chapter 17. Ask the user before merging into main.
 
 1. The user plays chapters 5 to 9 on `slice/ch5-9` (`npm run serve`, `?dev` to jump); fix their
    notes, then merge. Earlier: the user plays chapters 3 and 4; fix their notes, then

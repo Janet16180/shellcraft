@@ -4,10 +4,11 @@
  * 1K-block totals and the six-month date rule.
  */
 
-import { sizeOf } from '../fs.js';
+import { sizeOf, linkCounts, linksOf, joinDisp } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
 import { compareNames } from '../../backend/tree.js';
 import { can } from '../perms.js';
+import { ownerLabel, groupLabel } from '../accounts.js';
 import { parseOptions, mapLongOptions, optionFailure } from '../options.js';
 import { layoutColumns } from '../columns.js';
 import { shellQuote, needsQuoting } from '../quote.js';
@@ -15,14 +16,30 @@ import { exportedVars } from '../vars.js';
 import { result } from '../result.js';
 import { esc, span } from '../html.js';
 import { MONTHS } from './info.js';
+import { inodeOf } from '../system.js';
 
-const SHORT = 'aAlh1rFdCtS';
-const LONG = { '--all': 'a', '--almost-all': 'A', '--human-readable': 'h', '--classify': 'F', '--directory': 'd', '--reverse': 'r' };
+const SHORT = 'aAlh1rFdCtSngoGi';
+const LONG = {
+  '--all': 'a', '--almost-all': 'A', '--human-readable': 'h', '--classify': 'F', '--directory': 'd', '--reverse': 'r',
+  '--numeric-uid-gid': 'n', '--no-group': 'G', '--inode': 'i',
+};
 const SIX_MONTHS_MS = (31556952 / 2) * 1000;
 const UNITS = ['K', 'M', 'G', 'T'];
 
 const isExe = node => node.type === 'file' && (node.mode & 0o111) !== 0;
-const blocksOf = node => (node.dev ? 0 : node.type === 'dir' ? 4 : Math.ceil(sizeOf(node) / 4096) * 4);
+/**
+ * The 1K blocks a node takes on ext4, as `ls -s` and du count them: 4 per
+ * started 4 KiB of a file, 4 for a directory, none for a device or a short
+ * symbolic link, which keeps its target inside the inode.
+ *
+ * @param {object} node A node.
+ * @returns {number} Its size in 1K blocks.
+ */
+export const blocksOf = node => {
+  if (node.dev || node.type === 'symlink') return 0;
+  return node.type === 'dir' ? 4 : Math.ceil(sizeOf(node) / 4096) * 4;
+};
+const TYPE_LETTERS = { dir: 'd', symlink: 'l' };
 
 /**
  * Format a size like `ls -h`: whole bytes below 1K, then one decimal below
@@ -45,14 +62,21 @@ export function humanSize(bytes) {
   return text;
 }
 
-function modeString(node) {
+/**
+ * The ten letters of a mode as `ls -l` shows them: type, then rwx for owner, group and others.
+ *
+ * @param {{type: string, mode: number, dev?: string, unknown?: boolean}} node A node, or anything with its type and mode.
+ * @returns {string} For example `drwxr-xr-x` or `-rwsr-xr-x`.
+ */
+export function modeString(node) {
+  if (node.unknown) return `${TYPE_LETTERS[node.type] ?? '-'}?????????`;
   const m = node.mode;
   const bit = (mask, ch) => (m & mask ? ch : '-');
   const special = (exec, flag, on, off) => {
     if (m & flag) return m & exec ? on : off;
     return bit(exec, 'x');
   };
-  let type = node.type === 'dir' ? 'd' : '-';
+  let type = TYPE_LETTERS[node.type] ?? '-';
   if (node.dev) type = 'c';
   return type + bit(0o400, 'r') + bit(0o200, 'w') + special(0o100, 0o4000, 's', 'S')
     + bit(0o040, 'r') + bit(0o020, 'w') + special(0o010, 0o2000, 's', 'S')
@@ -68,8 +92,10 @@ function timeString(ms, now) {
 }
 
 function indicator(node, opts) {
-  if (!opts.classify) return '';
+  if (!opts.classify || !node) return '';
   if (node.type === 'dir') return '/';
+  if (node.type === 'symlink') return '@';
+  if (node.unknown) return '';
   return isExe(node) ? '*' : '';
 }
 
@@ -79,15 +105,30 @@ function quoteFor(name, opts) {
   return name;
 }
 
-function renderName(entry, opts, someQuoted) {
+function colourOf(node, leadsTo) {
+  let cls = '';
+  if (node.type === 'symlink') cls = leadsTo ? 'c-link' : 'c-orphan';
+  else if (node.type === 'dir' && !node.unknown) cls = 'c-dir';
+  else if (isExe(node)) cls = 'c-exe';
+  return cls;
+}
+
+const painted = (cls, text) => (cls ? span(cls, text) : esc(text));
+
+// In a long listing a link shows `name -> target`, the target coloured and
+// marked by what it leads to; elsewhere it is a name marked with @.
+function renderName(entry, opts, someQuoted, inodeWidth) {
   const quoted = quoteFor(entry.name, opts);
   const pad = opts.align && someQuoted && quoted === entry.name ? ' ' : '';
-  const ind = indicator(entry.node, opts);
-  let cls = '';
-  if (entry.node.type === 'dir') cls = 'c-dir';
-  else if (isExe(entry.node)) cls = 'c-exe';
-  const text = pad + quoted + ind;
-  return { text, width: [...text].length, html: pad + (cls ? span(cls, quoted) : esc(quoted)) + ind };
+  const arrow = opts.format === 'long' && entry.node.type === 'symlink';
+  const ind = arrow ? '' : indicator(entry.node, opts);
+  const ino = opts.inode && opts.format !== 'long' ? `${String(entry.node.ino ?? '?').padStart(inodeWidth)} ` : '';
+  const target = arrow ? quoteFor(entry.node.target, opts) : '';
+  const tail = arrow ? ` -> ${target}${indicator(entry.leadsTo, opts)}` : '';
+  const tailHTML = arrow ? ` -&gt; ${entry.leadsTo ? painted(colourOf(entry.leadsTo, entry.leadsTo), target) : esc(target)}${indicator(entry.leadsTo, opts)}` : '';
+  const text = ino + pad + quoted + ind + tail;
+  const html = esc(ino) + pad + painted(colourOf(entry.node, entry.leadsTo), quoted) + ind + tailHTML;
+  return { text, width: [...text].length, html };
 }
 
 function sortEntries(entries, opts) {
@@ -99,29 +140,51 @@ function sortEntries(entries, opts) {
   return opts.reverse ? sorted.reverse() : sorted;
 }
 
-function longRows(entries, names, opts, now) {
-  const cells = entries.map(e => ({
+function idCell(label) {
+  return { text: label.text, right: label.numeric };
+}
+
+function longCells(e, opts, ctx) {
+  const { sys, now } = ctx;
+  if (e.node.unknown) {
+    const q = { text: '?', right: false };
+    return { mode: modeString(e.node), links: '?', owner: q, group: q, size: '?', time: '?'.padStart(12) };
+  }
+  return {
     mode: modeString(e.node),
-    links: String(e.node.type === 'dir' ? 2 + Object.values(e.node.children).filter(c => c.type === 'dir').length : 1),
-    owner: e.node.owner,
-    group: e.node.group,
+    links: String(linksOf(e.node, ctx.counts())),
+    owner: idCell(ownerLabel(sys, e.node.owner, opts.numeric)),
+    group: idCell(groupLabel(sys, e.node.group, opts.numeric)),
     size: e.node.dev ? '1, 3' : opts.human ? humanSize(sizeOf(e.node)) : String(sizeOf(e.node)),
     time: timeString(e.node.mtime, now),
-  }));
-  const width = key => Math.max(...cells.map(c => c[key].length));
+  };
+}
+
+function longRows(entries, names, opts, ctx, sizing) {
+  const cells = entries.map(e => longCells(e, opts, ctx));
+  const sized = sizing === entries ? cells : sizing.map(e => longCells(e, opts, ctx));
+  const width = key => Math.max(...sized.map(c => (c[key].text ?? c[key]).length));
   const w = { links: width('links'), owner: width('owner'), group: width('group'), size: width('size') };
+  const id = (cell, n) => (cell.right ? cell.text.padStart(n) : cell.text.padEnd(n));
   return cells.map((c, i) => {
-    const prefix = `${c.mode} ${c.links.padStart(w.links)} ${c.owner.padEnd(w.owner)} ${c.group.padEnd(w.group)} ${c.size.padStart(w.size)} ${c.time} `;
+    const ids = [opts.showOwner && id(c.owner, w.owner), opts.showGroup && id(c.group, w.group)].filter(x => x !== false);
+    const ino = opts.inode ? [String(entries[i].node.ino ?? '?').padStart(ctx.inodeWidth)] : [];
+    const prefix = [...ino, c.mode, c.links.padStart(w.links), ...ids, c.size.padStart(w.size), c.time, ''].join(' ');
     return { text: `${prefix}${names[i].text}\n`, html: `${esc(prefix)}${names[i].html}\n` };
   });
 }
 
-function formatEntries(entries, opts, ctx) {
+// `sizing` lists the entries the column widths are measured over: GNU ls
+// measures the files named on the command line together with the directories named.
+function formatEntries(entries, opts, ctx, sizing = entries) {
   const someQuoted = opts.quoting === 'shell' && entries.some(e => needsQuoting(e.name));
-  const names = entries.map(e => renderName(e, opts, someQuoted));
+  if (opts.inode) sizing.forEach(e => e.node.unknown || inodeOf(ctx.sys, e.node));
+  const blockCtx = { ...ctx, inodeWidth: Math.max(...sizing.map(e => String(e.node.ino ?? '?').length)) };
+  const linked = entries.map(e => (e.node.type === 'symlink' ? { ...e, leadsTo: resolve(ctx.sys, e.path).node } : e));
+  const names = linked.map(e => renderName(e, opts, someQuoted, blockCtx.inodeWidth));
   let block;
   if (opts.format === 'long') {
-    const rows = longRows(entries, names, opts, ctx.now);
+    const rows = longRows(entries, names, opts, blockCtx, sizing);
     block = { text: rows.map(r => r.text).join(''), html: rows.map(r => r.html).join('') };
   } else if (opts.format === 'columns') {
     block = { text: layoutColumns(names, ctx.width), html: layoutColumns(names, ctx.width, 'html') };
@@ -131,17 +194,35 @@ function formatEntries(entries, opts, ctx) {
   return block;
 }
 
+// Without x on a directory, its entries cannot be stat'ed: ls knows only the
+// names and whether each is a directory, as readdir tells it.
+function needsStat(node, opts) {
+  return opts.format === 'long' || opts.byTime || opts.bySize || (opts.classify && node.type !== 'dir');
+}
+
+function blindEntries(d, entries, opts, errs, ctx) {
+  return entries.map(e => {
+    if (!needsStat(e.node, opts)) return e;
+    const path = d.typed === '.' ? e.name : `${d.typed.replace(/\/+$/, '')}/${e.name}`;
+    errs.push(`ls: cannot access ${shellQuote(path, { always: true })}: Permission denied`);
+    return { name: e.name, path: e.path, node: { type: e.node.type, unknown: true, children: {}, ino: inodeOf(ctx.sys, e.node) } };
+  });
+}
+
 function listDirectory(d, opts, ctx, header) {
   const names = Object.keys(d.node.children).filter(nm => opts.all || opts.almost || nm[0] !== '.');
   const dots = opts.all ? [{ name: '.', node: d.node }, { name: '..', node: d.parent }] : [];
-  const entries = sortEntries([...dots, ...names.map(nm => ({ name: nm, node: d.node.children[nm] }))], opts);
+  const path = nm => joinDisp(d.typed, nm);
+  let entries = sortEntries([...dots, ...names.map(nm => ({ name: nm, path: path(nm), node: d.node.children[nm] }))], opts);
+  const errs = [];
+  if (!can(ctx.sys, d.node, 'x')) entries = blindEntries(d, entries, opts, errs, ctx);
   const body = formatEntries(entries, opts, ctx);
   let head = header ? `${quoteFor(d.typed, opts)}:\n` : '';
   if (opts.format === 'long') {
-    const total = entries.reduce((t, e) => t + blocksOf(e.node), 0);
+    const total = entries.reduce((t, e) => t + (e.node.unknown ? 0 : blocksOf(e.node)), 0);
     head += `total ${opts.human ? humanSize(total * 1024) : total}\n`;
   }
-  return { text: head + body.text, html: esc(head) + body.html };
+  return { text: head + body.text, html: esc(head) + body.html, errs };
 }
 
 function parseLs(name, args, tty) {
@@ -152,16 +233,26 @@ function parseLs(name, args, tty) {
   const f = o.flags;
   let format = tty || name === 'dir' || f.has('C') ? 'columns' : 'single';
   if (f.has('1')) format = 'single';
-  if (f.has('l')) format = 'long';
+  if (['l', 'n', 'g', 'o'].some(c => f.has(c))) format = 'long';
   let quoting = tty ? 'shell' : 'literal';
   if (name === 'dir') quoting = 'escape';
   return {
     operands: o.rest,
     opts: {
       all: f.has('a'), almost: f.has('A'), human: f.has('h'), reverse: f.has('r'), classify: f.has('F'), dirsAsFiles: f.has('d'),
-      byTime: f.has('t'), bySize: f.has('S'), format, quoting, align: quoting === 'shell' && format !== 'single',
+      byTime: f.has('t'), bySize: f.has('S'), format, quoting, align: quoting === 'shell' && format !== 'single', inode: f.has('i'),
+      numeric: f.has('n'), showOwner: !f.has('g'), showGroup: !f.has('o') && !f.has('G'),
     },
   };
+}
+
+// Like GNU ls, a link named on the command line is followed when it leads to
+// a directory, except for -l, -d and -F, which show the link itself.
+function operand(sys, typed, opts) {
+  const r = resolve(sys, typed, { follow: false });
+  const keepLink = opts.format === 'long' || opts.dirsAsFiles || opts.classify;
+  const followed = !r.error && r.node.type === 'symlink' && !keepLink ? resolve(sys, typed) : null;
+  return followed?.node?.type === 'dir' ? followed : r;
 }
 
 function classify(sys, operands, opts) {
@@ -169,11 +260,11 @@ function classify(sys, operands, opts) {
   const dirs = [];
   const errs = [];
   for (const typed of operands) {
-    const r = resolve(sys, typed);
+    const r = operand(sys, typed, opts);
     if (r.error) errs.push(`ls: cannot access ${shellQuote(typed, { always: true })}: ${errorText(r.error)}`);
-    else if (r.node.type !== 'dir' || opts.dirsAsFiles) files.push({ name: typed, node: r.node });
+    else if (r.node.type !== 'dir' || opts.dirsAsFiles) files.push({ name: typed, path: typed, node: r.node });
     else if (!can(sys, r.node, 'r')) errs.push(`ls: cannot open directory ${shellQuote(typed, { always: true })}: Permission denied`);
-    else dirs.push({ typed, name: typed, node: r.node, parent: resolve(sys, `${r.abs}/..`).node });
+    else dirs.push({ typed, name: typed, node: r.node, parent: r.parent ?? r.node });
   }
   return { files, dirs, errs };
 }
@@ -191,14 +282,21 @@ function listing(name, args, { sys, piped, env }) {
   const { opts } = parsed;
   const operands = parsed.operands.length ? parsed.operands : ['.'];
   const { files, dirs, errs } = classify(sys, operands, opts);
-  const ctx = { now: sys.now(), width: lineWidth(sys, piped, env) };
+  let counts = null;
+  const ctx = { sys, now: sys.now(), width: lineWidth(sys, piped, env), counts: () => (counts ??= linkCounts(sys.root)) };
   const sections = [];
-  if (files.length) sections.push(formatEntries(sortEntries(files, opts), opts, ctx));
+  if (files.length) sections.push(formatEntries(sortEntries(files, opts), opts, ctx, [...files, ...dirs]));
   const header = operands.length > 1 || files.length > 0;
-  for (const d of sortEntries(dirs, opts)) sections.push(listDirectory(d, opts, ctx, header));
+  let minor = [];
+  for (const d of sortEntries(dirs, opts)) {
+    const listed = listDirectory(d, opts, ctx, header);
+    minor = minor.concat(listed.errs);
+    sections.push(listed);
+  }
   const shown = sections.filter(s => s.text !== '');
   const out = shown.map(s => s.text).join('\n');
-  return result(out, errs.join('\n'), errs.length ? 2 : 0, out ? shown.map(s => s.html).join('\n') : null);
+  const status = errs.length ? 2 : minor.length ? 1 : 0;
+  return result(out, [...errs, ...minor].join('\n'), status, out ? shown.map(s => s.html).join('\n') : null);
 }
 
 export default {

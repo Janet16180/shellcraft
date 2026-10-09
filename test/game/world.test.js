@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validatePatch } from '../../src/backend/spec.js';
-import { baseWorld, restore, HOME_NAMES } from '../../src/game/world.js';
+import { validatePatch, login } from '../../src/backend/spec.js';
+import { baseWorld, restore, accounts, HOME_NAMES } from '../../src/game/world.js';
 import { createSimBackend } from '../../src/shell/backend.js';
 import { PLAYER } from '../../src/backend/player.js';
 
@@ -22,6 +22,10 @@ test('the base world is a well-formed patch that ends with the player at home', 
   const patch = baseWorld(PLAYER);
   assert.equal(validatePatch(patch), patch);
   assert.deepEqual(patch.at(-1), { op: 'cd', path: '/home/hero' });
+});
+
+test('the base world logs the player in again, so a fresh world brings fresh groups', () => {
+  assert.ok(baseWorld(PLAYER).some(op => op.op === 'login'));
 });
 
 test('the base world leaves /usr and /dev to the backend', () => {
@@ -183,4 +187,74 @@ test('on the simulator, restoring an area brings back what the player deleted', 
   await run('rm -r forest');
   await backend.load(restore('forest', PLAYER));
   assert.match((await run('cat forest/cave/deep/ancient_key.txt')).out, /The Ancient Key/);
+});
+
+const GUILD = {
+  users: [{ name: 'mira', uid: 1001, group: 'smiths' }, { name: 'oren', uid: 1002, group: 'scribes' }],
+  groups: [{ name: 'smiths', gid: 1001 }, { name: 'scribes', gid: 1002, members: ['hero', 'oren'] }],
+};
+
+test('accounts writes the base users and groups plus the new ones', () => {
+  const [passwd, group] = accounts(PLAYER, GUILD);
+  assert.equal(passwd.path, '/etc/passwd');
+  assert.match(passwd.node.content, /^root:x:0:0:root:\/root:\/bin\/bash\n/);
+  assert.match(passwd.node.content, /\nhero:x:1000:1000:Hero,,,:\/home\/hero:\/bin\/bash\nmira:x:1001:1001:Mira,,,:\/home\/mira:\/bin\/bash\noren:x:1002:1002:Oren,,,:\/home\/oren:\/bin\/bash\n$/);
+  assert.match(group.node.content, /\nhero:x:1000:\nsmiths:x:1001:\nscribes:x:1002:hero,oren\n$/);
+  assert.deepEqual(validatePatch(accounts(PLAYER, GUILD)).map(op => op.path), ['/etc/passwd', '/etc/group', '/etc/shadow']);
+});
+
+test('accounts writes /etc/shadow, root-only, with a made-up hash for each person, never the password', () => {
+  const shadow = accounts(PLAYER, GUILD)[2].node;
+  assert.deepEqual([shadow.mode, shadow.owner, shadow.group], [0o640, 'root', 'shadow']);
+  assert.match(shadow.content, /^root:\*:20713:0:99999:7:::\n/);
+  assert.match(shadow.content, /\nhero:\$y\$j9T\$[./0-9A-Za-z]{22}\$[./0-9A-Za-z]{43}:20713:0:99999:7:::\nmira:\$y\$j9T\$/);
+  assert.notEqual(shadow.content.match(/^hero:(\S+?):/m)[1], shadow.content.match(/^mira:(\S+?):/m)[1]);
+});
+
+test('accounts adds sudoers to the sudo group, which must name known users', () => {
+  const group = accounts(PLAYER, { ...GUILD, sudo: ['hero'] })[1].node.content;
+  assert.match(group, /\nsudo:x:27:hero\n/);
+  assert.match(accounts(PLAYER)[1].node.content, /\nsudo:x:27:\n/);
+  assert.throws(() => accounts(PLAYER, { sudo: ['ghost'] }), /ghost/);
+});
+
+test("the base world has Ubuntu's sudoers, its README directory and a root-only shadow file", () => {
+  const etc = baseWorld(PLAYER).find(op => op.path === '/etc').node.children;
+  assert.deepEqual([etc.sudoers.mode, etc.sudoers.owner, etc.sudoers.group], [0o440, 'root', 'root']);
+  assert.match(etc.sudoers.content, /\n%sudo\tALL=\(ALL:ALL\) ALL\n/);
+  assert.equal(etc['sudoers.d'].children.README.mode, 0o440);
+  assert.equal(etc.shadow.mode, 0o640);
+});
+
+test('accounts raises for a taken name or id, an unknown primary group or an unknown member', () => {
+  assert.throws(() => accounts(PLAYER, { users: [{ name: 'hero', uid: 1005, group: 'hero' }] }), /taken/);
+  assert.throws(() => accounts(PLAYER, { users: [{ name: 'mira', uid: 1000, group: 'hero' }] }), /taken/);
+  assert.throws(() => accounts(PLAYER, { groups: [{ name: 'sudo', gid: 2000 }] }), /taken/);
+  assert.throws(() => accounts(PLAYER, { users: [{ name: 'mira', uid: 1001, group: 'nosuch' }] }), /group nosuch/);
+  assert.throws(() => accounts(PLAYER, { groups: [{ name: 'g', gid: 2000, members: ['ghost'] }] }), /ghost/);
+});
+
+test('on the simulator, accounts and login() put the player in the new group', async () => {
+  const backend = createSimBackend({ now: () => 0, random: () => 0.5 });
+  await backend.load(baseWorld(PLAYER));
+  await backend.load([...accounts(PLAYER, GUILD), login()]);
+  const r = await backend.run('id; id mira');
+  assert.equal(r.output.map(c => c.text).join(''), 'uid=1000(hero) gid=1000(hero) groups=1000(hero),1002(scribes)\nuid=1001(mira) gid=1001(smiths) groups=1001(smiths)\n');
+});
+
+test('/etc/skel holds the files a new home starts with: the same .bashrc, a .profile and a .bash_logout', () => {
+  const world = baseWorld(PLAYER);
+  const skel = nodeIn(world, '/etc/skel');
+  assert.deepEqual(Object.keys(skel.children).sort(), ['.bash_logout', '.bashrc', '.profile']);
+  assert.equal(skel.children['.bashrc'].content, nodeIn(world, '/home/hero/.bashrc').content);
+  assert.equal(skel.children['.bashrc'].owner ?? 'root', 'root');
+});
+
+test('copying /etc/skel/.bashrc home repairs a replaced .bashrc', async () => {
+  const b = createSimBackend({ now: () => 0 });
+  await b.load(baseWorld(PLAYER));
+  await b.run('echo oops > ~/.bashrc');
+  const r = await b.run('cp /etc/skel/.bashrc ~/ && source ~/.bashrc');
+  assert.equal(r.status, 0);
+  assert.equal((await b.run('type ll')).output[0].text, "ll is aliased to `ls -alF'\n");
 });

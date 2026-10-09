@@ -7,12 +7,16 @@ import assert from 'node:assert/strict';
 import { validatePatch } from '../../src/backend/spec.js';
 import { PLAYER } from '../../src/backend/player.js';
 import { createRandom } from '../../src/game/rng.js';
+import { termTimeline } from '../../src/intro/term.js';
+import { EXPLAINERS } from '../../src/intro/explainers.js';
+import { SOUND_NAMES } from '../../src/ui/sound.js';
 
 const ID = /^[a-z][a-z0-9-]*$/;
 // An angle-bracketed word is a placeholder the shell would read as a redirection.
 const ANGLE_PLACEHOLDER = /<[A-Za-z][\w-]*>/;
 
 const MAX_TIP = 140;
+const MAX_SENTENCES = 3;
 
 const isText = x => typeof x === 'string' && x.trim() !== '';
 const isFunction = x => typeof x === 'function';
@@ -76,6 +80,59 @@ function assertSpells(spells, where) {
 }
 
 /**
+ * The sentences in a caption: tags and code are left out, so a dot in a file
+ * name does not end one.
+ *
+ * @param {string} html A caption paragraph, trusted HTML.
+ * @returns {number} How many sentences it has.
+ */
+export function sentenceCount(html) {
+  const text = html.replace(/<code>.*?<\/code>/g, 'X').replace(/<[^>]+>/g, '');
+  return (text.match(/[.!?](?=\s|$)/g) ?? []).length;
+}
+
+function assertTerm(term, where) {
+  assert.ok(term === undefined || Array.isArray(term), `${where}: term must be a list of lines when present`);
+  (term ?? []).forEach((entry, i) => {
+    assert.ok(isText(entry.type), `${where} term line ${i + 1}: type must be the line typed`);
+    assert.ok(entry.output === undefined || (Array.isArray(entry.output) && entry.output.every(o => typeof o === 'string')), `${where} term line ${i + 1}: output must be a list of lines`);
+  });
+}
+
+/**
+ * Check a chapter explainer (AUTHORING.md section 2): an id, a title, a draw
+ * function and steps, each with a title, a caption of one to three sentences,
+ * an optional terminal strip, a diagram its draw function accepts and an
+ * optional sound.
+ *
+ * @param {object} explainer The explainer.
+ * @returns {void}
+ * @throws {import('node:assert').AssertionError} Naming the first broken rule.
+ */
+export function assertExplainer(explainer) {
+  assert.ok(explainer && typeof explainer === 'object', 'an explainer must be an object');
+  const where = `explainer ${explainer.id}`;
+  assert.ok(typeof explainer.id === 'string' && ID.test(explainer.id), `${where}: id must be lowercase letters, digits and dashes`);
+  assert.ok(isText(explainer.title), `${where}: title must be non-empty text`);
+  assert.ok(isFunction(explainer.draw), `${where}: draw must be a function`);
+  assert.ok(Array.isArray(explainer.steps) && explainer.steps.length > 0, `${where}: needs at least one step`);
+  explainer.steps.forEach((step, i) => {
+    const at = `${where} step ${i + 1}`;
+    assert.ok(isText(step.title), `${at}: title must be non-empty text`);
+    assert.ok(Array.isArray(step.text) && step.text.length > 0 && step.text.every(isText), `${at}: text must be a non-empty list of paragraphs`);
+    const sentences = step.text.map(sentenceCount).reduce((a, b) => a + b, 0);
+    assert.ok(sentences >= 1 && sentences <= MAX_SENTENCES, `${at}: the caption has ${sentences} sentences, 1 to ${MAX_SENTENCES} allowed`);
+    for (const html of [step.title, ...step.text]) assert.ok(!ANGLE_PLACEHOLDER.test(html.replace(/<\/?(code|kbd|b|em)>/g, '')), `${at}: uses an <angle> placeholder`);
+    assertTerm(step.term, at);
+    assert.ok(step.sound === undefined || SOUND_NAMES.includes(step.sound), `${at}: sound must be one of ${SOUND_NAMES.join(', ')}`);
+    assert.ok(step.diagram && typeof step.diagram === 'object', `${at}: needs a diagram`);
+    const { lines, end } = termTimeline(step.term ?? []);
+    const html = explainer.draw(step.diagram, { at: index => lines[index].outAt, end });
+    assert.ok(isText(html), `${at}: draw must return HTML`);
+  });
+}
+
+/**
  * Check one chapter module against the authoring contract. A `soon`
  * placeholder needs only id, act and title. The setup functions are called
  * with a seeded random and their patches validated. Boss hints may be
@@ -103,6 +160,10 @@ export function assertChapter(chapter) {
   assertSpells(chapter.spells, where);
   assert.ok(chapter.effects === undefined || isFunction(chapter.effects), `${where}: effects must be a function when present`);
   assert.ok(isFunction(chapter.setup), `${where}: setup must be a function`);
+  if (typeof chapter.explainer === 'string') {
+    assert.ok(Object.hasOwn(EXPLAINERS, chapter.explainer), `${where}: no explainer named ${chapter.explainer}`);
+    assertExplainer(EXPLAINERS[chapter.explainer]);
+  } else if (chapter.explainer !== undefined) assertExplainer(chapter.explainer);
 
   const patch = chapter.setup(createRandom(1), PLAYER);
   assert.ok(Array.isArray(patch), `${where}: setup must return a patch (a list of operations)`);

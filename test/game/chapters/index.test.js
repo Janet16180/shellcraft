@@ -8,19 +8,21 @@ import { createSimBackend } from '../../../src/shell/backend.js';
 import { assertChapterList } from '../../helpers/chapter.js';
 import { createMemoryStore } from '../../helpers/memory-store.js';
 import { typeLine } from '../../helpers/type-line.js';
+import { passwordOf, jobNotice } from './harness.js';
+import { sessionKeys, createClock } from '../../helpers/session-keys.js';
 
-const ORDER = ['awakening', 'forest', 'unseen', 'camp', 'junkyard', 'mirrors', 'library', 'tower', 'market', 'descent', 'gate', 'well', 'daemon', 'forge'];
+const ORDER = ['awakening', 'forest', 'unseen', 'camp', 'junkyard', 'mirrors', 'library', 'tower', 'market', 'descent', 'gate', 'well', 'daemon', 'forge', 'guild', 'hall', 'portals', 'crown', 'memory', 'errands', 'travel'];
 
 test('the chapter list passes the shared contract check', () => {
   assertChapterList(chapters);
 });
 
-test('the chapter list has the fourteen chapters of the design, in order', () => {
+test('the chapter list has the chapters of the design, in order', () => {
   assert.deepEqual(chapters.map(chapter => chapter.id), ORDER);
 });
 
-test('act I runs to the Market of Pipes and act II starts with the Descent', () => {
-  assert.deepEqual(chapters.map(chapter => chapter.act), [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+test('act I runs to the Market of Pipes, act II starts with the Descent and act III with the Guild', () => {
+  assert.deepEqual(chapters.map(chapter => chapter.act), [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3]);
 });
 
 test('every chapter is playable', () => {
@@ -58,12 +60,13 @@ test('the names the player types in goals and notes are marked as code', () => {
   for (const name of ['`forest/cave/deep`', '`..`', '`cd -`', '`/home/hero`', '`~`']) assert.ok(marked.includes(name), name);
 });
 
-async function playThrough(session, chapter) {
+async function playThrough(session, chapter, clock) {
   const turns = [];
-  for (const line of chapter.solve) turns.push(await typeLine(line, session));
+  const keys = sessionKeys(session, { password: passwordOf(chapter), tick: clock.tick });
+  for (const line of chapter.solve) turns.push(await typeLine(line, keys));
   const bossStart = turns.at(-1);
-  for (const line of chapter.boss.solve(session.observation())) turns.push(await typeLine(line, session));
-  return { bossStart, last: turns.at(-1), errors: turns.flatMap(t => t.result.output.filter(c => c.stream === 'err')) };
+  for (const line of chapter.boss.solve(session.observation())) turns.push(await typeLine(line, keys));
+  return { bossStart, last: turns.at(-1), errors: turns.flatMap(t => t.result.output.filter(c => c.stream === 'err' && !jobNotice(c.text))) };
 }
 
 const kinds = list => list.map(x => x.kind);
@@ -76,18 +79,28 @@ const EXPECTED_ERRORS = {
   gate: ['bash: ./open_gate.sh: Permission denied\n', "ls: cannot open directory '/root': Permission denied\n"],
   well: ["ls: cannot access '/home/hero/well/bucket.txt': No such file or directory\n", 'bash: cd: /home/hero/well/dry: No such file or directory\n'],
   daemon: ['bash: kill: (1) - Operation not permitted\n'],
+  guild: ['cat: /srv/guild/plans.txt: Permission denied\n', 'cat: /home/hero/guild/notice.txt: Permission denied\n'],
+  hall: [
+    'bash: cd: /home/hero/hall/vault: Permission denied\n',
+    "ls: cannot open directory '/home/hero/hall/vault': Permission denied\n",
+    "rm: cannot remove '/home/hero/hall/archive/old.txt': Permission denied\n",
+  ],
+  portals: ['cat: /home/hero/portals/old_portal: No such file or directory\n'],
+  crown: ['bash: /etc/motd: Permission denied\n'],
+  memory: ['whoami\n', 'whoami\n'],
 };
 
 for (const seed of [1, 2, 3]) {
   test(`a session plays every playable chapter from boot to the last boss (seed ${seed})`, async () => {
-    const backend = createSimBackend({ now: () => Date.UTC(2026, 9, 6, 12), random: createRandom(seed) });
+    const clock = createClock();
+    const backend = createSimBackend({ now: clock.now, random: createRandom(seed) });
     const session = createSession({ backend, chapters, baseWorld, store: createMemoryStore(), random: createRandom(seed) });
     assert.equal((await session.boot()).chapter.id, 'awakening');
 
     let last = null;
     for (const [i, chapter] of PLAYABLE.entries()) {
       if (i > 0) await session.startChapter(chapter.id, { fresh: false });
-      const played = await playThrough(session, chapter);
+      const played = await playThrough(session, chapter, clock);
       assert.deepEqual(played.errors.map(e => e.text), EXPECTED_ERRORS[chapter.id] ?? [], chapter.id);
       assert.deepEqual(kinds(played.bossStart.events), ['task', 'boss-start'], chapter.id);
       assert.deepEqual(kinds(played.last.events), ['boss', 'chapter'], chapter.id);

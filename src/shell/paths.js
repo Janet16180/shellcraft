@@ -7,65 +7,56 @@
 import { can } from './perms.js';
 import { byteLength, lookup, MAX_TREE_DEPTH } from './fs.js';
 import { varValue } from './vars.js';
-import { joinPath } from '../backend/tree.js';
+import { joinPath, walkPath } from '../backend/tree.js';
 
 const MESSAGES = {
   ENOENT: 'No such file or directory', ENOTDIR: 'Not a directory', EACCES: 'Permission denied', ENAMETOOLONG: 'File name too long',
+  ELOOP: 'Too many levels of symbolic links',
 };
 // Linux PATH_MAX counts the final NUL byte; NAME_MAX limits one component.
 const PATH_MAX = 4096;
 const NAME_MAX = 255;
 
 /**
- * @param {'ENOENT'|'ENOTDIR'|'EACCES'|'ENAMETOOLONG'} code An error code from resolve().
+ * @param {'ENOENT'|'ENOTDIR'|'EACCES'|'ENAMETOOLONG'|'ELOOP'} code An error code from resolve().
  * @returns {string} The C library message for it.
  */
 export const errorText = code => MESSAGES[code];
 
-function walk(sys, parts, startStack) {
-  const stack = [...startStack];
+const searchable = sys => (dir, name, stack) => {
   let error = null;
-  let parent = null;
-  parts.forEach((part, i) => {
-    const dir = stack.at(-1).node;
-    const last = i === parts.length - 1;
-    if (error) return;
-    if (dir.type !== 'dir') error = 'ENOTDIR';
-    else if (byteLength(part) > NAME_MAX) error = 'ENAMETOOLONG';
-    else if (!can(sys, dir, 'x')) error = 'EACCES';
-    else if (part === '..') { if (stack.length > 1) stack.pop(); }
-    else if (part === '.') return;
-    else if (stack.length > MAX_TREE_DEPTH) error = 'ENAMETOOLONG';
-    else if (dir.children[part]) stack.push({ name: part, node: dir.children[part] });
-    else {
-      error = 'ENOENT';
-      if (last) { parent = dir; stack.push({ name: part, node: null }); }
-    }
-  });
-  return { stack, error, parent };
-}
+  if (byteLength(name) > NAME_MAX) error = 'ENAMETOOLONG';
+  else if (!can(sys, dir, 'x')) error = 'EACCES';
+  else if (name !== '.' && name !== '..' && stack.length > MAX_TREE_DEPTH) error = 'ENAMETOOLONG';
+  return error;
+};
 
+// The working directory as the kernel holds it: where its path leads, links followed.
 function startStack(sys, path) {
-  const stack = [{ name: '', node: sys.root }];
-  if (path.startsWith('/')) return stack;
-  for (const part of sys.cwd.split('/').filter(Boolean)) stack.push({ name: part, node: stack.at(-1).node?.children?.[part] ?? null });
-  return stack.some(s => !s.node) ? null : stack;
+  const root = [{ name: '', node: sys.root }];
+  const cwd = path.startsWith('/') ? null : walkPath(root, sys.cwd);
+  if (!cwd) return root;
+  return cwd.error || cwd.stack.at(-1).node.type !== 'dir' ? null : cwd.stack;
 }
 
 /**
- * Resolve a path for the shell's user.
+ * Resolve a path for the shell's user. Symbolic links are followed on the
+ * way, and in the last place too unless `follow` is false (what lstat does,
+ * for commands that act on a link itself: rm, mv, ls -l, ln).
  *
- * @param {{root: object, cwd: string, user: string, groups: string[]}} sys The machine state.
+ * @param {{root: object, cwd: string, user: string, gids: number[]}} sys The machine state.
  * @param {string} path Absolute or relative path, as typed.
- * @returns {{abs: string, node: object|null, parent: object|null, error: 'ENOENT'|'ENOTDIR'|'EACCES'|'ENAMETOOLONG'|null}}
- *   The absolute path; the node (null on error); the directory that holds or
- *   would hold the last component (null when the path does not get that far).
+ * @param {{follow?: boolean}} [opts] Follow a symbolic link in the last place (default true).
+ * @returns {{abs: string, node: object|null, parent: object|null, error: 'ENOENT'|'ENOTDIR'|'EACCES'|'ENAMETOOLONG'|'ELOOP'|null}}
+ *   The absolute path where the walk ended, links resolved (a dangling link
+ *   gives the path it points at); the node (null on error); the directory
+ *   that holds or would hold the last component (null when the path does not
+ *   get that far).
  */
-export function resolve(sys, path) {
+export function resolve(sys, path, { follow = true } = {}) {
   const start = startStack(sys, path);
-  const parts = path.split('/').filter(Boolean);
   const trailingSlash = path.length > 1 && path.endsWith('/');
-  let walked = start ? walk(sys, parts, start) : { stack: [{ name: '', node: null }], error: 'ENOENT', parent: null };
+  let walked = start ? walkPath(start, path, { follow, check: searchable(sys) }) : { stack: [{ name: '', node: null }], error: 'ENOENT', parent: null };
   if (byteLength(path) >= PATH_MAX) walked = { stack: [{ name: '', node: null }], error: 'ENAMETOOLONG', parent: null };
   const { stack } = walked;
   let { error, parent } = walked;

@@ -24,6 +24,10 @@ export const SPRITES = {
     toon(['....o...', '...oyo..', '..oyyo..', '..oyyyo.', '.oyyyyo.', '..kkkk..', '.k.kk.k.', '........']),
   ],
   ghost: toon(['....kkkk....', '..kkkkkkkk..', '.kkkkkkkkkk.', '.kkrrkkrrkk.', 'kkkrrkkrrkkk', 'kkkkkkkkkkkk', 'kkkkwwwwkkkk', 'kkkwkkkkwkkk', 'kkkkkkkkkkkk', 'kkkkkkkkkkkk', 'kk.kkk.kkk.k', 'k...k...k...']),
+  // Archives: a tar is a closed chest, a compressed one strapped tight with rope, other gzip data a tied bundle.
+  packed: ink(['........', '.kkkkkk.', 'kbbbbbbk', 'krrrrrrk', 'kyyyyyyk', 'kbbllbbk', 'kbbbbbbk', 'kkkkkkkk']),
+  strapped: ink(['..w..w..', '.kwkkwk.', 'kbwbbwbk', 'krwrrwrk', 'kywyywyk', 'kbwllwbk', 'kbwbbwbk', 'kkkkkkkk']),
+  bundle: toon(['.e....e.', '.edwde..', '..ekke..', '.edddde.', 'ekkkkkke', 'edwdddde', 'ekkkkkke', '.eeeeee.']),
   book: ink(['........', '.kk..kk.', 'kwwkkwwk', 'kwlwwlwk', 'kwwwwwwk', 'kwlwwlwk', 'kbbkkbbk', '.kk..kk.']),
   void: ink(['..pppp..', '.pkkkkp.', 'pkkvkkkp', 'pkkkkkkp', 'pkkkkvkp', 'pkkkkkkp', '.pkkkkp.', '..pppp..']),
   padlock: ink(['..lll..', '.l...l.', '.l...l.', 'kkkkkkk', 'kyyyyyk', 'kyykyyk', 'kyykyyk', 'koooook', 'kkkkkkk']),
@@ -62,4 +66,12 @@ export const SPRITES = {
   bones: ink(['ww.....ww', '.ww...ww.', '...www...', '.ww...ww.', 'ww.....ww']),
   barrel: ink(['..kkkkkk..', '.krbbbbrk.', 'kssssssssk', 'krbbbbbbrk', 'krbbbbbbrk', 'kssssssssk', 'krbbbbbbrk', 'krbbbbbbrk', 'kssssssssk', '.krbbbbrk.', '..kkkkkk..']),
   crate: ink(['kkkkkkkkkkkk', 'kbbbbbbbbbbk', 'kbrbbbbbbrbk', 'kbbrbbbbrbbk', 'kbbbrbbrbbbk', 'kbbbbrrbbbbk', 'kbbbrbbrbbbk', 'kbbrbbbbrbbk', 'kbrbbbbbbrbk', 'kkkkkkkkkkkk']),
+  smithsMark: ink(['.......', 'kkkkkkk', '.kkkkkk', '...kkk.', '...kkk.', '..kkkkk', '.kkkkkk']),
+  scribesMark: ink(['.....kk', '....kkk', '...kkk.', '...kk..', '..k....', '.k.....', 'k......']),
+  // A symlink, ready for chapter 17: a swirling portal, three frames of one turn.
+  portal: [
+    ink(['.....kkkk.....', '...kkvvvvkk...', '..kvvvvvpvvk..', '..kvvvvvvpvk..', '.kvvppvvvvpvk.', '.kvppnppvvpvk.', 'kvpnnnnpvvpnvk', 'kvnnnnnnvvpnvk', 'kvnnpppnvvpnvk', 'kvnnpvwwvvpnvk', 'kvnpvvwwvpnnvk', 'kvnpvvnpppnnvk', 'kvnpvvnnnnnnvk', 'kvnpvvpnnnnpvk', '.kvpvvppnppvk.', '.kvpvvvvppvvk.', '..kvpvvvvvvk..', '..kvvpvvvvvk..', '...kkvvvvkk...', '.....kkkk.....']),
+    ink(['.....kkkk.....', '...kkvvvvkk...', '..kvvpppvvvk..', '..kvnnnppvvk..', '.kvnnnnnpvvvk.', '.kvnnpnnnpvvk.', 'kvnppppnnpvvvk', 'kvppvvvpnpvvvk', 'kvpvvvvpnpvvvk', 'kvvvvpwwnpvvvk', 'kvvvpnwwpvvvvk', 'kvvvpnpvvvvpvk', 'kvvvpnpvvvppvk', 'kvvvpnnppppnvk', '.kvvpnnnpnnvk.', '.kvvvpnnnnnvk.', '..kvvppnnnvk..', '..kvvvpppvvk..', '...kkvvvvkk...', '.....kkkk.....']),
+    ink(['.....kkkk.....', '...kkvvvvkk...', '..kvvnnnnvvk..', '..kvpppnnnvk..', '.kvpvvvpnnnvk.', '.kvvvvvvpnnvk.', 'kvvvvvvvpnnpvk', 'kvvvpppvpnnpvk', 'kvvpnnnvpnnpvk', 'kvvpnnwwpnnpvk', 'kvpnnpwwnnpvvk', 'kvpnnpvnnnpvvk', 'kvpnnpvpppvvvk', 'kvpnnpvvvvvvvk', '.kvnnpvvvvvvk.', '.kvnnnpvvvpvk.', '..kvnnnpppvk..', '..kvvnnnnvvk..', '...kkvvvvkk...', '.....kkkk.....']),
+  ],
 };

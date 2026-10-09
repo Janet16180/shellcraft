@@ -5,6 +5,7 @@
  */
 
 import { isInside, joinPath } from '../backend/tree.js';
+import { realPath } from './room.js';
 
 /**
  * Every biome: its realm, the name shown to the player, and its colours. The
@@ -28,6 +29,18 @@ export const BIOMES = {
   den: { realm: 'overworld', name: 'Imp Den', wall: ['#2a1410', '#3a1c16'], floor: '#4a2a1e', door: '#120806', trim: '#ff7a3d' },
   forge: { realm: 'overworld', name: 'The Forge', wall: ['#2b2220', '#3b2d28'], floor: '#4e413a', door: '#1a1210', trim: '#ffa040' },
   ore: { realm: 'overworld', name: 'Ore Pile', wall: ['#2a2622', '#3a332c'], floor: '#5a4e44', door: '#18140f', trim: '#e0b060' },
+  outpost: { realm: 'overworld', name: 'Guild Outpost', wall: ['#173a24', '#224d31'], floor: '#5f8a42', door: '#2b1d12', trim: '#d8b45a' },
+  commons: { realm: 'overworld', name: 'Common Hall', wall: ['#4a2a22', '#5c362b'], floor: '#9a6c44', door: '#2a160e', trim: '#e8c070' },
+  strongroom: { realm: 'overworld', name: 'Strongroom', wall: ['#2c3038', '#3a3f49'], floor: '#555a64', door: '#16181d', trim: '#e0b84a' },
+  records: { realm: 'overworld', name: 'Records Room', wall: ['#2f2238', '#3d2c48'], floor: '#6e5444', door: '#1a1020', trim: '#d9c8a0' },
+  shared: { realm: 'overworld', name: 'Shared Room', wall: ['#3a2a1a', '#4b3722'], floor: '#8a7048', door: '#22160c', trim: '#c792ff' },
+  portals: { realm: 'overworld', name: 'Hall of Portals', wall: ['#1c1838', '#28224e'], floor: '#3c3664', door: '#0e0b20', trim: '#c792ff' },
+  maze: { realm: 'overworld', name: 'Portal Maze', wall: ['#173a24', '#1f4a2e'], floor: '#7a7058', door: '#1a140c', trim: '#c792ff' },
+  study: { realm: 'overworld', name: "Scribe's Study", wall: ['#3a2618', '#4a3220'], floor: '#6e5238', door: '#1e120a', trim: '#e0b85a' },
+  smithy: { realm: 'overworld', name: 'Busy Workshop', wall: ['#3a2618', '#47301e'], floor: '#5e5048', door: '#1e130b', trim: '#ff9a3c' },
+  departure: { realm: 'overworld', name: 'Travel Camp', wall: ['#3a2a4a', '#4a3658'], floor: '#7a6a48', door: '#24180e', trim: '#f0a860' },
+  unpacked: { realm: 'overworld', name: 'Unpacked Chest', wall: ['#3a2618', '#4a3220'], floor: '#8a6a44', door: '#1e120a', trim: '#ffd36b' },
+  throne: { realm: 'overworld', name: 'Throne Room', wall: ['#3a1530', '#4a1c3e'], floor: '#6a6684', door: '#1e0b1a', trim: '#ffd36b' },
   hall: { realm: 'dungeon', name: 'Entrance Hall', accent: 'p' },
   archive: { realm: 'dungeon', name: 'Hall of Scrolls', accent: 'u' },
   scriptorium: { realm: 'dungeon', name: 'Scriptorium', accent: 'r' },
@@ -38,8 +51,16 @@ export const BIOMES = {
   vault: { realm: 'dungeon', name: 'Sealed Vault', accent: 'e' },
   armory: { realm: 'dungeon', name: 'Armory of Commands', accent: 'e' },
   guild: { realm: 'dungeon', name: 'Guild of New Commands', accent: 'G' },
+  services: { realm: 'dungeon', name: 'Service Wing', accent: 'y' },
+  guildhall: { realm: 'dungeon', name: 'Guild Hall', accent: 'e' },
+  guildarchive: { realm: 'dungeon', name: 'Guild Archive', accent: 'v' },
   workshop: { realm: 'dungeon', name: 'Workshop', accent: 'b' },
   pit: { realm: 'dungeon', name: 'Hall of Devices', accent: 'p' },
+  mill: { realm: 'dungeon', name: 'The Mill', accent: 'l' },
+  bakery: { realm: 'dungeon', name: 'The Bakery', accent: 'o' },
+  stables: { realm: 'dungeon', name: 'The Stables', accent: 'y' },
+  lighthouse: { realm: 'dungeon', name: 'The Lighthouse', accent: 'u' },
+  granary: { realm: 'dungeon', name: 'The Granary', accent: 'y' },
   corridor: { realm: 'dungeon', name: 'Dungeon Corridor', accent: 'd' },
 };
 
@@ -47,6 +68,7 @@ const OVERWORLD_AREAS = [
   ['forest/cave', 'cave'], ['forest/river', 'river'], ['forest', 'forest'], ['camp', 'camp'], ['junk', 'junk'],
   ['library', 'library'], ['tower', 'tower'], ['market', 'market'], ['gate', 'gate'], ['mirrors', 'mirrors'],
   ['well', 'well'], ['den', 'den'], ['forge/ore', 'ore'], ['forge', 'forge'],
+  ['guild', 'outpost'], ['crown', 'throne'], ['portals', 'portals'], ['maze', 'maze'], ['memory', 'study'], ['workshop', 'smithy'], ['travel/unpacked', 'unpacked'], ['travel', 'departure'], ['hall/vault', 'strongroom'], ['hall/archive', 'records'], ['hall/shared', 'shared'], ['hall', 'commons'],
 ];
 
 const DUNGEON_ROOMS = [['/', 'hall'], ['/home', 'gatehouse']];
@@ -55,6 +77,8 @@ const DUNGEON_WINGS = [
   ['/home', 'quarters'], ['/var/log', 'scriptorium'], ['/var', 'cellar'], ['/etc', 'archive'], ['/tmp', 'scrap'],
   ['/root', 'vault'], ['/usr/bin', 'armory'], ['/usr/sbin', 'armory'], ['/usr/local', 'guild'], ['/bin', 'armory'], ['/sbin', 'armory'],
   ['/usr', 'workshop'], ['/dev', 'pit'],
+  ['/srv/guild/archive', 'guildarchive'], ['/srv/guild', 'guildhall'],
+  ...['mill', 'bakery', 'stables', 'lighthouse', 'granary'].map(service => [`/srv/${service}`, service]), ['/srv', 'services'],
 ];
 
 const firstMatch = (rules, path, place = at => at) => rules.find(([at]) => isInside(path, place(at)));
@@ -81,4 +105,15 @@ export function biomeFor(path, home) {
 
   const biome = isInside(path, home) ? overworldBiome(path, home) : dungeonBiome(path);
   return { realm: BIOMES[biome].realm, biome, name: BIOMES[biome].name };
+}
+
+/**
+ * The biome of an observation's working directory, by where it really is: a
+ * directory reached through a symbolic link looks like the place it leads to.
+ *
+ * @param {{tree: object, cwd: string, home: string}} obs The observation.
+ * @returns {{realm: 'overworld'|'dungeon', biome: string, name: string}} As biomeFor.
+ */
+export function placeOf({ tree, cwd, home }) {
+  return biomeFor(realPath(tree, cwd), home);
 }

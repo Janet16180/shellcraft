@@ -128,12 +128,16 @@ export default {
 <li><code>ps aux</code> lists every process on the machine, from every user. Read these columns: <code>USER</code> who owns it, <code>PID</code> its number, <code>%CPU</code> how much of the processor it uses, and <code>COMMAND</code> what it runs.</li>
 <li><code>pgrep imp</code> prints only the PIDs of the processes with <code>imp</code> in their name, so it finds <code>greedy_imp</code> too.</li>
 </ul>
-<p>To stop a process, you send it a <b>signal</b> with <code>kill</code> and its PID:</p>
-<ul>
-<li><code>kill 2420</code> sends signal 15, <code>TERM</code>: a polite request to stop. Most programs stop, but a program may ignore it.</li>
-<li><code>kill -9 2420</code> sends signal 9, <code>KILL</code>, which no program can catch or ignore. Use it last: the program gets no chance to clean up.</li>
-<li>You may only signal your own processes. The ones owned by <code>root</code> are out of your reach.</li>
-</ul>
+<p>To stop a process, you send it a <b>signal</b> with <code>kill</code> and its PID. There are two you need:</p>
+<table class="chmod-ways kill-ways">
+<tr><th></th><th><code>kill 2420</code></th><th><code>kill -9 2420</code></th></tr>
+<tr><td>Signal</td><td>signal 15, <code>TERM</code>: a polite request to stop</td><td>signal 9, <code>KILL</code>, which no program can catch or ignore</td></tr>
+<tr><td>Who decides</td><td>the program: it may stop, or it may say no and keep running</td><td>the kernel: it removes the program at once</td></tr>
+<tr><td>Cleaning up</td><td>the program can save its work and close its files first</td><td>no chance to clean up: unsaved work is lost</td></tr>
+<tr><td>When</td><td>always try this first</td><td>only when a plain <code>kill</code> did not work</td></tr>
+</table>
+<p>A program that ignores <code>TERM</code> is not broken on purpose: it may be busy, or written to finish a job first. Here, <code>stubborn_imp</code> is like that. Check with <code>ps aux</code> after a <code>kill</code>: if it is still listed, it said no.</p>
+<p>You may only signal your own processes. The ones owned by <code>root</code> are out of your reach.</p>
 <p>Here the imps' PIDs stay the same each time, so you can follow along. On a real machine, PIDs change every time a program starts: always look them up first.</p>
 <p>One more signal you already know: <b>Ctrl+C</b> asks the program running in your terminal to stop, with signal 2, <code>INT</code>.</p>`,
   tasks: [
@@ -184,7 +188,7 @@ export default {
     },
     {
       goal: 'Ask `stubborn_imp` (PID 2431) to stop with a plain `kill`, and see that it ignores you',
-      tip: 'A program may ignore `TERM`, so check with `ps aux` that a process has really gone.',
+      tip: '`kill` sends `TERM`, a polite request: `stubborn_imp` may say no, and `kill` still prints nothing.',
       hints: [
         'The same as for the greedy imp, with another PID.',
         '`kill` and `2431`, with no signal number.',
@@ -205,7 +209,10 @@ export default {
         `kill -9 ${STUBBORN}`,
       ],
       done: ctx => ended(ctx, 'stubborn') && kills(ctx, STUBBORN, ({ signal }) => signal === KILL),
-      near: ctx => (alive(ctx, 'stubborn') && kills(ctx, STUBBORN, ({ signal }) => signal !== KILL) ? 'It ignored that one again. Add -9 before the PID.' : null),
+      near: ctx => firstNote([
+        [() => alive(ctx, 'stubborn') && kills(ctx, STUBBORN, ({ signal }) => signal !== KILL), 'It ignored TERM again: a plain kill is only a request. Signal 9 is not a request: kill -9 2431.'],
+        [() => alive(ctx, 'stubborn') && ctx.ran('ps', psAll), 'There it is, still running: it ignored your polite TERM. Now send signal 9, which it cannot ignore: kill -9 2431.'],
+      ]),
     },
     {
       goal: 'Even signal 9 works only on your own processes: try `kill -9` on PID `1`, the first process, owned by `root`',

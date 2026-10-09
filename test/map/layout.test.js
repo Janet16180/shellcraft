@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { layoutRoom, pickAt, fitLabel, findEntry, ART, HERO_REST } from '../../src/map/layout.js';
+import { layoutRoom, pickAt, fitLabel, itemLabel, findEntry, ART, HERO_REST } from '../../src/map/layout.js';
 import { readRoom } from '../../src/map/room.js';
 import { observe, sampleTree, crowded } from './fixtures.js';
 
@@ -169,4 +169,50 @@ test('an entry on show is found by its name, and .. names the exit', () => {
   assert.equal(findEntry(layout, '..'), layout.exit);
   assert.equal(findEntry(layout, 'desert'), null);
   assert.equal(findEntry(layoutRoom(readRoom(observe('/'), none)), '..'), null);
+});
+
+const scrolls = names => {
+  const tree = sampleTree();
+  tree.children.tmp = { type: 'dir', mode: 0o755, owner: 'hero', group: 'hero', children: Object.fromEntries(names.map(n => [n, { type: 'file', content: '', mode: 0o644, owner: 'hero', group: 'hero' }])) };
+  return readRoom(observe('/tmp', { tree }), none);
+};
+
+test('long item names get fewer items per row, so each label fits whole', () => {
+  const names = ['scroll_ad7.txt', 'scroll_fy3.txt', 'scroll_hu6.txt', 'scroll_k4m.txt', 'scroll_wp9.txt'];
+  const charPx = 6.5;
+  const layout = layoutRoom(scrolls(names), { narrow: true, charPx });
+  assert.equal(layout.items.length, 5);
+  assert.equal(layout.moreItems, null);
+  for (const item of layout.items) assert.ok(item.slot >= (item.name.length + 1) * charPx, `${item.name}: ${item.slot}`);
+  assert.ok(layout.items[3].y > layout.items[0].y);
+});
+
+test('short names, or no font measure, keep the usual columns', () => {
+  const short = layoutRoom(scrolls(['a', 'b', 'c', 'd']), { narrow: true, charPx: 6.5 });
+  assert.equal(new Set(short.items.map(i => i.y)).size, 1);
+  const unmeasured = layoutRoom(scrolls(['scroll_ad7.txt', 'scroll_fy3.txt', 'scroll_hu6.txt', 'scroll_k4m.txt']), { narrow: true });
+  assert.equal(new Set(unmeasured.items.map(i => i.y)).size, 1);
+});
+
+test('however long the names, a row keeps at least three items on a narrow map and four on a wide one', () => {
+  const names = Array.from({ length: 8 }, (_, i) => `${'a_very_long_name_indeed'.repeat(2)}${i}`);
+  const rowOf = layout => layout.items.filter(i => i.y === layout.items[0].y).length;
+  assert.equal(rowOf(layoutRoom(scrolls(names), { narrow: true, charPx: 6.5 })), 3);
+  assert.equal(rowOf(layoutRoom(scrolls(names), { charPx: 4 })), 4);
+});
+
+test('a link is labelled name -> target when that fits, else by its name alone', () => {
+  const link = { name: 'portal', link: '/home/hero/forest/cave/deep' };
+  assert.equal(itemLabel(link, 40), 'portal -> /home/hero/forest/cave/deep');
+  assert.equal(itemLabel(link, 20), 'portal');
+  assert.equal(itemLabel({ name: 'a_very_long_link_name', link: 'x' }, 10), 'a_very_lo…');
+  assert.equal(itemLabel({ name: 'readme.txt', link: null }, 40), 'readme.txt');
+});
+
+test('an item alone or in a short row gets a slot wide enough for its whole name', () => {
+  const charPx = 6.5;
+  const [lone] = layoutRoom(scrolls(['ancient_key.txt']), { narrow: true, charPx }).items;
+  assert.ok(lone.slot >= 16 * charPx, `${lone.slot}`);
+  const pair = layoutRoom(scrolls(['ancient_key.txt', 'scroll_of_ages.txt']), { narrow: true, charPx }).items;
+  for (const item of pair) assert.ok(item.slot >= ([...item.name].length + 1) * charPx, `${item.name}: ${item.slot}`);
 });

@@ -1,9 +1,13 @@
 /**
- * The simulated filesystem: an in-memory tree of directory and file nodes.
+ * The simulated filesystem: an in-memory tree of directory, file and
+ * symbolic link nodes.
  *
- * A node is `{type: 'dir'|'file', mode, owner, group, mtime}` plus `children`
- * (a directory) or `content` (a file). Paths are absolute strings; every
- * function here works on a root node and plain paths, never on shell state.
+ * A node is `{type: 'dir'|'file'|'symlink', mode, owner, group, mtime}` plus
+ * `children` (a directory), `content` (a file) or `target` (a link's text).
+ * A node is an inode: a file may sit in several directories under several
+ * names (hard links), and its `ino` number, given on first need (system.js),
+ * stays with it. Paths are absolute strings; every function here works on a
+ * root node and plain paths, never on shell state.
  *
  * Invariants: a directory's `children` object has no prototype, so any name
  * the player types, even `constructor` or `__proto__`, is an ordinary entry;
@@ -13,7 +17,10 @@
  */
 
 import { nameTable } from './table.js';
-import { parentOf, baseName } from '../backend/tree.js';
+import { parentOf, baseName, nodeAt } from '../backend/tree.js';
+import { byteLength } from '../backend/bytes.js';
+
+export { byteLength };
 
 const DIR_SIZE = 4096;
 
@@ -61,19 +68,14 @@ export function normalize(path, cwd) {
 }
 
 /**
- * Find the node at an absolute path.
+ * Find the node at an absolute path, following symbolic links (no permission checks).
  *
  * @param {object} root The root directory node.
- * @param {string} abs Absolute normalized path.
+ * @param {string} abs Absolute path.
+ * @param {{follow?: boolean}} [opts] Follow a symbolic link in the last place (default true).
  * @returns {object|null} The node, or null if any component is missing or not a directory.
  */
-export function lookup(root, abs) {
-  let node = root;
-  for (const part of abs.split('/').filter(Boolean)) {
-    node = node && node.type === 'dir' ? node.children[part] ?? null : null;
-  }
-  return node;
-}
+export const lookup = (root, abs, opts) => nodeAt(root, abs, opts);
 
 /**
  * Join a path as the user typed it with an entry name, for display.
@@ -99,25 +101,45 @@ export function splitLines(text) {
 }
 
 /**
- * @param {string} text Any text.
- * @returns {number} Its length in UTF-8 bytes.
+ * @param {object} node A node.
+ * @returns {number} Its size as ls reports it: bytes for a file, 4096 for a
+ *   directory, the bytes of its target text for a symbolic link.
  */
-export function byteLength(text) {
-  let bytes = text.length;
-  for (let i = 0; i < text.length; i++) {
-    const unit = text.charCodeAt(i);
-    // One UTF-16 unit takes 1 to 3 bytes; the two units of a surrogate pair take 2 each.
-    if (unit >= 0x80) bytes++;
-    if (unit >= 0x800 && (unit < 0xd800 || unit > 0xdfff)) bytes++;
-  }
-  return bytes;
+export function sizeOf(node) {
+  if (node.type === 'dir') return DIR_SIZE;
+  return byteLength(node.type === 'symlink' ? node.target : node.content);
 }
 
 /**
- * @param {object} node A file or directory node.
- * @returns {number} Its size as ls reports it: bytes for a file, 4096 for a directory.
+ * Count the names every file and symbolic link has in the tree.
+ *
+ * @param {object} root The root directory node.
+ * @returns {Map<object, number>} Names per non-directory node.
  */
-export const sizeOf = node => (node.type === 'dir' ? DIR_SIZE : byteLength(node.content));
+export function linkCounts(root) {
+  const counts = new Map();
+  const stack = [root];
+  while (stack.length) {
+    for (const child of Object.values(stack.pop().children)) {
+      if (child.type === 'dir') stack.push(child);
+      else counts.set(child, (counts.get(child) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+/**
+ * The link count `ls -l` shows: a file's number of names, or for a
+ * directory 2 (its name and its `.`) plus one `..` per subdirectory.
+ *
+ * @param {object} node A node.
+ * @param {Map<object, number>} counts From linkCounts().
+ * @returns {number} The count.
+ */
+export function linksOf(node, counts) {
+  if (node.type !== 'dir') return counts.get(node) ?? 1;
+  return 2 + Object.values(node.children).filter(c => c.type === 'dir').length;
+}
 
 /**
  * Build a directory node. Its children are copied into a prototype-free table.
@@ -138,43 +160,62 @@ export const newDir = (children, { mode, owner, group, mtime }) => ({ type: 'dir
 export const newFile = (content, { mode, owner, group, mtime }) => ({ type: 'file', mode, owner, group, mtime, content });
 
 /**
- * Deep-copy a node, stamping every copy with a new time.
+ * Build a symbolic link node. Its target text is kept as given; its mode is
+ * 777, as on Linux, where a link's own permissions are never checked.
+ *
+ * @param {string} target The path it points at.
+ * @param {{owner: string, group: string, mtime: number}} meta Ownership and time.
+ * @returns {object} The node.
+ */
+export const newSymlink = (target, { owner, group, mtime }) => ({ type: 'symlink', mode: 0o777, owner, group, mtime, target });
+
+/**
+ * Deep-copy a node, stamping every copy with a new time. The copies are new
+ * inodes, so they carry no inode number yet.
  *
  * @param {object} node The node to copy.
  * @param {number} mtime The copies' modification time.
  * @returns {object} The copy.
  */
 export function cloneNode(node, mtime) {
-  if (node.type === 'file') return { ...node, mtime };
+  const rest = { ...node };
+  delete rest.ino;
+  if (node.type !== 'dir') return { ...rest, mtime };
   const children = nameTable(Object.fromEntries(Object.entries(node.children).map(([name, child]) => [name, cloneNode(child, mtime)])));
-  return { ...node, children, mtime };
+  return { ...rest, children, mtime };
 }
 
 /**
  * Turn a node described with src/backend/spec.js into a filesystem node.
  *
- * @param {object} spec A dir() or file() description.
+ * @param {object} spec A dir(), file() or symlink() description.
  * @param {number} mtime Modification time for every node.
  * @returns {object} The node.
  */
 export function fromSpec(spec, mtime) {
   const meta = { mode: spec.mode, owner: spec.owner, group: spec.group, mtime };
   if (spec.type === 'file') return newFile(spec.content, meta);
+  if (spec.type === 'symlink') return newSymlink(spec.target, meta);
   return newDir(Object.fromEntries(Object.entries(spec.children).map(([name, child]) => [name, fromSpec(child, mtime)])), meta);
 }
 
 /**
  * Snapshot a node as the port's TreeNode, sharing nothing with the tree.
  * Children are plain objects whose names, `__proto__` included, are own
- * properties: read them with Object.hasOwn.
+ * properties: read them with Object.hasOwn. A file with several names is
+ * repeated under each, with the same inode number.
  *
- * @param {object} node A filesystem node.
+ * @param {object} node A filesystem node; its inode numbers should be given first (system.js numberInodes).
+ * @param {Map<object, number>} [counts] Names per file, from linkCounts() of the whole tree.
  * @returns {import('../backend/port.js').TreeNode} The snapshot.
  */
-export function snapshot(node) {
-  const base = { type: node.type, mode: node.mode, owner: node.owner, group: node.group, size: sizeOf(node), mtime: node.mtime };
+export function snapshot(node, counts = linkCounts(node)) {
+  const base = {
+    type: node.type, mode: node.mode, owner: node.owner, group: node.group, size: sizeOf(node), mtime: node.mtime, ino: node.ino, links: linksOf(node, counts),
+  };
   if (node.type === 'file') return { ...base, content: node.content };
-  return { ...base, children: Object.fromEntries(Object.entries(node.children).map(([name, child]) => [name, snapshot(child)])) };
+  if (node.type === 'symlink') return { ...base, target: node.target };
+  return { ...base, children: Object.fromEntries(Object.entries(node.children).map(([name, child]) => [name, snapshot(child, counts)])) };
 }
 
 /**

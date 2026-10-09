@@ -17,6 +17,13 @@ import gate from './gate.js';
 import well from './well.js';
 import daemon from './daemon.js';
 import forge from './forge.js';
+import guild from './guild.js';
+import hall from './hall.js';
+import portals from './portals.js';
+import crown from './crown.js';
+import memory from './memory.js';
+import errands from './errands.js';
+import travel from './travel.js';
 
 
 /**
@@ -39,4 +46,11 @@ export default [
   well,
   daemon,
   forge,
+  guild,
+  hall,
+  portals,
+  crown,
+  memory,
+  errands,
+  travel,
 ];

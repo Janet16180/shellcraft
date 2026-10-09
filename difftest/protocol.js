@@ -50,3 +50,15 @@ export function splitOutput(stdout, stderr, count) {
   }
   return results;
 }
+
+/**
+ * Replace what differs between two machines by nature (a job's PID) with the
+ * word PID, so the rest of the text can be compared. A case lists its masks.
+ *
+ * @param {string} text A line's stdout or stderr.
+ * @param {string[]} masks Regular expressions, matched per line (multiline, global).
+ * @returns {string} The text with every match replaced.
+ */
+export function masked(text, masks) {
+  return masks.reduce((t, mask) => t.replace(new RegExp(mask, 'gm'), 'PID'), text);
+}

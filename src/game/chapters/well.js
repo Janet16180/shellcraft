@@ -61,7 +61,7 @@ function setupBoss(random, { home, user }) {
   const missing = pick(random, names);
   const stones = Object.fromEntries(names.filter(name => name !== missing)
     .map(name => [`${name}.txt`, file(`${words[names.indexOf(name)]}\n`, { owner: user })]));
-  const wall = `Three stones were set in the wall of the well:\n${names.map(name => `~/well/stones/${name}.txt`).join('\n')}\nOne of them has fallen into the water.\n`;
+  const wall = `The three stones of the well, one file each:\n${names.map(name => `~/well/stones/${name}.txt`).join('\n')}\nOne of these files is gone: that stone fell into the water.\n`;
   const well = `${home}/well`;
   const patch = [
     remove(well),
@@ -286,11 +286,16 @@ export default {
   ],
   boss: {
     title: 'The Fallen Stone',
-    briefing: `<p>The wall of the well, <code>~/well/wall.txt</code>, names three stones in <code>~/well/stones</code>, but one of them has fallen into the water and is gone. In one line, read all three with one <code>cat</code>, save what they say into <code>~/well/words.txt</code>, and throw the error about the missing stone into <code>/dev/null</code>.</p>`,
+    briefing: `<p>The well keeps three stone files, and one of them is gone. Save the words of the two that are left, without any error on the screen. It works like the task where one <code>ls</code> saved its list into <code>list.txt</code> and threw its error away, with <code>cat</code> instead of <code>ls</code>:</p>
+<ol>
+<li>Read the list of the three files: <code>cat ~/well/wall.txt</code>.</li>
+<li>Give one <code>cat</code> all three paths. It prints the two stones that are there, and an error for the missing one.</li>
+<li>On the same line, add <code>&gt; ~/well/words.txt</code> for the words and <code>2&gt; /dev/null</code> for the error.</li>
+</ol>`,
     setup: setupBoss,
     hints: [
-      'Read `~/well/wall.txt` first: it lists the three paths.',
-      '`cat` the three paths, then `> ~/well/words.txt` for the words and `2> /dev/null` for the error, all in one line.',
+      'Read `~/well/wall.txt` first: it lists the three paths. Give all three to `cat`, even the missing one.',
+      'Like `ls A B > list.txt 2> /dev/null`: `cat` and the three paths, then `> ~/well/words.txt`, then `2> /dev/null`, all in one line.',
       ({ paths }) => `cat ${paths.map(path => path.replace(/^\/home\/[^/]+/, '~')).join(' ')} > ~/well/words.txt 2> /dev/null`,
     ],
     done: bossDone,

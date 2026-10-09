@@ -109,3 +109,34 @@ test('uniq INPUT OUTPUT writes OUTPUT, and - reads standard input', async () => 
   await run(b, 'uniq nope o2.txt');
   assert.equal((await run(b, 'ls o2.txt')).status, 2);
 });
+
+test('tee copies its input to the screen and to each file, -a appends', async () => {
+  const b = await shell();
+  const r = await run(b, 'echo hi | tee a b');
+  assert.deepEqual([r.out, r.err, r.status], ['hi\n', '', 0]);
+  assert.equal((await run(b, 'cat a b')).out, 'hi\nhi\n');
+  assert.equal((await run(b, 'echo more | tee -a a > /dev/null; cat a')).out, 'hi\nmore\n');
+  assert.equal((await run(b, 'echo new | tee --append a -p -i > /dev/null; cat a')).out, 'hi\nmore\nnew\n');
+  assert.equal((await run(b, 'echo y | tee -; cat ./-')).out, 'y\ny\n');
+});
+
+test('tee names each file it cannot open, still writes the others, and exits 1', async () => {
+  const b = await shell();
+  await run(b, 'mkdir d');
+  const r = await run(b, 'echo x | tee /etc/f d nodir/x c');
+  assert.deepEqual([r.out, r.err, r.status], ['x\n', 'tee: /etc/f: Permission denied\ntee: d: Is a directory\ntee: nodir/x: No such file or directory\n', 1]);
+  assert.equal((await run(b, 'cat c')).out, 'x\n');
+});
+
+test('tee rejects options it does not know like coreutils', async () => {
+  const b = await shell();
+  assert.deepEqual(await run(b, 'echo y | tee -x').then(r => [r.err, r.status]), ["tee: invalid option -- 'x'\nTry 'tee --help' for more information.\n", 1]);
+  assert.deepEqual(await run(b, 'echo y | tee --bogus').then(r => [r.err, r.status]), ["tee: unrecognized option '--bogus'\nTry 'tee --help' for more information.\n", 1]);
+  assert.match((await run(b, 'tee a')).note, /waiting for keyboard input/);
+});
+
+test('tee has a manual page and the coreutils version text', async () => {
+  const b = await shell();
+  assert.match((await run(b, 'man tee')).out, /^TEE\(1\)/);
+  assert.match((await run(b, 'tee --version')).out, /^tee \(GNU coreutils\) 9\.4\n[\s\S]*Written by Mike Parker, Richard M\. Stallman, and David MacKenzie\.\n$/);
+});

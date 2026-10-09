@@ -1,10 +1,10 @@
 /**
  * The shell's own commands and helpers: man, history, which, type, alias,
- * export, env, printenv, sudo, editors, exit, bash, source, help.
+ * export, env, printenv, editors, exit, bash, source, help.
  */
 
 import { lookup, normalize } from '../fs.js';
-import { BASH_BUILTINS, BUILTIN_HELP, builtinHelp } from '../builtins.js';
+import { BASH_BUILTINS, BUILTIN_HELP, builtinHelp, builtinOptions } from '../builtins.js';
 import { can } from '../perms.js';
 import { pathFiles, resolve } from '../paths.js';
 import { manText, hasManPage, manEntries, shortHelpNote } from '../man.js';
@@ -241,10 +241,36 @@ function unalias(args, { sys }) {
   return result('', errs.join('\n'), errs.length ? 1 : 0);
 }
 
-function sudo(args, { sys }) {
-  if (!args.length) return result('', 'usage: sudo -h | -K | -k | -V\nusage: sudo [-u user] command', 1);
-  const r = result('', `[sudo] password for ${sys.user}: \n${sys.user} is not in the sudoers file.  This incident will be reported.`, 1);
-  return withNote(r, 'On your own machine, sudo runs one command as the administrator, so read the command twice before pressing Enter.');
+const SHOPT_NAMES = new Set(['autocd', 'assoc_expand_once', 'cdable_vars', 'cdspell', 'checkhash', 'checkjobs', 'checkwinsize', 'cmdhist',
+  'compat31', 'compat32', 'compat40', 'compat41', 'compat42', 'compat43', 'compat44', 'complete_fullquote', 'direxpand', 'dirspell', 'dotglob',
+  'execfail', 'expand_aliases', 'extdebug', 'extglob', 'extquote', 'failglob', 'force_fignore', 'globasciiranges', 'globskipdots', 'globstar',
+  'gnu_errfmt', 'histappend', 'histreedit', 'histverify', 'hostcomplete', 'huponexit', 'inherit_errexit', 'interactive_comments', 'lastpipe',
+  'lithist', 'localvar_inherit', 'localvar_unset', 'login_shell', 'mailwarn', 'no_empty_cmd_completion', 'nocaseglob', 'nocasematch',
+  'noexpand_translation', 'nullglob', 'patsub_replacement', 'progcomp', 'progcomp_alias', 'promptvars', 'restricted_shell', 'shift_verbose',
+  'sourcepath', 'varredir_close', 'xpg_echo']);
+const SHOPT_NOTE = 'shopt is built into bash; this game simulates only its expand_aliases option.';
+
+function showExpandAliases(on, flags) {
+  let out = `expand_aliases \t${on ? 'on' : 'off'}\n`;
+  if (flags.has('q')) out = '';
+  else if (flags.has('p')) out = `shopt -${on ? 's' : 'u'} expand_aliases\n`;
+  return result(out, '', on ? 0 : 1);
+}
+
+// Only expand_aliases is simulated: on in an interactive shell, off in a script.
+function shopt(args, { sys }) {
+  const { flags, rest, error } = builtinOptions('shopt', args, 'supqo');
+  const unknown = rest.find(name => !SHOPT_NAMES.has(name));
+  const setting = flags.has('s') || flags.has('u');
+  let r;
+  if (error) r = result('', error, 2);
+  else if (unknown) r = result('', `bash: shopt: ${unknown}: invalid shell option name`, 1);
+  else if (flags.has('o') || !rest.length || rest.some(name => name !== 'expand_aliases')) r = withNote(result('', '', 1), SHOPT_NOTE);
+  else if (setting) {
+    sys.expandAliases = flags.has('s');
+    r = result();
+  } else r = showExpandAliases(sys.expandAliases, flags);
+  return r;
 }
 
 const editor = (name, quit) => () => withNote(result('', '', 1),
@@ -341,11 +367,11 @@ export default {
   type,
   alias,
   unalias,
+  shopt,
   unset,
   export: exportVars,
   env,
   printenv,
-  sudo,
   nano: editor('nano', 'In real nano, Ctrl+O saves and Ctrl+X exits.'),
   vim: editor('vim', 'Real vim tip: press Esc, type :wq and Enter to save and quit, or :q! to quit without saving.'),
   vi: editor('vi', 'Real vi tip: press Esc, type :wq and Enter to save and quit, or :q! to quit without saving.'),

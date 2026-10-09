@@ -4,10 +4,10 @@
  * target (`forest/readme.txt`).
  */
 
-import { joinDisp, newDir, newFile, addChild, removeChild, depthOf, heightOf, MAX_TREE_DEPTH } from '../fs.js';
+import { joinDisp, newDir, newFile, newSymlink, addChild, removeChild, depthOf, heightOf, normalize, MAX_TREE_DEPTH } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
 import { compareNames, isInside, baseName, joinPath } from '../../backend/tree.js';
-import { can, canChangeEntries, canUnlink } from '../perms.js';
+import { can, canChangeEntries, canUnlink, newMeta } from '../perms.js';
 import { parseOptions, optionFailure } from '../options.js';
 import { shellQuote } from '../quote.js';
 import { result, withNote } from '../result.js';
@@ -17,9 +17,12 @@ const q = name => shellQuote(name, { always: true });
 
 function copyNode(sys, src, srcShown, targetParent, name, targetShown, acc) {
   const existing = targetParent.children[name];
-  const meta = { mode: src.mode & ~sys.umask, owner: sys.user, group: sys.user, mtime: sys.now() };
+  const meta = newMeta(sys, targetParent, src.mode, src.type === 'dir');
   let ok = true;
-  if (src.type === 'file' && !can(sys, src, 'r')) {
+  if (src.type === 'symlink') {
+    if (existing) removeChild(targetParent, name, sys.now());
+    addChild(targetParent, name, newSymlink(src.target, meta), sys.now());
+  } else if (src.type === 'file' && !can(sys, src, 'r')) {
     acc.errs.push(`cp: cannot open ${q(srcShown)} for reading: Permission denied`);
     ok = false;
   } else if (src.type === 'file' && existing) {
@@ -27,11 +30,11 @@ function copyNode(sys, src, srcShown, targetParent, name, targetShown, acc) {
   } else if (src.type === 'file') {
     addChild(targetParent, name, newFile(src.content, meta), sys.now());
   } else {
-    const dir = existing ?? addChild(targetParent, name, newDir({}, { ...meta, mode: src.mode & ~sys.umask | 0o700 }), sys.now());
+    const dir = existing ?? addChild(targetParent, name, newDir({}, { ...meta, mode: meta.mode | 0o700 }), sys.now());
     for (const child of Object.keys(src.children).sort(compareNames)) {
       ok = copyNode(sys, src.children[child], joinDisp(srcShown, child), dir, child, joinDisp(targetShown, child), acc) && ok;
     }
-    dir.mode = src.mode & ~sys.umask;
+    dir.mode = existing ? src.mode & ~sys.umask : meta.mode;
   }
   if (ok && acc.verbose) acc.out += `${q(srcShown)} -> ${q(targetShown)}\n`;
   return ok;
@@ -55,7 +58,8 @@ function targetProblem(op, src, target) {
   let kind = null;
   if (target.error && !(target.error === 'ENOENT' && target.parent)) {
     kind = op.name === 'mv' ? `cannot move ${q(src.shown)} to ${q(target.shown)}: ${errorText(target.error)}` : `cannot create ${what} ${q(target.shown)}: ${errorText(target.error)}`;
-  } else if (existing?.type === 'dir' && src.node.type !== 'dir') kind = `cannot overwrite directory ${q(target.shown)} with non-directory`;
+  } else if (op.name === 'cp' && target.dangling) kind = `not writing through dangling symlink ${q(target.shown)}`;
+  else if (existing?.type === 'dir' && src.node.type !== 'dir') kind = `cannot overwrite directory ${q(target.shown)} with non-directory`;
   else if (existing && existing.type !== 'dir' && src.node.type === 'dir') kind = `cannot overwrite non-directory ${q(target.shown)} with directory ${q(src.shown)}`;
   return kind;
 }
@@ -86,12 +90,18 @@ function problem(sys, op, src, target) {
   return early ?? (op.name === 'mv' ? moveDenied(sys, src, target) : copyDenied(sys, src, target));
 }
 
+// cp follows a link it copies from or writes to, except cp -r, which copies
+// links as links; mv moves and replaces names, never following the last one.
 function transfer(sys, op, srcTyped, dest, acc) {
-  const s = resolve(sys, srcTyped);
+  const follow = op.name === 'cp' && !op.recursive;
+  const s = resolve(sys, srcTyped, { follow });
   const src = { ...s, shown: srcTyped };
-  const targetShown = dest.intoDir && !s.error ? joinDisp(dest.typed, baseName(s.abs)) : dest.typed;
-  const t = resolve(sys, dest.intoDir && !s.error ? joinPath(dest.abs, baseName(s.abs)) : dest.typed);
-  const target = { ...t, shown: targetShown };
+  const name = baseName(normalize(srcTyped, sys.cwd));
+  const targetShown = dest.intoDir && !s.error ? joinDisp(dest.typed, name) : dest.typed;
+  const targetPath = dest.intoDir && !s.error ? joinPath(dest.abs, name) : dest.typed;
+  const t = resolve(sys, targetPath, { follow: op.name === 'cp' });
+  const dangling = t.error === 'ENOENT' && resolve(sys, targetPath, { follow: false }).node?.type === 'symlink';
+  const target = { ...t, shown: targetShown, dangling };
   const kind = problem(sys, op, src, target);
   const kept = Boolean(target.node) && op.noClobber;
   if (kind) acc.errs.push(`${op.name}: ${kind}`);

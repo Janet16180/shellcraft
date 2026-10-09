@@ -29,3 +29,11 @@ test('each line runs at the clock the container had for it', async () => {
 test('the simulator needs one clock per line', async () => {
   await assert.rejects(runSim([], ['ls', 'pwd'], Date.UTC(2026, 0, 1), [CLOCK]), /one clock per line/);
 });
+
+test('a line whose command takes time runs to its end on the simulator clock', async () => {
+  const world = [put('/home', dir({ hero: dir({}, { owner: 'hero', mode: 0o750 }) }))];
+  const [slept, after] = await runSim(world, ['sleep 1 & sleep 2; echo up', 'jobs'], Date.UTC(2026, 0, 1), [CLOCK, CLOCK + 2]);
+  assert.equal(slept.out, 'up\n');
+  assert.match(slept.err, /^\[1\] \d+\n\[1\]\+ {2}Done {20}sleep 1\n$/);
+  assert.deepEqual(after, { out: '', err: '', status: 0 });
+});

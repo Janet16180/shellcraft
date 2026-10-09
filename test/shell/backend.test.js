@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSimBackend } from '../../src/shell/backend.js';
-import { put, remove, proc, stop, cd, dir, file } from '../../src/backend/spec.js';
+import { put, remove, proc, stop, cd, dir, file, symlink, link } from '../../src/backend/spec.js';
 import { shell, run, NOW } from './helpers.js';
 
 test('every port method returns a promise', async () => {
@@ -11,16 +11,16 @@ test('every port method returns a promise', async () => {
   await Promise.all(calls);
 });
 
-test('a run result has output chunks, a status, command records and blocked reasons', async () => {
+test('a run result has output chunks, a status, command records, blocked reasons and the line that ran', async () => {
   const b = await shell();
   const r = await b.run('cat readme.txt | head -n 1 > /tmp/first; ls nope');
-  assert.deepEqual(Object.keys(r).sort(), ['blocked', 'commands', 'output', 'status']);
+  assert.deepEqual(Object.keys(r).sort(), ['blocked', 'commands', 'line', 'output', 'status']);
   assert.equal(r.status, 2);
   assert.deepEqual(r.blocked, []);
   assert.deepEqual(r.output, [{ stream: 'err', text: "ls: cannot access 'nope': No such file or directory\n" }]);
   assert.deepEqual(r.commands.map(c => [c.name, c.pipeline, c.stage, c.stages]), [['cat', 0, 0, 2], ['head', 0, 1, 2], ['ls', 1, 0, 1]]);
   assert.deepEqual(r.commands[0], {
-    name: 'cat', args: ['readme.txt'], cwd: '/home/hero', status: 0, stdout: 'Dear apprentice,\nwelcome.\n',
+    name: 'cat', args: ['readme.txt'], user: 'hero', cwd: '/home/hero', status: 0, stdout: 'Dear apprentice,\nwelcome.\n',
     pipeline: 0, stage: 0, stages: 2, redirects: [],
   });
   assert.deepEqual(r.commands[1].redirects, [{ op: '>', target: '/tmp/first' }]);
@@ -52,8 +52,10 @@ test('an observation shows the user, host, home, working directory, tree and pro
   assert.equal(obs.host, 'kernelia');
   assert.equal(obs.home, '/home/hero');
   assert.equal(obs.cwd, '/home/hero');
-  assert.deepEqual(obs.tree.children.home.children.hero.children['readme.txt'], {
-    type: 'file', mode: 0o644, owner: 'hero', group: 'hero', size: 26, mtime: NOW, content: 'Dear apprentice,\nwelcome.\n',
+  const { ino, ...readme } = obs.tree.children.home.children.hero.children['readme.txt'];
+  assert.ok(Number.isInteger(ino));
+  assert.deepEqual(readme, {
+    type: 'file', mode: 0o644, owner: 'hero', group: 'hero', size: 26, mtime: NOW, links: 1, content: 'Dear apprentice,\nwelcome.\n',
   });
   assert.equal(obs.tree.children.tmp.mode, 0o1777);
   const daemon = obs.procs.find(p => p.key === 'daemon');
@@ -170,7 +172,7 @@ test('an empty line runs nothing and keeps the previous status', async () => {
   const b = await shell();
   await b.run('false');
   const r = await b.run('   ');
-  assert.deepEqual(r, { output: [], status: 1, commands: [], blocked: [] });
+  assert.deepEqual(r, { output: [], status: 1, commands: [], blocked: [], line: '   ' });
 });
 
 test('complete returns the completed line and the candidates when ambiguous', async () => {
@@ -362,4 +364,61 @@ test('without a ~/.bashrc the shell has no aliases', async () => {
   const b = createSimBackend({ now: () => NOW });
   await b.load([]);
   assert.equal((await run(b, 'alias')).out, '');
+});
+
+test('every node of an observation has an inode number that stays the same, the root 2', async () => {
+  const b = await shell();
+  const first = await b.observe();
+  await b.run('touch new.txt');
+  const second = await b.observe();
+  const hero = obs => obs.tree.children.home.children.hero;
+  assert.equal(first.tree.ino, 2);
+  assert.equal(hero(second).ino, hero(first).ino);
+  assert.equal(hero(second).children['readme.txt'].ino, hero(first).children['readme.txt'].ino);
+  const numbers = [hero(second).ino, ...Object.values(hero(second).children).map(n => n.ino)];
+  assert.ok(numbers.every(n => Number.isInteger(n) && n > 2));
+  assert.equal(new Set(numbers).size, numbers.length);
+});
+
+test('a symbolic link and a hard link put by a patch show in the observation', async () => {
+  const b = await shell([put('/home/hero/portal', symlink('/home/hero/forest/cave', { owner: 'hero' })), put('/home/hero/copy.txt', link('/home/hero/readme.txt'))]);
+  const hero = (await b.observe()).tree.children.home.children.hero.children;
+  assert.deepEqual([hero.portal.type, hero.portal.target, hero.portal.size, hero.portal.links], ['symlink', '/home/hero/forest/cave', 22, 1]);
+  assert.equal(hero['copy.txt'].ino, hero['readme.txt'].ino);
+  assert.equal(hero['copy.txt'].links, 2);
+});
+
+test('the observation carries the shell\'s aliases and its variables with their exported flag', async () => {
+  const b = await shell();
+  await run(b, "alias up='cd ..'; realm=Kernelia; export KEEPER=mira");
+  const obs = await b.observe();
+  assert.equal(obs.aliases.up, 'cd ..');
+  assert.deepEqual(obs.vars.realm, { value: 'Kernelia', exported: false });
+  assert.deepEqual(obs.vars.KEEPER, { value: 'mira', exported: true });
+  assert.deepEqual(obs.vars.HOME, { value: '/home/hero', exported: true });
+  for (const special of ['?', '$', '#', '0', '1', '@', '-']) assert.equal(Object.hasOwn(obs.vars, special), false, special);
+});
+
+test('the observation sees only the player\'s shell, not what a script set', async () => {
+  const b = await shell();
+  await run(b, "bash -c 'inner=1; alias zz=ls'");
+  const obs = await b.observe();
+  assert.deepEqual([Object.hasOwn(obs.vars, 'inner'), Object.hasOwn(obs.aliases, 'zz')], [false, false]);
+});
+
+test('the observation keeps long values and many names within limits', async () => {
+  const b = await shell();
+  await run(b, `big=${'x'.repeat(5000)}; for i in ${Array.from({ length: 300 }, (_, i) => i).join(' ')}; do alias a$i=ls; done`);
+  const obs = await b.observe();
+  assert.deepEqual([obs.vars.big.value.length, obs.vars.big.truncated], [4096, true]);
+  assert.equal(Object.keys(obs.aliases).length, 256);
+  assert.equal(Object.hasOwn(obs.vars.HOME, 'truncated'), false);
+});
+
+test('an alias or variable named like an object member is an ordinary entry of the observation', async () => {
+  const b = await shell();
+  await run(b, "alias __proto__='ls'; constructor=c");
+  const obs = await b.observe();
+  assert.deepEqual([obs.aliases.__proto__, obs.vars.constructor], ['ls', { value: 'c', exported: false }]);
+  assert.equal(Object.getPrototypeOf(obs.aliases), Object.prototype);
 });

@@ -7,16 +7,15 @@
 import { newDir, newFile, addChild, removeChild, joinDisp } from '../fs.js';
 import { resolve, errorText } from '../paths.js';
 import { compareNames, baseName } from '../../backend/tree.js';
-import { can, canChangeEntries, canUnlink, canChmod } from '../perms.js';
+import { can, canChangeEntries, canUnlink, canChmod, newMeta } from '../perms.js';
 import { parseOptions, mapLongOptions, optionFailure } from '../options.js';
 import { shellQuote, localeQuote } from '../quote.js';
-import { result, withNote, needInput } from '../result.js';
+import { result, withNote, needInput, ordered } from '../result.js';
 import { openInput, reason } from './text.js';
 
 const tryHelp = name => `Try '${name} --help' for more information.`;
 const quoted = name => shellQuote(name, { always: true });
 const errResult = (out, errs) => result(out, errs.join('\n'), errs.length ? 1 : 0);
-const ownedMeta = (sys, mode) => ({ mode: mode & ~sys.umask, owner: sys.user, group: sys.user, mtime: sys.now() });
 
 /**
  * When the working directory has been removed, move the shell to its nearest
@@ -35,18 +34,23 @@ function cat(args, { sys, stdin }) {
   const failed = optionFailure('cat', o, 1);
   if (failed) return failed;
   if (!o.rest.length && stdin == null) return needInput('cat');
-  const errs = [];
-  let text = '';
+  const chunks = [];
+  const lines = { n: 0, start: true };
   for (const f of o.rest.length ? o.rest : ['-']) {
     const input = openInput(sys, f, stdin);
-    if (input.code) errs.push(`cat: ${shellQuote(f)}: ${reason(input.code)}`);
-    else text += input.content;
+    if (input.code) chunks.push({ stream: 'err', text: `cat: ${shellQuote(f)}: ${reason(input.code)}\n` });
+    else chunks.push({ stream: 'out', text: o.flags.has('n') ? numbered(input.content, lines) : input.content });
   }
-  if (o.flags.has('n')) {
-    let n = 0;
-    text = text.split(/(?<=\n)/).filter(Boolean).map(l => `${String(++n).padStart(6)}\t${l}`).join('');
-  }
-  return errResult(text, errs);
+  return ordered(chunks, chunks.some(c => c.stream === 'err') ? 1 : 0);
+}
+
+// cat -n counts on across files; a file that ends mid-line continues that line.
+function numbered(text, lines) {
+  return text.split(/(?<=\n)/).filter(Boolean).map(l => {
+    const shown = lines.start ? `${String(++lines.n).padStart(6)}\t${l}` : l;
+    lines.start = l.endsWith('\n');
+    return shown;
+  }).join('');
 }
 
 // less names a file it cannot open in its own words and fails only when it
@@ -82,20 +86,20 @@ function touch(args, { sys }) {
     else if (r.node) fail('Permission denied');
     else if (r.error !== 'ENOENT' || !r.parent) fail(errorText(r.error));
     else if (!canChangeEntries(sys, r.parent)) fail('Permission denied');
-    else addChild(r.parent, baseName(r.abs), newFile('', ownedMeta(sys, 0o666)), sys.now());
+    else addChild(r.parent, baseName(r.abs), newFile('', newMeta(sys, r.parent, 0o666, false)), sys.now());
   }
   return errResult('', errs);
 }
 
 function makeDir(sys, path, verbose) {
-  const r = resolve(sys, path);
+  const r = resolve(sys, path, { follow: false });
   let error = null;
   let out = '';
   if (r.node) error = 'File exists';
   else if (r.error !== 'ENOENT' || !r.parent) error = errorText(r.error);
   else if (!canChangeEntries(sys, r.parent)) error = 'Permission denied';
   else {
-    addChild(r.parent, baseName(r.abs), newDir({}, ownedMeta(sys, 0o777)), sys.now());
+    addChild(r.parent, baseName(r.abs), newDir({}, newMeta(sys, r.parent, 0o777, true)), sys.now());
     if (verbose) out = `mkdir: created directory ${quoted(path)}\n`;
   }
   return { error, out };
@@ -133,11 +137,12 @@ function rmdir(args, { sys }) {
   const errs = [];
   let out = '';
   for (const f of o.rest) {
-    const r = resolve(sys, f);
+    const r = resolve(sys, f, { follow: false });
     const fail = text => errs.push(`rmdir: failed to remove ${quoted(f)}: ${text}`);
     if (o.flags.has('v')) out += `rmdir: removing directory, ${quoted(f)}\n`;
     if (/(^|\/)\.\/*$/.test(f)) fail('Invalid argument');
     else if (r.error) fail(errorText(r.error));
+    else if (throughLink(sys, f)) fail('Symbolic link not followed');
     else if (r.node.type !== 'dir') fail('Not a directory');
     else if (Object.keys(r.node.children).length) fail('Directory not empty');
     else if (!canUnlink(sys, r.parent, r.node)) fail('Permission denied');
@@ -149,20 +154,34 @@ function rmdir(args, { sys }) {
 
 const isHomeOrAbove = (sys, abs) => abs === sys.home || sys.home.startsWith(`${abs}/`);
 
+// A path that ends in a slash after a link names the directory the link leads
+// to, but the kernel will not remove that directory by the link's name.
+const throughLink = (sys, f) => /[^/]\/+$/.test(f) && resolve(sys, f.replace(/\/+$/, ''), { follow: false }).node?.type === 'symlink';
+
+// A real rm without -f asks before removing a file it may not write.
+function rememberProtected(sys, node, shown, acc) {
+  if (!acc.force && !node.dev && !can(sys, node, 'w')) acc.protectedOne ??= { shown, node };
+}
+
+function removeChildren(sys, shown, node, acc) {
+  let ok = true;
+  for (const child of Object.keys(node.children).sort(compareNames)) {
+    ok = removeTree(sys, joinDisp(shown, child), node.children[child], node, child, acc) && ok;
+  }
+  return ok;
+}
+
 function removeTree(sys, shown, node, parent, name, acc) {
   const openable = node.type !== 'dir' || (can(sys, node, 'r') && can(sys, node, 'x'));
   let ok = openable;
   if (!openable) acc.errs.push(`rm: cannot remove ${quoted(shown)}: Permission denied`);
-  if (openable && node.type === 'dir') {
-    for (const child of Object.keys(node.children).sort(compareNames)) {
-      ok = removeTree(sys, joinDisp(shown, child), node.children[child], node, child, acc) && ok;
-    }
-  }
+  if (openable && node.type === 'dir') ok = removeChildren(sys, shown, node, acc);
   if (ok && !canUnlink(sys, parent, node)) {
     acc.errs.push(`rm: cannot remove ${quoted(shown)}: Permission denied`);
     ok = false;
   }
   if (ok) {
+    rememberProtected(sys, node, shown, acc);
     removeChild(parent, name, sys.now());
     if (acc.verbose) acc.out += node.type === 'dir' ? `removed directory ${quoted(shown)}\n` : `removed ${quoted(shown)}\n`;
   }
@@ -189,15 +208,22 @@ function rmRefusal(f, r, flags) {
   return error;
 }
 
+// `rm -r link/` empties the directory the link leads to, then fails to remove it by the link's name.
+function removeThroughLink(sys, f, node, flags, acc) {
+  const ok = flags.has('r') || flags.has('R') ? removeChildren(sys, f, node, acc) : true;
+  if (ok && !acc.force) acc.errs.push(`rm: cannot remove ${quoted(f)}: Not a directory`);
+}
+
 function rmOne(sys, f, flags, acc) {
-  const r = resolve(sys, f);
+  const r = resolve(sys, f, { follow: false });
   const error = rmRefusal(f, r, flags);
   if (error) acc.errs.push(error);
   else if (error === '') return;
   else if (isHomeOrAbove(sys, r.abs)) {
     acc.block(`rm -r ${r.abs} would delete the home directory ${sys.home}`);
     acc.blocked = true;
-  } else removeTree(sys, f, r.node, r.parent, baseName(r.abs), acc);
+  } else if (throughLink(sys, f)) removeThroughLink(sys, f, r.node, flags, acc);
+  else removeTree(sys, f, r.node, r.parent, baseName(r.abs), acc);
 }
 
 const RM_LONG = { '--recursive': 'r', '--force': 'f', '--dir': 'd', '--verbose': 'v' };
@@ -208,11 +234,20 @@ function rm(args, { sys, block }) {
   const failed = optionFailure('rm', o, 1);
   if (failed) return failed;
   if (!o.rest.length && !o.flags.has('f')) return result('', `rm: missing operand\n${tryHelp('rm')}`, 1);
-  const acc = { out: '', errs: [], verbose: o.flags.has('v'), block, blocked: false };
+  const acc = { out: '', errs: [], verbose: o.flags.has('v'), force: o.flags.has('f'), block, blocked: false, protectedOne: null };
   for (const f of o.rest) rmOne(sys, f, o.flags, acc);
   leaveIfGone(sys);
   const r = result(acc.out, acc.errs.join('\n'), acc.errs.length || acc.blocked ? 1 : 0);
-  return withNote(r, o.flags.has('i') ? 'In a real terminal, -i asks "rm: remove regular file ...?" and waits for y or n. The game answers yes for you.' : null);
+  let note = null;
+  if (o.flags.has('i')) note = 'In a real terminal, -i asks "rm: remove regular file ...?" and waits for y or n. The game answers yes for you.';
+  else if (acc.protectedOne) note = `In a real terminal, rm asks "rm: remove write-protected ${kindOf(acc.protectedOne.node)} ${quoted(acc.protectedOne.shown)}?" and waits for y or n. The game answers yes for you.`;
+  return withNote(r, note);
+}
+
+// How rm's question names a file.
+function kindOf(node) {
+  if (node.type === 'dir') return 'directory';
+  return node.content === '' ? 'regular empty file' : 'regular file';
 }
 
 function symbolicBits(who, perms, old, isDir) {
@@ -230,13 +265,27 @@ function symbolicBits(who, perms, old, isDir) {
   return bits;
 }
 
+const SHIFT = { u: 6, g: 3, o: 0 };
+const CLAUSE = /^([ugoa]*)((?:[+\-=](?:[ugo]|[rwxXst]*))+)$/;
+const OPERATION = /([+\-=])([ugo]|[rwxXst]*)/g;
+
+// A copy like g=u takes the source class's rwx as they are at that point.
+function operationBits(who, perms, m, isDir) {
+  const copied = perms.length === 1 && perms in SHIFT;
+  if (!copied) return symbolicBits(who, perms, m, isDir);
+  const rwx = (m >> SHIFT[perms]) & 7;
+  return [...who].reduce((acc, w) => acc | (rwx << SHIFT[w]), 0);
+}
+
+// Clauses split by commas, each a class and one or more operations: u+x-r, go=, g=u.
 function parseSymbolic(mode, umask) {
-  const clauses = mode.split(',').map(c => /^([ugoa]*)([+\-=])([rwxXst]*)$/.exec(c));
+  const clauses = mode.split(',').map(c => CLAUSE.exec(c));
   if (clauses.some(c => !c)) return null;
-  return (old, isDir) => clauses.reduce((m, [, whoRaw, op, perms]) => {
+  const steps = clauses.flatMap(([, whoRaw, ops]) => [...ops.matchAll(OPERATION)].map(([, op, perms]) => ({ whoRaw, op, perms })));
+  return (old, isDir) => steps.reduce((m, { whoRaw, op, perms }) => {
     const who = !whoRaw || whoRaw.includes('a') ? 'ugo' : whoRaw;
-    const bits = symbolicBits(who, perms, old, isDir) & (whoRaw ? ~0 : ~umask);
-    const mask = [...who].reduce((acc, w) => acc | (7 << { u: 6, g: 3, o: 0 }[w]), 0);
+    const bits = operationBits(who, perms, m, isDir) & (whoRaw ? ~0 : ~umask);
+    const mask = [...who].reduce((acc, w) => acc | (7 << SHIFT[w]), 0);
     let next = (m & ~mask) | bits;
     if (op === '+') next = m | bits;
     if (op === '-') next = m & ~bits;
@@ -254,13 +303,17 @@ function chmod(args, { sys }) {
   const apply = octal === null ? parseSymbolic(mode, sys.umask) : () => octal;
   if (!apply) return result('', `chmod: invalid mode: ${localeQuote(mode)}\n${tryHelp('chmod')}`, 1);
   const errs = [];
+  // -R passes by the links it meets; a link named on the line is followed.
   const visit = node => {
+    if (node.type === 'symlink') return;
     node.mode = apply(node.mode, node.type === 'dir');
     if (recursive && node.type === 'dir') Object.values(node.children).forEach(visit);
   };
   for (const f of files) {
     const r = resolve(sys, f);
-    if (r.error) errs.push(`chmod: cannot access ${quoted(f)}: ${errorText(r.error)}`);
+    const dangling = r.error === 'ENOENT' && resolve(sys, f, { follow: false }).node?.type === 'symlink';
+    if (dangling) errs.push(`chmod: cannot operate on dangling symlink ${quoted(f)}`);
+    else if (r.error) errs.push(`chmod: cannot access ${quoted(f)}: ${errorText(r.error)}`);
     else if (!canChmod(sys, r.node)) errs.push(`chmod: changing permissions of ${quoted(f)}: Operation not permitted`);
     else visit(r.node);
   }

@@ -50,3 +50,22 @@ test('names in picks are escaped', () => {
 test('an empty room has no picks', () => {
   assert.equal(picksHTML([]), '');
 });
+
+test('the map key shows a dark door: one you may enter but not list', () => {
+  const dark = ROSTER.find(r => r.kind === 'dark-door');
+  assert.ok(dark);
+  assert.match(dark.what, /enter/);
+});
+
+test('the map key explains the job workers: what a job is and the commands that move it', () => {
+  const job = ROSTER.find(r => r.kind === 'job');
+  assert.ok(job);
+  for (const word of ['<code>&amp;</code>', 'Ctrl+Z', '<code>%1</code>', '<code>fg</code>', '<code>bg</code>', '<code>kill %1</code>']) assert.ok(job.what.includes(word), word);
+});
+
+test('the map key explains archives: a chest, a strapped chest when compressed, a tied bundle for gzip', () => {
+  const kinds = ROSTER.map(r => r.kind);
+  for (const kind of ['archive', 'bundle']) assert.ok(kinds.includes(kind), kind);
+  assert.match(ROSTER.find(r => r.kind === 'archive').what, /<code>tar<\/code>/);
+  assert.match(ROSTER.find(r => r.kind === 'bundle').what, /<code>gzip<\/code>/);
+});

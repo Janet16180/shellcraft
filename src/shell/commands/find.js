@@ -15,7 +15,7 @@ import { compileGlob } from '../glob.js';
 import { localeQuote } from '../quote.js';
 import { result, withNote } from '../result.js';
 import { nameTable } from '../table.js';
-import { knownUsers } from '../system.js';
+import { knownUsers } from '../accounts.js';
 import { versionText } from '../versions.js';
 
 const UNITS = { c: 1, w: 2, b: 512, k: 1024, M: 1024 ** 2, G: 1024 ** 3 };
@@ -65,7 +65,7 @@ program via the GNU findutils bug-reporting page at
 https://savannah.gnu.org/bugs/?group=findutils or, if
 you have no web access, by sending email to <bug-findutils@gnu.org>.`;
 const INFO = new Map([['-help', 'help'], ['--help', 'help'], ['-version', 'version'], ['--version', 'version']]);
-const WITH_VALUE = new Set(['-name', '-iname', '-type', '-size', '-user', '-group', '-perm', '-maxdepth', '-mindepth']);
+const WITH_VALUE = new Set(['-name', '-iname', '-type', '-xtype', '-size', '-user', '-group', '-perm', '-maxdepth', '-mindepth']);
 
 function compare(spec, value) {
   if (spec.startsWith('+')) return value > Number(spec.slice(1));
@@ -88,12 +88,20 @@ function permTest(v) {
   return { test: tests[m[1]] };
 }
 
+const FIND_TYPES = { f: 'file', d: 'dir', l: 'symlink' };
+
+// What a link leads to (the link itself when it leads nowhere); any other entry is itself.
+function followedType(e, sys) {
+  return e.node.type === 'symlink' ? resolve(sys, e.shown).node?.type ?? 'symlink' : e.node.type;
+}
+
 const isEmpty = e => (e.node.type === 'dir' ? Object.keys(e.node.children).length === 0 : sizeOf(e.node) === 0);
 
 const PRIMARIES = nameTable({
   '-name': v => { const re = compileGlob(v); return { test: e => re.test(e.name) }; },
   '-iname': v => { const re = compileGlob(v, { ignoreCase: true }); return { test: e => re.test(e.name) }; },
-  '-type': v => (v === 'f' || v === 'd' ? { test: e => e.node.type === (v === 'd' ? 'dir' : 'file') } : { error: `find: Unknown argument to -type: ${v}` }),
+  '-type': v => (Object.hasOwn(FIND_TYPES, v) ? { test: e => e.node.type === FIND_TYPES[v] } : { error: `find: Unknown argument to -type: ${v}` }),
+  '-xtype': (v, ctx) => (Object.hasOwn(FIND_TYPES, v) ? { test: e => followedType(e, ctx.sys) === FIND_TYPES[v] } : { error: `find: Unknown argument to -xtype: ${v}` }),
   '-user': (v, ctx) => (ctx.users.has(v) ? { test: e => e.node.owner === v } : { error: `find: ${localeQuote(v)} is not the name of a known user` }),
   '-group': v => ({ test: e => e.node.group === v }),
   '-size': sizeTest,
@@ -235,7 +243,7 @@ function find(args, { sys }) {
   if (parsed.info) return result(parsed.info === 'help' ? `${FIND_HELP}\n` : versionText('find'));
   Object.assign(ctx, { test: parsed.test, prints: parsed.prints });
   for (const start of starts) {
-    const r = resolve(sys, start);
+    const r = resolve(sys, start, { follow: false });
     const base = r.abs === '/' ? '/' : r.abs.slice(r.abs.lastIndexOf('/') + 1);
     if (r.error) ctx.errs.push(`find: ${localeQuote(start)}: ${errorText(r.error)}`);
     else visit(sys, { name: start === '.' ? '.' : base, node: r.node, shown: start }, 0, ctx);

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { applyPatch } from '../../src/shell/patch.js';
 import { createSystem } from '../../src/shell/system.js';
 import { lookup } from '../../src/shell/fs.js';
-import { put, proc, cd, dir, file } from '../../src/backend/spec.js';
+import { put, proc, cd, dir, file, symlink, link, password } from '../../src/backend/spec.js';
 
 const make = () => createSystem({ user: 'hero', host: 'kernelia', home: '/home/hero', now: () => 3, random: () => 0.5, binaries: ['ls'] });
 
@@ -52,4 +52,39 @@ test('a world deeper than the tree limit is an authoring bug', () => {
   let deep = file('x');
   for (let i = 0; i < 300; i++) deep = dir({ d: deep });
   assert.throws(() => applyPatch(make(), [put('/home/hero/deep', deep)]), /deeper than 256 levels/);
+});
+
+test('put places a symbolic link with its target text as given', () => {
+  const sys = make();
+  applyPatch(sys, [put('/home/hero/a.txt', file('a')), put('/home/hero/p', symlink('a.txt', { owner: 'hero' }))]);
+  assert.equal(lookup(sys.root, '/home/hero/p', { follow: false }).target, 'a.txt');
+  assert.equal(lookup(sys.root, '/home/hero/p').content, 'a');
+});
+
+test('put of a hard link makes a second name for the same node, stamping only the directory', () => {
+  let now = 3;
+  const sys = createSystem({ user: 'hero', host: 'kernelia', home: '/home/hero', now: () => now, random: () => 0.5, binaries: [] });
+  applyPatch(sys, [put('/home/hero/a.txt', file('a')), put('/home/hero/d', dir())]);
+  now = 9;
+  applyPatch(sys, [put('/home/hero/d/b.txt', link('/home/hero/a.txt'))]);
+  assert.equal(lookup(sys.root, '/home/hero/d/b.txt'), lookup(sys.root, '/home/hero/a.txt'));
+  assert.equal(lookup(sys.root, '/home/hero/a.txt').mtime, 3);
+  assert.equal(lookup(sys.root, '/home/hero/d').mtime, 9);
+});
+
+test('a hard link to a directory or to nothing raises', () => {
+  const sys = make();
+  assert.throws(() => applyPatch(sys, [put('/home/hero/h', link('/home'))]), /directory/);
+  assert.throws(() => applyPatch(sys, [put('/home/hero/h', link('/home/hero/nope'))]), /no such/);
+});
+
+test("password sets the account's password on the machine, outside the tree, and forgets any sudo timestamp", () => {
+  const sys = createSystem({ user: 'hero', host: 'h', home: '/home/hero', now: () => 0, random: () => 0.5, binaries: [] });
+  assert.equal(sys.password, null);
+  applyPatch(sys, [password('dragon')]);
+  assert.equal(sys.password, 'dragon');
+  sys.sudoStamp = 5;
+  applyPatch(sys, [password(null)]);
+  assert.equal(sys.password, null);
+  assert.equal(sys.sudoStamp, null);
 });

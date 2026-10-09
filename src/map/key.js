@@ -6,9 +6,10 @@
 
 import * as overworld from './overworld.js';
 import * as dungeon from './dungeon.js';
-import { drawItem, drawPlayer, padlockDoor } from './things.js';
-import { makeCanvas } from './paint.js';
+import { drawItem, drawPlayer, padlockDoor, darkDoor } from './things.js';
+import { makeCanvas, drawSprite } from './paint.js';
 import { drawCreature } from './creatureart.js';
+import { JOB_SPRITES } from './jobart.js';
 import { joinPath } from '../backend/tree.js';
 import { PLAYER } from '../backend/player.js';
 
@@ -29,17 +30,40 @@ const KEYS = {
       padlockDoor(ctx, DOOR);
     },
   },
+  'dark-door': {
+    w: 26, h: 36,
+    paint: ctx => {
+      overworld.door(ctx, DOOR, COTTAGE);
+      darkDoor(ctx, DOOR, overworld.leafColour(COTTAGE));
+    },
+  },
   exit: { w: 32, h: 18, paint: ctx => overworld.exit(ctx, EXIT, COTTAGE) },
   'stairs-down': { w: 32, h: 18, paint: ctx => overworld.exit(ctx, EXIT, { ...COTTAGE, path: HOME }) },
   item: { w: 24, h: 22, paint: ctx => drawItem(ctx, ITEM, 'cottage', 0, 0) },
   chained: { w: 24, h: 22, paint: ctx => drawItem(ctx, { ...ITEM, locked: true }, 'cottage', 0, 0) },
   runnable: { w: 24, h: 22, paint: ctx => drawItem(ctx, { ...ITEM, name: 'spell.sh', runnable: true }, 'cottage', 0, 0) },
+  twins: {
+    w: 46, h: 24,
+    paint: ctx => {
+      drawItem(ctx, { ...ITEM, x: 4, y: 6, name: 'scroll.txt', twin: 1847 }, 'cottage', 0, 0);
+      drawItem(ctx, { ...ITEM, x: 26, y: 6, name: 'copy.txt', twin: 1847 }, 'cottage', 0, 0);
+    },
+  },
+  archive: {
+    w: 46, h: 24,
+    paint: ctx => {
+      drawItem(ctx, { ...ITEM, x: 4, y: 6, name: 'camp.tar', pack: 'tar' }, 'cottage', 0, 0);
+      drawItem(ctx, { ...ITEM, x: 26, y: 6, name: 'camp.tar.gz', pack: 'tgz' }, 'cottage', 0, 0);
+    },
+  },
+  bundle: { w: 24, h: 22, paint: ctx => drawItem(ctx, { ...ITEM, name: 'notes.txt.gz', pack: 'gzip' }, 'cottage', 0, 0) },
   hidden: { w: 24, h: 22, paint: ctx => drawItem(ctx, { ...ITEM, name: '.secret_map', hidden: true }, 'cottage', 200, 0) },
   'dungeon-door': { w: 28, h: 36, paint: ctx => dungeon.door(ctx, { ...DOOR, x: 3, path: '/etc' }, { home: HOME }) },
   'home-door': { w: 36, h: 50, paint: ctx => dungeon.door(ctx, { ...DOOR, x: 7, path: HOME }, { home: HOME }) },
   imp: { w: 26, h: 28, paint: ctx => drawCreature(ctx, { kind: 'imp', x: 13, y: 12 }, false) },
   'armoured-imp': { w: 30, h: 30, paint: ctx => drawCreature(ctx, { kind: 'armoured', x: 15, y: 14 }, false) },
   daemon: { w: 26, h: 30, paint: ctx => drawCreature(ctx, { kind: 'daemon', x: 13, y: 13 }, false) },
+  job: { w: 28, h: 24, paint: ctx => drawSprite(ctx, JOB_SPRITES.down, 2, 2, { scale: 2 }) },
 };
 
 /** The kinds drawKey knows, in a sensible legend order. */
@@ -47,11 +71,14 @@ export const KEY_KINDS = Object.keys(KEYS);
 
 /**
  * Paint one key picture centred on a canvas, scaled up without smoothing.
- * Kinds: hero, door, locked (a padlocked door), exit (..), stairs-down (.. from
+ * Kinds: hero, door, locked (a padlocked door), dark-door (a door ajar on darkness:
+ * x without r), exit (..), stairs-down (.. from
  * home, into the dungeon), item (a file), chained (a file you may not read),
- * runnable (a file you may run), hidden (a dotfile), dungeon-door (a directory
+ * runnable (a file you may run), twins (two names of one file, hard links, sharing a rune), archive (a tar archive and a compressed one, as chests), bundle
+ * (gzip data, a tied bundle), hidden (a dotfile), dungeon-door (a directory
  * outside your home), home-door (the door back into your home, from /home), imp (a
- * process), armoured-imp (a process that ignores a polite kill), daemon (the Shadow Daemon).
+ * process), armoured-imp (a process that ignores a polite kill), daemon (the Shadow Daemon), job (one of the
+ * player's jobs, a worker with a hammer).
  *
  * @param {HTMLCanvasElement} canvas The canvas to paint on; its pixel size is used as is.
  * @param {string} kind One of KEY_KINDS.

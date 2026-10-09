@@ -26,3 +26,21 @@ test('the frames of an animation share one size', () => {
     assert.ok(frames.every(f => size(f) === size(frames[0])));
   }
 });
+
+test('the portal for symlinks glows: its frames are purple and violet, and they differ', () => {
+  const frames = SPRITES.portal;
+  assert.ok(Array.isArray(frames) && frames.length >= 2);
+  for (const frame of frames) {
+    assert.equal(frame.pal, 'ink');
+    assert.match(frame.rows.join(''), /p/);
+    assert.match(frame.rows.join(''), /v/);
+  }
+  assert.notDeepEqual(frames[0].rows, frames[1].rows);
+});
+
+test('the archive sprites are item-sized: a chest, a strapped chest and a tied bundle', () => {
+  for (const name of ['packed', 'strapped', 'bundle']) {
+    assert.equal(SPRITES[name].rows.length, 8, name);
+    assert.equal(SPRITES[name].rows[0].length, 8, name);
+  }
+});

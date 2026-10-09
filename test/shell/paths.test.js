@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { resolve, errorText } from '../../src/shell/paths.js';
-import { newDir, newFile, MAX_TREE_DEPTH } from '../../src/shell/fs.js';
+import { newDir, newFile, newSymlink, MAX_TREE_DEPTH } from '../../src/shell/fs.js';
 
 const m = (owner, mode) => ({ owner, group: owner, mode, mtime: 0 });
 const sys = () => ({
-  user: 'hero', groups: ['hero'], cwd: '/home/hero',
+  user: 'hero', gids: [1000], cwd: '/home/hero',
   root: newDir({
     home: newDir({ hero: newDir({ 'a.txt': newFile('a', m('hero', 0o644)), d: newDir({}, m('hero', 0o755)) }, m('hero', 0o750)) }, m('root', 0o755)),
     root: newDir({ 'secret.txt': newFile('s', m('root', 0o644)) }, m('root', 0o700)),
@@ -73,4 +73,48 @@ test('no path reaches deeper than the tree is allowed to grow', () => {
   assert.equal(resolve(s, deepest).error, null);
   assert.equal(resolve(s, `${deepest}/new`).error, 'ENAMETOOLONG');
   assert.equal(resolve(s, `${deepest}/../new`).error, 'ENOENT');
+});
+
+const linkedSys = () => {
+  const s = sys();
+  const hero = s.root.children.home.children.hero;
+  Object.assign(hero.children, {
+    portal: newSymlink('/home/hero/d', m('hero', 0o777)),
+    up: newSymlink('../hero/a.txt', m('hero', 0o777)),
+    broken: newSymlink('gone.txt', m('hero', 0o777)),
+    loop: newSymlink('loop', m('hero', 0o777)),
+    secret: newSymlink('/root/secret.txt', m('hero', 0o777)),
+  });
+  return s;
+};
+
+test('resolve follows symbolic links and gives the path where the walk ended', () => {
+  const r = resolve(linkedSys(), 'up');
+  assert.deepEqual([r.abs, r.node.content, r.error], ['/home/hero/a.txt', 'a', null]);
+  assert.equal(resolve(linkedSys(), 'portal').abs, '/home/hero/d');
+});
+
+test('with follow false, resolve stops at a link in the last place, and its parent holds the link', () => {
+  const s = linkedSys();
+  const r = resolve(s, 'portal', { follow: false });
+  assert.deepEqual([r.abs, r.node.type, r.parent], ['/home/hero/portal', 'symlink', s.root.children.home.children.hero]);
+});
+
+test('a dangling link leads to the name it points at, which can be created', () => {
+  const s = linkedSys();
+  const r = resolve(s, 'broken');
+  assert.deepEqual([r.abs, r.node, r.error, r.parent], ['/home/hero/gone.txt', null, 'ENOENT', s.root.children.home.children.hero]);
+});
+
+test('a loop of links is ELOOP, and permissions still apply where a link leads', () => {
+  assert.equal(resolve(linkedSys(), 'loop').error, 'ELOOP');
+  assert.equal(errorText('ELOOP'), 'Too many levels of symbolic links');
+  assert.equal(resolve(linkedSys(), 'secret').error, 'EACCES');
+});
+
+test('relative paths start from where a working directory through a link really is', () => {
+  const s = linkedSys();
+  s.cwd = '/home/hero/portal';
+  assert.equal(resolve(s, '..').abs, '/home/hero');
+  assert.equal(resolve(s, '.').abs, '/home/hero/d');
 });
