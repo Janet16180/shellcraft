@@ -62,3 +62,20 @@ export function splitOutput(stdout, stderr, count) {
 export function masked(text, masks) {
   return masks.reduce((t, mask) => t.replace(new RegExp(mask, 'gm'), 'PID'), text);
 }
+
+/**
+ * Compare selected directory traversal streams without depending on filesystem order.
+ * Line contents, duplicates, the final newline, and the exit status remain significant.
+ */
+export function unorderedStreams(result, streams = []) {
+  if (result === null) return null;
+  const normalized = { ...result };
+  for (const stream of ['out', 'err']) {
+    if (!streams.includes(stream)) continue;
+    const text = result[stream];
+    const newline = text.endsWith('\n');
+    const body = newline ? text.slice(0, -1) : text;
+    normalized[stream] = body.split('\n').sort().join('\n') + (newline ? '\n' : '');
+  }
+  return normalized;
+}

@@ -13,7 +13,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSyn
 import path from 'node:path';
 import { materialize, loginRecord } from './materialize.js';
 import { lineClocks, crossedMinute } from './clock.js';
-import { inputScript, splitOutput, masked } from './protocol.js';
+import { inputScript, splitOutput, masked, unorderedStreams } from './protocol.js';
 import { runSim } from './sim.js';
 import { WORLDS } from './worlds.js';
 import { TERMINAL } from '../src/shell/system.js';
@@ -94,9 +94,10 @@ async function runCase(c, index) {
   const paired = c.lines.map(line => (runsReal(line) ? real[k++] : null));
   const sim = await runSim(world, c.lines, worldTime, lineClocks(paired, Math.floor(Date.now() / 1000)));
   const mask = r => r && { ...r, out: masked(r.out, c.mask ?? []), err: masked(r.err, c.mask ?? []) };
+  const unordered = new Map((c.unordered ?? []).map(item => [item.line, item.streams]));
   const lines = c.lines.map((line, i) => {
-    const r = mask(paired[i]);
-    const s = mask(sim[i]);
+    const r = unorderedStreams(mask(paired[i]), unordered.get(line));
+    const s = unorderedStreams(mask(sim[i]), unordered.get(line));
     const same = r !== null && r.out === s.out && r.err === s.err && r.status === s.status;
     let verdict = same ? 'same' : 'differ';
     if (intended.has(line)) verdict = 'intended';

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { inputScript, splitOutput, masked } from '../../difftest/protocol.js';
+import { inputScript, splitOutput, masked, unorderedStreams } from '../../difftest/protocol.js';
 
 const RS = '\u001e';
 
@@ -40,4 +40,20 @@ test('masks replace what differs by nature, like PIDs, on both sides before they
   const masks = ['(?<=^\\[\\d+\\] )\\d+$'];
   assert.equal(masked('[1] 4242\n[1]+  Done                    sleep 1\n', masks), '[1] PID\n[1]+  Done                    sleep 1\n');
   assert.equal(masked('same\n', []), 'same\n');
+});
+
+test('unordered directory streams preserve status and leave other streams exact', () => {
+  const r = { out: 'z\na\n', err: 'z\na\n', status: 1 };
+  assert.deepEqual(unorderedStreams(r, ['err']), { out: 'z\na\n', err: 'a\nz\n', status: 1 });
+  assert.deepEqual(r, { out: 'z\na\n', err: 'z\na\n', status: 1 });
+  assert.equal(unorderedStreams(null, ['out']), null);
+});
+
+test('unordered streams still distinguish missing lines, duplicates, and final newlines', () => {
+  const normal = out => unorderedStreams({ out, err: '', status: 0 }, ['out']);
+  assert.deepEqual(normal('b\na\na\n'), normal('a\nb\na\n'));
+  assert.notDeepEqual(normal('a\na\nb\n'), normal('a\nb\n'));
+  assert.notDeepEqual(normal('a\nb\n'), normal('a\nc\n'));
+  assert.notDeepEqual(normal('a\nb\n'), normal('a\nb'));
+  assert.notDeepEqual(normal(''), normal('\n'));
 });
