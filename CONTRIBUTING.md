@@ -20,7 +20,7 @@ To use another browser installation, set `CHROME_PATH` to its executable or `BRO
 
 `npm run difftest` compares the simulated shell with Bash in an isolated Docker reference container. It needs Docker access; it does not publish the image.
 
-Open a pull request against `main` with a description of the change and the checks you ran. Explain any AI assistance and how you reviewed its output. External contributions need passing CI, CodeQL, and the repository owner's approval. The owner can use a review exception when merging through a pull request, since GitHub does not allow authors to approve their own PRs. The exception applies to repository administrators; @Janet16180 is currently the only administrator. CI and CodeQL cannot be bypassed, and direct pushes to main, force pushes, and branch deletion remain blocked.
+Open a pull request against `main` with a description of the change and the checks you ran. Explain any AI assistance and how you reviewed its output. External contributions need passing CI, CodeQL, and the repository owner's approval. Changes to main go through pull requests; direct pushes, force pushes, and branch deletion are blocked.
 
 CI checks source code, Git history for credentials, browser behavior, the build, and the Bash reference cases. It does not upload artifacts, publish containers, or deploy the game.
 
