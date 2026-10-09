@@ -155,7 +155,8 @@ function ruleLine(rule) {
  * @returns {string} The listing.
  */
 export function listing(sys, policy, rules, user, cols) {
-  const defaults = policy.defaults.map(d => d.replace(/^secure_path=(.*)$/, (_, p) => `secure_path=${p.replace(/:/g, '\\:')}`));
+  // sudo displays path separators as \\: in its listing; this formats a list, not a shell command.
+  const defaults = policy.defaults.map(d => d.replace(/^secure_path=(.*)$/, (_, p) => `secure_path=${p.split(':').join('\\:')}`));
   return [
     `Matching Defaults entries for ${user} on ${sys.host}:`,
     ...(defaults.length ? wrapped(defaults, cols) : []),
