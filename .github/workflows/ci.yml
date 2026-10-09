@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out the proposed changes
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+      - name: Scan Git history for credentials
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          tools=$(mktemp -d)
+          trap 'rm -rf "$tools"' EXIT
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl --fail --silent --show-error --location \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive" \
+            --output "$tools/$archive"
+          printf '%s  %s\n' "$GITLEAKS_SHA256" "$tools/$archive" | sha256sum --check --strict
+          tar -xzf "$tools/$archive" -C "$tools" gitleaks
+          "$tools/gitleaks" git --redact --log-opts=--all
+      - name: Check launcher syntax
+        run: bash -n install.sh run.sh
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm test
+      - name: Build the game
+        run: npm run bundle
+      - name: Install browser for UI checks
+        run: npx --no-install playwright-core install --with-deps chromium
+      - name: Check the bundled game in a sandboxed browser
+        run: node test/ui/shots.js .scratch/ci-published --published
+      - name: Check desktop and mobile layouts
+        run: node test/ui/layouts.js .scratch/ci-layouts
+      - name: Compare the simulated shell with Bash
+        run: npm run difftest -- --jobs 4

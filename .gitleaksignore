@@ -1,0 +1,4 @@
+# Historical false positives: an alphabet for readable simulated boss-room names.
+# These exact commit/file/line fingerprints do not exclude future credentials.
+26f6cfe0eafe785c2f82abe0e452c4b79adddf72:src/game/chapters/kit.js:generic-api-key:10
+1109f7d7d0fff0a7e5689cb69a78a1b78879568f:src/game/rng.js:generic-api-key:8

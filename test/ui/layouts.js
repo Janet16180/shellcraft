@@ -23,6 +23,7 @@
 
 import { mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { browserOptions } from '../../scripts/browser.js';
 import { chromium } from 'playwright-core';
 import { startServer } from '../../scripts/serve.js';
 import awakening from '../../src/game/chapters/awakening.js';
@@ -208,7 +209,7 @@ const out = process.argv[2];
 if (!out) throw new Error('usage: node test/ui/layouts.js OUT_DIR');
 await mkdir(out, { recursive: true });
 const { server, url: base } = await startServer({ root: ROOT, port: 0 });
-const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: true });
+const browser = await chromium.launch(browserOptions());
 const problems = [];
 try {
   for (const size of SIZES) {
