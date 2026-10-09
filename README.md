@@ -2,9 +2,7 @@
 
 Learn Linux commands by exploring a pixel-art world, solving small quests, and trying things in a simulated terminal.
 
-This game was created with help from AI for educational purposes.
-
-![Shellcraft's dark interface with its world map, quest, and terminal](docs/images/adventure.png)
+![Chapter 20: running and paused jobs in the workshop](docs/images/background-jobs.png)
 
 ## Install and play
 
@@ -21,10 +19,16 @@ Your commands affect the game's simulated filesystem. Progress is saved in your 
 
 ## Screenshots
 
-Explore directories and learn commands through guided quests.
+Directory permissions change which rooms you can enter and what you can do inside them.
 
-![Exploring the forest with the simulated terminal](docs/images/forest.png)
+![Chapter 16: directory permissions in the shared hall](docs/images/directory-permissions.png)
 
-Use the spellbook when you need a reminder.
+Two names can point at the same data. The map and terminal show soft and hard links as you make them.
 
-![Shellcraft's command spellbook](docs/images/spellbook.png)
+![Chapter 17: creating and inspecting links](docs/images/file-links.png)
+
+The visual explainers walk through what the commands change.
+
+![The links explainer showing two names pointing at the same inode](docs/images/links-explainer.png)
+
+Created with help from AI for educational purposes. Licensed under [Apache 2.0](LICENSE).

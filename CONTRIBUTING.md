@@ -25,3 +25,9 @@ Open a pull request against `main` with a description of the change and the chec
 CI checks source code, Git history for credentials, browser behavior, the build, and the Bash reference cases. It does not upload artifacts, publish containers, or deploy the game.
 
 The reference comparisons keep stdout, stderr, and exit status exact. Three explicitly listed recursive directory operations compare one stream without line ordering, because Linux directory enumeration depends on the filesystem. They still check every line and duplicate. See [readdir(3)](https://man7.org/linux/man-pages/man3/readdir.3.html).
+
+## Contributions from forks
+
+Fork this repository, create a branch in your fork, and open a pull request to `Janet16180/shellcraft:main`. You do not need write access. The owner reviews and merges changes after the required checks pass. Approval to run an external contributor's workflow is separate from approval to merge their code.
+
+Project code is licensed under Apache 2.0. Contributions intentionally submitted for inclusion are under the same license, unless explicitly stated otherwise.

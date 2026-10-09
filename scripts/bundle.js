@@ -8,7 +8,7 @@
  */
 
 import { build } from 'esbuild';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -71,5 +71,6 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const page = await bundlePage();
   await mkdir(join(ROOT, 'dist'), { recursive: true });
   await writeFile(OUT, page);
+  await copyFile(join(ROOT, 'LICENSE'), join(ROOT, 'dist', 'LICENSE'));
   console.log(`wrote ${OUT} (${Math.round(page.length / 1024)} KB)`);
 }
